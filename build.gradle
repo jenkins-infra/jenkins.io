@@ -1,0 +1,80 @@
+/*
+ * This build.gradle file is to be used for generating the prototype
+ * jenkins.io, via static generation
+ */
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath "org.ajoberstar:gradle-git:1.2.0"
+        classpath "com.github.jruby-gradle:jruby-gradle-plugin:[1.1.4,2.0)"
+    }
+}
+apply plugin: 'org.ajoberstar.github-pages'
+apply plugin: 'com.github.jruby-gradle.base'
+
+description = 'Build for generating jenkins.io'
+defaultTasks 'assemble'
+
+repositories {
+    rubygems('https://rubygems.org')
+}
+
+configurations {
+    asciidoctor
+}
+
+jruby {
+    defaultVersion jrubyVersion
+    execVersion jrubyVersion
+}
+
+dependencies {
+    /* used for primary site generation */
+    //asciidoctor 'rubygems:awestruct:0.5.5'
+    //asciidoctor('rubygems:rest-client:1.6.7') { force = true }
+    asciidoctor('rubygems:awestruct:[0.5.6,0.6)')
+    /* used for legacy markdown template processing via tilt */
+    asciidoctor 'rubygems:kramdown:[1.9.0,2.0)'
+
+    /* used for processing haml templates (haml.info) */
+    asciidoctor 'rubygems:haml:[4.0.7,5.0)'
+}
+
+import com.github.jrubygradle.JRubyExec
+
+task compileContent(type: JRubyExec) {
+    group 'Site'
+    description 'Compile the site using the awestruct CLI'
+    script 'awestruct'
+    scriptArgs '--generate', '--verbose',
+                '--source-dir', "${projectDir}/content",
+                '--output-dir', "${buildDir}/_site",
+                '--force'
+    /* without the --force option, awestruct is not smart enough to regenerate
+     * files based on includes */
+    configuration 'asciidoctor'
+    inputs.source fileTree(projectDir).include('content/**')
+}
+
+task assemble {
+    group 'Site'
+    description 'Assemble the full site'
+    dependsOn compileContent
+}
+
+
+task run(type: JRubyExec) {
+    group 'Site'
+    description 'Compile and run the site with live-reloading enabled'
+    script 'awestruct'
+    scriptArgs '--generate', '--verbose',
+                '--source-dir', "${projectDir}/content",
+                '--output-dir', "${buildDir}/_site",
+                '--force', '--server'
+    /* without the --force option, awestruct is not smart enough to regenerate
+     * files based on includes */
+    configuration 'asciidoctor'
+    inputs.source fileTree(projectDir).include('content/**')
+}
