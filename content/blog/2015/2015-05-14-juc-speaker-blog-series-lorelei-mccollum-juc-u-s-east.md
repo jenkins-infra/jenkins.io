@@ -1,0 +1,30 @@
+---
+layout: post
+title: 'JUC Speaker Blog Series: Lorelei McCollum, JUC U.S. East'
+nodeid: 546
+created: 1431623565
+tags:
+- general
+- jenkinsci
+---
+<div style="float:right; margin:1em">
+<img src="https://jenkins-ci.org/sites/default/files/images/Jenkins_Butler_0.png" width=114 height=128>
+</div>
+
+<p>Have you heard Jenkins mentioned, but haven't really done much with it? Are you at JUC because you want to learn more? Has your company been pushing you to use Jenkins or to adapt a more agile build/test process using a Continuous Delivery/Continuous Integration method?</p>
+
+<p>Jenkins 101 is going to give you an introduction to Jenkins and get you started in the right direction. Many sessions may be too in-depth, too specialized, or do a deep dive too fast, and while that is good for the more intermediate Jenkins user, the beginner can get lost fast and lose interest. My session will go through the basics of Jenkins, so anyone without prior knowledge can get up and running in just a short amount of time. We will cover building/configuring jobs, design of pipelines, security of your Jenkins master, fun groovy scripts and useful plugins to get you started. Whether you are a beginner or an advanced Jenkins user, you can always learn from how others are using Jenkins. Attend this session early on in your JUC lineup, so that you get the most out of the conference!</p>
+
+<div style="float:left; margin:1em">
+<img src="https://jenkins-ci.org/sites/default/files/images/01-02-1600-McCollum_0.png" width=149 height=180>
+</div>
+
+<p>This post is by Lorelei McCollum, Software Engineer at IBM. If you have your ticket to <a href="http://www.cloudbees.com/jenkins/juc-2015/us-east">JUC U.S. East</a>, you can attend her talk <a href="http://www.cloudbees.com/jenkins/juc-2015/abstracts/us-east/01-02-1500-mccollum">"Jenkins 101"</a> on Day 1.</p>
+
+<p><i>Still need your ticket to JUC? Early bird pricing ends May 15. Also, if you register with a friend you can get 2 tickets for the price of 1! <a href="http://www.cloudbees.com/jenkins/juc-2015/">Register here for a JUC near you.</a></i></p>
+<br><br><br><br><br>
+<p><b>Thank you to our <a href="http://www.cloudbees.com/jenkins/juc-2015/sponsors">sponsors</a> for the 2015 Jenkins User Conference World Tour:</p></b>
+
+<div style="float:left; margin:0em">
+<img src="http://jenkins-ci.org/sites/default/files/images/sponsors-06032015-02_0.png" width=598 height=579>
+</div>
