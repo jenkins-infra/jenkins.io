@@ -102,41 +102,40 @@ EOF
       File.open("#{dir}/#{name}", "w") do |f|
         f.puts data
         f.puts "---"
-        f.puts content
+        f.puts content.gsub(/\r\n?/, "\n")
       end
 
       # Make a file to redirect from the old Drupal URL
       if is_published
         FileUtils.mkdir_p "node/#{node_id}"
+
         File.open("node/#{node_id}/index.md", "w") do |f|
-          f.puts "---"
-          f.puts "layout: refresh"
-          f.puts "refresh_to_post_id: #{redirect_path}"
+          f.puts({
+              :layout => 'refresh',
+              :refresh_to_post_id => redirect_path}.to_yaml)
           f.puts "---"
         end
 
         path_query = "SELECT src, dst FROM url_alias WHERE src = 'node/#{node_id}'"
+
         db[path_query].each do |row|
           puts "Write alias for #{node_id} => #{row[:dst]}"
           if row[:dst].start_with? '/'
             row[:dst] = row[:dst][1 .. -1]
           end
+
           FileUtils.mkdir_p(row[:dst])
 
           File.open("#{row[:dst]}/index.md", "w") do |f|
-            f.puts "---"
-            f.puts "layout: refresh"
-            f.puts "refresh_to_post_id: #{redirect_path}"
+            f.puts({
+                :layout => 'refresh',
+                :refresh_to_post_id => redirect_path}.to_yaml)
             f.puts "---"
           end
         end
       end
       break
     end
-
-    # TODO: Make dirs & files for nodes of type 'page'
-      # Make refresh pages for these as well
-    # TODO: Make refresh dirs & files according to entries in url_alias table
   end
 
   def self.process_filtered_html!(content)
