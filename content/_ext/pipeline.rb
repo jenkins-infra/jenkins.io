@@ -7,9 +7,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::DataDir.new
 
   #extension Awestruct::Extensions::Tagger.new(:posts, 
-  #                                             '/index', 
-  #                                             '/blog/tags', 
-  #                                             :per_page => 10)
+  #                                             '/blog')
 
   extension Awestruct::Extensions::Atomizer.new(:posts,
                                                 '/rss.xml',
