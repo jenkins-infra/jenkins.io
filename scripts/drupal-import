@@ -14,12 +14,15 @@ class DrupalImport
                   node.created, \
                   node.status, \
                   node_revisions.format, \
-                  filter_formats.name format_name\
+                  users.name, \
+                  filter_formats.name format_name \
             FROM node, \
                 node_revisions, \
-                filter_formats \
+                filter_formats, \
+                users \
             WHERE (node.type = 'blog' OR node.type = 'story' OR node.type = 'page') AND \
-                (node_revisions.format = filter_formats.format) \
+                (node_revisions.format = filter_formats.format) AND \
+                (node.uid = users.uid) \
             AND node.vid = node_revisions.vid"
 
   def self.process(dbname, user, pass, host = 'localhost', port=5432)
@@ -36,7 +39,7 @@ class DrupalImport
 %html
   %head
     %meta{:'http-equiv' => 'content-type', :content => 'text/html; charset=utf-8'}/
-    %meta{:'http-equiv' => 'refresh', :content => "0;\#{page.refresh_to_post_id}.html"}/
+    %meta{:'http-equiv' => 'refresh', :content => "0;\#{page.refresh_to_post_id}"}/
 EOF
     end
 
@@ -84,11 +87,12 @@ EOF
       # Get the relevant fields as a hash, delete empty fields and convert
       # to YAML for the header
       data = {
-          'layout' => 'post',
-          'title' => title.to_s,
-          'nodeid' => node_id,
-          'created' => created,
-          'tags' => tags,
+          :layout => 'post',
+          :title => title.to_s,
+          :nodeid => node_id,
+          :created => created,
+          :tags => tags,
+          :author => post[:name],
         }.delete_if { |k,v| v.nil? || v == ''}.to_yaml
 
       if is_published
