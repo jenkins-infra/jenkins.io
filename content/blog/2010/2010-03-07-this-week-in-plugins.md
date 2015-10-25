@@ -1,11 +1,12 @@
 ---
-layout: post
-title: This Week in Plugins
-nodeid: 182
-created: 1267991163
-tags:
+:layout: post
+:title: This Week in Plugins
+:nodeid: 182
+:created: 1267991163
+:tags:
 - infrastructure
 - feedback
+:author: rtyler
 ---
 A little late, but this past week we released **19** plugins including one new release, the [Libvirt Slaves](http://wiki.hudson-ci.org/display/HUDSON/Libvirt+Slaves+Plugin).
 

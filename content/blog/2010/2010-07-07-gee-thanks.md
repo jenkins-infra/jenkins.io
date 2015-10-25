@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Gee Thanks
-nodeid: 224
-created: 1278514800
-tags:
+:layout: post
+:title: Gee Thanks
+:nodeid: 224
+:created: 1278514800
+:tags:
 - general
 - feedback
 - just for fun
+:author: rtyler
 ---
 `Squee-D` had some nice things to say in the `#hudson` [IRC channel](http://www.hudson-labs.org/content/chat) yesterday that I thought I would share:
 

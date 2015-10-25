@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Sonatype freeing projects from java.net's Maven repo
-nodeid: 191
-created: 1267130700
-tags:
+:layout: post
+:title: Sonatype freeing projects from java.net's Maven repo
+:nodeid: 191
+:created: 1267130700
+:tags:
 - core
 - just for fun
+:author: rtyler
 ---
 Are you working on a project which uses java.net's <a id="aptureLink_L4MIM7mY1F" href="http://en.wikipedia.org/wiki/Apache%20Maven">Maven</a> repository for deploying its artifacts? 
 

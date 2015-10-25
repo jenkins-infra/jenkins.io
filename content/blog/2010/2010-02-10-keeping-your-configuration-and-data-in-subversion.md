@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Keeping your configuration and data in Subversion
-nodeid: 148
-created: 1265810400
-tags:
+:layout: post
+:title: Keeping your configuration and data in Subversion
+:nodeid: 148
+:created: 1265810400
+:tags:
 - development
 - guest post
 - jobs
 - just for fun
 - tutorial
+:author: rtyler
 ---
 We all know that keeping important files in version control is critical, as it ensures problematic changes can be reverted and can serve as a backup mechanism as well. Code and resources are often kept in version control, but it can be easy to forget your continuous integration (CI) server itself! If a disk were to die or fall victim to a [misplaced](http://twitter.com/progrium/status/7646048501) `rm -rf`, you could lose all the history and configuration associated with the jobs your CI server manages.
 

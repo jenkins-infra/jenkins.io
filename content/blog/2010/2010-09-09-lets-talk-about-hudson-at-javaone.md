@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Let's talk about Hudson at JavaOne
-nodeid: 252
-created: 1284037200
-tags:
+:layout: post
+:title: Let's talk about Hudson at JavaOne
+:nodeid: 252
+:created: 1284037200
+:tags:
 - general
 - interview
+:author: rtyler
 ---
 A few months ago I enjoyed running a couple [interviews with folks](http://www.hudson-labs.org/views/interviews) who were using Hudson but lately I've lacked the time and coffee to get more interviews done. <img src="http://www.hudson-labs.org/sites/default/files/taperecorder.jpg" alt="Interview time!" align="right" hspace="10"/>
 

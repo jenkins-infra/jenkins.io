@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Meet-up and Hack alongside Kohsuke and Co.
-nodeid: 180
-created: 1268061300
-tags:
+:layout: post
+:title: Meet-up and Hack alongside Kohsuke and Co.
+:nodeid: 180
+:created: 1268061300
+:tags:
 - feedback
 - meetup
+:author: rtyler
 ---
 Ever wanted to pick the brains of **multiple** Hudson developers and users, all at the same time? Feel like finally meeting Kohsuke in person? Now's your chance!
 

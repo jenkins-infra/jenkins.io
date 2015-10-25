@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Mailing Lists
-nodeid: 3
-created: 1275344382
-tags:
+:layout: post
+:title: Mailing Lists
+:nodeid: 3
+:created: 1275344382
+:tags:
 - general
+:author: rtyler
 ---
 The two primary mailing lists (<em>jenkinsci-users</em> and <em>jenkinsci-dev</em>) have a large number of subscribers, and moderate daily email volume, please strive to be clear and concise when sending messages. <a href="http://www.catb.org/esr/faqs/smart-questions.html">How to ask questions the smart way.</a>
 <br clear="all"/>

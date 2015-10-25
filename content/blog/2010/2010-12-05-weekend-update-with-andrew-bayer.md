@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Weekend Update with Andrew Bayer
-nodeid: 270
-created: 1291552200
-tags:
+:layout: post
+:title: Weekend Update with Andrew Bayer
+:nodeid: 270
+:created: 1291552200
+:tags:
 - general
 - core
 - meta
 - news
 - jenkinsci
+:author: abayer
 ---
 [**Ed. note** *Andrew was not involved in selecting this post's title - rtyler*]
 

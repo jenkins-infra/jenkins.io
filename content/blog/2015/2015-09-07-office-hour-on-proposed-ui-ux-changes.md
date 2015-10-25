@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Office hour on proposed UI/UX changes
-nodeid: 625
-created: 1441641181
-tags:
+:layout: post
+:title: Office hour on proposed UI/UX changes
+:nodeid: 625
+:created: 1441641181
+:tags:
 - development
 - screencast
+:author: danielbeck
 ---
 Gus Reiber will host this week's office hour on [Wednesday, 11 AM PDT](http://www.timeanddate.com/worldclock/fixedtime.html?msg=Jenkins+Office+Hours&iso=20150909T11&p1=283&ah=1). He'll talk about some of the UI/UX improvements in Jenkins that he's working on, and will answer your questions about it.
 

@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Installing plugins has always been easy, now it's fast too!
-nodeid: 272
-created: 1294530206
-tags:
+:layout: post
+:title: Installing plugins has always been easy, now it's fast too!
+:nodeid: 272
+:created: 1294530206
+:tags:
 - general
 - core
 - news
+:author: rtyler
 ---
 As one of the "men behind the scenes" of the Hudson project, a lot of my contributions tend to be in writing articles or handling infrastructure, anything to ensure folks like [Kohsuke](http://twitter.com/kohsukekawa) can continue to make Hudson great without being distracted by inane system administration tasks. This past week, one of my long-running infrastructure projects has finally "gone live," making downloads of plugins and packages faster than ever!
 

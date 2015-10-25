@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Kohsuke leaves Sun
-nodeid: 160
-created: 1270646700
-tags:
+:layout: post
+:title: Kohsuke leaves Sun
+:nodeid: 160
+:created: 1270646700
+:tags:
 - core
 - feedback
 - just for fun
+:author: rtyler
 ---
 <a href="http://www.flickr.com/photos/skrb/2504160293/"><img src="http://farm3.static.flickr.com/2040/2504160293_977ddbf22d_m_d.jpg" vspace="4" hspace="4" align="right"/></a>Those of you on the `users@` or `dev@` mailing lists have likely already read that Kohsuke (*left in the photo*), the founder of the Hudson project, [is leaving Sun](http://weblogs.java.net/blog/kohsuke/archive/2010/04/05/good-bye-sunoracle). I say that he is leaving Sun, instead of leaving Oracle as Kohsuke worked at Sun for nine years and Oracle only a few months. In those nine years at Sun, Kohsuke has worked on some great products, the most notable of them being Hudson.
 

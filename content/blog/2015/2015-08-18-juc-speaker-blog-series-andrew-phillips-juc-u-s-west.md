@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'JUC Speaker Blog Series: Andrew Phillips, JUC U.S. West'
-nodeid: 603
-created: 1439916688
-tags:
+:layout: post
+:title: 'JUC Speaker Blog Series: Andrew Phillips, JUC U.S. West'
+:nodeid: 603
+:created: 1439916688
+:tags:
 - general
 - juc
+:author: hinman
 ---
 <p><h3>Join Me at JUC West to Discuss Building an Enterprise Continuous Delivery Machine with Jenkins</h3></p>
 

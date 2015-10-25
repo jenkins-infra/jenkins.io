@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'JUC U.S. West News: Agenda is up'
-nodeid: 594
-created: 1438290736
-tags:
+:layout: post
+:title: 'JUC U.S. West News: Agenda is up'
+:nodeid: 594
+:created: 1438290736
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/butler-kk-gk_0.jpg" width=250 height=194>

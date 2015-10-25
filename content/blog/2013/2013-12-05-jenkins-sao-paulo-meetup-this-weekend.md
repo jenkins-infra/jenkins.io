@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Jenkins Sao Paulo Meetup this weekend
-nodeid: 449
-created: 1386244800
-tags:
+:layout: post
+:title: Jenkins Sao Paulo Meetup this weekend
+:nodeid: 449
+:created: 1386244800
+:tags:
 - general
 - meetup
 - news
+:author: kohsuke
 ---
 I'm going to visit Sao Paulo once again this weekend to attend [the second annual Jenkins users meet-up](http://www.meetup.com/jenkinsmeetup/events/133598002/). It's a whole day free event Saturday full of Jenkins goodness.
 

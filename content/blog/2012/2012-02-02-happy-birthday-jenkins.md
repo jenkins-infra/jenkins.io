@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Happy birthday Jenkins!
-nodeid: 371
-created: 1328173705
-tags:
+:layout: post
+:title: Happy birthday Jenkins!
+:nodeid: 371
+:created: 1328173705
+:tags:
 - general
 - core
+:author: rtyler
 ---
 On February 2nd, 2011 the first release of Jenkins, version 1.396, was made available for public consumption. Thus marking a new beginning for many of us who had come to rely on this very versatile piece of software and wanted to see it continue to thrive.
 

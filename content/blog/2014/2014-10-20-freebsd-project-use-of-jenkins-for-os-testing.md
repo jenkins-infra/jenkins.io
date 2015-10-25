@@ -1,12 +1,13 @@
 ---
-layout: post
-title: FreeBSD project use of Jenkins for OS testing
-nodeid: 514
-created: 1413821550
-tags:
+:layout: post
+:title: FreeBSD project use of Jenkins for OS testing
+:nodeid: 514
+:created: 1413821550
+:tags:
 - general
 - feedback
 - guest post
+:author: kohsuke
 ---
 This is a guest post by Craig Rodrigues
 

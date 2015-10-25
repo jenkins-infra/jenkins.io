@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Ruby Plugins Hack Session 5/12/2011
-nodeid: 304
-created: 1305269052
-tags:
+:layout: post
+:title: Ruby Plugins Hack Session 5/12/2011
+:nodeid: 304
+:created: 1305269052
+:tags:
 - development
 - core
 - plugins
 - ruby
+:author: cowboyd
 ---
 [**Editor's Note:** *For the past few weeks Jenkins community member [Charles Lowell](http://twitter.com/cowboyd) has been working with [Kohsuke](http://twitter.com/kohsukekawa) on adding support for building plugins in Ruby. As part of this effort, [Charles](http://twitter.com/cowboyd) has been hosting weekly hack sessions via WebEx*]
 

@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Hudson 1.368 Released!
-nodeid: 231
-created: 1280239200
-tags:
+:layout: post
+:title: Hudson 1.368 Released!
+:nodeid: 231
+:created: 1280239200
+:tags:
 - general
 - core
 - news
 - releases
 - jenkinsci
+:author: rtyler
 ---
 Regular readers will recognize that I've been slacking off quite a bit lately with my release announcements, my apologies. With the release of 1.368 on Sunday, which fixed a few fairly important bugs, I figured I'd dusty off my blogging fedora and give this a shot.
 

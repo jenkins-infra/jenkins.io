@@ -1,10 +1,11 @@
 ---
-layout: post
-title: 'JUC Speaker Blog Series: Carlo Cadet, JUC U.S. West'
-nodeid: 599
-created: 1438789179
-tags:
+:layout: post
+:title: 'JUC Speaker Blog Series: Carlo Cadet, JUC U.S. West'
+:nodeid: 599
+:created: 1438789179
+:tags:
 - general
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="https://jenkins-ci.org/sites/default/files/images/Jenkins_Butler_0.png" width=114 height=128>

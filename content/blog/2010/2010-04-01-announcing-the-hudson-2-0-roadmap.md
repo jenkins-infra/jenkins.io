@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Announcing the Hudson 2.0 Roadmap
-nodeid: 161
-created: 1270129800
-tags:
+:layout: post
+:title: Announcing the Hudson 2.0 Roadmap
+:nodeid: 161
+:created: 1270129800
+:tags:
 - just for fun
 - meta
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/java-evil-edition.png" align="right"/>There have been numerous discussions on the [mailing lists](http://wiki.hudson-ci.org/display/HUDSON/Mailing%20List) over the past couple months regarding memory issues, speed regressions and a number of other issues regarding performance of Hudson, particularly under high load. In an effort to address these concerns, the Hudson core team has [announced](http://agentdero.cachefly.net/continuousblog/just-kidding.jpg) a roadmap for **Hudson 2.0**.
 

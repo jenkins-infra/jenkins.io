@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Want some Hudson stickers?
-nodeid: 178
-created: 1268410527
-tags:
+:layout: post
+:title: Want some Hudson stickers?
+:nodeid: 178
+:created: 1268410527
+:tags:
 - core
 - jenkinsci
+:author: rtyler
 ---
 <img src="http://farm3.static.flickr.com/2743/4425921960_a056d816f1_m.jpg" align="right"/> Rarely do I ever get mail, let alone mail I like, so I was quite excited when a shipment of stickers from [Hudson HQ](http://tinyurl.com/SunSantaClaraCampus) arrived yesterday.  I'm certain you're thinking to yourself "what does this guy need hundreds of Hudson stickers for?" Fact is, I don't! They're not for me, they're for you!
 

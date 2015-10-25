@@ -1,11 +1,12 @@
 ---
-layout: post
-title: HudsonMobi dons a black turtleneck and jumps to iOS4
-nodeid: 247
-created: 1283691600
-tags:
+:layout: post
+:title: HudsonMobi dons a black turtleneck and jumps to iOS4
+:nodeid: 247
+:created: 1283691600
+:tags:
 - general
 - news
+:author: rtyler
 ---
 <a href="http://hudsonmobi.wordpress.com/2010/09/04/hudsonmobi-for-ios-4-is-here/"><img src="http://www.hudson-labs.org/sites/default/files/hudson-mobi-appstore1.png" align="right" hspace="10" alt="HudsonMobi in the Appstore"/></a>
 

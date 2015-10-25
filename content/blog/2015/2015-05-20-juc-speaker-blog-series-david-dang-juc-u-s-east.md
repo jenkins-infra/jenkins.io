@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'JUC Speaker Blog Series:  David Dang, JUC U.S. East'
-nodeid: 550
-created: 1432157369
-tags:
+:layout: post
+:title: 'JUC Speaker Blog Series:  David Dang, JUC U.S. East'
+:nodeid: 550
+:created: 1432157369
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="https://jenkins-ci.org/sites/default/files/images/Jenkins_Butler_0.png" width=114 height=128>

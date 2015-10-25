@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Hudson 1.363 Released!
-nodeid: 216
-created: 1277215200
-tags:
+:layout: post
+:title: Hudson 1.363 Released!
+:nodeid: 216
+:created: 1277215200
+:tags:
 - general
 - releases
 - jenkinsci
+:author: rtyler
 ---
 <img src="/sites/default/files/images/Hudson_coatofarms.gif" align="left" hspace="6"/> Last Friday the Hudson team released release **1.363** which is yet another mixed bag of enhancements and bug fixes. Along with the usual bunch of fixes, this release includes a number of localization updates courtesy of a team of Hudson community volunteers participating in the Hudson [Internationalization project](http://wiki.hudson-ci.org/display/HUDSON/Internationalization).
 

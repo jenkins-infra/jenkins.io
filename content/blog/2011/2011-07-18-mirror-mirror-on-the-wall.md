@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Mirror, mirror on the wall
-nodeid: 328
-created: 1311001200
-tags:
+:layout: post
+:title: Mirror, mirror on the wall
+:nodeid: 328
+:created: 1311001200
+:tags:
 - infrastructure
 - news
+:author: rtyler
 ---
 Let me preface this entire post with this: **I love
 [Contegix](http://contegix.com)**.

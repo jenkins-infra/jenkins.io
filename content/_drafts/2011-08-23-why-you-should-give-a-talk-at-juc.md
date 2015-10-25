@@ -1,15 +1,16 @@
 ---
-layout: post
-title: Why You Should Give a Talk at JUC
-nodeid: 333
-created: 1314138449
-tags:
+:layout: post
+:title: Why You Should Give a Talk at JUC
+:nodeid: 333
+:created: 1314138449
+:tags:
 - general
 - core
 - meetup
 - meta
 - jenkinsci
 - juc
+:author: abayer
 ---
 As you hopefully have already heard, the first [Jenkins User Conference (JUC)](http://www.cloudbees.com/jenkins-user-conference-2011.cb) will be held on Sunday, October 2nd (the day before JavaOne starts), at the Marine Memorial Club Hotel in San Francisco. If you haven't signed up to go yet, you definitely should do that, but you should also think about giving a talk!
 

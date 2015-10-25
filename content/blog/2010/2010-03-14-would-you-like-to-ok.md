@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Would you like to, OK
-nodeid: 176
-created: 1268569800
-tags:
+:layout: post
+:title: Would you like to, OK
+:nodeid: 176
+:created: 1268569800
+:tags:
 - meta
+:author: rtyler
 ---
 As Matt Brown pointed out on the `dev@` list, Hudson made a cameo on [The Daily WTF](http://thedailywtf.com) in their post [Nobulation Fail](http://thedailywtf.com/Articles/Nobulation-Fail.aspx).
 

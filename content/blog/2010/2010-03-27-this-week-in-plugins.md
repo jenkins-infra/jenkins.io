@@ -1,11 +1,12 @@
 ---
-layout: post
-title: This Week in Plugins
-nodeid: 166
-created: 1269693900
-tags:
+:layout: post
+:title: This Week in Plugins
+:nodeid: 166
+:created: 1269693900
+:tags:
 - infrastructure
 - feedback
+:author: rtyler
 ---
 I apologize for the lack of posts this week, I've been quite pre-occupied and a quirk in the [twipFromSvn.py](http://github.com/rtyler/continuous-blog-tools/blob/master/twipFromSvn.py) script prevented the generation of this post's contents earlier; thanks to <a id="aptureLink_UwC8b9rCqW" href="http://twitter.com/rpetti">rpetti</a> it works again!
 

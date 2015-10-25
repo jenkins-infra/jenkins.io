@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Updated Chrome Extension
-nodeid: 227
-created: 1278942000
-tags:
+:layout: post
+:title: Updated Chrome Extension
+:nodeid: 227
+:created: 1278942000
+:tags:
 - general
 - just for fun
 - releases
+:author: rtyler
 ---
 The developer for the Hudson extension for Google Chrome, [Sebastian Sanitz](http://github.com/sanitz), emailed the `users@` list today to inform the community of an update to his **[fantastic extension](https://chrome.google.com/extensions/detail/hfncndbfmjmafoodaigpoicpbdfhhgdo)**. 
 

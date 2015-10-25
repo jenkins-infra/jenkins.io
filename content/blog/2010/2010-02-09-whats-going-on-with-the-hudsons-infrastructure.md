@@ -1,13 +1,14 @@
 ---
-layout: post
-title: What's going on with the Hudson's infrastructure
-nodeid: 149
-created: 1265724000
-tags:
+:layout: post
+:title: What's going on with the Hudson's infrastructure
+:nodeid: 149
+:created: 1265724000
+:tags:
 - development
 - core
 - feedback
 - just for fun
+:author: rtyler
 ---
 A lot has changed in the Hudson development and distribution infrastructure since last summer - we've made a distinct effort to get the quality of our infrastructure to match the quality of Hudson itself. We owe a special thanks to the wonderful folks over at <a href="http://atlassian.com/">Atlassian</a> - we're taking advantage of their generous <a href="http://www.atlassian.com/opensource/">open source license</a> for our bug tracking (<a href="http://www.atlassian.com/software/jira/">JIRA</a>), wiki (<a href="http://www.atlassian.com/software/confluence/">Confluence<a>), and source repository browser (<a href="http://www.atlassian.com/software/fisheye/">FishEye</a>). Obviously, there's a lot more we can improve going forward - I'll have another post up soon, looking at some of the ideas we're kicking around. But for now, take a look at what we've already done, below the fold.
 <!--break-->

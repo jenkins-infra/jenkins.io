@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Jenkins' New Look
-nodeid: 299
-created: 1302801052
-tags:
+:layout: post
+:title: Jenkins' New Look
+:nodeid: 299
+:created: 1302801052
+:tags:
 - general
 - news
+:author: rtyler
 ---
 As you might have noticed [Jenkins](http://twitter.com/jenkinsci/) finally has
 a **brand spankin' new logo!** Over the past couple weeks we've run two series

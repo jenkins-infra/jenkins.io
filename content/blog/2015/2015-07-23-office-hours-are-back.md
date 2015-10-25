@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Office hours are back
-nodeid: 583
-created: 1437639982
-tags:
+:layout: post
+:title: Office hours are back
+:nodeid: 583
+:created: 1437639982
+:tags:
 - general
 - meta
 - news
+:author: danielbeck
 ---
 After several months of inactivity, [office hours](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours), the bi-weekly meeting of Jenkins users and developers to learn more about Jenkins, are back.
 

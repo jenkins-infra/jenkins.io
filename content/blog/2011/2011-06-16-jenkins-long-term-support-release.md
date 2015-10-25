@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Jenkins Long-Term Support Release
-nodeid: 320
-created: 1308248657
-tags:
+:layout: post
+:title: Jenkins Long-Term Support Release
+:nodeid: 320
+:created: 1308248657
+:tags:
 - general
 - core
 - releases
 - lts
+:author: kohsuke
 ---
 We have released <a href="http://jenkins-ci.org/">1.409.1, our first long-term support (LTS) release</a>, from the Jenkins project.
 

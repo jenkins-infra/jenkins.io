@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Comunidade verde-amarela do Jenkins, uni-vos!
-nodeid: 409
-created: 1353274561
-tags:
+:layout: post
+:title: Comunidade verde-amarela do Jenkins, uni-vos!
+:nodeid: 409
+:created: 1353274561
+:tags:
 - general
 - feedback
 - guest post
+:author: kinow
 ---
 O Jenkins, servidor de integração favorito de todos, é muito utilizado no Brasil, e agora tem uma [lista de e-mails](http://jenkins-ci.org/content/mailing-lists) em Português além do primeiro encontro de usuários Jenkins no Brasil. Se você utiliza o Jenkins, desenvolve plug-ins, tem interesse em aprender mais sobre esta incrível ferramenta Open Source e sobre Integração Contínua, essa é a sua chance!
 

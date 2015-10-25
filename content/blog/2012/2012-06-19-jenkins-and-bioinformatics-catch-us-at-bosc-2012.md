@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Jenkins and Bioinformatics, catch us at BOSC 2012
-nodeid: 386
-created: 1340118000
-tags:
+:layout: post
+:title: Jenkins and Bioinformatics, catch us at BOSC 2012
+:nodeid: 386
+:created: 1340118000
+:tags:
 - general
 - cia
 - meetup
+:author: rtyler
 ---
 [ **Editor's Note:** *The following is a post from [Jenkins CIA](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+CIA+Program) member [Bruno P. Kinoshita](http://kinoshita.eti.br)* ]
 

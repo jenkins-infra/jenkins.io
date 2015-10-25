@@ -1,13 +1,14 @@
 ---
-layout: post
-title: 'Upcoming in office hours: FOSDEM Planning Session'
-nodeid: 635
-created: 1445283302
-tags:
+:layout: post
+:title: 'Upcoming in office hours: FOSDEM Planning Session'
+:nodeid: 635
+:created: 1445283302
+:tags:
 - general
 - news
 - video
 - office hours
+:author: rtyler
 ---
 For the past several years we've been attending [FOSDEM](https://fosdem.org), a massive free and open source event in Brussels, Belgium. In preparation for this upcoming FOSDEM (2016) event, we will be hosting an open planning meeting via Google Hangouts during this week's "[Office Hours](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours)."
 

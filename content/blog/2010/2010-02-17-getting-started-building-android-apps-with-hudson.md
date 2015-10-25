@@ -1,13 +1,14 @@
 ---
-layout: post
-title: 'Getting started: Building Android apps with Hudson'
-nodeid: 200
-created: 1266414300
-tags:
+:layout: post
+:title: 'Getting started: Building Android apps with Hudson'
+:nodeid: 200
+:created: 1266414300
+:tags:
 - general
 - guest post
 - jobs
 - tutorial
+:author: rtyler
 ---
 <img src="/sites/default/files/hvisser_android_project.png" align="right"/>In this post I'll show a very basic tips on how to compile an Android project using Hudson. Specifically how  I use Hudson to create release versions of my apps.
 

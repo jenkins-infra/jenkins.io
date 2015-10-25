@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Volume 9 of the Jenkins Newsletter: Continuous Information is out'
-nodeid: 605
-created: 1440079267
-tags:
+:layout: post
+:title: 'Volume 9 of the Jenkins Newsletter: Continuous Information is out'
+:nodeid: 605
+:created: 1440079267
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/volume9_0.preview.png" width=108 height=146>

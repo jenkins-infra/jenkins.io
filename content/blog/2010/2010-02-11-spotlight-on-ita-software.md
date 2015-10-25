@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Spotlight on: ITA Software'
-nodeid: 147
-created: 1265895000
-tags:
+:layout: post
+:title: 'Spotlight on: ITA Software'
+:nodeid: 147
+:created: 1265895000
+:tags:
 - general
 - feedback
 - interview
+:author: rtyler
 ---
 <a href="http://itasoftware.com/?continuousblog" target="_blank"><img src="/sites/default/files/itasoftware_sm.png" alt="ITA Software" title="ITA Software" align="right" hspace="5"/></a>For the first "User Spotlight" interview *ever* on Continuous Blog, I am talking with Matt Girard of ITA Software, a Boston-based software company that produces travel industry software which is used by many of the major carriers in the U.S. and abroad. When I sent out [a message](http://twitter.com/hudsonci/status/8553593409) asking for users of Hudson in the corporate space to ping me about doing a "spotlight" on them, ITA Software stuck out in particular; they're hiring a Hudson expert!
 

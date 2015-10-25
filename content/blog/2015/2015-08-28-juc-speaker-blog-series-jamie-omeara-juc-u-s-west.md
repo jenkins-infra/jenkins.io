@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'JUC Speaker Blog Series: Jamie O''Meara, JUC U.S. West'
-nodeid: 612
-created: 1440787823
-tags:
+:layout: post
+:title: 'JUC Speaker Blog Series: Jamie O''Meara, JUC U.S. West'
+:nodeid: 612
+:created: 1440787823
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="https://jenkins-ci.org/sites/default/files/images/Jenkins_Butler_0.png" width=114 height=128>

@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson 1.350 Released
-nodeid: 169
-created: 1268658900
-tags:
+:layout: post
+:title: Hudson 1.350 Released
+:nodeid: 169
+:created: 1268658900
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 Finishing off the second week in March, the Hudson team rolled Hudson 1.350 off the assembly line last Friday, bringing a **slew** of fixes. Of particular interest to users of Hudson's various native packages for <a id="aptureLink_TA4o7Z9zPa" href="http://www.crunchbase.com/company/red-hat">Red Hat</a>, <a id="aptureLink_Oxp1Nm6ywp" href="http://www.opensuse.org/">openSuSE</a>, <a id="aptureLink_60jXN9zINs" href="http://www.ubuntu.com/">Ubuntu/Debian</a> and <a id="aptureLink_H9FnLHBvke" href="http://en.wikipedia.org/wiki/Solaris%20%28operating%20system%29">Solaris</a>, was a change that suppress the "self-upgrade" functionality in the "Manage Hudson" page. On the enhancements side of the fence, the team added authentication support to the [Hudson CLI](http://wiki.hudson-ci.org/display/HUDSON/Hudson+CLI) (<a href="http://issues.hudson-ci.org/browse/HUDSON-3796">issue 3796</a>) allowing Hudson users with locked down installations to take advantage of everything the CLI has to offer. 
 

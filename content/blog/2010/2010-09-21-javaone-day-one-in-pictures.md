@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'JavaOne: Day One in Pictures'
-nodeid: 257
-created: 1285074000
-tags:
+:layout: post
+:title: 'JavaOne: Day One in Pictures'
+:nodeid: 257
+:created: 1285074000
+:tags:
 - general
 - javaone
+:author: rtyler
 ---
 In case you haven't been following the [frequently updated @hudsonci](http://twitter.com/hudsonci) Twitter stream. Here's a collection of photos I've taken thus far.
 

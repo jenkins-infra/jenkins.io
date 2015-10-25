@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Stickers starting to arrive
-nodeid: 217
-created: 1277301600
-tags:
+:layout: post
+:title: Stickers starting to arrive
+:nodeid: 217
+:created: 1277301600
+:tags:
 - general
 - just for fun
 - meta
+:author: rtyler
 ---
 Way back in March, I asked you all: [Want some Hudson stickers?](http://www.hudson-labs.org/content/want-some-hudson-stickers) 
 

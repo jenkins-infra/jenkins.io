@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson with Selenium and Sauce On-Demand Videos
-nodeid: 229
-created: 1279725300
-tags:
+:layout: post
+:title: Hudson with Selenium and Sauce On-Demand Videos
+:nodeid: 229
+:created: 1279725300
+:tags:
 - general
 - interview
 - meetup
 - jenkinsci
+:author: rtyler
 ---
 A few weeks ago, Kohsuke stopped by the [San Francisco Selenium Meetup](http://meetup.com/seleniumsanfrancisco) hosted by [Sauce Labs](http://saucelabs.com) to talk about all things Selenium and Hudson related (with a bit of Sauce in there too).
 

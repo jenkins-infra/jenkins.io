@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Jenkins User Event Scandinavia 2015
-nodeid: 573
-created: 1436467149
-tags:
+:layout: post
+:title: Jenkins User Event Scandinavia 2015
+:nodeid: 573
+:created: 1436467149
+:tags:
 - general
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/jues_0.png" width=270 height=181>

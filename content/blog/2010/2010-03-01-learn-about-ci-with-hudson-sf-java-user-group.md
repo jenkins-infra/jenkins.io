@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Learn about CI with Hudson (SF Java User Group)
-nodeid: 187
-created: 1267476300
-tags:
+:layout: post
+:title: Learn about CI with Hudson (SF Java User Group)
+:nodeid: 187
+:created: 1267476300
+:tags:
 - feedback
 - jobs
 - just for fun
+:author: rtyler
 ---
 A few weeks ago our fearless leader <a id="aptureLink_5tG8Jo3JvE" href="http://twitter.com/kohsukekawa">Kohsuke Kawaguchi</a> joined the <a id="aptureLink_QPSoyx1XzK" href="http://www.sfjava.org/">San Francisco Java Users Group</a> to talk about continuous integration with Hudson. Thanks to <a id="aptureLink_QyDivgNZCa" href="http://marakana.com/">Marakana</a> for organizing the meetup, and <a id="aptureLink_oKKccVHt47" href="http://www.linkedin.com/in/aleksandargargenta">Aleksandar Gargenta</a> for posting the video and slides, embedded below.
 

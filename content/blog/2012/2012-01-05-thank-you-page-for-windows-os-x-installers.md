@@ -1,11 +1,12 @@
 ---
-layout: post
-title: '"Thank you" page for Windows/OS X installers'
-nodeid: 368
-created: 1325782800
-tags:
+:layout: post
+:title: '"Thank you" page for Windows/OS X installers'
+:nodeid: 368
+:created: 1325782800
+:tags:
 - infrastructure
 - core
+:author: kohsuke
 ---
 I've tweaked the website so that downloading the Windows and Mac installers will navigate the browser to "thank you/what's next" page. These pages have links to Wiki that educate the users on where/how the installer will run Jenkins.
 

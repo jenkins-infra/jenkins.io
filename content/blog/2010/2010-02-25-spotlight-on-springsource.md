@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Spotlight on: SpringSource'
-nodeid: 192
-created: 1267108200
-tags:
+:layout: post
+:title: 'Spotlight on: SpringSource'
+:nodeid: 192
+:created: 1267108200
+:tags:
 - general
 - feedback
 - interview
+:author: rtyler
 ---
 For this week's user spotlight segment, I'm talking with <a id="aptureLink_FPwIok2zLS" href="http://twitter.com/dougmaceachern">Doug MacEachern</a> of <a id="aptureLink_3sE4QkWryf" href="http://www.crunchbase.com/company/hyperic">Hyperic</a>, part of <a id="aptureLink_Xv7fvWA2ED" href="http://www.crunchbase.com/company/springsource">SpringSource</a>, a division of VMware, hoping I got that dependency chain correct. Hyperic builds enterprise systems monitoring and management software and also contributes to a number of open source projects, many of which are built with Hudson. <a href="http://blog.hudson-ci.org/sites/default/files/hyperic_hudson.png" target="_blank"><img src="http://blog.hudson-ci.org/sites/default/files/hyperic_hudson.png" align="right" width="350" alt="A small subsection of Hyperic's Hudson"/></a>
 

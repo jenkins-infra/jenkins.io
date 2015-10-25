@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson 1.349 Released
-nodeid: 181
-created: 1268049600
-tags:
+:layout: post
+:title: Hudson 1.349 Released
+:nodeid: 181
+:created: 1268049600
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 Last Friday, March 5th, Hudson 1.349 was pushed out into the wild with an even split of bug fixes and enhancements. Included in this release is Alan Harder's (a.k.a `mindless`) old data monitor code, discussed previously in the post "[Call for Testers: The older the better](http://blog.hudson-ci.org/content/call-testers-older-better)." Included in this release were further updates to the japanese and german localizations of Hudson; if you're interested in helping localize Hudson into more languages you can join the effort via the [Internationalization page on the wiki](http://wiki.hudson-ci.org/display/HUDSON/Internationalization).
 

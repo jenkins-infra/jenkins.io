@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Gradle-fy your Jenkins Plugin Project
-nodeid: 512
-created: 1412637141
-tags:
+:layout: post
+:title: Gradle-fy your Jenkins Plugin Project
+:nodeid: 512
+:created: 1412637141
+:tags:
 - general
 - guest post
 - plugins
+:author: kohsuke
 ---
 (This is a guest post from [Daniel Spilker](http://www.daniel-spilker.com/))
 

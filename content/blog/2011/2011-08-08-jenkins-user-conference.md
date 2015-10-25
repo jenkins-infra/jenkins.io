@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Jenkins User Conference
-nodeid: 329
-created: 1312822656
-tags:
+:layout: post
+:title: Jenkins User Conference
+:nodeid: 329
+:created: 1312822656
+:tags:
 - general
 - meetup
 - javaone
 - jenkinsci
 - juc
+:author: rtyler
 ---
 <img src="/images/user.gif" align="right"/> We've done meetups, we've done sessions, we've done workshops, now it's about time we went ahead and did user conference don't you think?
 

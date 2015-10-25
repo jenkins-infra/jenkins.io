@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Fundraising drive update: thank you everyone!'
-nodeid: 360
-created: 1324319410
-tags:
+:layout: post
+:title: 'Fundraising drive update: thank you everyone!'
+:nodeid: 360
+:created: 1324319410
+:tags:
 - general
 - meta
 - news
+:author: kohsuke
 ---
 <div style="float:right; margin:1em"><a href="http://www.flickr.com/photos/colinzhu/321306018/">
 <img src="http://jenkins-ci.org/sites/default/files/gift.png">

@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Quiet Period Feature
-nodeid: 236
-created: 1281590640
-tags:
+:layout: post
+:title: Quiet Period Feature
+:nodeid: 236
+:created: 1281590640
+:tags:
 - general
 - core
 - tutorial
+:author: kohsuke
 ---
 Commits often come in a burst. This seems to happen mainly for two reasons --- people sometimes forget to commit some files, and in the tranquility of waiting for your SCM to finish a commit, people sometimes realize the problems in the commit and they quickly make follow-up changes. The conventional wisdom is that the CI server should wait for the burst to finish before attempting a build. This is said to reduce the chance of having broken build, and it is also sometimes useful in reducing the average turn-around time for builds that take longer.
 

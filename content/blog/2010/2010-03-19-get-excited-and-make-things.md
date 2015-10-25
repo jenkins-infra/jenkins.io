@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Get excited and make things
-nodeid: 171
-created: 1269008100
-tags:
+:layout: post
+:title: Get excited and make things
+:nodeid: 171
+:created: 1269008100
+:tags:
 - feedback
 - meetup
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/getexcited.jpg" alt="Get excited and make things" align="right"/>The day of hackery is upon us! Today is Day One of the [Bay Area Hudson hackathon/meetup](http://blog.hudson-ci.org/content/meet-and-hack-alongside-kohsuke-and-co), the hacking will start at 10am today and continue until 5pm at the [Oracle Santa Clara campus](http://tinyurl.com/yznmdoo) in the "library" conference room of SCA7 "Mansion" building. The focus today will be largely on hacking Hudson itself.
 

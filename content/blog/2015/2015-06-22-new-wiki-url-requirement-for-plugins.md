@@ -1,12 +1,13 @@
 ---
-layout: post
-title: New Wiki URL Requirement for Plugins
-nodeid: 570
-created: 1434978221
-tags:
+:layout: post
+:title: New Wiki URL Requirement for Plugins
+:nodeid: 570
+:created: 1434978221
+:tags:
 - general
 - meta
 - plugins
+:author: danielbeck
 ---
 Let's say you're browsing the 'Available' tab in the Jenkins plugin manager for interesting-looking plugins. How do you learn more about them, preferably without installing them on your production instance? You click the plugin's name, which usually links to the plugin's wiki page, of course!
 

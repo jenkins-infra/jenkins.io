@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Hudson 1.372 sets sail
-nodeid: 238
-created: 1282050000
-tags:
+:layout: post
+:title: Hudson 1.372 sets sail
+:nodeid: 238
+:created: 1282050000
+:tags:
 - general
 - news
 - releases
+:author: rtyler
 ---
 Last Friday the Hudson team rolled out a small 1.372 with two enhancements following the **critical** [1.371 release on Monday](http://www.hudson-labs.org/content/big-security-fix-hudson-1371-released). Not a whole lot to say about this release other than go get it!
 

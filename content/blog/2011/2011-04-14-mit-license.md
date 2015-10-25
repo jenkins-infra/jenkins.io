@@ -1,10 +1,11 @@
 ---
-layout: post
-title: MIT License
-nodeid: 300
-created: 1302813109
-tags:
+:layout: post
+:title: MIT License
+:nodeid: 300
+:created: 1302813109
+:tags:
 - general
+:author: kohsuke
 ---
 Copyright (c) 2011, contributors of the Jenkins project
 

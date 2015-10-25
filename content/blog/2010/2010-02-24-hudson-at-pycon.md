@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Hudson at PyCon
-nodeid: 194
-created: 1267041070
-tags:
+:layout: post
+:title: Hudson at PyCon
+:nodeid: 194
+:created: 1267041070
+:tags:
 - core
 - feedback
+:author: rtyler
 ---
 This past week <a id="aptureLink_z1tlMXupZM" href="http://twitter.com/pycon">PyCon</a> has been going on in Atlanta, where <a id="aptureLink_WLsRDsy9yw" href="http://twitter.com/ctitusbrown">Titus Brown</a> gave a talk titled: 
 

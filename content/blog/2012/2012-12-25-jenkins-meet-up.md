@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 한국에서의 첫번째 Jenkins meet-up!
-nodeid: 414
-created: 1356483600
-tags:
+:layout: post
+:title: 한국에서의 첫번째 Jenkins meet-up!
+:nodeid: 414
+:created: 1356483600
+:tags:
 - general
 - meetup
+:author: kohsuke
 ---
 <div style="float:right; margin:1em">
 <a href="http://en.wikipedia.org/wiki/Seoul">

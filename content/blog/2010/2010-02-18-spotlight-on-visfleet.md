@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Spotlight on: VisFleet'
-nodeid: 198
-created: 1266506100
-tags:
+:layout: post
+:title: 'Spotlight on: VisFleet'
+:nodeid: 198
+:created: 1266506100
+:tags:
 - general
 - feedback
 - interview
+:author: rtyler
 ---
 For this week's user spotlight, I'm talking to Rasheed Abdul-Aziz of
 VisFleet Ltd. out of New Zealand. This being our second "spotlight" on a particular company, the format can still be considered *beta*; if you have any additional questions for Rasheed, feel free to ask them in the comments and I'll try to get Rasheed to answer.

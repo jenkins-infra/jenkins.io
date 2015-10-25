@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson 1.347 Released
-nodeid: 196
-created: 1266849000
-tags:
+:layout: post
+:title: Hudson 1.347 Released
+:nodeid: 196
+:created: 1266849000
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 The release of Hudson 1.347 last friday, February 19th, was a relatively "minor" one insofar that it contained an assortment of smaller fixes instead of fixes to major regressions (they weren't any to be fixed) or major features added. There were however some notable commits in this release cycle that didn't make the changelog just yet, for example <a id="aptureLink_TgMtrwa0Sz" href="http://twitter.com/_godin_">godin</a> committed an <a id="aptureLink_HxZkmWKjTi" href="http://en.wikipedia.org/wiki/Ebuild">ebuild</a> which will allow for a native package of Hudson for <a id="aptureLink_uU6StMFk4O" href="http://en.wikipedia.org/wiki/Gentoo%20Linux">Gentoo Linux</a>, joining the ranks of the existing packages for Debian/Ubuntu, FreeBSD, OpenSolaris, openSUSE and RedHat/Fedora Linux. The bundled Subversion plugin was updated and thanks to <a id="aptureLink_IPwBJtA60V" href="http://twitter.com/ssogabe">sogabe</a> and <a id="aptureLink_9NWuFKYOM9" href="http://twitter.com/wyukawa">wyukawa</a> the Japanese translations for Hudson got some updates as well. 
 

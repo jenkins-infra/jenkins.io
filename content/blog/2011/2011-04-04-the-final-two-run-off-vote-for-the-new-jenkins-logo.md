@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'The final two: run-off vote for the new Jenkins logo'
-nodeid: 298
-created: 1301914800
-tags:
+:layout: post
+:title: 'The final two: run-off vote for the new Jenkins logo'
+:nodeid: 298
+:created: 1301914800
+:tags:
 - general
 - feedback
+:author: rtyler
 ---
 A [little over a week ago](http://jenkins-ci.org/content/polls-are-open-jenkins-logo-contest) we opened the polls to the larger user-base to vote for the ***new and improved*** Jenkins logo. After receiving hundreds of votes, we are now ready to enter the final round of voting (click images to see larger versions in a new window).
 

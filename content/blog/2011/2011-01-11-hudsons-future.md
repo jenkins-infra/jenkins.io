@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Hudson's future
-nodeid: 273
-created: 1294754400
-tags:
+:layout: post
+:title: Hudson's future
+:nodeid: 273
+:created: 1294754400
+:tags:
 - general
 - core
 - meta
 - news
 - jenkinsci
+:author: abayer
 ---
 First, my apologies for the lack of updates on the [Hudson/Oracle situation](http://hudson-labs.org/content/whos-driving-thing) for
 the last few weeks. While talks have been ongoing, the holidays have slowed

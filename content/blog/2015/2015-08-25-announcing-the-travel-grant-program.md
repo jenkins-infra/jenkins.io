@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Announcing the travel grant program
-nodeid: 609
-created: 1440528635
-tags:
+:layout: post
+:title: Announcing the travel grant program
+:nodeid: 609
+:created: 1440528635
+:tags:
 - general
 - meetup
 - news
+:author: danielbeck
 ---
 We're currently setting up a program to support community members' travel to Jenkins community events. Our goal is to enable more members of the community to meet each other and exchange ideas in person.
 

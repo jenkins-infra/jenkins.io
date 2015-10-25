@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Bay Area JAM
-nodeid: 629
-created: 1443637107
-tags:
+:layout: post
+:title: Bay Area JAM
+:nodeid: 629
+:created: 1443637107
+:tags:
 - general
 - cia
 - meetup
+:author: alyssa
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/Screen%20Shot%202015-09-30%20at%202.15.54%20PM_0.png" width=320>

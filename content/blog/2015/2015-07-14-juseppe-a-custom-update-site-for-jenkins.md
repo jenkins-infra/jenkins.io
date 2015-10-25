@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Juseppe, a custom update site for Jenkins
-nodeid: 574
-created: 1436891798
-tags:
+:layout: post
+:title: Juseppe, a custom update site for Jenkins
+:nodeid: 574
+:created: 1436891798
+:tags:
 - general
 - guest post
+:author: danielbeck
 ---
 *This is a guest post by Kirill Merkushev at Yandex. I met him at JUC Europe where he showed me the project he was working on: Juseppe. It looked really interesting, so I asked him to write this guest post.*
 

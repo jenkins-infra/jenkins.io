@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 11th International Free Software Forum in Brazil
-nodeid: 219
-created: 1277820000
-tags:
+:layout: post
+:title: 11th International Free Software Forum in Brazil
+:nodeid: 219
+:created: 1277820000
+:tags:
 - general
 - meetup
 - news
+:author: rtyler
 ---
 Last week, friend-of-Hudson [Leandro Nunes](http://leandron.wordpress.com/) sent the following message to the `users` [mailing list](http://www.hudson-labs.org/content/mailing-lists) regarding his upcoming talk on continuous integration and Hudson:
 

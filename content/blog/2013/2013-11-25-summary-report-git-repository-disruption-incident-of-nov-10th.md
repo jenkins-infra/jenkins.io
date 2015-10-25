@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Summary Report: Git Repository Disruption Incident of Nov 10th'
-nodeid: 448
-created: 1385401054
-tags:
+:layout: post
+:title: 'Summary Report: Git Repository Disruption Incident of Nov 10th'
+:nodeid: 448
+:created: 1385401054
+:tags:
 - infrastructure
 - news
+:author: kohsuke
 ---
 As [reported](https://news.ycombinator.com/item?id=6713742) in [various places](http://www.reddit.com/r/programming/comments/1qefox/jenkins_developers_accidentally_do_git_push_force/), there was an incident in early November where commits in our Git repositories have become misplaced temporarily by accident. By the mid next week we were able to resurrect all the commits and things are back to normal now.
 

@@ -1,11 +1,12 @@
 ---
-layout: post
-title: A big thanks to Rackspace
-nodeid: 315
-created: 1307637598
-tags:
+:layout: post
+:title: A big thanks to Rackspace
+:nodeid: 315
+:created: 1307637598
+:tags:
 - infrastructure
 - meta
+:author: rtyler
 ---
 This post is long over-due and I really apologize for that.
 

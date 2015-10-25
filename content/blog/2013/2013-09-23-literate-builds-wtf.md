@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Literate builds, WTF?
-nodeid: 440
-created: 1379964130
-tags:
+:layout: post
+:title: Literate builds, WTF?
+:nodeid: 440
+:created: 1379964130
+:tags:
 - development
 - plugins
 - javaone
+:author: kohsuke
 ---
 (This is a guest post by Stephen Connolly)
 

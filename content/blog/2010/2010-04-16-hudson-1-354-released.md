@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Hudson 1.354 Released
-nodeid: 158
-created: 1271421900
-tags:
+:layout: post
+:title: Hudson 1.354 Released
+:nodeid: 158
+:created: 1271421900
+:tags:
 - development
 - feedback
 - just for fun
 - links
 - releases
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/scenic_hudson.png" align="right" hspace="3"/>Hear ye, hear ye! Behold, the first release of Hudson *ever* made by a not-employed-by-Sun <a id="aptureLink_7UNdgyqEaS" href="http://twitter.com/kohsukekawa">Kohsuke</a> (as we [covered last week](http://blog.hudson-ci.org/content/kohsuke-leaves-sun)). This iteration of Hudson contains only bug fixes, check the listing below for the specifics on which bugs have been fixed (1.355 is looking like it will contain a number of fixes as well). The release of 1.354 comes slightly later than usual given some of the logistics that needed to, or still need to be resolved.
 

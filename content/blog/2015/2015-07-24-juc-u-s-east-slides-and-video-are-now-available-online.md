@@ -1,11 +1,12 @@
 ---
-layout: post
-title: JUC U.S. East slides and video are now available online
-nodeid: 588
-created: 1437770253
-tags:
+:layout: post
+:title: JUC U.S. East slides and video are now available online
+:nodeid: 588
+:created: 1437770253
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/dc_0.jpg" width=200 height=149>

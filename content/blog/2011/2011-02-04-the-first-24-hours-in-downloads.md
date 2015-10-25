@@ -1,11 +1,12 @@
 ---
-layout: post
-title: The first 24 hours in downloads
-nodeid: 278
-created: 1296831600
-tags:
+:layout: post
+:title: The first 24 hours in downloads
+:nodeid: 278
+:created: 1296831600
+:tags:
 - infrastructure
 - just for fun
+:author: rtyler
 ---
 As I had mentioned in [a previous post](http://jenkins-ci.org/content/installing-plugins-has-always-been-easy-now-its-fast-too) back when Jenkins was called something else, who can remember what anymore, I spent a lot of time working on a mirroring network. With our departure from any and all Oracle infrastructure, this mirroring network has now become our sole distribution mechanism for pushing out **all** releases and **all** plugins, in short, **lots and lots of bits**.
 

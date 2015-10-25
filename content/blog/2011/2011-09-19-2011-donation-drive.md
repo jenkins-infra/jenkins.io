@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 2011 Donation Drive
-nodeid: 338
-created: 1316440800
-tags:
+:layout: post
+:title: 2011 Donation Drive
+:nodeid: 338
+:created: 1316440800
+:tags:
 - general
 - news
 - jenkinsci
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/images/tip-jar.png"
 align="right"/>

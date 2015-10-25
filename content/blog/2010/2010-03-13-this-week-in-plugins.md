@@ -1,11 +1,12 @@
 ---
-layout: post
-title: This Week in Plugins
-nodeid: 177
-created: 1268519381
-tags:
+:layout: post
+:title: This Week in Plugins
+:nodeid: 177
+:created: 1268519381
+:tags:
 - infrastructure
 - feedback
+:author: rtyler
 ---
 Apologies for the slight delay in posting another [TWiP](http://blog.hudson-ci.org/category/tags/plugins), both within the Hudson community and outside of it, it was quite a busy week. This past week we've had roughly **15** plugins released, with a few going through a number of iterations over the course of the week such as the [Emma plugin](http://wiki.hudson-ci.org/display/HUDSON/Emma+Plugin) and one of Hudson's newest plugins, the [Libvirt Slaves plugin](http://wiki.hudson-ci.org/display/HUDSON/Libvirt+Slaves+Plugin).
 <!--break-->

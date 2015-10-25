@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'JUC: Call for Volunteers to Join the Organizing Committee (and Venues!)'
-nodeid: 447
-created: 1384963200
-tags:
+:layout: post
+:title: 'JUC: Call for Volunteers to Join the Organizing Committee (and Venues!)'
+:nodeid: 447
+:created: 1384963200
+:tags:
 - general
 - feedback
 - juc
+:author: kohsuke
 ---
 This is a guest post from Alyssa Tong, who drives JUC organizations around the world.
 

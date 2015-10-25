@@ -1,12 +1,13 @@
 ---
-layout: post
-title: A brief update
-nodeid: 269
-created: 1291206600
-tags:
+:layout: post
+:title: A brief update
+:nodeid: 269
+:created: 1291206600
+:tags:
 - general
 - core
 - jenkinsci
+:author: rtyler
 ---
 Let me be the first to say **thank you all** for your [overwhelming support](http://twitter.com/#search?q=http%3A%2F%2Fwww.hudson-labs.org%2Fcontent%2Fwhos-driving-thing%2F) for
 Hudson and the work we've been doing. The Hudson community in general has

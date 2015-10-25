@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Thanks for the support PagerDuty!
-nodeid: 361
-created: 1324445667
-tags:
+:layout: post
+:title: Thanks for the support PagerDuty!
+:nodeid: 361
+:created: 1324445667
+:tags:
 - infrastructure
 - meta
+:author: rtyler
 ---
 Over drinks this evening [Kohsuke](https://twitter.com/kohsukekawa) pointed out that he never saw a blog post about [PagerDuty](http://www.pagerduty.com).
 

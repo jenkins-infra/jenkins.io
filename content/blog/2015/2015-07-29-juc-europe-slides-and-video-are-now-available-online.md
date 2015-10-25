@@ -1,11 +1,12 @@
 ---
-layout: post
-title: JUC Europe slides and video are now available online
-nodeid: 592
-created: 1438199128
-tags:
+:layout: post
+:title: JUC Europe slides and video are now available online
+:nodeid: 592
+:created: 1438199128
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/london_0.jpg" width=250 height=165>

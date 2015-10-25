@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Pre-JavaOne Hudson Meetup Redux
-nodeid: 254
-created: 1285000758
-tags:
+:layout: post
+:title: Pre-JavaOne Hudson Meetup Redux
+:nodeid: 254
+:created: 1285000758
+:tags:
 - general
 - meetup
+:author: rtyler
 ---
 Yesterday Digg was kind enough to host and "sponsor" (read: free drinks and
 pizza!) a Hudson meetup at their offices in San Francisco. While Digg has been

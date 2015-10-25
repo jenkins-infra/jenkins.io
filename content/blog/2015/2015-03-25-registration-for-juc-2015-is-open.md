@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Registration for JUC 2015 is Open!
-nodeid: 532
-created: 1427313348
-tags:
+:layout: post
+:title: Registration for JUC 2015 is Open!
+:nodeid: 532
+:created: 1427313348
+:tags:
 - general
 - news
 - jenkinsci
 - juc
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="https://pbs.twimg.com/media/Bqbz9JQIIAA9gKG.jpg" width=300 height=225>

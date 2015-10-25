@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'JavaOne: Day Two in Pictures'
-nodeid: 260
-created: 1285150020
-tags:
+:layout: post
+:title: 'JavaOne: Day Two in Pictures'
+:nodeid: 260
+:created: 1285150020
+:tags:
 - general
 - javaone
+:author: rtyler
 ---
 On the off chance you've not seen some of the photos posted to the [@hudsonci Twitter stream](http://twitter.com/hudsonci), here's some of the photos from day two of JavaOne.
 

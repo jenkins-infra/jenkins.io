@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Performance improvements in 1.346
-nodeid: 199
-created: 1266333900
-tags:
+:layout: post
+:title: Performance improvements in 1.346
+:nodeid: 199
+:created: 1266333900
+:tags:
 - development
+:author: rtyler
 ---
 From time to time, we get a report of out of memory problems in Hudson. It's frequent enough that <a href="http://wiki.hudson-ci.org/display/HUDSON/I'm+getting+OutOfMemoryError">we have a dedicated Wiki page</a> that talks about how to obtain information to help devs work on the problem.
 

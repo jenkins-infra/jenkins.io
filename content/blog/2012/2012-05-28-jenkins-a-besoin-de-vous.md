@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Jenkins a besoin de vous
-nodeid: 383
-created: 1338206400
-tags:
+:layout: post
+:title: Jenkins a besoin de vous
+:nodeid: 383
+:created: 1338206400
+:tags:
 - general
 - feedback
 - guest post
+:author: rtyler
 ---
 [**Editor's Note**: _The following is a guest post by Jenkins contributor [Baptiste Mathus](https://twitter.com/bmathus). For the non-French speakers, we're looking for French speakers to help translate "Jenkins: The Definitive Guide"_ ]
 

@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Adding diagrams to Wiki
-nodeid: 364
-created: 1325116534
-tags:
+:layout: post
+:title: Adding diagrams to Wiki
+:nodeid: 364
+:created: 1325116534
+:tags:
 - infrastructure
 - tutorial
+:author: kohsuke
 ---
 <div style="float:right;margin:1em"><img src="http://jenkins-ci.org/sites/default/files/gliffy.png"></div>
 

@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Would you run Hudson in the cloud?
-nodeid: 195
-created: 1266932700
-tags:
+:layout: post
+:title: Would you run Hudson in the cloud?
+:nodeid: 195
+:created: 1266932700
+:tags:
 - jenkinsci
+:author: rtyler
 ---
 One of my favorite bloggers on the subject of continuous integration, <a id="aptureLink_e9BNkKIorq" href="http://twitter.com/builddoctor">The Build Doctor</a>, posed this question in [a recent post](http://www.build-doctor.com/2010/02/23/continuous-integration-in-the-cloud-good-idea/):
 

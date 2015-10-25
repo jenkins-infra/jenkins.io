@@ -1,12 +1,13 @@
 ---
-layout: post
-title: HudsonMobi 2.0 hits the Android Market
-nodeid: 237
-created: 1281963600
-tags:
+:layout: post
+:title: HudsonMobi 2.0 hits the Android Market
+:nodeid: 237
+:created: 1281963600
+:tags:
 - general
 - news
 - releases
+:author: rtyler
 ---
 The folks over at [LMT Software](http://www.lmitsoftware.com/) just released their HudsonMobi **2.0** to the Android market. This release of HudsonMobi brings a lot of the features to Android that iPhone/iPad users of HudsonMobi have enjoyed for some time.
 

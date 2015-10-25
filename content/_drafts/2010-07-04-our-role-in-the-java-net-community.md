@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Our Role in the Java.net Community
-nodeid: 222
-created: 1278271824
-tags:
+:layout: post
+:title: Our Role in the Java.net Community
+:nodeid: 222
+:created: 1278271824
+:tags:
 - general
 - guest post
 - meta
+:author: rtyler
 ---
 A few weeks ago, when we first [launched the Hudson Labs](http://www.hudson-labs.org/content/welcome-hudson-labs) site, I expressed the need for Hudson to maintain some of our own architecture in order to continue to move forward:
 

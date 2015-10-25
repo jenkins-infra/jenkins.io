@@ -1,10 +1,11 @@
 ---
-layout: post
-title: About Jenkins CI
-nodeid: 204
-created: 1275364360
-tags:
+:layout: post
+:title: About Jenkins CI
+:nodeid: 204
+:created: 1275364360
+:tags:
 - general
+:author: rtyler
 ---
 Welcome to Jenkins CI, formerly known as "Hudson Labs", a community-driven site for and by the <a href="http://twitter.com/jenkinsci">Jenkins CI</a> community. 
 

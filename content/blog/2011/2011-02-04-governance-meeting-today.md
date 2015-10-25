@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Governance Meeting Today
-nodeid: 277
-created: 1296820800
-tags:
+:layout: post
+:title: Governance Meeting Today
+:nodeid: 277
+:created: 1296820800
+:tags:
 - general
 - core
 - meetup
 - news
+:author: rtyler
 ---
 Amongst all the work this week with setting up project infrastructure, [the first release of Jenkins](http://mirrors.jenkins-ci.org/war/1.396/) and a *flood* of developer activity [on GitHub](https://github.com/jenkinsci), the interim governance board has decided to hold periodic virtual meetings.
 

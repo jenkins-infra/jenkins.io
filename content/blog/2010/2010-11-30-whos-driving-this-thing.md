@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Who's driving this thing?
-nodeid: 268
-created: 1291120200
-tags:
+:layout: post
+:title: Who's driving this thing?
+:nodeid: 268
+:created: 1291120200
+:tags:
 - general
 - core
 - jenkinsci
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/health-60to79.gif" align="right"/>There's been a lot of discussion on the [new mailing lists](http://hudson-labs.org/content/new-hudson-mailing-lists) as of late regarding some of the infrastructure and ownership of the Hudson project. In case you haven't been following along at home, I'll try to catch you up as impartially as possible.
 

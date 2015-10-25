@@ -1,14 +1,15 @@
 ---
-layout: post
-title: 'Screencast: Python on Hudson (Part 1)'
-nodeid: 163
-created: 1270043100
-tags:
+:layout: post
+:title: 'Screencast: Python on Hudson (Part 1)'
+:nodeid: 163
+:created: 1270043100
+:tags:
 - general
 - jobs
 - news
 - screencast
 - tutorial
+:author: rtyler
 ---
 After Hudson got some major publicity [at PyCon Atlanta 2010](http://blog.hudson-ci.org/content/hudson-pycon) I haven't been as quick as I would have liked with Python-related posts and tutorials. I use Hudson to build and test a number of pure Python modules and C extensions across numerous Python versions (covering 2.4 - 3.1). For most beginners, or those simply looking to get started with Python on Hudson, starting with my job configurations is too much at once, so instead I wanted to start at the "beginning" so to speak.
 

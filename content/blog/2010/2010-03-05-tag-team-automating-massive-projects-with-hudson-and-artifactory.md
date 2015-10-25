@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Tag team: Automating massive projects with Hudson and Artifactory'
-nodeid: 184
-created: 1267793100
-tags:
+:layout: post
+:title: 'Tag team: Automating massive projects with Hudson and Artifactory'
+:nodeid: 184
+:created: 1267793100
+:tags:
 - feedback
 - meetup
+:author: rtyler
 ---
 For those of you living in or around Silicon Valley, next Wednesday (March 10th) you might want to reserve some space around 6pm on your calendar. <a id="aptureLink_K4R8mjN6aN" href="http://freddy33.blogspot.com/">Frederic Simon</a> and <a id="aptureLink_j4VWwlQ9I2" href="http://twitter.com/yoavlandman">Yoav Landman</a> from <a id="aptureLink_gvHDYIidrI" href="http://twitter.com/artifrog">JFrog</a> will be presenting at the [Silicon Valley JavaFX Users Group](http://www.svjugfx.org/) meeting at the Googleplex. Frederic and Yoav will be discussing and demonstrating how JFrog's Artifactory works with Hudson to combine continuous integration with release management.
 

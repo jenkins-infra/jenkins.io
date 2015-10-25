@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Registration & Call for Papers Open for JUC Palo Alto
-nodeid: 422
-created: 1367361200
-tags:
+:layout: post
+:title: Registration & Call for Papers Open for JUC Palo Alto
+:nodeid: 422
+:created: 1367361200
+:tags:
 - general
 - just for fun
 - news
 - jenkinsci
 - juc
+:author: lisawells
 ---
 This year, the West Coast Jenkins User Conference will be in Palo Alto rather than San Francisco. If you’re nearby – or even if you’re not – join Kohsuke and other fellow developers for a solid day of Jenkins.
 

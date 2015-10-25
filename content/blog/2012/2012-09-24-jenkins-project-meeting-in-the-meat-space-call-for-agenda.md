@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Jenkins project meeting in the meat space / Call for agenda
-nodeid: 400
-created: 1348502400
-tags:
+:layout: post
+:title: Jenkins project meeting in the meat space / Call for agenda
+:nodeid: 400
+:created: 1348502400
+:tags:
 - general
 - feedback
 - meetup
 - javaone
 - juc
+:author: kohsuke
 ---
 As you may or may not know, the Jenkins project has a [bi-weekly IRC meeting](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda) where we discuss and decide on things necessary to keep the project running.
 

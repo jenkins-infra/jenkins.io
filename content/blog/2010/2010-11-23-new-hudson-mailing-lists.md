@@ -1,12 +1,13 @@
 ---
-layout: post
-title: New Hudson Mailing Lists!
-nodeid: 267
-created: 1290538823
-tags:
+:layout: post
+:title: New Hudson Mailing Lists!
+:nodeid: 267
+:created: 1290538823
+:tags:
 - general
 - mailing list
 - jenkinsci
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/duke-construction.gif" alt="Duke is not amused :(" align="right"/>As Kohsuke [mentioned in this post](http://hudson-labs.org/content/javanet-migration-status-update), the Java.net migration has caught just about everybody off-guard in the Hudson community.
 

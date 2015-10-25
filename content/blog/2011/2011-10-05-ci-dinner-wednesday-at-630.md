@@ -1,13 +1,14 @@
 ---
-layout: post
-title: CI Dinner Wednesday at 6:30
-nodeid: 341
-created: 1317825000
-tags:
+:layout: post
+:title: CI Dinner Wednesday at 6:30
+:nodeid: 341
+:created: 1317825000
+:tags:
 - general
 - just for fun
 - meetup
 - javaone
+:author: rtyler
 ---
 <img src="http://s3-media2.ak.yelpcdn.com/bphoto/fFGPBtsutYpn3A155Sf75Q/l.jpg" align="right" width="200" alt="Photo from inside Cafe Chaat"/>Apologies for the late notice, I think most of us have been pre-occupied with [that fantastic Jenkins User Conference](http://www.cloudbees.com/jenkins-user-conference-2011.cb). While there are plenty of folks in town for JavaOne, I wanted to host a meetup/dinner at **[Cafe Chaat](http://www.yelp.com/biz/cafe-chaat-san-francisco-4)** here in San Francisco.
 

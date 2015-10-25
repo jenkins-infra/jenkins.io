@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Cooking Up JAMs
-nodeid: 634
-created: 1444423524
-tags:
+:layout: post
+:title: Cooking Up JAMs
+:nodeid: 634
+:created: 1444423524
+:tags:
 - general
 - cia
 - meetup
 - jenkinsci
+:author: alyssa
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/Seville-JAM_logo_1024px_0.png" width=250>

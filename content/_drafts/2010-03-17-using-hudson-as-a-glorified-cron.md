@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Using Hudson as a glorified cron
-nodeid: 155
-created: 1268888110
-tags:
+:layout: post
+:title: Using Hudson as a glorified cron
+:nodeid: 155
+:created: 1268888110
+:tags:
 - jobs
+:author: rtyler
 ---
 Cron is one of the oldest tools in the standard Unix toolbox, a simple utility for scheduling tasks on regular intervals. While straight-forward and fairly easy to understand, <a id="aptureLink_lKjpFXRnxV" href="http://en.wikipedia.org/wiki/Cron">cron</a> is over **thirty years old** and still has a number of problems:
 

@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Volunteers needed for JUC SF
-nodeid: 392
-created: 1346079600
-tags:
+:layout: post
+:title: Volunteers needed for JUC SF
+:nodeid: 392
+:created: 1346079600
+:tags:
 - general
 - cia
 - juc
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/images/Jenkins_SanFran_T-ShirtM.jpg" align="right"/>
 

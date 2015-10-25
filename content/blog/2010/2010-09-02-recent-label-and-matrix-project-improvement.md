@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Recent label and matrix project improvement
-nodeid: 242
-created: 1283428800
-tags:
+:layout: post
+:title: Recent label and matrix project improvement
+:nodeid: 242
+:created: 1283428800
+:tags:
 - development
 - core
 - tutorial
+:author: kohsuke
 ---
 Today, I’d highlight two recent improvements to the label and matrix projects.
 

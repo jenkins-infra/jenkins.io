@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Hudson Events Calendar
-nodeid: 251
-created: 1283626934
-tags:
+:layout: post
+:title: Hudson Events Calendar
+:nodeid: 251
+:created: 1283626934
+:tags:
 - general
 - meta
+:author: rtyler
 ---
 Just wanted to let everybody know that I've gone ahead and added a [Calendar](/calendar) for all the upcoming Hudson-related events.
 

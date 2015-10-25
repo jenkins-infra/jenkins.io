@@ -1,15 +1,16 @@
 ---
-layout: post
-title: Put in a decent title because I don't have one
-nodeid: 271
-created: 1292093732
-tags:
+:layout: post
+:title: Put in a decent title because I don't have one
+:nodeid: 271
+:created: 1292093732
+:tags:
 - general
 - core
 - mailing list
 - meta
 - news
 - jenkinsci
+:author: abayer
 ---
 While we don't yet have a final agreement on all details in place, there has continued to be a lot of progress in the talks with Oracle. A number of issues remain to be ironed out, and I've been asked not to go into detail on those, but I can update you all on the areas where we have reached consensus.
 <!--break-->

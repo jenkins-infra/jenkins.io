@@ -1,9 +1,9 @@
 ---
-layout: post
-title: Upcoming Events in June and early July
-nodeid: 319
-created: 1308098168
-tags:
+:layout: post
+:title: Upcoming Events in June and early July
+:nodeid: 319
+:created: 1308098168
+:tags:
 - general
 - core
 - just for fun
@@ -11,6 +11,7 @@ tags:
 - meta
 - news
 - jenkinsci
+:author: abayer
 ---
 I've just added three events coming up in the next few weeks to [the Jenkins calendar](http://jenkins-ci.org/calendar). Conveniently, they are all events I'll be attending while traveling around Western Europe!
 

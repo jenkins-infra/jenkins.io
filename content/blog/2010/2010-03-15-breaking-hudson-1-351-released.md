@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Breaking! Hudson 1.351 Released
-nodeid: 175
-created: 1268685728
-tags:
+:layout: post
+:title: Breaking! Hudson 1.351 Released
+:nodeid: 175
+:created: 1268685728
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 Rush delivery from Hudson HQ! Hudson 1.351 just rolled out with a **very** important regression fix:
 

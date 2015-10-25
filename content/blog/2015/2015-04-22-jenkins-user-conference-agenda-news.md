@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Jenkins User Conference - Agenda News
-nodeid: 540
-created: 1429720632
-tags:
+:layout: post
+:title: Jenkins User Conference - Agenda News
+:nodeid: 540
+:created: 1429720632
+:tags:
 - general
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/newjuc2_1.png" width=153 height=166>

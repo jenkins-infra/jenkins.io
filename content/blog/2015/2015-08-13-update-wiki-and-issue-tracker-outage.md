@@ -1,10 +1,11 @@
 ---
-layout: post
-title: 'Update: Wiki and issue tracker outage'
-nodeid: 601
-created: 1439455436
-tags:
+:layout: post
+:title: 'Update: Wiki and issue tracker outage'
+:nodeid: 601
+:created: 1439455436
+:tags:
 - infrastructure
+:author: danielbeck
 ---
 [I recently wrote about the two day outage of our wiki and issue tracker](https://jenkins-ci.org/content/wiki-and-issue-tracker-outage-over-weekend):
 

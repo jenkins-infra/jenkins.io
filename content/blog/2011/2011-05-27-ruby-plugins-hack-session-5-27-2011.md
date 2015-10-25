@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Ruby Plugins Hack Session 5/27/2011
-nodeid: 309
-created: 1306505812
-tags:
+:layout: post
+:title: Ruby Plugins Hack Session 5/27/2011
+:nodeid: 309
+:created: 1306505812
+:tags:
 - development
 - core
 - ruby
 - jruby
+:author: cowboyd
 ---
 After a one week hiatus, we returned to the weekly hack session on a mission light up the sky with fire!  
 

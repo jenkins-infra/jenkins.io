@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Pre-JavaOne Hudson Meetup
-nodeid: 244
-created: 1283173200
-tags:
+:layout: post
+:title: Pre-JavaOne Hudson Meetup
+:nodeid: 244
+:created: 1283173200
+:tags:
 - general
 - just for fun
 - meetup
 - javaone
+:author: rtyler
 ---
 As we near autumn up here in the Northern Hemisphere, the wind is starting to blow a bit chillier and here in the Bay Area that can only mean one thing: <strike>Oracle is suing everybody!</strike> it's time for JavaOne!
 

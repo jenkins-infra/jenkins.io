@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Hudson / Sauce OnDemand webinar
-nodeid: 240
-created: 1282325892
-tags:
+:layout: post
+:title: Hudson / Sauce OnDemand webinar
+:nodeid: 240
+:created: 1282325892
+:tags:
 - general
 - news
+:author: kohsuke
 ---
 On September 1st, I'll be <a href="http://saucelabs.com/about/webinars#webinar-hudson">presenting in a Sauce Labs webinar about Hudson and Sauce OnDemand</a>. The talk will discuss how Hudson can be used with Sauce OnDemand, naturally, but it'll also cover broader Hudson/Selenium integrations.
 

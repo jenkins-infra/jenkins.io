@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Native Package for Gentoo Added
-nodeid: 153
-created: 1265100420
-tags:
+:layout: post
+:title: Native Package for Gentoo Added
+:nodeid: 153
+:created: 1265100420
+:tags:
 - development
 - feedback
+:author: rtyler
 ---
 This past week <a id="aptureLink_vJn6ja8A1E" href="http://twitter.com/_godin_">Evgeny Mandrikov</a>, intrepid developer of the fabulous <a id="aptureLink_rwWftgVl3R" href="http://wiki.hudson-ci.org/display/HUDSON/Sonar+plugin">Sonar Plugin</a>, contributed a native <a id="aptureLink_fkwzElurl1" href="http://www.gentoo.org/">Gentoo</a> package for Hudson!
 

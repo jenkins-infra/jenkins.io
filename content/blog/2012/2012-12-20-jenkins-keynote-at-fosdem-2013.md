@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Jenkins keynote at FOSDEM 2013
-nodeid: 413
-created: 1356012000
-tags:
+:layout: post
+:title: Jenkins keynote at FOSDEM 2013
+:nodeid: 413
+:created: 1356012000
+:tags:
 - general
 - cia
 - meetup
 - news
+:author: rtyler
 ---
 <a href="https://fosdem.org/2013" target="_blank"><img src="http://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/></a>
 

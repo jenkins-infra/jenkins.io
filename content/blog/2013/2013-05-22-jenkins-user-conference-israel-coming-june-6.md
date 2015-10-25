@@ -1,15 +1,16 @@
 ---
-layout: post
-title: Jenkins User Conference Israel - Coming June 6
-nodeid: 425
-created: 1369288800
-tags:
+:layout: post
+:title: Jenkins User Conference Israel - Coming June 6
+:nodeid: 425
+:created: 1369288800
+:tags:
 - general
 - just for fun
 - meetup
 - news
 - jenkinsci
 - juc
+:author: lisawells
 ---
 Your favorite Butler will visit Israel on June 6 for the Jenkins User Conference Israel. More than 200 people have already registered to hobnob with other Jenkins users and eat like kings.
 

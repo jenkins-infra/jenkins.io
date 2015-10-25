@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Welcome to Hudson Labs!
-nodeid: 208
-created: 1276143624
-tags:
+:layout: post
+:title: Welcome to Hudson Labs!
+:nodeid: 208
+:created: 1276143624
+:tags:
 - general
 - meta
 - news
+:author: rtyler
 ---
 <img src="/sites/default/files/images/scientist.thumbnail.gif" align="right"/> Hello again! It's been a long time since I've written for the Hudson community, but now I'm back and ready to tackle some of the latest developments in the Hudson community. 
 

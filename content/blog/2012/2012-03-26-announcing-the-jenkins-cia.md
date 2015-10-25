@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Announcing the Jenkins CIA
-nodeid: 378
-created: 1332781278
-tags:
+:layout: post
+:title: Announcing the Jenkins CIA
+:nodeid: 378
+:created: 1332781278
+:tags:
 - general
 - core
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/images/jenkinsCIA.jpg" alt="Agent L. Jenkins" align="right"/>
 

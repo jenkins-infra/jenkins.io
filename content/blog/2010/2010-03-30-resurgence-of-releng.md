@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Resurgence of Releng
-nodeid: 165
-created: 1269952500
-tags:
+:layout: post
+:title: Resurgence of Releng
+:nodeid: 165
+:created: 1269952500
+:tags:
 - guest post
 - jenkinsci
+:author: rtyler
 ---
 A few weeks ago I passed a job listing that I had found through one of my **many** Google Alerts for Hudson-related queries to Andrew (`abayer`), following up on one of those job listings Andrew recently signed an offer to join the nice folks over at Digg to be their resident "build guy." On its own I thought "great for Andrew!" and nothing more, then I saw [this thread](http://www.reddit.com/r/programming/comments/bi58m/anyone_here_a_build_engineer_or_part_of_the_build/) on reddit which poses the question:
 

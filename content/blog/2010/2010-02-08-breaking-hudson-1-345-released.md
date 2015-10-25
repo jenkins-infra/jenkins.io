@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Breaking! Hudson 1.345 Released!
-nodeid: 202
-created: 1265657763
-tags:
+:layout: post
+:title: Breaking! Hudson 1.345 Released!
+:nodeid: 202
+:created: 1265657763
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 As I mentioned in the footer of the post on the [Hudson 1.344 release](http://blog.hudson-ci.org/content/hudson-1344-released), there were a couple big regressions in the 1.344 release that were causing a number of users issues (such as [issue 5536](http://issues.hudson-ci.org/browse/HUDSON-5536) and [issue 5546](http://issues.hudson-ci.org/browse/HUDSON-5546)).
 

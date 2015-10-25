@@ -1,11 +1,12 @@
 ---
-layout: post
-title: JavaOne taking shape
-nodeid: 253
-created: 1284740215
-tags:
+:layout: post
+:title: JavaOne taking shape
+:nodeid: 253
+:created: 1284740215
+:tags:
 - general
 - javaone
+:author: rtyler
 ---
 Last night on my way out of San Francisco I stopped by 4th and Howard St to get my first taste of JavaOne/Oracle OpenWorld which was already taking shape at the location. Besides snapping the photo below, I also managed to get yelled out by an old woman wearing a red "security" jacket; suffice to say my JavaOne experience is already everything I expected!
 

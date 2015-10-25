@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson 1.344 Released
-nodeid: 150
-created: 1265652000
-tags:
+:layout: post
+:title: Hudson 1.344 Released
+:nodeid: 150
+:created: 1265652000
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 The latest release of Hudson, 1.344, was released on February 5th, 2010. The release contains primarily bug-fixes but has a few enhancements baked into it as well. As mentioned in "[Incoming! More Translations](http://blog.hudson-ci.org/content/incoming-more-translations)", 1.344 incorporates a number of community-driven translations (see the other post for more information). Additionally, 1.344 removes the "easter egg" background image I wrote about in a post to my personal blog: [Mourning Sun](http://unethicalblogger.com/posts/2010/01/mourning_sun).
 

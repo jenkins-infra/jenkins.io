@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Report bugs and win Kindle
-nodeid: 343
-created: 1319209200
-tags:
+:layout: post
+:title: Report bugs and win Kindle
+:nodeid: 343
+:created: 1319209200
+:tags:
 - general
 - core
 - feedback
+:author: kohsuke
 ---
 <img src="http://www.cloudbees.com/sites/default/files/imagefield_thumbs/A_Bug%27s_Life.png" style="float:left; margin:1em"/>
 

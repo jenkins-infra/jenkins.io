@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Building Jenkins plugins with Gradle
-nodeid: 363
-created: 1325689200
-tags:
+:layout: post
+:title: Building Jenkins plugins with Gradle
+:nodeid: 363
+:created: 1325689200
+:tags:
 - development
 - core
 - meta
 - plugins
 - jenkinsci
+:author: abayer
 ---
 <img src="/sites/default/files/images/gradle_logo.gif" align="right" width="170"/>
 

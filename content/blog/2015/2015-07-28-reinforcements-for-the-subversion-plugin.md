@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Reinforcements for the Subversion Plugin
-nodeid: 590
-created: 1438114001
-tags:
+:layout: post
+:title: Reinforcements for the Subversion Plugin
+:nodeid: 590
+:created: 1438114001
+:tags:
 - development
 - guest post
 - plugins
+:author: danielbeck
 ---
 *This is a guest post by Manuel Recena Soto (aka recena).*
 

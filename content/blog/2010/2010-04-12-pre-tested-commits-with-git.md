@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Pre-tested commits with Git
-nodeid: 159
-created: 1271077200
-tags:
+:layout: post
+:title: Pre-tested commits with Git
+:nodeid: 159
+:created: 1271077200
+:tags:
 - infrastructure
 - feedback
 - jobs
 - tutorial
+:author: rtyler
 ---
 At the first [Bay Area Hackathon](http://wiki.hudson-ci.org/display/HUDSON/BayAreaMeetup) in mid-2009, the topic du jour was "[pre-tested commits](http://wiki.hudson-ci.org/display/HUDSON/Designing+pre-tested+commit)." As potential implementations of the concept were discussed over burgers from <a id="aptureLink_gLlt1i6v1p" href="http://www.brickhousesf.com/">Brickhouse</a> in downtown San Francisco, we realized as a group a few things: first, those burgers were *delicious*, but more importantly: pre-testing commits is very-SCM dependent and involves a lot of moving parts. One of the positive changes that came out shortly after the meet up was the support for "Concurrent Builds", allowing a job to be executed concurrently on different slaves, a precursor to pre-tested commit support. Fervor for the pre-tested commit feature lowered as time went on, the feature being too dependent on the SCM itself was generally accepted as the reasoning behind the feature languishing.
 

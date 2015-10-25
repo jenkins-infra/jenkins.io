@@ -1,14 +1,15 @@
 ---
-layout: post
-title: JRuby Branch merged!
-nodeid: 330
-created: 1312872249
-tags:
+:layout: post
+:title: JRuby Branch merged!
+:nodeid: 330
+:created: 1312872249
+:tags:
 - development
 - core
 - jenkinsci
 - ruby
 - jruby
+:author: cowboyd
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/jruby.png" align="right" width="150"/> Yesterday, [Kohsuke](http://twitter.com/kohsukekawa) [announced](http://groups.google.com/group/jenkinsrb/msg/32815b1ea917355d) that the 'jruby' branch of jenkins-core had been [merged to master](https://github.com/jenkinsci/jenkins/commit/f6373f7ada14a7914f4ae08b6af4c1b27d343c21).
 

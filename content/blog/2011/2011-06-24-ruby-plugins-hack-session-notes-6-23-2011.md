@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Ruby Plugins Hack Session Notes 6/23/2011
-nodeid: 322
-created: 1308928732
-tags:
+:layout: post
+:title: Ruby Plugins Hack Session Notes 6/23/2011
+:nodeid: 322
+:created: 1308928732
+:tags:
 - development
 - core
 - ruby
 - jruby
+:author: cowboyd
 ---
 You know that the night is going to be productive whenever @kohsukekawa shows up, and last night was no exception. We talked about problems on the horizon, potential solutions, and then I spent the last half hour ripping a bit of code. 
 

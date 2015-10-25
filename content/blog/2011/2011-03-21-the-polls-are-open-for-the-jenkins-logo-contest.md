@@ -1,12 +1,13 @@
 ---
-layout: post
-title: The polls are open for the Jenkins Logo Contest!
-nodeid: 295
-created: 1300727796
-tags:
+:layout: post
+:title: The polls are open for the Jenkins Logo Contest!
+:nodeid: 295
+:created: 1300727796
+:tags:
 - general
 - feedback
 - news
+:author: rtyler
 ---
 After a number of **absolutely** fantastic logo submissions from a number of designers, I'm extremely pleased to open the polls on the vote for the ***brand new Jenkins logo!***
 

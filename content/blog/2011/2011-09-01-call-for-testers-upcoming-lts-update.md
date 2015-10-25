@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Call for Testers: Upcoming LTS update'
-nodeid: 336
-created: 1314882000
-tags:
+:layout: post
+:title: 'Call for Testers: Upcoming LTS update'
+:nodeid: 336
+:created: 1314882000
+:tags:
 - general
 - core
 - lts
+:author: rtyler
 ---
 A [couple of months
 ago](/content/jenkins-long-term-support-release) Jenkins embarked on an new project, the

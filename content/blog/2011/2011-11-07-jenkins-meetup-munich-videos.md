@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Jenkins Meetup Munich Videos
-nodeid: 346
-created: 1320674400
-tags:
+:layout: post
+:title: Jenkins Meetup Munich Videos
+:nodeid: 346
+:created: 1320674400
+:tags:
 - general
 - meetup
 - video
+:author: rtyler
 ---
 Better late than never right? Back in June, during his world tour, [Andrew Bayer](https://twitter.com/abayer) stopped by Munich to participate in a Jenkins Meetup along with Dr. Ullrich Hafner.
 

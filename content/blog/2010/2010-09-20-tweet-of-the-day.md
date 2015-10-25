@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Tweet of the Day
-nodeid: 256
-created: 1285039529
-tags:
+:layout: post
+:title: Tweet of the Day
+:nodeid: 256
+:created: 1285039529
+:tags:
 - general
 - just for fun
+:author: rtyler
 ---
 Some of you may have been following all the photos posted to the [hudsonlabs Flickr account](http://www.flickr.com/photos/hudsonlabs/) from this year's JavaOne conference in San Francisco. 
 

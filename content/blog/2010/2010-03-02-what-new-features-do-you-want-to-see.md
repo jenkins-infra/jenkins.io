@@ -1,14 +1,15 @@
 ---
-layout: post
-title: What new features do you want to see?
-nodeid: 186
-created: 1267537500
-tags:
+:layout: post
+:title: What new features do you want to see?
+:nodeid: 186
+:created: 1267537500
+:tags:
 - infrastructure
 - development
 - core
 - just for fun
 - jenkinsci
+:author: rtyler
 ---
 Michael Donohue, a Hudson developer who has taken on the role of master bug triage guy for Hudson, does something regularly which I've really come to appreciate as a Hudson developer myself: he sends out emails to the dev list with the top 10 voted issues at that time. This gives those of us in the Hudson development community a good sense of what's really important to our users, which in turn helps us decide where to focus our efforts. If you're interested, you can see <a href="http://issues.hudson-ci.org/secure/IssueNavigator.jspa?mode=hide&requestId=10045">the top voted issues</a> over at <a href="http://issues.hudson-ci.org">our JIRA server.</a>
 

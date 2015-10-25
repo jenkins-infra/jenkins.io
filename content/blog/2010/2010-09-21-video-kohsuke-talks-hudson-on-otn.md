@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Video: Kohsuke talks Hudson on OTN'
-nodeid: 258
-created: 1285084055
-tags:
+:layout: post
+:title: 'Video: Kohsuke talks Hudson on OTN'
+:nodeid: 258
+:created: 1285084055
+:tags:
 - general
 - javaone
+:author: rtyler
 ---
 For the uninitiated, "OTN" is short for the "Oracle Technology Network" where speakers and other persons of interest sit in front of cameras and their words are [streamed live](http://www.oracle.com/us/javaonedevelop/oracle-technology-network-live-166853.html) to the internets.
 

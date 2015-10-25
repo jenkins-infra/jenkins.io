@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Building a software diamond with Jenkins
-nodeid: 311
-created: 1307552667
-tags:
+:layout: post
+:title: Building a software diamond with Jenkins
+:nodeid: 311
+:created: 1307552667
+:tags:
 - general
 - guest post
 - plugins
 - tutorial
+:author: rtyler
 ---
 [**Editor's Note:** *This is a guest post from Jenkins community member [Tom Rini](http://www.linkedin.com/in/tomrini)*]
 

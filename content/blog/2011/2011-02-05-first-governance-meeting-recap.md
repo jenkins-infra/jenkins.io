@@ -1,11 +1,12 @@
 ---
-layout: post
-title: First Governance Meeting Recap
-nodeid: 280
-created: 1296918000
-tags:
+:layout: post
+:title: First Governance Meeting Recap
+:nodeid: 280
+:created: 1296918000
+:tags:
 - general
 - core
+:author: rtyler
 ---
 As mentioned [on Friday](/content/governance-meeting-today) the Jenkins project held it's first meeting on the [IRC channel](/content/chat) at the request of the interim board. In the interest of transparency, we recorded meeting minutes and tried to involve as many folks as possible.
 

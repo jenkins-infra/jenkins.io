@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Upcoming office hour on Kubernetes
-nodeid: 606
-created: 1440106568
-tags:
+:layout: post
+:title: Upcoming office hour on Kubernetes
+:nodeid: 606
+:created: 1440106568
+:tags:
 - general
 - plugins
 - screencast
 - tutorial
+:author: danielbeck
 ---
 [Nicolas De Loof](https://github.com/ndeloof) will host an [office hour](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours) [next Wednesday 11 AM PDT](http://www.timeanddate.com/worldclock/fixedtime.html?msg=Jenkins+Office+Hours&iso=20150826T11&p1=283&ah=1) on integrating Kubernetes with Jenkins. [Kubernetes](http://kubernetes.io/) is an open-source project by Google that provides a platform for managing [Docker](http://docker.io/) containers as a cluster.
 

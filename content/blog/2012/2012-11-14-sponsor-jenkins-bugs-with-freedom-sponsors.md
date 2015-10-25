@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Sponsor Jenkins bugs with Freedom Sponsors
-nodeid: 406
-created: 1352923793
-tags:
+:layout: post
+:title: Sponsor Jenkins bugs with Freedom Sponsors
+:nodeid: 406
+:created: 1352923793
+:tags:
 - development
+:author: kohsuke
 ---
 (This is a guest post by Tony França)
 

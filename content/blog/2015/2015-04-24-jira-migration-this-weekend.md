@@ -1,11 +1,12 @@
 ---
-layout: post
-title: JIRA migration this weekend
-nodeid: 541
-created: 1429888108
-tags:
+:layout: post
+:title: JIRA migration this weekend
+:nodeid: 541
+:created: 1429888108
+:tags:
 - infrastructure
 - news
+:author: kohsuke
 ---
 In continuing <a href="http://jenkins-ci.org/content/confluence-migration-weekend">my infra upgrade work</a>, this weekend I'll be migrating JIRA to another server.
 

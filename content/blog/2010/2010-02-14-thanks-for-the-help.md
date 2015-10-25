@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Thanks for the help!
-nodeid: 203
-created: 1266141600
-tags:
+:layout: post
+:title: Thanks for the help!
+:nodeid: 203
+:created: 1266141600
+:tags:
 - core
+:author: rtyler
 ---
 A great community of developers and users is one of the many things that make Hudson a great tool and a fun project to work with, after launching Continuous Blog as an extensions of that community earlier this week there are some thanks in order to those that helped spread the word about CB and in turn, Hudson. Thanks to:
 

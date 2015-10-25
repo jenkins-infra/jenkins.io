@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Jenkins Conference Slides and Videos Online
-nodeid: 351
-created: 1320944891
-tags:
+:layout: post
+:title: Jenkins Conference Slides and Videos Online
+:nodeid: 351
+:created: 1320944891
+:tags:
 - general
 - juc
 - video
+:author: rtyler
 ---
 <img src="/sites/default/files/images/headshot.png" align="right"/>It is just turning into a video heavy week isn't it? First the [videos from the Munich Meetup](/content/jenkins-meetup-munich-videos) were made available, and now the videos from the *first* ever [Jenkins User Conference](/content/jenkins-user-conference).
 

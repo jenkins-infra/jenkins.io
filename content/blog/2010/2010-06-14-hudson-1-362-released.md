@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson 1.362 Released
-nodeid: 214
-created: 1276527600
-tags:
+:layout: post
+:title: Hudson 1.362 Released
+:nodeid: 214
+:created: 1276527600
+:tags:
 - general
 - core
 - releases
 - jenkinsci
+:author: rtyler
 ---
 <img src="/sites/default/files/images/hudson.gif" height="150" align="right"/> The 1.362 release of Hudson has a few bug-fixes and a few minor enhancements, all together a good stabilization release. Not too much interesting to discuss so straight on to the changelog!
 

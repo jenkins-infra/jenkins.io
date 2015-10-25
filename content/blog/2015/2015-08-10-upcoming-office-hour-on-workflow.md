@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Upcoming office hour on Workflow
-nodeid: 600
-created: 1439232049
-tags:
+:layout: post
+:title: Upcoming office hour on Workflow
+:nodeid: 600
+:created: 1439232049
+:tags:
 - development
 - tutorial
+:author: danielbeck
 ---
 [Jesse Glick](https://github.com/jglick/) will host the next office hour [this Wednesday, 11 AM PDT](http://www.timeanddate.com/worldclock/fixedtime.html?msg=Jenkins+Office+Hours&iso=20150812T11&p1=283&ah=1) on [Workflow](https://github.com/jenkinsci/workflow-plugin#introduction).
 

@@ -1,13 +1,14 @@
 ---
-layout: post
-title: 'Hudson 1.348 Released '
-nodeid: 188
-created: 1267462399
-tags:
+:layout: post
+:title: 'Hudson 1.348 Released '
+:nodeid: 188
+:created: 1267462399
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 The latest release, 1.348 of Hudson was pushed out to the repositories on the 26th of Feb. This release is primarily a bugfix release containing a number of fixes (listed below) and a few localization corrections
 

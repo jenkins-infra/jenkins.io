@@ -1,13 +1,14 @@
 ---
-layout: post
-title: 'The beginning of a new era: Ruby plugins now a reality'
-nodeid: 353
-created: 1321369200
-tags:
+:layout: post
+:title: 'The beginning of a new era: Ruby plugins now a reality'
+:nodeid: 353
+:created: 1321369200
+:tags:
 - general
 - core
 - plugins
 - jruby
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/jruby.png" align="right" width="180" alt="Yay JRuby!"/> It's not often that I get to use *that* much hyperbole in a Jenkins blog post, but I think in this case it's allowable. A journey that started over a year ago by [Charles Lowell](https://twitter.com/cowboyd) has reached a new level, thanks to lots of help from [Kohsuke](https://twitter.com/kohsukekawa) along with [Hiroshi Nakamura](https://twitter.com/nahi) and [J&oslash;rgen Tjern&oslash;](https://twitter.com/jorgenpt).
 

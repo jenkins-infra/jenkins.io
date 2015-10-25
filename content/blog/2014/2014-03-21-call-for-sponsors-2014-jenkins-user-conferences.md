@@ -1,14 +1,15 @@
 ---
-layout: post
-title: 'Call for Sponsors: 2014 Jenkins User Conferences'
-nodeid: 454
-created: 1395425989
-tags:
+:layout: post
+:title: 'Call for Sponsors: 2014 Jenkins User Conferences'
+:nodeid: 454
+:created: 1395425989
+:tags:
 - general
 - core
 - news
 - jenkinsci
 - juc
+:author: lisawells
 ---
 <div style="float:right; margin:1em">
 

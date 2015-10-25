@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Workflow plugin is 1.0
-nodeid: 516
-created: 1417594188
-tags:
+:layout: post
+:title: Workflow plugin is 1.0
+:nodeid: 516
+:created: 1417594188
+:tags:
 - development
 - plugins
+:author: kohsuke
 ---
 Jenkins started with a notion of jobs and builds at heart. One script is one job, and as you repeatedly execute jobs, it creates builds as records. As the use case of Jenkins gets more sophisticated, people started combining jobs to orchestrate ever more complex activities.
 

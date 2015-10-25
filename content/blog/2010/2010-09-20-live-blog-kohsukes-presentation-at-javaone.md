@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Live Blog: Kohsuke''s Presentation at JavaOne'
-nodeid: 255
-created: 1285005819
-tags:
+:layout: post
+:title: 'Live Blog: Kohsuke''s Presentation at JavaOne'
+:nodeid: 255
+:created: 1285005819
+:tags:
 - general
 - javaone
+:author: rtyler
 ---
 **Editor's note:** *This is a **very** rough set of notes from [Kohsuke Kawaguchi's](http://twitter.com/kohsukekawa) presentation at JavaOne 2010.*
 

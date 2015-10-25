@@ -1,11 +1,12 @@
 ---
-layout: post
-title: JUC World Tour 2015 - Keynote Speaker News and Early Bird Tickets
-nodeid: 538
-created: 1428942935
-tags:
+:layout: post
+:title: JUC World Tour 2015 - Keynote Speaker News and Early Bird Tickets
+:nodeid: 538
+:created: 1428942935
+:tags:
 - general
 - juc
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="https://jenkins-ci.org/sites/default/files/images/The-Phoenix-Project-border_2.png" width=99 height=144>

@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Intro to Jenkins meetup in Copenhagen
-nodeid: 387
-created: 1340366400
-tags:
+:layout: post
+:title: Intro to Jenkins meetup in Copenhagen
+:nodeid: 387
+:created: 1340366400
+:tags:
 - general
 - cia
 - meetup
+:author: rtyler
 ---
 [ **Editor's Note**: This was originally posted to the [jenkinsci-users](https://groups.google.com/group/jenkinsci-users/msg/9e1bb07e7a109c21?hl=en_US) mailing list by community member Bue Petersen ]
 

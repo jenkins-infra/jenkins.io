@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Call for Testers: The older the better'
-nodeid: 185
-created: 1267591779
-tags:
+:layout: post
+:title: 'Call for Testers: The older the better'
+:nodeid: 185
+:created: 1267591779
+:tags:
 - development
 - core
 - jenkinsci
+:author: rtyler
 ---
 A couple weeks ago in the [post outlining the release of Hudson 1.347](http://blog.hudson-ci.org/content/hudson-1347-released) I mentioned that Alan Harder (a.k.a. mindless) had undertaken a deprecation-crusade; that is to say Alan has taken it upon himself to rid Hudson's code-base, particularly in the plugin area, of older code. One of Alan's branches `old-data-monitor` was merged into trunk with `r28147` bringing with it some changes to help migrate older plugin datasets to newer formats. 
 

@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Integrating Kubernetes and Jenkins
-nodeid: 585
-created: 1437747464
-tags:
+:layout: post
+:title: Integrating Kubernetes and Jenkins
+:nodeid: 585
+:created: 1437747464
+:tags:
 - general
 - plugins
 - video
+:author: danielbeck
 ---
 [Kubernetes](http://kubernetes.io/) is an open-source project by Google that provides a platform for managing Docker containers as a cluster. In their own words:
 

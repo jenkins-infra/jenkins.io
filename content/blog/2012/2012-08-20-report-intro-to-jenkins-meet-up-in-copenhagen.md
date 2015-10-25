@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Report: Intro to Jenkins meet-up in Copenhagen'
-nodeid: 391
-created: 1345480310
-tags:
+:layout: post
+:title: 'Report: Intro to Jenkins meet-up in Copenhagen'
+:nodeid: 391
+:created: 1345480310
+:tags:
 - general
 - meetup
 - jenkinsci
+:author: rtyler
 ---
 We have hosted two informal meetups introducing Jenkins Continuous Integration Server. 
 

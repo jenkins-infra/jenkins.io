@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Live Blog: John Smart demos advanced Hudson usage'
-nodeid: 259
-created: 1285090883
-tags:
+:layout: post
+:title: 'Live Blog: John Smart demos advanced Hudson usage'
+:nodeid: 259
+:created: 1285090883
+:tags:
 - general
 - javaone
+:author: rtyler
 ---
 **Editor's Note:** *This is a **very** rough set of notes from [John Ferguson Smart's](http://twitter.com/wakeleo) presentation at JavaOne 2010. Unlike [Kohsuke's presentation](http://www.hudson-labs.org/content/live-blog-kohsukes-presentation-javaone), John spent a lot of time in demos which made live-blogging a bit difficult.*
 

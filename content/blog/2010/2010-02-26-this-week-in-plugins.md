@@ -1,11 +1,12 @@
 ---
-layout: post
-title: This Week in Plugins
-nodeid: 190
-created: 1267188900
-tags:
+:layout: post
+:title: This Week in Plugins
+:nodeid: 190
+:created: 1267188900
+:tags:
 - infrastructure
 - feedback
+:author: rtyler
 ---
 This week we had **18** plugin releases, with the [xUnit plugin](http://wiki.hudson-ci.org/display/HUDSON/xUnit+Plugin) managing to have a release almost *every day*. For this edition of TWiP I was actually able to generate the log of releases mostly automatically thanks to <a id="aptureLink_EgX1wHmBco" href="http://twitter.com/rpetti">rpetti</a> who contributed the script to the [contiuous-blog-tools](http://github.com/rtyler/continuous-blog-tools) repository on GitHub.
 

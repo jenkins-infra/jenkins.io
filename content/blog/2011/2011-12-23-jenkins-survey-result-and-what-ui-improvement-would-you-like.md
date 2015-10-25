@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Jenkins survey result and what UI improvement would you like?
-nodeid: 362
-created: 1324668790
-tags:
+:layout: post
+:title: Jenkins survey result and what UI improvement would you like?
+:nodeid: 362
+:created: 1324668790
+:tags:
 - development
 - core
 - feedback
 - juc
+:author: kohsuke
 ---
 <div style="float:right;margin:1em"><a href="http://en.wiktionary.org/wiki/too_many_cooks_spoil_the_broth">
 <img width=160 height=160 src="http://livinghealthy.typepad.com/photos/uncategorized/2007/07/11/toomanycooksblog.jpg">

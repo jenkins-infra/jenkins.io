@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Office hour on form handling in Jenkins
-nodeid: 626
-created: 1442716589
-tags:
+:layout: post
+:title: Office hour on form handling in Jenkins
+:nodeid: 626
+:created: 1442716589
+:tags:
 - general
 - office hours
+:author: danielbeck
 ---
 **Update: This week's office hour has been canceled.**
 

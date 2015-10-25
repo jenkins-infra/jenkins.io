@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Jenkins CIA Program and Meetup Updates
-nodeid: 621
-created: 1441070492
-tags:
+:layout: post
+:title: Jenkins CIA Program and Meetup Updates
+:nodeid: 621
+:created: 1441070492
+:tags:
 - general
 - cia
 - meetup
 - jenkinsci
+:author: hinman
 ---
 <p>A few years ago, the Jenkins community announced the <a href="http://jenkins-ci.org/content/announcing-jenkins-cia">Jenkins CIA program</a> - the Continuous Integration Ambassador initiative to spread the word of Jenkins. As of recently, there hasn't been as much activity, so this program needs to be revived!</p>
 

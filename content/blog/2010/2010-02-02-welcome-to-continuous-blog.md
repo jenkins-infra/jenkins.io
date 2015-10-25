@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Welcome to Continuous Blog!
-nodeid: 152
-created: 1265097807
-tags:
+:layout: post
+:title: Welcome to Continuous Blog!
+:nodeid: 152
+:created: 1265097807
+:tags:
 - core
 - feedback
+:author: rtyler
 ---
 Hello and welcome to "Continuous Blog", the official Hudson weblog! If you don't mind me saying so, I think its arrival is long overdue. Since Hudson started in November of 2006, there hasn't been a central "voice" for the project. In just a few short years Hudson has grown into a substantial project with **hundreds** of plugins and thousands of users around the world. <a id="aptureLink_DLc9nSxCmm" href="http://twitter.com/kohsukekawa">Kohsuke</a>'s nice Java-based extensible continuous integration server has grown up into fantastic tool with a great community around it. 
 

@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Regarding the start of April
-nodeid: 162
-created: 1270124100
-tags:
+:layout: post
+:title: Regarding the start of April
+:nodeid: 162
+:created: 1270124100
+:tags:
 - meta
+:author: rtyler
 ---
 I had briefly contemplating what sort of silly posts I could write to celebrate April Fool's Day, when I sat down to write out some of them, I got a few sentences in and decided that they just weren't funny enough. Either I have very high standards, or I'm terribly unfunny.
 

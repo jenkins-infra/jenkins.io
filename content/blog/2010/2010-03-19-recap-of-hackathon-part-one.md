@@ -1,10 +1,11 @@
 ---
-layout: post
-title: Recap of Hackathon Part One
-nodeid: 170
-created: 1269050848
-tags:
+:layout: post
+:title: Recap of Hackathon Part One
+:nodeid: 170
+:created: 1269050848
+:tags:
 - meetup
+:author: rtyler
 ---
 <a id="aptureLink_pnjVAv8djU" href="http://twitter.com/kohsukekawa">Kohsuke</a> just posted a brief write-up on [his personal blog](http://weblogs.java.net/blog/kohsuke/archive/2010/03/19/hudson-hackathon-day-1) about the first day of the [Bay Area Hudson hackathon/meetup](http://wiki.hudson-ci.org/display/HUDSON/Hudson+Bay+Area+Hackathon+2.0). He writes:
 

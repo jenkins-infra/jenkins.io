@@ -1,14 +1,15 @@
 ---
-layout: post
-title: Hudson 1.355 Released
-nodeid: 154
-created: 1272111900
-tags:
+:layout: post
+:title: Hudson 1.355 Released
+:nodeid: 154
+:created: 1272111900
+:tags:
 - development
 - feedback
 - just for fun
 - links
 - releases
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/hudson_street.jpg" align="right" hspace="3" width="150"/> The release of 1.355 came out earlier this week but I hadn't had the chance to write anything up about it. Of course, the work never stops on Hudson so we almost have 1.356 ready to roll out the door, but then Kohsuke tweeted this:
 

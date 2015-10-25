@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Andrew Bayer discusses Jenkins with Tim O'Brien
-nodeid: 342
-created: 1318860000
-tags:
+:layout: post
+:title: Andrew Bayer discusses Jenkins with Tim O'Brien
+:nodeid: 342
+:created: 1318860000
+:tags:
 - general
 - interview
 - javaone
+:author: rtyler
 ---
 Recently, Jenkins Interim Governance Board member and core contributor, [Andrew Bayer](https://twitter.com/abayer) sat down with [Tim O'Brien](https://twitter.com/tobrian) to discuss the Jenkins project.
 

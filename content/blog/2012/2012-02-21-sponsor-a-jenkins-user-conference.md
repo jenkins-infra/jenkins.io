@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Sponsor a Jenkins User Conference!
-nodeid: 375
-created: 1329838200
-tags:
+:layout: post
+:title: Sponsor a Jenkins User Conference!
+:nodeid: 375
+:created: 1329838200
+:tags:
 - general
 - juc
+:author: rtyler
 ---
 <img src="/images/user.gif" align="right"/>
 

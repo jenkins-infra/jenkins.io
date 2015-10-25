@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Security Fix! Hudson 1.365 Released
-nodeid: 223
-created: 1278432590
-tags:
+:layout: post
+:title: Security Fix! Hudson 1.365 Released
+:nodeid: 223
+:created: 1278432590
+:tags:
 - general
 - core
 - news
 - releases
+:author: rtyler
 ---
 The Hudson team has released Hudson 1.365 which contains a critical security fix! A security advisory [released yesterday by InfraDNA](http://infradna.com/content/security-advisory-2010-07-05) goes on to explain the hole with more detail:
 

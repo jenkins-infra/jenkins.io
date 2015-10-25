@@ -1,13 +1,14 @@
 ---
-layout: post
-title: Hudson 1.346 Released
-nodeid: 201
-created: 1266246000
-tags:
+:layout: post
+:title: Hudson 1.346 Released
+:nodeid: 201
+:created: 1266246000
+:tags:
 - development
 - feedback
 - just for fun
 - links
+:author: rtyler
 ---
 After some scrambling earlier in the week to get [1.345 out the door](http://blog.hudson-ci.org/content/breaking-hudson-1345-released), correcting some regressions in 1.344, the Hudson team still rolled out a 1.346 release last Friday, February 12th, 2010. Similar to the past couple releases, 1.346 had a good number of bug fixes, including a a performance fix when dealing with larger build submissions and a substantial revision of the SCM polling code to fix a long-standing issue with the quiet period blocking the build from running ([issue 2180](http://issues.hudson-ci.org/browse/HUDSON-2180)), there were also some additionally memory improvements made to <a id="aptureLink_sglHnjrHm5" href="http://en.wikipedia.org/wiki/Apache%20Jelly">Jelly</a>, the library with which the majority of Hudson's web interface is rendered, that Kohsuke will detail in a later post.
 

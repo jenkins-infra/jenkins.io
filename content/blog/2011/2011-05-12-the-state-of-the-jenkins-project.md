@@ -1,13 +1,14 @@
 ---
-layout: post
-title: The State of the Jenkins Project
-nodeid: 303
-created: 1305214200
-tags:
+:layout: post
+:title: The State of the Jenkins Project
+:nodeid: 303
+:created: 1305214200
+:tags:
 - general
 - core
 - meta
 - news
+:author: rtyler
 ---
 A few weeks ago our very own [Kohsuke Kawaguchi](http://www.twitter.com/kohsukekawa) gave a presentation at the [Silicon Valley CI Summit](http://events.linkedin.com/Silicon-Valley-Continuous-Integration/pub/591454) held in Mountain View.
 

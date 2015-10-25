@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Office hours this week: Git plugin refactoring'
-nodeid: 427
-created: 1372723508
-tags:
+:layout: post
+:title: 'Office hours this week: Git plugin refactoring'
+:nodeid: 427
+:created: 1372723508
+:tags:
 - development
 - plugins
+:author: kohsuke
 ---
 This Wednesday's [Jenkins office hours](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours) is all about the Git plugin refactoring that's going on.
 

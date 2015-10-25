@@ -1,10 +1,11 @@
 ---
-layout: post
-title: One month of Continuous Blog
-nodeid: 179
-created: 1268140500
-tags:
+:layout: post
+:title: One month of Continuous Blog
+:nodeid: 179
+:created: 1268140500
+:tags:
 - core
+:author: rtyler
 ---
 It's been a little over a month since I pinged Kohsuke about an "official Hudson blog"; my role has been nothing more than writer and editor of a community resource, while I have invested a lot of time in Continuous Blog it is not "mine" so much as it is "ours." I feel I have a responsibility as the current maintainer of this resource to be as open as possible about what's going on with CB. When I sat down to write the inaugural post, [Welcome to Continuous Blog](http://blog.hudson-ci.org/content/welcome-continuous-blog), I set forth a few goals:
 

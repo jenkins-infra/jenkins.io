@@ -1,11 +1,12 @@
 ---
-layout: post
-title: This Week in Plugins
-nodeid: 197
-created: 1266588600
-tags:
+:layout: post
+:title: This Week in Plugins
+:nodeid: 197
+:created: 1266588600
+:tags:
 - infrastructure
 - feedback
+:author: rtyler
 ---
 Last week's TWIP enumerated the release of **26** different plugin, this past week has seen 19 unique releases in comparison. You might be tempted to assume that *less* plugin development has occurred over the past week, which isn't the case. Last week a number of the releases were "code updates", i.e. plugins being rebuilt against the latest Hudson plugin API as opposed to new features or bug-fixes. With the releases of plugins this past week, it seems a large number of the releases contained new features and bug fixes, including **three new plugins!**
 

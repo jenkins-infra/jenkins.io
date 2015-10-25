@@ -1,11 +1,12 @@
 ---
-layout: post
-title: Wiki and issue tracker outage over the weekend
-nodeid: 596
-created: 1438723230
-tags:
+:layout: post
+:title: Wiki and issue tracker outage over the weekend
+:nodeid: 596
+:created: 1438723230
+:tags:
 - infrastructure
 - meta
+:author: danielbeck
 ---
 As you may have noticed, our wiki and issue tracker were unavailable from Thursday to Sunday last week. What happened?
 

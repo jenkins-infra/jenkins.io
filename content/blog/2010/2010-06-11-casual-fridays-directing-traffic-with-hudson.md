@@ -1,11 +1,12 @@
 ---
-layout: post
-title: 'Casual Fridays: Directing traffic with Hudson'
-nodeid: 213
-created: 1276275600
-tags:
+:layout: post
+:title: 'Casual Fridays: Directing traffic with Hudson'
+:nodeid: 213
+:created: 1276275600
+:tags:
 - general
 - just for fun
+:author: rtyler
 ---
 Intrepid Hudson user Christian Pelster posted a little project of his this week to the "users" [mailing list](/content/mailing-lists) called: **[hudsontrafficlights](http://code.google.com/p/hudsontrafficlights/)**. 
 

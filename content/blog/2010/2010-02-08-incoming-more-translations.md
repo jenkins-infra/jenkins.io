@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Incoming! More Translations
-nodeid: 151
-created: 1265637600
-tags:
+:layout: post
+:title: Incoming! More Translations
+:nodeid: 151
+:created: 1265637600
+:tags:
 - development
 - feedback
 - just for fun
+:author: rtyler
 ---
 As <a id="aptureLink_TBrShtrCPq" href="http://twitter.com/kohsukekawa">Kohsuke</a> mentioned on the dev@ [mailing list](http://wiki.hudson-ci.org/display/HUDSON/Mailing+List) on January 29th, another series of community translations of Hudson have been committed ([r26764](http://hudson-ci.org/commit/26764)) and have been released with the Hudson 1.344 release.
 

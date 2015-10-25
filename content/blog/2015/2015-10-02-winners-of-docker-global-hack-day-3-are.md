@@ -1,12 +1,13 @@
 ---
-layout: post
-title: 'Winners of Docker Global Hack Day #3 are...'
-nodeid: 631
-created: 1443809173
-tags:
+:layout: post
+:title: 'Winners of Docker Global Hack Day #3 are...'
+:nodeid: 631
+:created: 1443809173
+:tags:
 - general
 - plugins
 - jenkinsci
+:author: hinman
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/docker-hack-day_0.preview.jpg" width=320>

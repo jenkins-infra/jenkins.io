@@ -1,12 +1,13 @@
 ---
-layout: post
-title: Why does Jenkins have blue balls?
-nodeid: 377
-created: 1331650800
-tags:
+:layout: post
+:title: Why does Jenkins have blue balls?
+:nodeid: 377
+:created: 1331650800
+:tags:
 - general
 - just for fun
 - jenkinsci
+:author: rtyler
 ---
 <img src="http://agentdero.cachefly.net/continuousblog/images/japanese-traffic-light.png" align="right" alt="A japanese traffic light"/> It is interesting having an open source project that is sufficiently old to start generating "lore" of some form or another. Jenkins is starting to get to be that age, having been started over 6 years ago.
 
