@@ -23,7 +23,13 @@ class DrupalImport
             WHERE (node.type = 'blog' OR node.type = 'story' OR node.type = 'page') AND \
                 (node_revisions.format = filter_formats.format) AND \
                 (node.uid = users.uid) \
-            AND node.vid = node_revisions.vid"
+            AND node.vid = node_revisions.vid \
+            ORDER BY node.nid"
+
+  # Replace any DOS-style line endings with good proper unix newlines
+  def self.convert_line_endings(content)
+    return content.gsub(/\r\n?/, "\n")
+  end
 
   def self.process(dbname, user, pass, host = 'localhost', port=5432)
     db = Sequel.connect("jdbc:postgresql://#{host}/#{dbname}?user=#{user}&password=#{pass}")
@@ -44,10 +50,11 @@ EOF
     end
 
     db[QUERY].each do |post|
-      # Get required fields and construct Jekyll compatible name
+      print '.'
+      # Get required fields and construct a useful name
       node_id = post[:nid]
       title = post[:title]
-      content = post[:body]
+      content = convert_line_endings(post[:body])
       created = post[:created]
       time = Time.at(created)
       is_published = post[:status] == 1
@@ -61,7 +68,6 @@ EOF
       slug = title.strip.downcase.gsub(/(&|&amp;)/, ' and ').gsub(/[\s\.\/\\]/, '-').gsub(/[^\w-]/, '').gsub(/[-_]{2,}/, '-').gsub(/^[-_]/, '').gsub(/[-_]$/, '')
       format_name = post[:format_name]
 
-      puts title
       if format_name.downcase == "markdown"
         format = "md"
       else
@@ -69,12 +75,14 @@ EOF
         if format_name.downcase == "filtered html" or format_name.downcase == "full html"
           process_filtered_html!(content)
         end
-      end
 
+        # convert unclosed tags to make sure awestruct doesn't explode on tags
+        # left open
+        content = content.gsub("<br>", "<br/>")
+      end
 
       post_dir = time.strftime('%Y')
       name = time.strftime("%Y-%m-%d-") + slug + ".#{format}"
-
 
       tags = []
       tags_query = "SELECT name FROM term_data WHERE tid IN \
@@ -95,18 +103,18 @@ EOF
           :author => post[:name],
         }.delete_if { |k,v| v.nil? || v == ''}.to_yaml
 
+      redirect_path = "/#{dir}/#{time.strftime('%Y/%m/%d')}/#{slug}"
+
       if is_published
         dir = "#{dir}/#{post_dir}"
         FileUtils.mkdir_p dir
       end
 
-      redirect_path = "/#{dir}/#{time.strftime('%Y-%m-%d')}-#{slug}"
-
       # Write out the data and content to file
       File.open("#{dir}/#{name}", "w") do |f|
         f.puts data
         f.puts "---"
-        f.puts content.gsub(/\r\n?/, "\n")
+        f.puts content
       end
 
       # Make a file to redirect from the old Drupal URL
@@ -123,7 +131,6 @@ EOF
         path_query = "SELECT src, dst FROM url_alias WHERE src = 'node/#{node_id}'"
 
         db[path_query].each do |row|
-          puts "Write alias for #{node_id} => #{row[:dst]}"
           if row[:dst].start_with? '/'
             row[:dst] = row[:dst][1 .. -1]
           end
