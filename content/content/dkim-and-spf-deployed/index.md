@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /blog/2013/2013-11-17-dkim-and-spf-deployed
+:refresh_to_post_id: /blog/2013/11/17/dkim-and-spf-deployed
 ---

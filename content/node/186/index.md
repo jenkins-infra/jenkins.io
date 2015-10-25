@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /blog/2010/2010-03-02-what-new-features-do-you-want-to-see
+:refresh_to_post_id: /blog/2010/03/02/what-new-features-do-you-want-to-see
 ---

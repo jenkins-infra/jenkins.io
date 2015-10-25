@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /blog/2010/2010-03-01-hudson-1-348-released
+:refresh_to_post_id: /blog/2010/03/01/hudson-1-348-released
 ---

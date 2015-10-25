@@ -46,7 +46,6 @@ class YearPosts < Awestruct::Extensions::Posts
           page.slug ||= slug
           context = page.create_context
           page.output_path = "#{@path_prefix}/#{year}/#{month}/#{day}/#{page.slug}.html"
-          puts "Registering \"#{page.title}\" as a blog post"
           posts << page
         end
       end

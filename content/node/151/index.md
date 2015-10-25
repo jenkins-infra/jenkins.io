@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /blog/2010/2010-02-08-incoming-more-translations
+:refresh_to_post_id: /blog/2010/02/08/incoming-more-translations
 ---
