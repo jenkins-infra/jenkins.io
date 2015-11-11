@@ -9,6 +9,10 @@
 - news
 :author: rtyler
 ---
+**Updated 2015-11-11 15:00 UTC:** We have released Jenkins 1.638 and 1.625.2 which contain a fix for this vulnerability. [See the security advisory for more information about these releases](https://wiki.jenkins-ci.org/display/SECURITY/Jenkins+Security+Advisory+2015-11-11).
+
+---
+
 **Updated 2015-11-06 03:55 UTC:** Included a updated mitigation script which doesn't have a Jenkins boot race condition
 
 ---
