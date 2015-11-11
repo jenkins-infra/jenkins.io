@@ -19,6 +19,8 @@ Awestruct::Extensions::Pipeline.new do
                                                 '/rss.xml',
                                                 :feed_title => 'Jenkins Blog')
 
+  extension Awestruct::Extensions::Sitemap.new
+
   helper Awestruct::Extensions::Partial
   helper Awestruct::Extensions::GoogleAnalytics
 end
