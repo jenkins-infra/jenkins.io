@@ -5,7 +5,7 @@
 :created: 1439455436
 :tags:
 - infrastructure
-:author: danielbeck
+:author: daniel-beck
 ---
 [I recently wrote about the two day outage of our wiki and issue tracker](https://jenkins-ci.org/content/wiki-and-issue-tracker-outage-over-weekend):
 

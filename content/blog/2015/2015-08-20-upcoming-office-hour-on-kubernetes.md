@@ -8,7 +8,7 @@
 - plugins
 - screencast
 - tutorial
-:author: danielbeck
+:author: daniel-beck
 ---
 [Nicolas De Loof](https://github.com/ndeloof) will host an [office hour](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours) [next Wednesday 11 AM PDT](http://www.timeanddate.com/worldclock/fixedtime.html?msg=Jenkins+Office+Hours&iso=20150826T11&p1=283&ah=1) on integrating Kubernetes with Jenkins. [Kubernetes](http://kubernetes.io/) is an open-source project by Google that provides a platform for managing [Docker](http://docker.io/) containers as a cluster.
 

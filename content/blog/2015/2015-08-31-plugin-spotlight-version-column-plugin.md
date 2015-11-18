@@ -6,7 +6,7 @@
 :tags:
 - general
 - plugins
-:author: danielbeck
+:author: daniel-beck
 ---
 Most Jenkins masters with a [distributed build](https://wiki.jenkins-ci.org/display/JENKINS/Distributed+builds) configuration will leverage nodes that run a `slave.jar` to start a slave agent. Regardless of whether the `slave.jar` is launched through a Java Web Start or SSH launcher, the jar will be copied from `http://yourserver:port/jnlpJars/slave.jar` to the build node. Keeping this jar up to date ensures that it picks up the newest features in a more recent release, such as the [self-restart feature](http://jenkins-ci.org/content/your-java-web-start-slaves-will-be-always-clean) to keep slave JVMs “clean” and to automatically reconnect to their master. Additionally, newer versions of this component may fix bugs or implement newer protocol versions with various improvements.
 

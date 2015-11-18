@@ -7,7 +7,7 @@
 - general
 - meetup
 - news
-:author: danielbeck
+:author: daniel-beck
 ---
 We're currently setting up a program to support community members' travel to Jenkins community events. Our goal is to enable more members of the community to meet each other and exchange ideas in person.
 

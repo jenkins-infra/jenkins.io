@@ -7,7 +7,7 @@
 - general
 - cia
 - meetup
-:author: alyssa
+:author: alyssat
 ---
 <div style="float:right; margin:1em">
 <img src="http://jenkins-ci.org/sites/default/files/images/october-jams-image_0.jpeg" width=250/>
