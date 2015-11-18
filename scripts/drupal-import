@@ -159,10 +159,22 @@ class DrupalImport
   def self.process_page(post, db)
     content = convert_line_endings(post[:body])
 
+    format_name = post[:format_name].downcase
+
+    if format_name == "markdown"
+      format = "md"
+    else
+      format = "html"
+      if format_name == "filtered html" or format_name == "full html"
+        process_filtered_html!(content)
+      end
+    end
+
     path_query = "SELECT src, dst FROM url_alias WHERE src = 'node/#{post[:nid]}'"
+    redirect_path = nil
     # Let's grab the fancy URL and just write a page for that
     db[path_query].each do |row|
-      path = full_path = row[:dst]
+      path = row[:dst]
 
       # If we have a leading slash, let's trim it such that:
       # /stable-rc -> stable-rc
@@ -172,16 +184,25 @@ class DrupalImport
 
       FileUtils.mkdir_p path
 
-      File.open("#{path}/index.md", "w+") do |f|
-        f.puts extract_data_from(post, db)
-        f.puts "---"
-        f.puts content
+      if redirect_path
+        # if we've already found the "main URL" then the rest of our URL
+        # aliases should be redirects
+        File.open("#{row[:dst]}/index.md", "w") do |f|
+          f.puts({
+              :layout => 'refresh',
+              :refresh_to_post_id => redirect_path}.to_yaml)
+          f.puts "---"
+        end
+      else
+        redirect_path = "/#{path}"
+        File.open("#{path}/index.#{format}", "w+") do |f|
+          f.puts extract_data_from(post, db)
+          f.puts "---"
+          f.puts content
+        end
+
+        write_nid_redirects_to(redirect_path, post)
       end
-
-      write_nid_redirects_to("/#{path}", post)
-
-      # We're only going to do this once
-      break
     end
   end
 
