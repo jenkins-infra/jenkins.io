@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /blog/2011/01/28/account
+:refresh_to_post_id: /account
 ---

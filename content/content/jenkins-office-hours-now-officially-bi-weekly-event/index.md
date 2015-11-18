@@ -1,4 +1,17 @@
 ---
-:layout: refresh
-:refresh_to_post_id: /blog/2011/06/27/jenkins-office-hours-now-officially-a-bi-weekly-event
+:layout: post
+:title: Jenkins Office Hours, now officially a bi-weekly event
+:nodeid: 323
+:created: 1309198896
+:tags:
+- general
+:author: kohsuke
 ---
+<p>
+In May, we launched <a href="https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours">Jenkins Office Hours</a>.  This was inspired by <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+plugin+development+in+Ruby">Jenkins Ruby hack sessions</a> by <a href="http://twitter.com/#!/cowboyd">cowboyd</a>, and the idea is to use an interactive online meeting to drive some sub-projects, bootstrap new plugin developers by pointing them to the right extension points, and/or bringing existing community members to discuss some specific key parts of Jenkins and its plugins.
+
+<p>
+The <a href="https://wiki.jenkins-ci.org/display/JENKINS/User+Office+Hours+Week+20">first</a> <a href="https://wiki.jenkins-ci.org/display/JENKINS/Dev+Office+Hours+Week+20">two</a> meetings were very popular, but our trial WebEx account expired, and since then we were looking for a sponsor to host this event. And I am happy to report that with a help from Max Spring, now we can get the office hours going again.
+
+<p>
+So the Jenkins office hours will be bi-weekly events, starting this Wednesday (6/29). <a href="https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours">See the wiki page</a> for details and agenda</a>. Looking forward to seeing you!

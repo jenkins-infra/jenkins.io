@@ -1,4 +1,10 @@
 ---
-:layout: refresh
-:refresh_to_post_id: /blog/2011/01/28/account
+:layout: post
+:title: Account
+:nodeid: 274
+:created: 1296269632
+:tags:
+- general
+:author: kohsuke
 ---
+<iframe style="border:0px; width:100%; height: 80em" src="/account/"></iframe>

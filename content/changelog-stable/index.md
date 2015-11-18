@@ -1,4 +1,12 @@
 ---
-:layout: refresh
-:refresh_to_post_id: /blog/2011/06/08/lts-changelog
+:layout: post
+:title: LTS Changelog
+:nodeid: 312
+:created: 1307579994
+:tags:
+- general
+:author: kohsuke
 ---
+<?php
+  readfile("/var/www/jenkins-ci.org/changelog-stable.html")
+?>

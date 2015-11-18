@@ -1,4 +1,12 @@
 ---
-:layout: refresh
-:refresh_to_post_id: /blog/2010/07/31/changelog
+:layout: post
+:title: Changelog
+:nodeid: 234
+:created: 1280620176
+:tags:
+- general
+:author: kohsuke
 ---
+<?php
+  readfile("/var/www/jenkins-ci.org/changelog.html")
+?>
