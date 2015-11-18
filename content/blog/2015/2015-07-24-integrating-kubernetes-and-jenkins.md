@@ -7,7 +7,7 @@
 - general
 - plugins
 - video
-:author: danielbeck
+:author: daniel-beck
 ---
 [Kubernetes](http://kubernetes.io/) is an open-source project by Google that provides a platform for managing Docker containers as a cluster. In their own words:
 

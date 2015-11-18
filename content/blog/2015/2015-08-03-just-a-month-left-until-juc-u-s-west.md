@@ -6,7 +6,7 @@
 :tags:
 - general
 - juc
-:author: danielbeck
+:author: daniel-beck
 ---
 There's only a month left until [JUC U.S. West on September 2-3](https://www.cloudbees.com/jenkins/juc-2015/us-west)! If you're still on the fence, check out the recaps of JUC Europe talks recently posted to the CloudBees blog. These should give you an idea about the kinds of talks you can expect at a Jenkins User Conference:
 

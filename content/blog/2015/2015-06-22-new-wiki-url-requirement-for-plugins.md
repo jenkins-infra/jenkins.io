@@ -7,7 +7,7 @@
 - general
 - meta
 - plugins
-:author: danielbeck
+:author: daniel-beck
 ---
 Let's say you're browsing the 'Available' tab in the Jenkins plugin manager for interesting-looking plugins. How do you learn more about them, preferably without installing them on your production instance? You click the plugin's name, which usually links to the plugin's wiki page, of course!
 

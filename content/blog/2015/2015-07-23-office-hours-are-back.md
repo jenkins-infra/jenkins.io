@@ -7,7 +7,7 @@
 - general
 - meta
 - news
-:author: danielbeck
+:author: daniel-beck
 ---
 After several months of inactivity, [office hours](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours), the bi-weekly meeting of Jenkins users and developers to learn more about Jenkins, are back.
 

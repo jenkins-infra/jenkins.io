@@ -1,4 +1,10 @@
 ---
-:layout: refresh
-:refresh_to_post_id: /blog/2011/05/13/new-download-link-test
+:layout: post
+:title: New download link test
+:nodeid: 305
+:created: 1305332848
+:tags:
+- general
+:author: kohsuke
 ---
+I'm testing the new download page.

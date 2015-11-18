@@ -6,7 +6,7 @@
 :tags:
 - general
 - guest post
-:author: danielbeck
+:author: daniel-beck
 ---
 *This is a guest post by Kirill Merkushev at Yandex. I met him at JUC Europe where he showed me the project he was working on: Juseppe. It looked really interesting, so I asked him to write this guest post.*
 

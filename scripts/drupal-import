@@ -5,6 +5,11 @@ require 'fileutils'
 require 'yaml'
 
 class DrupalImport
+  # Users map is to map drupal to github users for authorship
+  USERS_MAP = {
+    'alyssa' => 'alyssat',
+    'danielbeck' => 'daniel-beck',
+  }
   # Reads a database via Sequel and creates a post file for each post
   # in wp_posts that has post_status = 'publish'. This restriction is made
   # because 'draft' posts are not guaranteed to have valid dates.
@@ -13,6 +18,7 @@ class DrupalImport
                   node_revisions.body, \
                   node.created, \
                   node.status, \
+                  node.type, \
                   node_revisions.format, \
                   users.name, \
                   filter_formats.name format_name \
@@ -28,7 +34,176 @@ class DrupalImport
 
   # Replace any DOS-style line endings with good proper unix newlines
   def self.convert_line_endings(content)
-    return content.gsub(/\r\n?/, "\n")
+    # convert unclosed tags to make sure awestruct doesn't explode on tags
+    # left open
+    return content.gsub(/\r\n?/, "\n").gsub("<br>", "<br/>")
+  end
+
+  def self.title_to_slug(title)
+    # This is madness
+    return title.strip.downcase.gsub(/(&|&amp;)/, ' and ').gsub(/[\s\.\/\\]/, '-').gsub(/[^\w-]/, '').gsub(/[-_]{2,}/, '-').gsub(/^[-_]/, '').gsub(/[-_]$/, '')
+  end
+
+  def self.lookup_author(post)
+    name = post[:name]
+    if USERS_MAP[name]
+      return USERS_MAP[name]
+    end
+    return name
+  end
+
+  def self.process_blog(post, db)
+    content = convert_line_endings(post[:body])
+    slug = title_to_slug(post[:title])
+
+    dir = 'blog'
+
+    format_name = post[:format_name].downcase
+
+    if format_name == "markdown"
+      format = "md"
+    else
+      format = "html"
+      if format_name == "filtered html" or format_name == "full html"
+        process_filtered_html!(content)
+      end
+    end
+
+    time = Time.at(post[:created])
+    post_dir = time.strftime('%Y')
+    name = time.strftime("%Y-%m-%d-") + slug + ".#{format}"
+    redirect_path = "/#{dir}/#{time.strftime('%Y/%m/%d')}/#{slug}"
+
+    dir = "#{dir}/#{post_dir}"
+    FileUtils.mkdir_p dir
+
+    # Write out the data and content to file
+    File.open("#{dir}/#{name}", "w") do |f|
+      f.puts extract_data_from(post, db)
+      f.puts "---"
+      f.puts content
+    end
+
+    # Make a file to redirect from the old Drupal URL
+    write_redirects_to(redirect_path, post, db)
+    write_nid_redirects_to(redirect_path, post)
+  end
+
+
+  # write the node redirect, drupal nodes are always reachable by
+  # nod/{{node_id}} so we should maintain those URIs if possible
+  def self.write_nid_redirects_to(redirect_path, post)
+    node_id = post[:nid]
+
+    FileUtils.mkdir_p "node/#{node_id}"
+
+    File.open("node/#{node_id}/index.md", "w") do |f|
+      f.puts({
+          :layout => 'refresh',
+          :refresh_to_post_id => redirect_path}.to_yaml)
+      f.puts "---"
+    end
+  end
+
+  # Write some redirect files to make sure that some of the url_aliases in the
+  # drupal data model get written to index.html files which redirect to the
+  # desired path
+  def self.write_redirects_to(redirect_path, post, db)
+    path_query = "SELECT src, dst FROM url_alias WHERE src = 'node/#{post[:nid]}'"
+
+    db[path_query].each do |row|
+      if row[:dst].start_with? '/'
+        row[:dst] = row[:dst][1 .. -1]
+      end
+
+      FileUtils.mkdir_p(row[:dst])
+
+      File.open("#{row[:dst]}/index.md", "w") do |f|
+        f.puts({
+            :layout => 'refresh',
+            :refresh_to_post_id => redirect_path}.to_yaml)
+        f.puts "---"
+      end
+    end
+  end
+
+  def self.lookup_tags(post, db)
+    tags = []
+    tags_query = "SELECT name FROM term_data WHERE tid IN \
+                  (SELECT tid FROM term_node WHERE nid = #{post[:nid]})"
+
+    db[tags_query].each do |row|
+      tags << row[:name].downcase.strip
+    end
+
+    return tags.uniq
+  end
+
+  # Get the relevant fields as a hash, delete empty fields and convert
+  # to YAML for the header
+  def self.extract_data_from(post, db, options={:layout => 'post'})
+    created = post[:created]
+
+    return {
+        :layout => options[:layout],
+        :title => post[:title],
+        :nodeid => post[:nid],
+        :created => created,
+        :tags => lookup_tags(post, db),
+        :author => lookup_author(post),
+      }.delete_if { |k,v| v.nil? || v == ''}.to_yaml
+  end
+
+
+  # Process a page data type
+  def self.process_page(post, db)
+    content = convert_line_endings(post[:body])
+
+    format_name = post[:format_name].downcase
+
+    if format_name == "markdown"
+      format = "md"
+    else
+      format = "html"
+      if format_name == "filtered html" or format_name == "full html"
+        process_filtered_html!(content)
+      end
+    end
+
+    path_query = "SELECT src, dst FROM url_alias WHERE src = 'node/#{post[:nid]}'"
+    redirect_path = nil
+    # Let's grab the fancy URL and just write a page for that
+    db[path_query].each do |row|
+      path = row[:dst]
+
+      # If we have a leading slash, let's trim it such that:
+      # /stable-rc -> stable-rc
+      if path[0] == '/'
+        path = path[1 .. -1]
+      end
+
+      FileUtils.mkdir_p path
+
+      if redirect_path
+        # if we've already found the "main URL" then the rest of our URL
+        # aliases should be redirects
+        File.open("#{row[:dst]}/index.md", "w") do |f|
+          f.puts({
+              :layout => 'refresh',
+              :refresh_to_post_id => redirect_path}.to_yaml)
+          f.puts "---"
+        end
+      else
+        redirect_path = "/#{path}"
+        File.open("#{path}/index.#{format}", "w+") do |f|
+          f.puts extract_data_from(post, db)
+          f.puts "---"
+          f.puts content
+        end
+
+        write_nid_redirects_to(redirect_path, post)
+      end
+    end
   end
 
   def self.process(dbname, user, pass, host = 'localhost', port=5432)
@@ -50,106 +225,20 @@ EOF
     end
 
     db[QUERY].each do |post|
+      # skip all drafts (i.e. not published nodes)
+      next unless post[:status] == 1
+
       print '.'
-      # Get required fields and construct a useful name
-      node_id = post[:nid]
-      title = post[:title]
-      content = convert_line_endings(post[:body])
-      created = post[:created]
-      time = Time.at(created)
-      is_published = post[:status] == 1
-
-      dir = 'blog'
-
-      if is_published == false
-        dir = '_drafts'
-      end
-
-      slug = title.strip.downcase.gsub(/(&|&amp;)/, ' and ').gsub(/[\s\.\/\\]/, '-').gsub(/[^\w-]/, '').gsub(/[-_]{2,}/, '-').gsub(/^[-_]/, '').gsub(/[-_]$/, '')
-      format_name = post[:format_name]
-
-      if format_name.downcase == "markdown"
-        format = "md"
+      if (post[:type] == 'blog') || (post[:type] == 'story')
+        process_blog(post, db)
       else
-        format = "html"
-        if format_name.downcase == "filtered html" or format_name.downcase == "full html"
-          process_filtered_html!(content)
-        end
-
-        # convert unclosed tags to make sure awestruct doesn't explode on tags
-        # left open
-        content = content.gsub("<br>", "<br/>")
-      end
-
-      post_dir = time.strftime('%Y')
-      name = time.strftime("%Y-%m-%d-") + slug + ".#{format}"
-
-      tags = []
-      tags_query = "SELECT name FROM term_data WHERE tid IN \
-                    (SELECT tid FROM term_node WHERE nid = #{node_id})"
-
-      db[tags_query].each do |row|
-        tags << row[:name].downcase.strip
-      end
-
-      # Get the relevant fields as a hash, delete empty fields and convert
-      # to YAML for the header
-      data = {
-          :layout => 'post',
-          :title => title.to_s,
-          :nodeid => node_id,
-          :created => created,
-          :tags => tags,
-          :author => post[:name],
-        }.delete_if { |k,v| v.nil? || v == ''}.to_yaml
-
-      redirect_path = "/#{dir}/#{time.strftime('%Y/%m/%d')}/#{slug}"
-
-      if is_published
-        dir = "#{dir}/#{post_dir}"
-        FileUtils.mkdir_p dir
-      end
-
-      # Write out the data and content to file
-      File.open("#{dir}/#{name}", "w") do |f|
-        f.puts data
-        f.puts "---"
-        f.puts content
-      end
-
-      # Make a file to redirect from the old Drupal URL
-      if is_published
-        FileUtils.mkdir_p "node/#{node_id}"
-
-        File.open("node/#{node_id}/index.md", "w") do |f|
-          f.puts({
-              :layout => 'refresh',
-              :refresh_to_post_id => redirect_path}.to_yaml)
-          f.puts "---"
-        end
-
-        path_query = "SELECT src, dst FROM url_alias WHERE src = 'node/#{node_id}'"
-
-        db[path_query].each do |row|
-          if row[:dst].start_with? '/'
-            row[:dst] = row[:dst][1 .. -1]
-          end
-
-          FileUtils.mkdir_p(row[:dst])
-
-          File.open("#{row[:dst]}/index.md", "w") do |f|
-            f.puts({
-                :layout => 'refresh',
-                :refresh_to_post_id => redirect_path}.to_yaml)
-            f.puts "---"
-          end
-        end
+        process_page(post, db)
       end
     end
   end
 
   def self.process_filtered_html!(content)
-    content.gsub!(/\n/, "<br>\n")
+    content.gsub!(/\n/, "<br/>\n")
   end
 
   def self.process_source_tags!(content)

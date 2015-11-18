@@ -6,7 +6,7 @@
 :tags:
 - infrastructure
 - meta
-:author: danielbeck
+:author: daniel-beck
 ---
 As you may have noticed, our wiki and issue tracker were unavailable from Thursday to Sunday last week. What happened?
 

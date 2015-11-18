@@ -7,7 +7,7 @@
 - development
 - guest post
 - plugins
-:author: danielbeck
+:author: daniel-beck
 ---
 *This is a guest post by Manuel Recena Soto (aka recena).*
 

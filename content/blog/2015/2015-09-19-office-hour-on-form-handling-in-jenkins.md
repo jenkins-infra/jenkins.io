@@ -6,7 +6,7 @@
 :tags:
 - general
 - office hours
-:author: danielbeck
+:author: daniel-beck
 ---
 **Update: This week's office hour has been canceled.**
 

@@ -7,7 +7,7 @@
 - development
 - meta
 - plugins
-:author: danielbeck
+:author: daniel-beck
 ---
 With more than a thousand public plugins in the Jenkins community now, it should come as no surprise that some of them are no longer actively maintained. Plugin authors move on when they change jobs, or lose interest in the plugin, and that's fine. Plugins are hosted on the Jenkins project infrastructure after all, and when a maintainer moves on, others can continue their work.
 
