@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+#
+# This script is responsible for reaching out to the internet and downloading
+# external content which needs to be built into the site.
+
+
+require 'faraday'
+require 'uri'
+require 'yaml'
+
+
+RESOURCES = [
+  [
+    'https://raw.githubusercontent.com/jenkinsci/jenkins/master/changelog.html',
+    'content/changelog/index.html',
+    {
+      :layout => 'post',
+      :title => 'Changelog',
+    }
+  ],
+]
+
+
+class Fetcher
+  # Fetch a single resource and return the +Faraday::Response+ for it
+  #
+  # This abstraction exists so more behaviors (caching, etc) can be injected
+  # into the fetching of specific resources themeslves
+  def fetch_resource(origin)
+    return Faraday.get(origin)
+  end
+
+  # process a list of resources and generate files from them
+  def process(resources)
+    failures = []
+
+    resources.each do |origin, destination, frontmatter|
+      response = fetch_resource(origin)
+
+      unless response.success?
+        failures << [response, origin]
+        next
+      end
+
+      File.open(destination, 'w+') do |f|
+        f.write(frontmatter.to_yaml)
+        f.write("---\n")
+        f.write(response.body)
+      end
+    end
+
+    # If we collected any failures, dump those out while we're here
+    unless failures.empty?
+      puts "Failed processing resources!"
+      puts
+      failures.each do |response, origin|
+        puts "#{origin} #{response.inspect}"
+      end
+      exit 1
+    end
+  end
+end
+
+
+Fetcher.new.process(RESOURCES)
