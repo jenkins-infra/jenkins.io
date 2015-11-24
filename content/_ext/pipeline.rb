@@ -1,4 +1,5 @@
 require 'yearposts'
+require 'releases'
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
@@ -20,6 +21,8 @@ Awestruct::Extensions::Pipeline.new do
                                                 :feed_title => 'Jenkins Blog')
 
   extension Awestruct::Extensions::Sitemap.new
+
+  extension Releases.new
 
   helper Awestruct::Extensions::Partial
   helper Awestruct::Extensions::GoogleAnalytics
