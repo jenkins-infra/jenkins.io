@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /license
+:refresh_to_post_id: "/license"
 ---

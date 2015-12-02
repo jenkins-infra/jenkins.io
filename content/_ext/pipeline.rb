@@ -1,4 +1,5 @@
 require 'yearposts'
+require 'debuggable-partial'
 require 'releases'
 
 Awestruct::Extensions::Pipeline.new do
@@ -24,7 +25,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Releases.new
 
-  helper Awestruct::Extensions::Partial
+  helper DebuggablePartial
   helper Awestruct::Extensions::GoogleAnalytics
 end
 
