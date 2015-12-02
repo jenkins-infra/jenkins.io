@@ -1,4 +1,4 @@
 ---
 :layout: refresh
-:refresh_to_post_id: /content/home-page
+:refresh_to_post_id: "/content/home-page"
 ---
