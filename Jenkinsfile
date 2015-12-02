@@ -3,6 +3,14 @@
  * "Docker" so we can have our own isolated build environment
  */
 node('docker') {
+    stage 'Clean workspace'
+    /* Running on a fresh Docker instance makes this redundant, but just in
+     * case the host isn't configured to give us a new Docker image for every
+     * build, make sure we clean things before we do anything
+     */
+    deleteDir()
+
+
     stage 'Checkout source'
     /*
      * For a standalone workflow script, we would use the `git` step
@@ -21,6 +29,7 @@ node('docker') {
      */
     checkout scm
 
+
     stage 'Build site'
     /* If the slave can't gather resources and build the site in 30 minutes,
      * something is very wrong
@@ -29,7 +38,7 @@ node('docker') {
         /* Invoke Gradle which has the actual task graph defined inside of it
          * for the building of the site
          */
-        sh './gradlew --info --stacktrace'
+        sh './gradlew --no-color --no-daemon --info --stacktrace'
     }
 
 
@@ -39,7 +48,8 @@ node('docker') {
      * that artifact so we can pick it up later
      */
     archive 'build/**/*.zip'
-
+    /* stash the archived site so we can pull it back out when we deploy */
+    stash includes: 'build/**/*.zip', name: 'built-site'
 }
 
 
