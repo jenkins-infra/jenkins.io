@@ -4,32 +4,45 @@
 buildscript {
     repositories {
         jcenter()
+        maven {
+            url 'https://plugins.gradle.org/m2'
+        }
     }
     dependencies {
         classpath "org.ajoberstar:gradle-git:1.2.0"
         classpath "com.github.jruby-gradle:jruby-gradle-plugin:[1.1.4,2.0)"
+        /*
+         * not available on jcenter, only the Gradle plugins portal, this
+         * plugin also wasn't published with the proper maven metadata so we
+         * must fetch the version specifically for it
+         */
+        classpath 'gradle.plugin.com.craigburke.gradle:bower-installer-gradle:2.4.1'
     }
 }
 apply plugin: 'org.ajoberstar.github-pages'
 apply plugin: 'com.github.jruby-gradle.base'
+apply plugin: 'com.craigburke.bower-installer'
 
 import org.ajoberstar.grgit.Grgit
+import com.github.jrubygradle.JRubyExec
 
-def gitRef = Grgit.open('.')?.head()?.abbreviatedId
+ext.gitRef = Grgit.open('.')?.head()?.abbreviatedId
+ext.siteOutputDir = "${buildDir}/_site"
 
 description = 'Build for generating jenkins.io'
-version = "2.0.${System.env.BUILD_NUMBER ?: '0'}+${gitRef}"
+version = "2.0.${System.env.BUILD_NUMBER ?: '0'}+${ext.gitRef}"
 defaultTasks 'assemble', 'archive'
+
+
+jruby {
+    defaultVersion jrubyVersion
+    execVersion jrubyVersion
+}
 
 configurations {
     asciidoctor
     jekyllImport
     externalFetcher
-}
-
-jruby {
-    defaultVersion jrubyVersion
-    execVersion jrubyVersion
 }
 
 dependencies {
@@ -53,7 +66,24 @@ dependencies {
     externalFetcher 'rubygems:faraday:[0.9.2,1.0)'
 }
 
-import com.github.jrubygradle.JRubyExec
+/* for fetching javascript assets that we need for building the legacy and new
+ * versions of the site
+ */
+bower {
+    /* weird syntax is weird */
+
+    /* jQuery and jQuery UI are both used by the "legacy" download picker and
+     * can likely go away once the legacy site is sunsetted
+     */
+    'jquery' ('1.11.3') {
+        source 'dist/**'
+    }
+    'jquery-ui' ('1.11.4') {
+        source '**/*.js'
+        source 'themes/base/**' >> 'themes/base/'
+    }
+}
+
 
 task fetchExternalResources(type: JRubyExec) {
     group 'Site'
@@ -63,24 +93,14 @@ task fetchExternalResources(type: JRubyExec) {
     inputs.source file("${projectDir}/scripts/fetch-external-resources")
 }
 
-task copyLegacyAssets(type: Copy) {
-    group 'Site'
-    description 'Copy legacy Drupal assets to preserve legacy content rendering'
-    File targetDir = file("${buildDir}/_site/sites/default/files")
-    targetDir.mkdirs()
-
-    destinationDir = targetDir
-    from "${projectDir}/legacy/files"
-}
-
 task compileContent(type: JRubyExec) {
     group 'Site'
     description 'Compile the site using the awestruct CLI'
-    dependsOn fetchExternalResources, copyLegacyAssets
+    dependsOn 'fetchExternalResources', 'copyLegacyAssets'
     script 'awestruct'
     scriptArgs '--generate', '--verbose',
                 '--source-dir', "${projectDir}/${contentDir}",
-                '--output-dir', "${buildDir}/_site"
+                '--output-dir', project.ext.siteOutputDir
     /* without the --force option, awestruct is not smart enough to regenerate
      * files based on includes */
     configuration 'asciidoctor'
@@ -92,10 +112,22 @@ task compileContent(type: JRubyExec) {
                     .include("${contentDir}/**/*.md")
 }
 
+task prepareJavaScripts(type: Copy) {
+    group 'Site'
+    description 'Fetch JavaScript/CSS dependencies for generating the site'
+    dependsOn bowerInstall
+
+    def assetsDir = file("${project.ext.siteOutputDir}/assets")
+    assetsDir.mkdirs()
+
+    destinationDir = assetsDir
+    from "${projectDir}/src/assets"
+}
+
 task assemble {
     group 'Site'
     description 'Assemble the full site'
-    dependsOn fetchExternalResources, compileContent
+    dependsOn fetchExternalResources, compileContent, prepareJavaScripts
 }
 
 task archive(type: Zip) {
@@ -103,23 +135,28 @@ task archive(type: Zip) {
     description 'Create a zip archive of the site for deployment'
     dependsOn assemble
     archiveName "jenkins.io-${project.version}.zip"
-    from "${buildDir}/_site"
+    from project.ext.siteOutputDir
 
     File targetDir = file("${buildDir}/archives")
     targetDir.mkdirs()
     destinationDir = targetDir
 }
 
+/* PUBLISHING */
+////////////////////////////////////////////////////////////////////////////////
 githubPages {
     repoUri = 'git@github.com:jenkins-infra/jenkins.io.git'
     targetBranch = 'gh-pages'
     pages {
-        from "${buildDir}/_site"
+        from project.ext.siteOutputDir
         from "${projectDir}/CNAME"
     }
 }
 publishGhPages.dependsOn assemble
 
+
+/* LEGACY TASKS */
+////////////////////////////////////////////////////////////////////////////////
 task importFromDrupal(type: JRubyExec) {
     group 'Other'
     description 'Import the legacy Drupal site directly from a DB'
@@ -128,4 +165,14 @@ task importFromDrupal(type: JRubyExec) {
     configuration 'jekyllImport'
     workingDir "${projectDir}/${contentDir}"
     inputs.source file("${projectDir}/scripts/drupal-import")
+}
+
+task copyLegacyAssets(type: Copy) {
+    group 'Site'
+    description 'Copy legacy Drupal assets to preserve legacy content rendering'
+    File targetDir = file("${project.ext.siteOutputDir}/sites/default/files")
+    targetDir.mkdirs()
+
+    destinationDir = targetDir
+    from "${projectDir}/legacy/files"
 }
