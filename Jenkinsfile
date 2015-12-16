@@ -9,6 +9,7 @@ node('docker') {
      * build, make sure we clean things before we do anything
      */
     deleteDir()
+    sh 'ls -lah'
 
 
     stage 'Checkout source'
@@ -50,6 +51,21 @@ node('docker') {
     archive 'build/**/*.zip'
     /* stash the archived site so we can pull it back out when we deploy */
     stash includes: 'build/**/*.zip', name: 'built-site'
+
+}
+
+stage 'Deploy beta site'
+node {
+    /* This Credentials ID is from the `site-deployer` account on
+     * ci.jenkins-ci.org
+     *
+     * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
+     */
+    sshagent(credentials: ['1d105eb8-fd08-489c-988f-694fd8b658f7']) {
+        unstash 'built-site'
+        sh 'ls build/archives'
+        sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
+    }
 }
 
 
