@@ -39,7 +39,7 @@ node('docker') {
         /* Invoke Gradle which has the actual task graph defined inside of it
          * for the building of the site
          */
-        sh './gradlew --no-color --no-daemon --info --stacktrace'
+        sh './gradlew --console=plain --no-daemon --info --stacktrace'
     }
 
 
