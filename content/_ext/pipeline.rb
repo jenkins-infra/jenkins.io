@@ -1,6 +1,8 @@
-require 'yearposts'
 require 'debuggable-partial'
+require 'legacy'
 require 'releases'
+require 'versionswitcher'
+require 'yearposts'
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
@@ -24,8 +26,10 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Sitemap.new
 
   extension Releases.new
+  extension VersionSwitcher.new
 
   helper DebuggablePartial
+  helper Legacy
   helper Awestruct::Extensions::GoogleAnalytics
 end
 
