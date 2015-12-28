@@ -26,7 +26,8 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Sitemap.new
 
   extension Releases.new
-  extension VersionSwitcher.new
+
+  transformer VersionSwitcher.new
 
   helper DebuggablePartial
   helper Legacy
