@@ -32,10 +32,10 @@ node('docker') {
 
 
     stage 'Build site'
-    /* If the slave can't gather resources and build the site in 30 minutes,
+    /* If the slave can't gather resources and build the site in 60 minutes,
      * something is very wrong
      */
-    timeout(30) {
+    timeout(60) {
         /* Invoke Gradle which has the actual task graph defined inside of it
          * for the building of the site
          */
@@ -64,8 +64,13 @@ node {
     sshagent(credentials: ['1d105eb8-fd08-489c-988f-694fd8b658f7']) {
         unstash 'built-site'
         sh 'ls build/archives'
-        sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
-        sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
+        parallel(
+            eggplant: {
+                sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
+            },
+            cucumber: {
+                sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
+            })
     }
 }
 
