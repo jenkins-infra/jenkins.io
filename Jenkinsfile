@@ -65,6 +65,7 @@ node {
         unstash 'built-site'
         sh 'ls build/archives'
         sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
+        sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
     }
 }
 
