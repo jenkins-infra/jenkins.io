@@ -15,7 +15,7 @@
 
 
 The [first Jenkins meetup](http://www.meetup.com/St-Petersburg-Jenkins-Meetup/events/226875933/) in Saint Petersburg, Russia took place on December
-9th. The event has been organized with the help from [Yandex](https://yandex.com/company/)and [CloudBees](https://www.cloudbees.com/).
+9th. The event has been organized with the help from [Yandex](https://yandex.com/company/) and [CloudBees](https://www.cloudbees.com/).
 
 In total there were about 80 attendees at the meetup. In addition to
 [meetup.com](http://www.meetup.com/St-Petersburg-Jenkins-Meetup/events/226875933/)
@@ -35,4 +35,4 @@ ZeroTurnaround and Jenkins plugin development approaches.
 * [Q&A Session video](https://events.yandex.ru/lib/talks/3306/)
 
 
-Check out where [Jenkins Area Meetups](http://www.meetup.com/pro/Jenkins/) (JAMs) are located in the world. Don't see a JAM in your area? why not start your own, [here's how](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup).
+Check out where [Jenkins Area Meetups](http://www.meetup.com/pro/Jenkins/) (JAMs) are located in the world. Don't see a JAM in your area? Why not start your own, [here's how](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup).
