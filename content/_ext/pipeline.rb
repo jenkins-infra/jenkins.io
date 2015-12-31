@@ -1,3 +1,4 @@
+require 'authorship'
 require 'debuggable-partial'
 require 'legacy'
 require 'releases'
@@ -30,6 +31,7 @@ Awestruct::Extensions::Pipeline.new do
   transformer VersionSwitcher.new
 
   helper DebuggablePartial
+  helper Authorship
   helper Legacy
   helper Awestruct::Extensions::GoogleAnalytics
 end
