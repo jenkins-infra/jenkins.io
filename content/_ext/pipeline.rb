@@ -23,7 +23,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Atomizer.new(:posts,
                                                 '/rss.xml',
                                                 :feed_title => 'Jenkins Blog',
-                                                :template => File.expand_path(File.dirname(__FILE__) + '/template.atom.haml'))
+                                                :template => File.expand_path(File.dirname(__FILE__) + '/atom.xml.haml'))
 
   extension Awestruct::Extensions::Sitemap.new
 
