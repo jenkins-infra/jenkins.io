@@ -28,11 +28,12 @@ ZeroTurnaround and Jenkins plugin development approaches.
 
 
 
-* [Intro slides](https://speakerdeck.com/onenashev/spb-jenkins-meetup-number-0-intro-slides)
-* [Who is Mr. Jenkins? Current State, common usage issues and trends in the community](https://speakerdeck.com/onenashev/spb-jenkins-meetup-number-0-who-is-mr-jenkins) - [video](https://events.yandex.ru/lib/talks/3302/)
-* [Jenkins beyond CI. ZeroTurnaround's experience](https://speakerdeck.com/bsideup/spb-jenkins-meetup-number-0-jenkins-at-zeroturnaround) - [video](https://events.yandex.ru/lib/talks/3304/)
-* [When to write your own plugin and when not to](https://speakerdeck.com/lanwen/spb-jenkins-meetup-number-0-kak-nachat-pisat-plaghin-dlia-jenkins-i-koghda-etogho-nie-dielat) - [video](https://events.yandex.ru/lib/talks/3305/)
-* [Q&A Session video](https://events.yandex.ru/lib/talks/3306/)
+* [Intro slides](https://speakerdeck.com/onenashev/spb-jenkins-meetup-number-0-intro-slides) [ru]
+* [Who is Mr. Jenkins? Current State, common usage issues and trends in the community](https://speakerdeck.com/onenashev/spb-jenkins-meetup-number-0-who-is-mr-jenkins) [ru], by [Oleg Nenashev](https://twitter.com/oleg_nenashev) -   \[[video](https://events.yandex.ru/lib/talks/3302/)\]
+ * [English version](https://speakerdeck.com/onenashev/who-is-mr-jenkins-english-version)
+* [Jenkins beyond CI. ZeroTurnaround's experience](https://speakerdeck.com/bsideup/spb-jenkins-meetup-number-0-jenkins-at-zeroturnaround) [en], by [Sergei Egorov](https://twitter.com/bsideup) - \[[video](https://events.yandex.ru/lib/talks/3304/)\]
+* [When to write your own plugin and when not to](https://speakerdeck.com/lanwen/spb-jenkins-meetup-number-0-kak-nachat-pisat-plaghin-dlia-jenkins-i-koghda-etogho-nie-dielat) [ru], by [Kirill Merkushev](https://github.com/lanwen) - \[[video](https://events.yandex.ru/lib/talks/3305/)\]
+* Q&A Session [ru], all speakers - \[[video](https://events.yandex.ru/lib/talks/3306/)\]
 
 
 Check out where [Jenkins Area Meetups](http://www.meetup.com/pro/Jenkins/) (JAMs) are located in the world. Don't see a JAM in your area? Why not start your own, [here's how](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup).
