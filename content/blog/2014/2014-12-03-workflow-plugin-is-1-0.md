@@ -6,6 +6,8 @@
 :tags:
 - development
 - plugins
+- pipeline
+- workflow
 :author: kohsuke
 ---
 Jenkins started with a notion of jobs and builds at heart. One script is one job, and as you repeatedly execute jobs, it creates builds as records. As the use case of Jenkins gets more sophisticated, people started combining jobs to orchestrate ever more complex activities.

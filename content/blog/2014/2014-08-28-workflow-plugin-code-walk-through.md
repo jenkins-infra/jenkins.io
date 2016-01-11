@@ -9,6 +9,8 @@
 - plugins
 - screencast
 - tutorial
+- pipeline
+- workflow
 :author: kohsuke
 ---
 Jesse and I will walk through the source code of [the workflow plugin](https://github.com/jenkinsci/workflow-plugin), highlights key abstractions and extension points, and discuss how they are put together.

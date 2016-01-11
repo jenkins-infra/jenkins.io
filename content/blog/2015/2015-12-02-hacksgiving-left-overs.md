@@ -7,6 +7,8 @@
 - general
 - meetup
 - video
+- pipeline
+- workflow
 :author: rtyler
 ---
 Last week we hosted our first [Hacksgiving](https://wiki.jenkins-ci.org/display/JENKINS/Hacksgiving+2015) event, a two-day virtual hackathon with a number of recorded sessions and plenty of pull requests submitted, [I](https://github.com/rtyler) would say it was a success! I would like to thank everybody who took the time to watch, chat and present in the Hacker Hangout. 

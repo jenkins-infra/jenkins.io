@@ -7,6 +7,8 @@
 - general
 - meetup
 - jenkinsci
+- pipeline
+- workflow
 :author: hinman
 ---
 
