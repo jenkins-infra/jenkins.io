@@ -7,6 +7,8 @@
 - general
 - guest post
 - tutorial
+- pipeline
+- workflow
 :author: rtyler
 ---
 _Note: This is a guest post by [Kishore Bhatia](https://github.com/kishorebhatia). [Kishore](https://twitter.com/BhatiaKishore) works for [CloudBees](https://www.cloudbees.com), building custom frameworks with Open Source software and helping customers solve engineering problems around continuous delivery and DevOps at scale._
