@@ -41,25 +41,23 @@ The Workflow script to build/test/deploy your code is always synchronized with t
 
 So for our sample Java web application, a basic Jenkinsfile could be something like -
 
-<code><pre>
-node {
-   // Mark the code checkout 'stage'....
-   stage 'Checkout'
+    node {
+       // Mark the code checkout 'stage'....
+       stage 'Checkout'
 
-   // Checkout code from repository
-   checkout scm
+       // Checkout code from repository
+       checkout scm
 
-   // Get the maven tool.
-   // ** NOTE: This 'M3' maven tool must be configured
-   // **       in the global configuration.
-   def mvnHome = tool 'M3'
+       // Get the maven tool.
+       // ** NOTE: This 'M3' maven tool must be configured
+       // **       in the global configuration.
+       def mvnHome = tool 'M3'
 
-   // Mark the code build 'stage'....
-   stage 'Build'
-   // Run the maven build
-   sh "${mvnHome}/bin/mvn clean install"
-}
-</pre></code>
+       // Mark the code build 'stage'....
+       stage 'Build'
+       // Run the maven build
+       sh "${mvnHome}/bin/mvn clean install"
+    }
 
 Just having this file in the source code repo root would mean that -
 
@@ -116,7 +114,7 @@ So we observed the following benefits of this pipeline-as-code approach:
  * Calls your build tools and scripts for details
 * The build script can be versioned alongside project sources
  * Jenkins handles feature/experimental branches automatically
-* Keep less configuration in $JENKINS_HOME
+* Keep less configuration in `$JENKINS_HOME`
 
 
 ### Dockerized Demo environment
