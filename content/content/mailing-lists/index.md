@@ -14,14 +14,14 @@ The two primary mailing lists (<em>jenkinsci-users</em> and <em>jenkinsci-dev</e
 
 ##### jenkinsci-users@googlegroups.com
 
-Mailing list for users of Jenkins. Post your questions on how to use Jenkins and Jenkins plugins here. If you're not sure which list is correct, post here.<br/>
+Mailing list for users of Jenkins. Post your questions on how to use Jenkins and Jenkins plugins here. **If you're not sure which list is correct, post here.**<br/>
 <a href="http://groups.google.com/group/jenkinsci-users/topics">archive</a>
 &nbsp;|&nbsp;<a href="mailto:jenkinsci-users+subscribe@googlegroups.com">subscribe</a>
 &nbsp;|&nbsp;<a href="mailto:jenkinsci-users+unsubscribe@googlegroups.com">unsubscribe</a>
 
 ##### jenkinsci-dev@googlegroups.com
 
-Mailing list for developers of Jenkins. Post your Jenkins core development and plugin development questions here, as well as topics related to project governance. Questions that should be asked on the <em>jenkinsci-users</em> list will be ignored. Do not cross-post.<br/>
+Mailing list for *developers* of Jenkins. Post your Jenkins core development and plugin development questions here, as well as topics related to project governance. **Questions that should be asked on the <em>jenkinsci-users</em> list will be ignored**. Do not cross-post.<br/>
 <a href="http://groups.google.com/group/jenkinsci-dev/topics">archive</a>
 &nbsp;|&nbsp;<a href="mailto:jenkinsci-dev+subscribe@googlegroups.com">subscribe</a>
 &nbsp;|&nbsp;<a href="mailto:jenkinsci-dev+unsubscribe@googlegroups.com">unsubscribe</a>
