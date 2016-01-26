@@ -2,6 +2,7 @@ require 'authorship'
 require 'debuggable-partial'
 require 'legacy'
 require 'releases'
+require 'solutionpage'
 require 'versionswitcher'
 require 'yearposts'
 
@@ -26,7 +27,7 @@ Awestruct::Extensions::Pipeline.new do
                                                 :template => File.expand_path(File.dirname(__FILE__) + '/atom.xml.haml'))
 
   extension Awestruct::Extensions::Sitemap.new
-
+  extension SolutionPage.new
   extension Releases.new
 
   transformer VersionSwitcher.new
