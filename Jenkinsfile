@@ -39,7 +39,9 @@ node('docker') {
         /* Invoke Gradle which has the actual task graph defined inside of it
          * for the building of the site
          */
-        sh './gradlew --console=plain --no-daemon --info --stacktrace'
+        withJavaEnv {
+            sh './gradlew --console=plain --no-daemon --info --stacktrace'
+        }
     }
 
 
@@ -75,6 +77,25 @@ node {
             cucumber: {
                 sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
             })
+    }
+}
+
+
+/* This code shame-lessly copied and pasted from some Jenkinsfile code abayer
+   wrote for the jenkinsci/jenkins project */
+void withJavaEnv(List envVars = [], def body) {
+    String jdktool = tool name: "jdk7_80", type: 'hudson.model.JDK'
+
+    // Set JAVA_HOME, and special PATH variables for the tools we're
+    // using.
+    List javaEnv = ["PATH+JDK=${jdktool}/bin", "JAVA_HOME=${jdktool}"]
+
+    // Add any additional environment variables.
+    javaEnv.addAll(envVars)
+
+    // Invoke the body closure we're passed within the environment we've created.
+    withEnv(javaEnv) {
+        body.call()
     }
 }
 
