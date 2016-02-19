@@ -22,7 +22,7 @@ The features like Workflow Multibranch, pipeline-as-code (with a marker file tha
 
 The Workflow Multibranch feature (provided by the [workflow plugin](https://github.com/jenkinsci/workflow-plugin)) provides the following key abilities:
 
-* Automatic Workflow (job) creation in Jenkins per new branch in the repo.
+* Automatic Workflow (job) creation in Jenkins per new branch in the repo (assuming webhooks are registered from GH to Jenkins).
 * Build specific to that child-branch and its unique scm change and build history.
 * Automatic job pruning/deletion for branches deleted from the repository, according to the settings.
 * Flexibility to individually configure branch properties, by overriding the parent properties, if required.
@@ -83,6 +83,11 @@ Also, ensure that other dependencies, like SCM plugins and build tools, are met:
 * Either SVN/Git/Mercurial (depending on your SCM)
 * GitHub Branch Source Plugin (optimized to use the GitHub API and improve performance)
 * Maven build tool
+
+Finally, make sure you've created the required Webhook from your SCM (Github in this case) to Jenkins.
+Here's how to do that: 
+https://thepracticalsysadmin.com/setting-up-a-github-webhook-in-jenkins/
+https://gist.github.com/misterbrownlee/3708738
 
 Then create a new *Multibranch Workflow* Job with configuration as shown below - mainly selecting the Branch Sources (Git, in this example) and providing the branch/repo URL with credentials.
 
