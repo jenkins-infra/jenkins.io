@@ -86,8 +86,8 @@ Also, ensure that other dependencies, like SCM plugins and build tools, are met:
 
 Finally, make sure you've created the required Webhook from your SCM (Github in this case) to Jenkins.
 Here's how to do that: 
-https://thepracticalsysadmin.com/setting-up-a-github-webhook-in-jenkins/
-https://gist.github.com/misterbrownlee/3708738
+[ref1](https://thepracticalsysadmin.com/setting-up-a-github-webhook-in-jenkins/)
+[ref2](https://gist.github.com/misterbrownlee/3708738)
 
 Then create a new *Multibranch Workflow* Job with configuration as shown below - mainly selecting the Branch Sources (Git, in this example) and providing the branch/repo URL with credentials.
 
