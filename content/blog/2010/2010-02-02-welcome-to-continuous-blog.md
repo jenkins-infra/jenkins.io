@@ -15,7 +15,7 @@ project. In just a few short years Hudson has grown into a substantial project
 with **hundreds** of plugins and thousands of users around the world.
 [Kohsuke](https://twitter.com/kohsukekawa)'s
 nice Java-based extensible continuous integration server has grown up into
-fantastic tool with a great community around it. 
+fantastic tool with a great community around it.
 
 
 ### Goals for this weblog
@@ -27,9 +27,10 @@ Continuous Blog should:
 * Be a central source for tutorials and helpful information to Hudson users of all skill-levels
 * Recognize the numerous contributors to the Hudson project for their efforts
 
-<br clear="all"/>
+
 ### What to expect
-As Continuous Blog grows and matures, you can expect to see a variety of Hudson-related content. Overviews of the latest releases of Hudson and its plugins, interviews and discussions with the developers who have contributed to Hudson over the years, guest posts by power-users on how Hudson fits into their workflow and much much more (really). 
+
+As Continuous Blog grows and matures, you can expect to see a variety of Hudson-related content. Overviews of the latest releases of Hudson and its plugins, interviews and discussions with the developers who have contributed to Hudson over the years, guest posts by power-users on how Hudson fits into their workflow and much much more (really).
 
 If you look around the page you'll already see a good amount of content, in the
 sidebar to the right you'll notice the "Recently Released" section which
