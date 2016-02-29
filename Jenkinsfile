@@ -63,20 +63,22 @@ node {
      *
      * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
      */
-    sshagent(credentials: ['1d105eb8-fd08-489c-988f-694fd8b658f7']) {
-        /* Make sure we delete our current directory on this node to make sure
-         * we're only uploading what we unstash
-         */
-        deleteDir()
-        unstash 'built-site'
-        sh 'ls build/archives'
-        parallel(
-            eggplant: {
-                sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
-            },
-            cucumber: {
-                sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
-            })
+    if (env.BRANCH_NAME == 'master') {
+        sshagent(credentials: ['1d105eb8-fd08-489c-988f-694fd8b658f7']) {
+            /* Make sure we delete our current directory on this node to make sure
+            * we're only uploading what we unstash
+            */
+            deleteDir()
+            unstash 'built-site'
+            sh 'ls build/archives'
+            parallel(
+                eggplant: {
+                    sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
+                },
+                cucumber: {
+                    sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
+                })
+        }
     }
 }
 
