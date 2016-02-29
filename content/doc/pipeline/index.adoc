@@ -1,0 +1,981 @@
+---
+layout: simplepage
+title: "Pipeline"
+---
+
+:toc:
+
+# Jenkins Pipeline
+
+Jenkins is a powerful, open source automation tool with a powerful plugin architecture that helps development teams automate their software lifecycle. Jenkins is used to power many industry-leading companies' software development pipelines.
+
+Jenkins Pipeline is a powerful, first-class feature for managing complex, multi-step pipelines. Jenkins Pipeline, a set of open source plugins and integrations, brings the power of Jenkins and the plugin ecosystem into a scriptable Domain Specific Language (DSL). Best of all, like Jenkins core, Pipeline is extensible by third-party developers, supporting custom extensions to the Pipeline DSL and various options for plugin integration.
+
+Jenkins Pipeline was known as Jenkins Workflow prior to version 1.13.
+
+![Pipeline Stage View UI](images/1-stage-view-ui-hr.png)
+Pipeline Stage View UI
+
+This Refcard provides an overview and introduction to Jenkins Pipeline as well as a full syntax reference card. We also provide a real-world delivery pipeline example, building on the more basic Pipeline snippets from earlier examples.
+
+## Installing Jenkins Pipeline
+It is assumed you have already installed Jenkins – either via the CloudBees Jenkins Platform or jenkins-ci.org. Jenkins Version 1.609.1+ is required.
+
+* Open Jenkins in your web browser
+* Navigate to Manage Jenkins > Manage Plugins
+* Navigate to the Available tab, filter by Pipeline
+* Select the Pipeline plugin and install
+* Restart Jenkins
+
+This Refcard was written using Pipeline version 1.13. Installing the Pipeline plugin installs all necessary Pipeline dependencies and a new job type called Pipeline.
+
+# Creating a Pipeline
+
+Now that you have Jenkins running and have installed the Pipeline plugin, you are ready to create your first pipeline. Create a new pipeline by selecting New Item from the Jenkins home page.
+
+First, give your pipeline a name, eg: "hello-world-flow".  pipelines are simple, Groovy scripts, so let's add the obligatory Hello World. Add a pipeline to the Pipeline script textarea:
+
+```groovy
+echo 'Hello world'
+```
+
+Now save your pipeline, ensuring the Use Groovy Sandbox option is checked (more details to follow on this setting). Click Build Now to run your pipeline.
+
+## Editing your Pipeline
+
+Because pipelines are simple text scripts, they are easy to edit. As you've seen, pipelines can be edited directly in the Jenkins UI when configuring your pipeline.
+
+![Pipeline Editor](images/2-workflow-edit-hr.png)
+
+## Using the Snippet Generator
+To make editing your pipelines easier, use the Snippet Generator. The Snippet Generator is dynamically populated with the latest Pipeline steps. Depending on the plugins installed in your environment, you may see more available steps.
+
+![Snippet Generator](images/3-snippet-generator-hr.png)
+
+## Loading External Pipeline Scripts
+
+Because pipelines are text assets, they are ideal to store in a source control system. Pipelines can be edited in your external IDE then loaded into Jenkins using the Pipeline Script from SCM option.
+
+# Building your Pipeline
+
+Now that you've created a pipeline, let's continue to build on it. For a complex flow, you should leverage Jenkins' job scheduling queue:
+
+```groovy
+node{ sh 'uname' }
+```
+
+The concept of a node should be familiar to Jenkins users: node is a special step that schedules the contained steps to run by adding them to Jenkins' build queue. Even better, requesting a node leverages Jenkins' distributed build system. Of course, to select the right kind of node for your build, the node element takes a label expression:
+
+```groovy
+node('unix && 64-bit'){ echo 'Hello world' }
+```
+
+The node step also creates a workspace: a directory specific to this job where you can check out sources, run commands, and do other work. Resource-intensive work in your pipeline should occur on a node. You can also use the ws step to explicitly ask for another workspace on the current slave, without grabbing a new executor slot. Inside its body all commands run in the second workspace.
+
+## Checking out Code
+
+Usually, your pipelines will retrieve source code from your source control server. Jenkins Pipeline has a simple syntax for retrieving source code, leveraging the many existing SCM plugins for Jenkins.
+
+```groovy
+checkout([$class: 'GitSCM', branches: [[name: '*/master']], userRemoteConfigs: [[url: 'http://github.com/cloudbees/todo-api.git']]])
+```
+
+If you happen to use a Git-based SCM, for example GitHub, there's an even further simplified syntax:
+
+```groovy
+git 'https://github.com/cloudbees/todo-api.git'
+```
+
+## Running your Pipeline
+
+Because pipelines are built as Jenkins jobs, they can be built like other jobs. You can use the Build Now feature to manually trigger your build on demand or set up triggers to execute your pipeline based on certain events.
+
+## Adding Stages and Steps
+Stages are usually the top most element of Pipeline syntax. Stages allow you to group your build step into its component parts. By default, multiple builds of the same pipeline can run concurrently. The stage element also allows you to control this concurrency:
+
+```groovy
+stage 'build'
+   node{ … }
+stage name: 'test', concurrency: 3
+   node{ … }
+stage name: 'deploy', concurrency: 1
+   node{ … }
+```
+
+In this example, we have set a limit of three concurrent executions of the test stage and only one execution of the deploy stage. You will likely want to control concurrency to prevent collisions (for example, deployments).
+
+Newer builds are always given priority when entering a throttled stage; older builds will simply exit early if they are preempted.
+
+### General Build Steps
+
+Within your stages, you will add build steps. Just like with Freestyle Jenkins jobs, build steps make up the core logic of your pipeline. Jenkins Pipeline supports any compatible Build Step and populates the snippet generator with all available Build Steps in your Jenkins environment.
+
+```groovy
+step([$class: 'JavadocArchiver', javadocDir: 'target/resources/javadoc', keepAll: false])
+```
+
+```groovy
+step([$class: 'Fingerprinter', targets: 'target/api.war'])
+```
+
+### Scripting
+
+Jenkins Pipeline supports executing shell (*nix) or batch scripts (Windows) just like freestyle jobs:
+
+```groovy
+sh 'sleep 10'
+```
+
+```groovy
+bat 'timeout /t 10'
+```
+
+Scripts can integrate with various other tools and frameworks in your environment - more to come on tools in the next section.
+
+# Integrating your Tools
+
+For a real-life pipeline, Jenkins needs to integrate with other tools, jobs, and the underlying environment.
+
+## Tools
+
+Jenkins has a core capability to integrate with tools. Tools can be added and even automatically installed on your build nodes. From Pipeline, you can simply use the tool DSL syntax:
+
+```groovy
+def mvnHome = tool 'M3'
+sh "${mvnHome}/bin/mvn -B verify"
+```
+
+In addition to returning the path where the tool is installed, the tool command ensures the named tool is installed on the current node.
+
+## Global Variables
+
+The env global variable allows accessing environment variables available on your nodes:
+
+```groovy
+echo env.PATH
+```
+
+Because the env variable is global, changing it directly is discouraged as it changes the environment globally, so the withEnv syntax is preferred (see example in Full Syntax Reference Card below).
+
+The currentBuild global variable can retrieve and update the following properties:
+
+```groovy
+currentBuild.result
+currentBuild.displayName
+currentBuild.description
+```
+
+## Existing Jobs
+Existing jobs can be triggered from your pipeline via the build command (eg: ```build 'existing-freestyle-job'```). You can also pass parameters to your external jobs as follows:
+
+```groovy
+def job = build job: 'say-hello', parameters: [[$class: 'StringParameterValue', name: 'who', value: 'DZone Readers']]
+```
+
+# Controlling Flow
+
+Because Jenkins Pipeline is based on the Groovy language, there are many powerful flow control mechanisms familiar to developers and operations teams, alike. In addition to standard Groovy flow control mechanisms like if statements, try/catch, and closures, there are several flow control elements specific to Pipeline.
+
+## Handling Approvals
+
+Jenkins Pipeline supports approvals, manual or automated, through the input step:
+
+```groovy
+input 'Are you sure?'
+```
+
+With the submitter parameter, the input step integrates Jenkins security system to restrict the allowed approvers.
+
+The input step in Jenkins Pipeline Stage View UI:
+
+![Input Step](images/4-input-ui-hr.png)
+
+## Timing
+
+Timeouts allow pipeline creators to set an amount of time to wait before aborting a build:
+
+```groovy
+timeout(time: 30, unit: 'SECONDS') { … }
+```
+
+Parallel stages add a ton of horsepower to Pipeline, allowing simultaneous execution of build steps on the current node or across multiple nodes, thus increasing build speed:
+
+```groovy
+parallel 'quality scan': {
+   node {sh 'mvn sonar:sonar'}
+}, 'integration test': {
+   node {sh 'mvn verify'}
+}
+```
+
+Jenkins can also wait for a specific condition to be true:
+
+```groovy
+waitUntil { … }
+```
+
+## Handling Errors
+
+Jenkins Pipeline has several features for controlling flow by managing error conditions in your pipeline. Of course, because Pipeline is based on Groovy, standard try / catch semantics apply:
+
+```groovy
+try {
+
+} catch (e) {
+
+}
+```
+
+Pipeline creators can also create error conditions if needed based on custom logic:
+
+```groovy
+if(!sources) {
+   error 'No sources'
+}
+```
+
+Jenkins can also retry specific Pipeline steps if there is variability in the steps for some reason:
+
+```groovy
+retry(5) { … }
+```
+
+# Script Security
+
+As you've seen, Jenkins Pipeline is quite powerful. Of course, with power comes risk, so Jenkins Pipeline has a robust security and approval framework that integrates with Jenkins core security.
+
+By default, when creating pipelines as a regular user (that is, without the ```Overall/RunScripts``` permission), the Groovy Sandbox is enabled. When the Sandbox is enabled, Pipeline creators will only be allowed to use pre-approved methods in their flow.
+
+![Input Step](images/5-sandbox-hr.png)
+
+When adding pre-approved methods to a pipeline, script changes do not require approval. When adding a new method (such as a Java API), users will see a RejectedAccessException and an administrator will be prompted to approve usage of the specific new API or method.
+
+Deselecting the Use Groovy Sandbox option changes this behavior. When the Sandbox is disabled, pipeline edits require administrator approval. Each change or update by a non-administrator user requires approval by an administrator. Users will see an UnnaprovedUsageException until their script is approved. Approving individual edits may not scale well, so the Groovy Sandbox is recommended for larger environments.
+
+# Accessing Files
+
+During your pipeline development, you will very likely need to read and write files in your workspace.
+Stashing Files
+
+Stashing files between stages is a convenient way to keep files from your workspace to share them between different nodes:
+
+```groovy
+stage 'build'
+   node{
+      git 'https://github.com/cloudbees/todo-api.git'
+      stash includes: 'pom.xml', name: 'pom'
+   }
+stage name: 'test', concurrency: 3
+   node {
+      unstash 'pom'
+      sh 'cat pom.xml'
+   }
+```
+
+Stash can be used to prevent cloning the same files from source control during different stages, while also ensuring the same exact files are used during compilation and tested in later pipeline stages.
+
+## Archiving
+
+Like other Jenkins job types, pipelines can archive their artifacts:
+
+```groovy
+archive includes: '*.jar', excludes: '*-sources.jar'
+```
+
+Archives allow you to maintain binaries from your build in Jenkins for easy access later. Unlike stash, archive keeps artifacts around after a pipeline execution is complete (where stash is temporary).
+
+Beyond stashing and archiving files, the following Pipeline elements also work with the file system (more details in full reference card):
+
+```groovy
+pwd()
+dir(''){}
+writeFile file: 'target/results.txt', text: ''
+readFile 'target/results.txt'
+fileExists 'target/results.txt'
+```
+
+# Scaling your Pipeline
+
+As you build more of your DevOps pipelines with Jenkins Pipeline, your needs will get more complex. The CloudBees Jenkins Platform helps scale Jenkins Pipeline for more complex uses.
+
+## Checkpoints
+One powerful aspect of the CloudBees extensions to Jenkins Pipeline is the checkpoint syntax. Checkpoints allow capturing the workspace state so it can be reused as a starting point for subsequent runs:
+
+```groovy
+checkpoint 'Functional Tests Complete'
+```
+
+Checkpoints are ideal to use after a longer portion of your pipeline has run, for example a robust functional test suite.
+
+## Pipeline Templates
+
+The CloudBees Jenkins Platform has a robust template feature. CloudBees Jenkins Platform users can create template build steps, jobs, folders, and publishers. Since Pipelines are a new job type, authors can create Pipeline templates so that similar pipelines can simply leverage the same Pipeline job template. More information on Templates is available on the CloudBees' website:
+
+https://www.cloudbees.com/products/cloudbees-jenkins-platform/enterprise-edition/features/templates-plugin
+
+# Tying it Together: Example Pipeline
+
+The following pipeline is an example tying together several of the Pipeline features we learned earlier. While not exhaustive, it provides a basic but complete pipeline that will help jump-start your pipeline development:
+
+```groovy
+stage 'build'
+node {
+   git 'https://github.com/cloudbees/todo-api.git'
+   withEnv(["PATH+MAVEN=${tool 'm3'}/bin"]) {
+      sh "mvn -B –Dmaven.test.failure.ignore=true clean package"
+   }
+   stash excludes: 'target/', includes: '**', name: 'source'
+}
+stage 'test'
+parallel 'integration': {
+   node {
+      unstash 'source'
+      withEnv(["PATH+MAVEN=${tool 'm3'}/bin"]) {
+         sh "mvn clean verify"
+      }
+   }
+}, 'quality': {
+   node {
+      unstash 'source'
+      withEnv(["PATH+MAVEN=${tool 'm3'}/bin"]) {
+         sh "mvn sonar:sonar"
+      }
+   }
+}
+stage 'approve'
+timeout(time: 7, unit: 'DAYS') {
+   input message: 'Do you want to deploy?', submitter: 'ops'
+}
+stage name:'deploy', concurrency: 1
+node {
+   unstash 'source'
+   withEnv(["PATH+MAVEN=${tool 'm3'}/bin"]) {
+     sh "mvn cargo:deploy"
+   }
+}
+```
+
+# Docker with Pipeline
+
+The Docker Pipeline plugin exposes a docker global variable that provides DSL for common Docker operations, only requiring a Docker client on the executor running the steps (use a label in your node step to target a Docker-enabled slave).
+
+By default, the docker global variable connects to the local Docker daemon. You may use the docker.withServer step to connect to a remote Docker host. The image step provides a handle to a specific Docker image and allows executing several other image related steps, including the image.inside step.  The inside step will start up the specified container and run a block of steps in that container:
+
+```groovy
+docker.image('maven:3.3.3-jdk8').inside('-v ~/.m2/repo:/m2repo') {
+   sh 'mvn -Dmaven.repo.local=/m2repo clean package'
+}
+```
+
+When the steps are complete, the container will be stopped and removed. There are many more features of the Docker Pipeline plugin; additional steps are outlined in the Full Syntax Refcard.
+
+# Extending Pipeline
+
+Like all Jenkins features, Pipeline relies on Jenkins' extensible architecture, allowing developers to extend Pipeline's features.
+
+## Plugin Compatibility
+
+There are a large number of existing plugins for Jenkins. Many of these plugins integrate with Pipeline as build steps, wrappers, and so on. Plugin maintainers must ensure their plugins are Pipeline-compatible. The community has documented the steps to ensure compatibility. More details on plugin development and Pipeline compatibility are on the jenkins-ci.org Wiki: https://wiki.jenkins-ci.org/display/JENKINS/Plugin+tutorial
+
+## Custom DSL
+
+Beyond compatibility, plugin maintainers can also add specific Pipeline DSL for their plugins' behavior. The community has documented the steps to take to add plugin-specific DSL. Examples include the Credentials Binding Plugin, which contributes the withCredentials syntax.
+
+# Full Syntax Reference Card
+
+Following is a full Jenkins Pipeline syntax reference card. Of course, as you add plugins or as plugins are updated new Pipeline Script elements will become available in your environment. The Pipeline snippet generator and UI will automatically add these and any associated help text so you know how to use them!
+
+## Basics
+
+<table>
+<tr>
+<th>Pipeline Script</th>
+<th>Example(s)</th>
+</tr>
+<tr>
+<td>
+<h4>stage</h4>
+Stage
+</td>
+<td>
+<pre lang="groovy">
+stage 'build'
+stage concurrency: 3, name: 'test'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>node</h4>
+Allocate a node
+</td>
+<td>
+<pre lang="groovy">
+node('ubuntu') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>ws</h4>
+Allocate a workspace
+</td>
+<td>
+<pre lang="groovy">
+ws('sub-workspace') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>echo</h4>
+Print a message</td>
+<td>
+<pre lang="groovy">
+echo 'Hello Bees'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>batch</h4>
+Windows batch script
+</td>
+<td>
+<pre lang="groovy">
+bat 'dir'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>sh</h4>
+Shell script
+</td>
+<td>
+<pre lang="groovy">
+sh 'mvn -B verify'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>checkout</h4>
+General SCM
+</td>
+<td>
+<pre lang="groovy">
+checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[url: 'http://github.com/cloudbees/todo-api.git']]])
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>git</h4>
+Git SCM
+</td>
+<td>
+<pre lang="groovy">
+git 'http://github.com/cloudbees/todo-api.git'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>svn</h4>
+Subversion SCM
+</td>
+<td>
+<pre lang="groovy">
+svn 'svn://svn.cloudbees.com/repo/trunk/todo-api'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>step</h4>
+General build step
+</td>
+<td>
+<pre lang="groovy">
+step([$class: 'JUnitResultArchiver', testResults: 'target/test-reports/*.xml'])
+step([$class: 'Mailer', notifyEveryUnstableBuild: true, recipients: 'info@cloudbees.com', sendToIndividuals: false])
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>wrap</h4>
+</td>
+<td>
+<pre lang="groovy">
+wrap([$class:'Xvnc', useXauthority: true]){
+   sh 'make selenium-tests'
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>tool</h4>
+Install a tool
+</td>
+<td>
+<pre lang="groovy">
+def mvnHome = tool name: 'M3'
+sh "${mvnHome}/bin/mvn -B verify"
+tool name: 'jgit', type: 'hudson.plugins.git.GitTool'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>mail</h4>
+Send an e-mail
+</td>
+<td>
+<pre lang="groovy">
+   mail body: 'Uh oh.', charset: '', from: '', mimeType: '', replyTo: '', subject: 'Build Failed!', to: 'dev@cloudbees.com'
+</pre>
+</td>
+</tr>
+</table>
+
+## Advanced
+
+<table>
+<tr>
+<th>Pipeline Script</th>
+<th>Example(s)</th>
+</tr>
+<tr>
+<td>
+<h4>build</h4>
+Build an existing job
+</td>
+<td>
+<pre lang="groovy">
+build job: 'hello-world'
+build job: 'hello-world', parameters: [[$class: 'StringParameterValue', name: 'who', value: 'World']]
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>checkpoint</h4>
+Capture the execution state so that it can be restarted later
+</td>
+<td>
+<pre lang="groovy">
+checkpoint 'testing-complete'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>withEnv</h4>
+Set environment variables in a scope
+</td>
+<td>
+<pre lang="groovy">
+withEnv(["PATH+MAVEN=${tool 'M3'}/bin"]) {
+   sh 'mvn -B verify'
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>load</h4>
+Evaluate a Groovy source file into the pipeline
+</td>
+<td>
+<pre lang="groovy">
+load 'deploymentMethods.groovy'
+</pre>
+</td>
+<td>
+</tr>
+</table>
+
+## File System
+
+<table>
+<tr>
+<th>Pipeline Script</th>
+<th>Example(s)</th>
+</tr>
+<tr>
+<td>
+<h4>dir</h4>
+Change Directory
+</td>
+<td>
+<pre lang="groovy">
+dir('src') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>pwd</h4>
+Get current Directory
+</td>
+<td>
+<pre lang="groovy">
+def dir = pwd()
+echo dir
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>stash</h4>
+Stash files for use later in the build
+</td>
+<td>
+<pre lang="groovy">
+stash excludes: 'target/*-sources.jar', includes: 'target/*', name: 'source'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>unstash</h4>
+Restore files previously stashed
+</td>
+<td>
+<pre lang="groovy">
+unstash 'source'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>archive</h4>
+Archive artifacts
+</td>
+<td>
+<pre lang="groovy">
+archive includes:'*.jar', excludes:'*-sources.jar'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>writeFile</h4>
+Write file to Workspace
+</td>
+<td>
+<pre lang="groovy">
+writeFile file: 'target/result.txt', text: 'Fail Whale'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>readFile</h4>
+Read file from the workspace
+</td>
+<td>
+<pre lang="groovy">
+def file = readFile 'pom.xml'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>fileExists</h4>
+Verify if file exists in workspace
+</td>
+<td>
+<pre lang="groovy">
+if(fileExists 'src/main/java/Main.java') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+</table>
+
+## Flow Control
+
+<table>
+<tr>
+<th>Pipeline Script</th>
+<th>Example(s)</th>
+</tr>
+<tr>
+<td>
+<h4>sleep</h4>
+Sleep
+</td>
+<td>
+<pre lang="groovy">
+sleep 60
+sleep time: 1000, unit: 'NANOSECONDS'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>waitUntil</h4>
+Wait for condition
+</td>
+<td>
+<pre lang="groovy">
+waitUntil {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>retry</h4>
+Retry body up to N times
+</td>
+<td>
+<pre lang="groovy">
+retry(5) {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>input</h4>
+Pause for manual or automated intervention
+</td>
+<td>
+<pre lang="groovy">
+input 'Are you sure?'
+input message: 'Are you sure?', ok: 'Deploy', submitter: 'qa-team'
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>parallel</h4>
+Execute sub-flows in parallel
+</td>
+<td>
+<pre lang="groovy">
+parallel "quality scan": {
+   // do something
+}, "integration test": {
+   // do something else
+},
+failFast: true
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>timeout</h4>
+Execute body with a timeout
+</td>
+<td>
+<pre lang="groovy">
+timeout(time: 30, unit: 'SECONDS') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>error</h4>
+Stop build with an error
+</td>
+<td>
+<pre lang="groovy">
+error 'No sources'
+</pre>
+</td>
+</tr>
+</table>
+
+## Docker
+
+<table>
+<tr>
+<th>Pipeline Script</th>
+<th>Example(s)</th>
+</tr>
+<tr>
+<td>
+<h4>image</h4>
+Provides a handle to image
+</td>
+<td>
+<pre lang="groovy">
+def image = docker.image('maven:3.3.3-jdk8')
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.inside</h4>
+Runs steps inside image
+</td>
+<td>
+<pre lang="groovy">
+image.inside('-v /repo:/repo') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.pull</h4>
+Pulls image
+</td>
+<td>
+<pre lang="groovy">
+image.pull()
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.push</h4>
+Push image to registry
+</td>
+<td>
+<pre lang="groovy">
+image.push()
+image.push("latest")
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.run</h4>
+Runs Docker image and returns container
+</td>
+<td>
+<pre lang="groovy">
+def container = image.run("--name my-api -p 8080:8080")
+container.stop()
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.withRun</h4>
+Runs image and auto stops container
+</td>
+<td>
+<pre lang="groovy">
+image.withRun {api -> testImg.inside("--link=${api.id}:api")
+   {
+      // some block
+   }
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.tag</h4>
+Records tag of image
+</td>
+<td>
+<pre lang="groovy">
+image.tag("${tag}", false)
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>image.imageName()</h4>
+Provides image name prefixed with registry info
+</td>
+<td>
+<pre lang="groovy">
+sh "docker pull ${image.imageName()}"
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>container.id</h4>
+ID of running container
+</td>
+<td>
+<pre lang="groovy">
+sh "docker logs ${container.id}"
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>container.stop</h4>
+Stops and removes container
+</td>
+<td>
+<pre lang="groovy">
+container.stop()
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>build</h4>
+Builds Docker image
+</td>
+<td>
+<pre lang="groovy">
+docker.build("cb/api:${tag}","target")
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>withServer</h4>
+Runs block on given Docker server
+</td>
+<td>
+<pre lang="groovy">
+docker.withServer('tcp://swarm.cloudbees.com:2376', 'swarm-certs') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>withRegistry</h4>
+Runs block using specified Docker registry
+</td>
+<td>
+<pre lang="groovy">
+docker.withRegistry('https://registry.cloudbees.com/', 'docker-registry-login') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+<tr>
+<td>
+<h4>withTool</h4>
+Specifies name of Docker client to use
+</td>
+<td>
+<pre lang="groovy">
+docker.withTool('toolName') {
+   // some block
+}
+</pre>
+</td>
+</tr>
+</table>
