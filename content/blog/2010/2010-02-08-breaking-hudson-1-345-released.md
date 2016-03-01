@@ -1,6 +1,6 @@
 ---
 :layout: post
-:title: Breaking! Hudson 1.345 Released!
+:title: "Breaking! Hudson 1.345 Released!"
 :nodeid: 202
 :created: 1265657763
 :tags:
