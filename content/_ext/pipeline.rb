@@ -28,6 +28,7 @@ Awestruct::Extensions::Pipeline.new do
   helper DebuggablePartial
   helper Authorship
   helper Legacy
+  helper DirectoryTOC
   helper Awestruct::Extensions::GoogleAnalytics
 end
 
