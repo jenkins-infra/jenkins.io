@@ -27,7 +27,7 @@ module Authorship
         # If we didn't get anything, skip
         next if value.nil?
 
-        link = url.gsub(/VALUE/, author.to_s)
+        link = url.gsub(/VALUE/, value.to_s)
         break unless link.nil?
       end
 
