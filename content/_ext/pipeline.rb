@@ -1,22 +1,14 @@
-require 'authorship'
-require 'debuggable-partial'
-require 'legacy'
-require 'releases'
-require 'solutionpage'
-require 'versionswitcher'
-require 'yearposts'
-require 'betterdatadir'
+Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
+  next if extension == __FILE__
+  require extension
+end
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
   extension YearPosts.new('/blog', :posts)
-
   extension Awestruct::Extensions::Indexifier.new
   extension Awestruct::Extensions::Sitemap.new
   extension BetterDataDir.new
-
-  #extension Awestruct::Extensions::Tagger.new(:posts,
-  #                                             '/blog')
 
   extension Awestruct::Extensions::Paginator.new(:posts,
                                                   '/node/index',
