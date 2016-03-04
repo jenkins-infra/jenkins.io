@@ -5,6 +5,7 @@ require 'releases'
 require 'solutionpage'
 require 'versionswitcher'
 require 'yearposts'
+require 'betterdatadir'
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
@@ -12,7 +13,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::Extensions::Indexifier.new
   extension Awestruct::Extensions::Sitemap.new
-  extension Awestruct::Extensions::DataDir.new
+  extension BetterDataDir.new
 
   #extension Awestruct::Extensions::Tagger.new(:posts,
   #                                             '/blog')
