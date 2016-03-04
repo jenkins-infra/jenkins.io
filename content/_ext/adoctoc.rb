@@ -32,7 +32,7 @@ module DirectoryTOC
     pages_by_path = awestruct_pages.map { |p| [p.source_path, p] }.to_h
     toc = []
 
-    Dir[File.join(directory, '*.adoc')].each do |adoc|
+    Dir[File.join(directory, '*.adoc')].sort.each do |adoc|
       page = pages_by_path[adoc]
       # Since all our documents are going to have front-matter so they render
       # properly, we need to look first at the Awestruct::Page and then
