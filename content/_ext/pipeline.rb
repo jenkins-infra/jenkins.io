@@ -1,3 +1,6 @@
+require 'awestruct/ibeams/debuggable_partial'
+require 'awestruct/ibeams/datadir'
+
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
   next if extension == __FILE__
   require extension
@@ -8,7 +11,6 @@ Awestruct::Extensions::Pipeline.new do
   extension YearPosts.new('/blog', :posts)
   extension Awestruct::Extensions::Indexifier.new
   extension Awestruct::Extensions::Sitemap.new
-  extension BetterDataDir.new
 
   extension Awestruct::Extensions::Paginator.new(:posts,
                                                   '/node/index',
@@ -20,15 +22,19 @@ Awestruct::Extensions::Pipeline.new do
                                                 :template => '_ext/atom.xml.haml')
 
   extension Awestruct::Extensions::Sitemap.new
+
+  extension Awestruct::IBeams::DataDir.new
+
   extension SolutionPage.new
   extension Releases.new
 
   transformer VersionSwitcher.new
 
-  helper DebuggablePartial
   helper Authorship
   helper Legacy
   helper DirectoryTOC
+
   helper Awestruct::Extensions::GoogleAnalytics
+  helper Awestruct::IBeams::DebuggablePartial
 end
 
