@@ -13,46 +13,97 @@ layout: simplepage
 == Architecting for Scale
 
 === Introduction
-As an organization matures from a continuous delivery standpoint, its Jenkins requirements will similarly grow. This growth is often reflected in the Jenkins master's architecture, whether that be "vertical" or "horizontal" growth.
 
-*Vertical growth* is when a master’s load is increased by having more configured jobs or orchestrating more frequent builds. This may also mean that more teams are depending on that one master. 
+As an organization matures from a continuous delivery standpoint, its Jenkins
+requirements will similarly grow. This growth is often reflected in the Jenkins
+master's architecture, whether that be "vertical" or "horizontal" growth.
 
-*Horizontal* growth is the creation of additional masters within an organization to accommodate new teams or projects, rather than adding these things to an existing single master. 
+*Vertical growth* is when a master’s load is increased by having more
+configured jobs or orchestrating more frequent builds. This may also mean that
+more teams are depending on that one master.
 
-There are potential pitfalls associated with each approach to scaling Jenkins, but with careful planning, many of them can be avoided or managed. Here are some things to consider when choosing a strategy for scaling your organization's Jenkins instances:
+*Horizontal* growth is the creation of additional masters within an
+organization to accommodate new teams or projects, rather than adding these
+things to an existing single master.
 
-* **Do you have the resources to run a distributed build system?** If possible, it is recommended set up dedicated build nodes that run separately from the Jenkins master. This frees up resources for the master to improve its scheduling performance and prevents builds from being able to modify any potentially sensitive data in the master's _$JENKINS_HOME_. This also allows for a single master to scale far more vertically than if that master were both the job builder and scheduler.
+There are potential pitfalls associated with each approach to scaling Jenkins,
+but with careful planning, many of them can be avoided or managed. Here are
+some things to consider when choosing a strategy for scaling your
+organization's Jenkins instances:
 
-* **Do you have the resources to maintain multiple masters?** Jenkins masters will require regular plugin updates, semi-monthly core upgrades, and regular backups of configurations and build histories. Security settings and roles will have to be manually configured for each master. Downed masters will require manual restart of the Jenkins master and any jobs that were killed by the outage. 
-
-* **How mission critical are each team’s projects?** Consider segregating the most vital projects to separate masters to minimize the impact of a single downed master. Also consider converting any mission-critical project pipelines to Pipeline jobs, which have the ability to survive a master-slave connection interruptions.
-
-* **How important is a fast start-up time for your Jenkins instance?** The more jobs a master has configured, the longer it takes to load Jenkins after an upgrade or a crash. The use of folders and views to organize jobs can limit the number of that need to be rendered on start up.
+* **Do you have the resources to run a distributed build system?** If possible,
+  it is recommended set up dedicated build nodes that run separately from the
+  Jenkins master. This frees up resources for the master to improve its
+  scheduling performance and prevents builds from being able to modify any
+  potentially sensitive data in the master's _$JENKINS_HOME_. This also allows
+  for a single master to scale far more vertically than if that master were
+  both the job builder and scheduler.
+* **Do you have the resources to maintain multiple masters?** Jenkins masters
+  will require regular plugin updates, semi-monthly core upgrades, and regular
+  backups of configurations and build histories. Security settings and roles
+  will have to be manually configured for each master. Downed masters will
+  require manual restart of the Jenkins master and any jobs that were killed by
+  the outage.
+* **How mission critical are each team’s projects?** Consider segregating the
+  most vital projects to separate masters to minimize the impact of a single
+  downed master. Also consider converting any mission-critical project
+  pipelines to Pipeline jobs, which have the ability to survive a master-slave
+  connection interruptions.
+* **How important is a fast start-up time for your Jenkins instance?** The more
+  jobs a master has configured, the longer it takes to load Jenkins after an
+  upgrade or a crash. The use of folders and views to organize jobs can limit
+  the number of that need to be rendered on start up.
 
 === Distributed Builds Architecture
 
-A Jenkins master can operate by itself both managing the build environment and executing the builds with its own executors and resources. If you stick with this “standalone” configuration you will most likely run out of resources when the number or the load of your projects increase.
+A Jenkins master can operate by itself both managing the build environment and
+executing the builds with its own executors and resources. If you stick with
+this “standalone” configuration you will most likely run out of resources when
+the number or the load of your projects increase.
 
-To come back up and running with your Jenkins infrastructure you will need to enhance the master (increasing memory, number of CPUs, etc). The time it takes to maintain and upgrade the machine, the master together with all the build environment will be down, the jobs will be stopped and the whole Jenkins infrastructure will be unusable.
+To come back up and running with your Jenkins infrastructure you will need to
+enhance the master (increasing memory, number of CPUs, etc). The time it takes
+to maintain and upgrade the machine, the master together with all the build
+environment will be down, the jobs will be stopped and the whole Jenkins
+infrastructure will be unusable.
 
-Scaling Jenkins in such a scenario would be extremely painful and would introduce many “idle” periods where all the resources assigned to your build environment are useless.
+Scaling Jenkins in such a scenario would be extremely painful and would
+introduce many “idle” periods where all the resources assigned to your build
+environment are useless.
 
-Moreover, executing jobs on the master’s executors introduces a “security” issue: the ”jenkins” user that Jenkins uses to run the jobs would have full permissions on all Jenkins resources on the master. This means that, with a simple script, a malicious user can have direct access to private information whose integrity and privacy could not be, thus,  guaranteed.
+Moreover, executing jobs on the master’s executors introduces a “security”
+issue: the ”jenkins” user that Jenkins uses to run the jobs would have full
+permissions on all Jenkins resources on the master. This means that, with a
+simple script, a malicious user can have direct access to private information
+whose integrity and privacy could not be, thus,  guaranteed.
 
-For all these reasons Jenkins supports the "master/slave" mode, where the workload of building projects are delegated to multiple slave nodes.
+For all these reasons Jenkins supports the "master/slave" mode, where the
+workload of building projects are delegated to multiple slave nodes.
 
 [[slave_arch]]
 .Master slave architecture
 image::master-slave.png[scaledwidth=“30%”]
-NOTE: An architecture with 1 Jenkins master connected to 1 slave over a TCP/IP socket. Slave has 4 execution slots and is building 3 of the master’s configured jobs.
 
-A slave is a machine set up to offload build projects from the master. The method for scheduling builds depends on the configuration given to a specific project: some projects may be configured to only use a specific slave while others can freely pick up slaves among the pool of slaves assigned to the master. 
+NOTE: An architecture with 1 Jenkins master connected to 1 slave over a TCP/IP
+socket. Slave has 4 execution slots and is building 3 of the master’s
+configured jobs.
 
-In a distributed builds environment, the Jenkins master will use its resources to only handle HTTP requests and manage the build environment. Actual execution of builds will be delegated to the slaves. With this configuration it is possible to horizontally scale an architecture, which allows a single Jenkins installation to host a large number of projects and build environments.
+A slave is a machine set up to offload build projects from the master. The
+method for scheduling builds depends on the configuration given to a specific
+project: some projects may be configured to only use a specific slave while
+others can freely pick up slaves among the pool of slaves assigned to the
+master.
+
+In a distributed builds environment, the Jenkins master will use its resources
+to only handle HTTP requests and manage the build environment. Actual execution
+of builds will be delegated to the slaves. With this configuration it is
+possible to horizontally scale an architecture, which allows a single Jenkins
+installation to host a large number of projects and build environments.
 
 ==== Master/slave communication protocols
 
-In order for a machine to be recognized a slave, it needs to run a specific agent program that establish a bi-directional communication with the master. 
+In order for a machine to be recognized a slave, it needs to run a specific
+agent program that establish a bi-directional communication with the master.
 
 There are different ways to establish a connection between master and slave:
 
@@ -60,25 +111,56 @@ There are different ways to establish a connection between master and slave:
 .New node configuration screen
 image::newNodeConfigPage.png[scaledwidth=90%]
 
- * *The SSH connector*: Configuring a slave to use the SSH connector is the preferred and the most stable way to establish master-slave communication. Jenkins has a built-in SSH client implementation. This means that the Jenkins master can easily communicate with any machine with a SSHD server installed. The only requirements is that the public key of the master is part of the set of the authorized-keys of the slaves. Once defined the host and the ssh key to be used (in the Manage Node -> Add New Node configuration page), Jenkins will manage the communication automatically by installing the binaries of the agent program and starting/stopping the slave program as needed.
+* *The SSH connector*: Configuring a slave to use the SSH connector is the
+ preferred and the most stable way to establish master-slave communication.
+ Jenkins has a built-in SSH client implementation. This means that the
+ Jenkins master can easily communicate with any machine with a SSHD server
+ installed. The only requirements is that the public key of the master is
+ part of the set of the authorized-keys of the slaves. Once defined the host
+ and the ssh key to be used (in the Manage Node -> Add New Node configuration
+ page), Jenkins will manage the communication automatically by installing the
+ binaries of the agent program and starting/stopping the slave program as
+ needed.
 
- * *The JNLP-TCP connector*: In this case the communication is established starting the slave agent through Java Web Start (JNLP). With this connector the Java Web Start program has to be launched in the slave machine in 2 different ways:
+* *The JNLP-TCP connector*: In this case the communication is established
+  starting the slave agent through Java Web Start (JNLP). With this connector
+  the Java Web Start program has to be launched in the slave machine in 2
+  different ways:
 
-** Manually by navigating to the Jenkins master URL in the slave’s browser. Once the Java Web Start icon is clicked, the slave agent will be launched on the slave machine. The downside of this approach is that the slaves cannot be centrally managed by the Jenkins master and each/stop/start/update of the slave agent needs to be executed manually on the slave machine in versions of Jenkins older than 1.611. This approach is convenient when the master cannot instantiate the connection with the client (i.e. it runs outside a firewall whereas the slave runs inside).
+** Manually by navigating to the Jenkins master URL in the slave’s browser.
+Once the Java Web Start icon is clicked, the slave agent will be launched on
+the slave machine. The downside of this approach is that the slaves cannot be
+centrally managed by the Jenkins master and each/stop/start/update of the slave
+agent needs to be executed manually on the slave machine in versions of Jenkins
+older than 1.611. This approach is convenient when the master cannot
+instantiate the connection with the client (i.e. it runs outside a firewall
+whereas the slave runs inside).
 
-** As a service, which allows for restarts to be automated. First you’ll need to manually launch the slave using the above method. After manually launching it, _jenkins-slave.exe_ and _jenkins-slave.xml_ will be created in the slave’s work directory. Now go to the command line to execute the following command:
+** As a service, which allows for restarts to be automated. First you’ll need
+to manually launch the slave using the above method. After manually launching
+it, _jenkins-slave.exe_ and _jenkins-slave.xml_ will be created in the slave’s
+work directory. Now go to the command line to execute the following command:
 
 [source, width=“300”]
+----
 sc.exe create "<serviceKey>" start= auto binPath= "<path to jenkins-slave.exe>" DisplayName= "<service display name>"
+----
 
-_<serviceKey>_ is the name of the registry key to define this slave service and <service display name> is the label that will identify the service in the Service Manager interface. 
- 
-To ensure that restarts are automated, you will need to download a slave jar newer than v 2.37 and copy it to a permanent location on the slave machine. The _slave.jar_ can be found in:
+_<serviceKey>_ is the name of the registry key to define this slave service and
+<service display name> is the label that will identify the service in the
+Service Manager interface.
+
+To ensure that restarts are automated, you will need to download a slave jar
+newer than v 2.37 and copy it to a permanent location on the slave machine. The
+_slave.jar_ can be found in:
 
 [source, width="350"]
+----
 http://<your-jenkins-host>/jnlpJars/slave.jar
+----
 
-If running a version of Jenkins newer than 1.559, the _slave.jar_ will be kept up to date each time it connects to the master.
+If running a version of Jenkins newer than 1.559, the _slave.jar_ will be kept
+up to date each time it connects to the master.
 
  * *The JNLP-HTTP connector*: This approach is quite similar to the JNLP-TCP Java Web Start approach, with the difference in this case being that the slave agent is executed as headless and the connection can be tunneled via HTTP(s). The exact command can be found on your JNLP slave’s configuration page:
 
@@ -88,58 +170,106 @@ image::jnlp-slave.png[scaledwidth=90%]
 
 This approach is convenient for an execution as a daemon on Unix.
 
- * *Custom-script*: It is also possible to create a custom script to initialize the communication between master and slave if the other solutions do not provide enough flexibility for a specific use-case. The only requirement is that the script runs the java program as a _java -jar slave.jar_ on the slave.
+* *Custom-script*: It is also possible to create a custom script to initialize
+  the communication between master and slave if the other solutions do not
+  provide enough flexibility for a specific use-case. The only requirement is
+  that the script runs the java program as a _java -jar slave.jar_ on the
+  slave.
 
-Windows slaves set-up can either follow the standard SSH and JNLP approach  or use a more Windows-specific configuration approach. Windows slaves have the following options:
+Windows slaves set-up can either follow the standard SSH and JNLP approach  or
+use a more Windows-specific configuration approach. Windows slaves have the
+following options:
 
- * *SSH-connector approach with Putty*
-
- * *SSH-connector approach with Cygwin and OpenSSH*: http://wiki.jenkins-ci.org/display/JENKINS/SSH+slaves+and+Cygwin[This] is the easiest to setup and recommended approach.
-
- * *Remote management facilities (WMI + DCOM)*: With this approach, which utilizes the http://wiki.jenkins-ci.org/display/JENKINS/Windows+Slaves+Plugin[Windows Slave plugin]), the Jenkins master will register the slave agent on the windows slave machine creating a Windows service. The Jenkins master can control the slaves, issuing stops/restarts/updates of the same. However this is difficult to set-up and not recommended. 
-
- * *JNLP-connector approach*: With http://wiki.jenkins-ci.org/display/JENKINS/Installing+Jenkins+as+a+Windows+service[this approach] it is possible to manually register the slave as Windows service, but it will not be possible to centrally manage it from the master. Each stop/start/update of the slave agent needs to be executed manually on the slave machine, unless running Jenkins 1.611 or newer.
+* *SSH-connector approach with Putty*
+* *SSH-connector approach with Cygwin and OpenSSH*:
+  http://wiki.jenkins-ci.org/display/JENKINS/SSH+slaves+and+Cygwin[This] is the
+  easiest to setup and recommended approach.
+* *Remote management facilities (WMI + DCOM)*: With this approach, which
+  utilizes the
+  http://wiki.jenkins-ci.org/display/JENKINS/Windows+Slaves+Plugin[Windows
+  Slave plugin]), the Jenkins master will register the slave agent on the
+  windows slave machine creating a Windows service. The Jenkins master can
+  control the slaves, issuing stops/restarts/updates of the same. However this
+  is difficult to set-up and not recommended.
+* *JNLP-connector approach*: With
+  http://wiki.jenkins-ci.org/display/JENKINS/Installing+Jenkins+as+a+Windows+service[this approach]
+   it is possible to manually register the slave as Windows service,
+  but it will not be possible to centrally manage it from the master. Each
+  stop/start/update of the slave agent needs to be executed manually on the
+  slave machine, unless running Jenkins 1.611 or newer.
 
 === Creating fungible slaves
 
 ==== Configuring tools location on slaves
 
-The Jenkins Global configuration page let you specify the tools needed during the builds (i.e. Ant, Maven, Java, etc).
+The Jenkins Global configuration page let you specify the tools needed during
+the builds (i.e. Ant, Maven, Java, etc).
 
-When defining a tool, it is possible to create a pointer to an existing installation by giving the directory where the program is expected to be on the slave. Another option is to let Jenkins take care of the installation of a specific version in the given location. It is also possible to specify more than one installation for the same tool since different jobs may need different versions of the same tool.
+When defining a tool, it is possible to create a pointer to an existing
+installation by giving the directory where the program is expected to be on the
+slave. Another option is to let Jenkins take care of the installation of a
+specific version in the given location. It is also possible to specify more
+than one installation for the same tool since different jobs may need different
+versions of the same tool.
 
-The pre-compiled “Default” option calls whatever is already installed on the slave and exists in the machine PATH, but this will return a failure if the tool was not already installed and its location was not added to the PATH system variable.
+The pre-compiled “Default” option calls whatever is already installed on the
+slave and exists in the machine PATH, but this will return a failure if the
+tool was not already installed and its location was not added to the PATH
+system variable.
 
-One best practice to avoid this failure is to configure a job with the assumption that the target slave does not have the necessary tools installed, and to include the tools’ installation as part of the build process.
+One best practice to avoid this failure is to configure a job with the
+assumption that the target slave does not have the necessary tools installed,
+and to include the tools’ installation as part of the build process.
 
 
 ==== Define a policy to share slave machines
 
-As mentioned previously, slaves should be interchangeable and standardized in order to make them sharable and to optimize resource usage.  Slaves should not be customized for a particular set of jobs, nor for a particular team. 
+As mentioned previously, slaves should be interchangeable and standardized in
+order to make them sharable and to optimize resource usage.  Slaves should not
+be customized for a particular set of jobs, nor for a particular team.
 
-Lately Jenkins has become more and more popular not only in CI but also in CD, which means that it must orchestrate jobs and pipelines which involve different teams and technical profiles: developers, QA people and Dev-Ops people.
+Lately Jenkins has become more and more popular not only in CI but also in CD,
+which means that it must orchestrate jobs and pipelines which involve different
+teams and technical profiles: developers, QA people and Dev-Ops people.
 
-In such a scenario, it might make sense to create customized and dedicated slaves: different tools are usually required by different teams (i.e. Puppet/Chef for the Ops team) and teams’ credentials are usually stored on the slave in order to ensure their protection and privacy. 
+In such a scenario, it might make sense to create customized and dedicated
+slaves: different tools are usually required by different teams (i.e.
+Puppet/Chef for the Ops team) and teams’ credentials are usually stored on the
+slave in order to ensure their protection and privacy.
 
-In order to ensure the execution of a job on a single/group of slaves only (i.e. iOS builds on OSX slaves only), it is possible to tie the job to the slave by specifying the slave's label in the job configuration page. Note that the restriction has to be replicated in every single job to be tied and that the slave won’t be protected from being used by other teams.
+In order to ensure the execution of a job on a single/group of slaves only
+(i.e. iOS builds on OSX slaves only), it is possible to tie the job to the
+slave by specifying the slave's label in the job configuration page. Note that
+the restriction has to be replicated in every single job to be tied and that
+the slave won’t be protected from being used by other teams.
 
 ==== Setting up cloud slaves
 
-Cloud build resources can be a solution for a case when it is necessary to maintain a reasonably small cluster of slaves on-premise while still providing new build resources when needed.
+Cloud build resources can be a solution for a case when it is necessary to
+maintain a reasonably small cluster of slaves on-premise while still providing
+new build resources when needed.
 
-In particular it is possible to offload the execution of the jobs to slaves in the cloud thanks to ad-hoc plugins which will handle the creation of the cloud resources together with their destruction when they are not needed anymore:
+In particular it is possible to offload the execution of the jobs to slaves in
+the cloud thanks to ad-hoc plugins which will handle the creation of the cloud
+resources together with their destruction when they are not needed anymore:
 
-* The https://wiki.jenkins-ci.org/display/JENKINS/Amazon+EC2+Plugin[EC2 Plugin] let Jenkins use AWS EC2 instances as cloud build resources when it runs out of on-premise slaves. The EC2 slaves will be dynamically created inside an AWS network and de-provisioned when they are not needed.
-
-* The https://wiki.jenkins-ci.org/display/JENKINS/JClouds+Plugin[JCloud plugin] creates the possibility of executing the jobs on any cloud provider supported by JCloud libraries
+* The https://wiki.jenkins-ci.org/display/JENKINS/Amazon+EC2+Plugin[EC2 Plugin]
+  let Jenkins use AWS EC2 instances as cloud build resources when it runs out
+  of on-premise slaves. The EC2 slaves will be dynamically created inside an
+  AWS network and de-provisioned when they are not needed.
+* The https://wiki.jenkins-ci.org/display/JENKINS/JClouds+Plugin[JCloud plugin]
+  creates the possibility of executing the jobs on any cloud provider supported
+  by JCloud libraries
 
 === Right-sizing Jenkins masters
 
 ==== Master division strategies
 
-Designing the best Jenkins architecture for your organization is dependent on how you stratify the development of your projects and can be constrained by limitations of the existing Jenkins plugins. 
+Designing the best Jenkins architecture for your organization is dependent on
+how you stratify the development of your projects and can be constrained by
+limitations of the existing Jenkins plugins.
 
-The 3 most common forms of stratifying development by masters is: 
+The 3 most common forms of stratifying development by masters is:
 
 1. **By environment (QA, DEV, etc)** - With this strategy, Jenkins masters are populated by jobs based on what environment they are deploying to.
 
@@ -152,7 +282,7 @@ The 3 most common forms of stratifying development by masters is:
 ** No way to visualize the complete flow across masters
 ** Outage of a master will block flow of all products
 
-2. **By org chart** - This strategy is when masters are assigned to divisions within an organization. 
+2. **By org chart** - This strategy is when masters are assigned to divisions within an organization.
 
 * **Pros**
 ** Can tailor plugins on masters to be specific to that team’s needs
@@ -172,104 +302,165 @@ The 3 most common forms of stratifying development by masters is:
 * **Cons**
 ** A strategy for restricting permissions must be devised to keep all users from having access to all items on a master.
 
-When evaluating these strategies, it is important to weigh them against the vertical and horizontal scaling pitfalls discussed in the introduction.
+When evaluating these strategies, it is important to weigh them against the
+vertical and horizontal scaling pitfalls discussed in the introduction.
 
-Another note is that a smaller number of jobs translates to faster recovery from failures and more importantly a higher mean time between failures.
+Another note is that a smaller number of jobs translates to faster recovery
+from failures and more importantly a higher mean time between failures.
 
 ==== Calculating how many jobs, masters, and executors are needed
 
-Having the best possible estimate of necessary configurations for a Jenkins installation allows an organization to get started on the right foot with Jenkins and reduces the number of configuration iterations needed to achieve an optimal installation. The challenge for Jenkins architects is that true limit of vertical scaling on a Jenkins master is constrained by whatever hardware is in place for the master, as well as harder to quantify pieces like the types of builds and tests that will be run on the build nodes. 
+Having the best possible estimate of necessary configurations for a Jenkins
+installation allows an organization to get started on the right foot with
+Jenkins and reduces the number of configuration iterations needed to achieve an
+optimal installation. The challenge for Jenkins architects is that true limit
+of vertical scaling on a Jenkins master is constrained by whatever hardware is
+in place for the master, as well as harder to quantify pieces like the types of
+builds and tests that will be run on the build nodes.
 
-There is a way to estimate roughly how many masters, jobs and executors will be needed based on build needs and number of developers served. These equations assume that the Jenkins master will have 5 cores with one core per 100 jobs (500 total jobs/master) and that teams will be divided into groups of 40. 
+There is a way to estimate roughly how many masters, jobs and executors will be
+needed based on build needs and number of developers served. These equations
+assume that the Jenkins master will have 5 cores with one core per 100 jobs
+(500 total jobs/master) and that teams will be divided into groups of 40.
 
-If you have information on the actual number of available cores on your planned master, you can make adjustments to the 
-“number of masters” equations accordingly. 
+If you have information on the actual number of available cores on your planned
+master, you can make adjustments to the
+“number of masters” equations accordingly.
 
-The equation for *estimating the number of masters and executors needed* when the number of configured jobs is known is as follows:
+The equation for *estimating the number of masters and executors needed* when
+the number of configured jobs is known is as follows:
 
 [source, width="350"]
+----
 masters = number of jobs/500
 executors = number of jobs * 0.03
+----
 
-The equation for *estimating the maximum number of jobs, masters, and executors needed* for an organization based on the number of developers is as follows:
+The equation for *estimating the maximum number of jobs, masters, and executors
+needed* for an organization based on the number of developers is as follows:
 
 [source, width="350"]
+----
 number of jobs = number of developers * 3.333
 number of masters = number of jobs/500
 number of executors = number of jobs * 0.03
+----
 
-These numbers will provide a good starting point for a Jenkins installation, but adjustments to actual installation size may be needed based on the types of builds and tests that an installation runs.
+These numbers will provide a good starting point for a Jenkins installation,
+but adjustments to actual installation size may be needed based on the types of
+builds and tests that an installation runs.
 
 ==== Scalable storage for masters
 
-It is also recommended to choose a master with consideration for future growth in the number of plugins or jobs stored in your master's _$JENKINS_HOME_. Storage is cheap and Jenkins does not require fast disk access to run well, so it is more advantageous to invest in a larger machine for your master over a faster one.
+It is also recommended to choose a master with consideration for future growth
+in the number of plugins or jobs stored in your master's _$JENKINS_HOME_.
+Storage is cheap and Jenkins does not require fast disk access to run well, so
+it is more advantageous to invest in a larger machine for your master over a
+faster one.
 
-Different operating systems for the Jenkins master will also allow for different approaches to expandable storage:
+Different operating systems for the Jenkins master will also allow for
+different approaches to expandable storage:
 
-* *Spanned Volumes on Windows* - On NTFS devices like Windows, you can create a spanned volume that allows you to add new volumes to an existing one, but have them behave as a single volume. To do this, you will have to ensure that Jenkins is installed on a separate partition so that it can be converted to a spanned volume later.
+* *Spanned Volumes on Windows* - On NTFS devices like Windows, you can create a
+  spanned volume that allows you to add new volumes to an existing one, but
+  have them behave as a single volume. To do this, you will have to ensure that
+  Jenkins is installed on a separate partition so that it can be converted to a
+  spanned volume later.
+* *Logical Volume Manager for Linux* - LVM manages disk drives and allows
+  logical volumes to be resized on the fly. Many distributions of Linux use LVM
+  when they are installed, but Jenkins should have its our LVM setup.
+* *ZFS for Solaris* - ZFS is even more flexible than LVM and spanned volumes
+  and just requires that the _$JENKINS_HOME_ be on its own filesystem. This
+  makes it easier to create snapshots, backups, etc.
+* *Symbolic Links* - For systems with existing Jenkins installations and who
+  cannot use any of the above-mentioned methods, symbolic links (symlinks) may
+  be used instead to store job folders on separate volumes with symlinks to
+  those directories.
 
-* *Logical Volume Manager for Linux* - LVM manages disk drives and allows logical volumes to be resized on the fly. Many distributions of Linux use LVM when they are installed, but Jenkins should have its our LVM setup.
-
-* *ZFS for Solaris* - ZFS is even more flexible than LVM and spanned volumes and just requires that the _$JENKINS_HOME_ be on its own filesystem. This makes it easier to create snapshots, backups, etc.
-
-* *Symbolic Links* - For systems with existing Jenkins installations and who cannot use any of the above-mentioned methods, symbolic links (symlinks) may be used instead to store job folders on separate volumes with symlinks to those directories.
-
-Additionally, to easily prevent a _$JENKINS_HOME_ folder from becoming bloated, make it mandatory for jobs to discard build records after a specific time period has passed and/or after a specific number of builds have been run. This policy can be set on a job's configuration page.
+Additionally, to easily prevent a _$JENKINS_HOME_ folder from becoming bloated,
+make it mandatory for jobs to discard build records after a specific time
+period has passed and/or after a specific number of builds have been run. This
+policy can be set on a job's configuration page.
 
 
 === Setting up a backup policy
 
-It is a best practice to take regular backups of your $JENKINS_HOME. A backup ensures that your Jenkins instance can be restored despite a misconfiguration, accidental job deletion, or data corruption.  
+It is a best practice to take regular backups of your $JENKINS_HOME. A backup
+ensures that your Jenkins instance can be restored despite a misconfiguration,
+accidental job deletion, or data corruption.
 
 ==== Finding your $JENKINS_HOME
- 
+
 **Windows**
 
-If you install Jenkins with the Windows installer, Jenkins will be installed as a service and the default _$JENKINS_HOME_ will be “C:\Program Files (x86)\jenkins”. 
+If you install Jenkins with the Windows installer, Jenkins will be installed as
+a service and the default _$JENKINS_HOME_ will be “C:\Program Files
+(x86)\jenkins”.
 
-You can edit the location of your _$JENKINS_HOME_ by opening the jenkins.xml file and editing the _$JENKINS_HOME_ variable, or going to the “Manage Jenkins” screen, clicking on the “Install as Windows Service” option in the menu, and then editing the “Installation Directory” field to point to another existing directory.
+You can edit the location of your _$JENKINS_HOME_ by opening the jenkins.xml
+file and editing the _$JENKINS_HOME_ variable, or going to the “Manage Jenkins”
+screen, clicking on the “Install as Windows Service” option in the menu, and
+then editing the “Installation Directory” field to point to another existing
+directory.
 
 **Mac OSX**
 
-If you install Jenkins with the OS X installer, you can find and edit the location of your _$JENKINS_HOME_ by editing the “Macintosh HD/Library/LaunchDaemons” file’s _$JENKINS_HOME_ property. 
+If you install Jenkins with the OS X installer, you can find and edit the
+location of your _$JENKINS_HOME_ by editing the “Macintosh
+HD/Library/LaunchDaemons” file’s _$JENKINS_HOME_ property.
 
-By default, the _$JENKINS_HOME_ will be set to “Macintosh HD/Users/Shared/Jenkins”.
+By default, the _$JENKINS_HOME_ will be set to “Macintosh
+HD/Users/Shared/Jenkins”.
 
 **Ubuntu/Debian**
 
-If you install Jenkins using a Debian package, you can find and edit the location of your _$JENKINS_HOME_ by editing your “/etc/default/jenkins” file. 
+If you install Jenkins using a Debian package, you can find and edit the
+location of your _$JENKINS_HOME_ by editing your “/etc/default/jenkins” file.
 
-By default, the _$JENKINS_HOME_ will set to “/var/lib/jenkins” and your $JENKINS_WAR will point to “/usr/share/jenkins/jenkins.war”.
+By default, the _$JENKINS_HOME_ will set to “/var/lib/jenkins” and your
+$JENKINS_WAR will point to “/usr/share/jenkins/jenkins.war”.
 
 **Red Hat/CentOS/Fedora**
 
-If you install Jenkins as a RPM package, the default _$JENKINS_HOME_ will be “/var/lib/jenkins”. 
+If you install Jenkins as a RPM package, the default _$JENKINS_HOME_ will be
+“/var/lib/jenkins”.
 
-You can edit the location of your _$JENKINS_HOME_ by editing the “/etc/sysconfig/jenkins” file. 
+You can edit the location of your _$JENKINS_HOME_ by editing the
+“/etc/sysconfig/jenkins” file.
 
 **openSUSE**
 
-If installing Jenkins as a package using zypper, you’ll be able to edit the _$JENKINS_HOME_ by editing the “/etc/sysconfig/jenkins” file. 
+If installing Jenkins as a package using zypper, you’ll be able to edit the
+_$JENKINS_HOME_ by editing the “/etc/sysconfig/jenkins” file.
 
-The default location for your _$JENKINS_HOME_ will be set to “/var/lib/jenkins” and the $JENKINS_WAR home will be in “/usr/lib/jenkins”.
+The default location for your _$JENKINS_HOME_ will be set to “/var/lib/jenkins”
+and the $JENKINS_WAR home will be in “/usr/lib/jenkins”.
 
 **FreeBSD**
 
-If installing Jenkins using a port, the _$JENKINS_HOME_ will be located in whichever directory you run the “make” command in. It is recommended to create a “/usr/ports/devel/jenkins” folder and compile Jenkins in that directory.
+If installing Jenkins using a port, the _$JENKINS_HOME_ will be located in
+whichever directory you run the “make” command in. It is recommended to create
+a “/usr/ports/devel/jenkins” folder and compile Jenkins in that directory.
 
-You will be able to edit the _$JENKINS_HOME_ by editing the “/usr/local/etc/jenkins”. 
+You will be able to edit the _$JENKINS_HOME_ by editing the
+“/usr/local/etc/jenkins”.
 
 **OpenBSD**
 
-If installing Jenkins using a package,the _$JENKINS_HOME_ is set by default to “/var/jenkins”.
+If installing Jenkins using a package,the _$JENKINS_HOME_ is set by default to
+“/var/jenkins”.
 
-If installing Jenkins using a port, the _$JENKINS_HOME_ will be located in whichever directory you run the “make” command in. It is recommended to create a “/usr/ports/devel/jenkins” folder and compile Jenkins in that directory.
+If installing Jenkins using a port, the _$JENKINS_HOME_ will be located in
+whichever directory you run the “make” command in. It is recommended to create
+a “/usr/ports/devel/jenkins” folder and compile Jenkins in that directory.
 
-You will be able to edit the _$JENKINS_HOME_ by editing the “/usr/local/etc/jenkins” file. 
+You will be able to edit the _$JENKINS_HOME_ by editing the
+“/usr/local/etc/jenkins” file.
 
-**Solaris/OpenIndiana** 
+**Solaris/OpenIndiana**
 
-The Jenkins project voted on September 17, 2014 to discontinue Solaris packages.
+The Jenkins project voted on September 17, 2014 to discontinue Solaris
+packages.
 
 ==== Anatomy of a $JENKINS_HOME
 
@@ -290,8 +481,8 @@ JENKINS_HOME
  +- fingerprints   (stores fingerprint records, if any)
  +- plugins        (root directory for all Jenkins plugins)
      +- [PLUGINNAME]   (sub directory for each plugin)
-         +- META-INF       (subdirectory for plugin manifest + pom.xml)      
-         +- WEB-INF        (subdirectory for plugin jar(s) and licenses.xml)             
+         +- META-INF       (subdirectory for plugin manifest + pom.xml)
+         +- WEB-INF        (subdirectory for plugin jar(s) and licenses.xml)
      +- [PLUGINNAME].jpi   (.jpi or .hpi file for the plugin)
  +- jobs           (root directory for all Jenkins jobs)
      +- [JOBNAME]      (sub directory for each job)
@@ -309,26 +500,32 @@ JENKINS_HOME
 
 ==== Choosing a backup strategy
 
-All of your Jenkins-specific configurations that need to be backed up will live in the _$JENKINS_HOME_, but it is a best practice to back up only a subset of those files and folders.
+All of your Jenkins-specific configurations that need to be backed up will live
+in the _$JENKINS_HOME_, but it is a best practice to back up only a subset of
+those files and folders.
 
 Below are a few guidelines to consider when planning your backup strategy.
 
 .Exclusions
 
-When it comes to creating a backup, it is recommended to exclude archiving the following folders to reduce the size of your backup:
+When it comes to creating a backup, it is recommended to exclude archiving the
+following folders to reduce the size of your backup:
 
 [literal]
 /war      (the exploded Jenkins war directory)
 /cache    (downloaded tools)
 /tools    (extracted tools)
 
-These folders will automatically be recreated the next time a build runs or Jenkins is launched.
+These folders will automatically be recreated the next time a build runs or
+Jenkins is launched.
 
 .Jobs and Folders
 
-Your job or folder configurations, build histories, archived artifacts, and workspace will exist entirely within the _jobs_ folder.
+Your job or folder configurations, build histories, archived artifacts, and
+workspace will exist entirely within the _jobs_ folder.
 
-The _jobs_ directory, whether nested within a folder or at the root level is as follows:
+The _jobs_ directory, whether nested within a folder or at the root level is as
+follows:
 
 [literal]
  +- jobs           (root directory for all Jenkins jobs)
@@ -342,38 +539,51 @@ The _jobs_ directory, whether nested within a folder or at the root level is as 
                  +- log            (log file)
                  +- changelog.xml  (change log)
 
-If you only need to backup your job configurations, you can opt to only backup the _config.xml_ for each job. Generally build records and workspaces do not need to be backed up, as workspaces will be re-created when a job is run and build records are only as important as your organizations deems them.
+If you only need to backup your job configurations, you can opt to only backup
+the _config.xml_ for each job. Generally build records and workspaces do not
+need to be backed up, as workspaces will be re-created when a job is run and
+build records are only as important as your organizations deems them.
 
 .System configurations
 
-Your instance’s system configurations exist in the root level of the _$JENKINS_HOME_ folder:
+Your instance’s system configurations exist in the root level of the
+_$JENKINS_HOME_ folder:
 
 [literal]
  +- config.xml     (Jenkins root configuration file)
  +- *.xml          (other site-wide configuration files)
 
-The _config.xml_ is the root configuration file for your Jenkins. It includes configurations for the paths of installed tools, workspace directory, and slave agent port.
+The _config.xml_ is the root configuration file for your Jenkins. It includes
+configurations for the paths of installed tools, workspace directory, and slave
+agent port.
 
-Any .xml other than that _config.xml_ in the root Jenkins folder is a global configuration file for an installed tool or plugin (i.e. Maven, Git, Ant, etc). This includes the _credentials.xml_ if the Credentials plugin is installed.
+Any .xml other than that _config.xml_ in the root Jenkins folder is a global
+configuration file for an installed tool or plugin (i.e. Maven, Git, Ant, etc).
+This includes the _credentials.xml_ if the Credentials plugin is installed.
 
-If you only want to backup your core Jenkins configuration, you only need to back up the _config.xml_. 
+If you only want to backup your core Jenkins configuration, you only need to
+back up the _config.xml_.
 
 .Plugins
 
-Your instance’s plugin files (.hpi and .jpi) and any of their dependent resources (help files, _pom.xml_ files, etc) will exist in the _plugins_ folder in $JENKINS_HOME.
+Your instance’s plugin files (.hpi and .jpi) and any of their dependent
+resources (help files, _pom.xml_ files, etc) will exist in the _plugins_ folder
+in $JENKINS_HOME.
 
 [literal]
  +- plugins        (root directory for all Jenkins plugins)
      +- [PLUGINNAME]     (sub directory for each plugin)
-         +- META-INF       (subdirectory for plugin manifest + pom.xml)      
-         +- WEB-INF        (subdirectory for plugin jar(s) and licenses.xml)             
+         +- META-INF       (subdirectory for plugin manifest + pom.xml)
+         +- WEB-INF        (subdirectory for plugin jar(s) and licenses.xml)
      +- [PLUGINNAME].jpi (.jpi or .hpi file for the plugin)
 
 It is recommended to back up the entirety of the plugins folder (.hpi/.jpis + folders).
 
 .Other data
 
-Other data that you are recommended to back up include the contents of your _secrets_ folder, your _identity.key_, your _secret.key_, and your _secret.key.not-so-secret_ file. 
+Other data that you are recommended to back up include the contents of your
+_secrets_ folder, your _identity.key_, your _secret.key_, and your
+_secret.key.not-so-secret_ file.
 
 [literal]
 +- identity.key   (RSA key pair that identifies an instance)
@@ -386,48 +596,85 @@ Other data that you are recommended to back up include the contents of your _sec
      +- InstanceIdentity.KEY (used to identity this instance)
 
 
-The _identity.key_ is an RSA key pair that identifies and authenticates the current Jenkins instance.
+The _identity.key_ is an RSA key pair that identifies and authenticates the
+current Jenkins instance.
 
-The _secret.key_ is used to encrypt plugin and other Jenkins data, and to establish a secure connection between a master and slave.
+The _secret.key_ is used to encrypt plugin and other Jenkins data, and to
+establish a secure connection between a master and slave.
 
-The _secret.key.not-so-secret_ file is used to validate when the _$JENKINS_HOME_ was created. It is also meant to be a flag that the secret.key file is a deprecated way of encrypting information.
+The _secret.key.not-so-secret_ file is used to validate when the
+_$JENKINS_HOME_ was created. It is also meant to be a flag that the secret.key
+file is a deprecated way of encrypting information.
 
-The files in the secrets folder are used by Jenkins to encrypt and decrypt your instance’s stored credentials, if any exist. Loss of these files will prevent recovery of any stored credentials. _hudson.util.Secret_ is used for encrypting some Jenkins data like the credentials.xml, while the _master.key_ is used for encrypting the hudson.util.Secret key. Finally, the _InstanceIdentity.KEY_ is used to identity this instance and for producing digital signatures.
+The files in the secrets folder are used by Jenkins to encrypt and decrypt your
+instance’s stored credentials, if any exist. Loss of these files will prevent
+recovery of any stored credentials. _hudson.util.Secret_ is used for encrypting
+some Jenkins data like the credentials.xml, while the _master.key_ is used for
+encrypting the hudson.util.Secret key. Finally, the _InstanceIdentity.KEY_ is
+used to identity this instance and for producing digital signatures.
 
 ==== Define a Jenkins instance to rollback to
 
-In the case of a total machine failure, it is important to ensure that there is a plan in place to get Jenkins both back online and in its last good state.
+In the case of a total machine failure, it is important to ensure that there is
+a plan in place to get Jenkins both back online and in its last good state.
 
-If a high availability set up has not been enabled and no back up of that master’s filesystem has been taken, then an corruption of a machine running Jenkins means that all historical build data and artifacts, job and system configurations, etc. will be lost and the lost configurations will need to be recreated on a new instance.
+If a high availability set up has not been enabled and no back up of that
+master’s filesystem has been taken, then an corruption of a machine running
+Jenkins means that all historical build data and artifacts, job and system
+configurations, etc. will be lost and the lost configurations will need to be
+recreated on a new instance.
 
-1. Backup policy - In addition to creating backups using the previous section’s backup guide, it is important to establish a policy for selecting which backup should be used when restoring a downed master.
-
-2. Restoring from a backup - A plan must be put in place on whether the backup should be restored manually or with scripts when the primary goes down. 
+1. Backup policy - In addition to creating backups using the previous section’s
+   backup guide, it is important to establish a policy for selecting which backup
+   should be used when restoring a downed master.
+2. Restoring from a backup - A plan must be put in place on whether the backup
+   should be restored manually or with scripts when the primary goes down.
 
 === Resilient Jenkins Architecture
 
-Administrators are constantly adding more and more teams to the software factory, making administrators in the business of making their instances resilient to failures and scaling them in order to onboard more teams.
+Administrators are constantly adding more and more teams to the software
+factory, making administrators in the business of making their instances
+resilient to failures and scaling them in order to onboard more teams.
 
-Adding build nodes to a Jenkins instance while beefing up the machine that runs the Jenkins master is the typical way to scale Jenkins. Said differently, administrators scale their Jenkins master vertically. However, there is a limit to how much an instance can be scaled. These limitations are covered in the introduction to this chapter.
+Adding build nodes to a Jenkins instance while beefing up the machine that runs
+the Jenkins master is the typical way to scale Jenkins. Said differently,
+administrators scale their Jenkins master vertically. However, there is a limit
+to how much an instance can be scaled. These limitations are covered in the
+introduction to this chapter.
 
-Ideally, masters will be set up to automatically recover from failures without human intervention. There are proxy servers monitoring active masters and re-routing requests to backup masters if the active master goes down. There are additional factors that should be reviewed on the path to continuous delivery. These factors include componetizing the application under development, automating the entire pipeline (within reasonable limits) and freeing up contentious resources.
+Ideally, masters will be set up to automatically recover from failures without
+human intervention. There are proxy servers monitoring active masters and
+re-routing requests to backup masters if the active master goes down. There are
+additional factors that should be reviewed on the path to continuous delivery.
+These factors include componetizing the application under development,
+automating the entire pipeline (within reasonable limits) and freeing up
+contentious resources.
 
 .Step 1: Make each master highly available
 
 Each Jenkins master needs to be set up such that it is part of a Jenkins cluster.
 
-A proxy (typically HAProxy or F5) then fronts the primary master. The proxy’s job is to continuously monitor the primary master and route requests to the backup if the primary goes down. To make the infrastructure more resilient, you can have multiple backup masters configured.
+A proxy (typically HAProxy or F5) then fronts the primary master. The proxy’s
+job is to continuously monitor the primary master and route requests to the
+backup if the primary goes down. To make the infrastructure more resilient, you
+can have multiple backup masters configured.
 
 .Step 2: Enable security
 
 Set up an authentication realm that Jenkins will use for its user database.
 
-TIP: If you are trying to set up a proof-of-concept, it is recommended to use the https://wiki.jenkins-ci.org/display/JENKINS/Mock+Security+Realm+Plugin[Mock Security Realm plugin] for authentication.
+TIP: If you are trying to set up a proof-of-concept, it is recommended to use
+the https://wiki.jenkins-ci.org/display/JENKINS/Mock+Security+Realm+Plugin[Mock
+Security Realm plugin] for authentication.
 
 .Step 3: Add build nodes (slaves) to master
 
-Add build servers to your master to ensure you are conducting actual build execution off of the master, which is meant to be an orchestration hub, and onto a “dumb” machine with sufficient memory and I/O for a given job or test.
+Add build servers to your master to ensure you are conducting actual build
+execution off of the master, which is meant to be an orchestration hub, and
+onto a “dumb” machine with sufficient memory and I/O for a given job or test.
 
 .Step 4: Setup a test instance
 
-A test instance is typically used to test new plugin updates. When a plugin is ready to be used, it should be installed into the main production update center.
+A test instance is typically used to test new plugin updates. When a plugin is
+ready to be used, it should be installed into the main production update
+center.
