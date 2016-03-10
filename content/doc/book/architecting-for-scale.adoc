@@ -47,7 +47,7 @@ organization's Jenkins instances:
 * **How mission critical are each team's projects?** Consider segregating the
   most vital projects to separate masters to minimize the impact of a single
   downed master. Also consider converting any mission-critical project
-  pipelines to Pipeline jobs, which have the ability to survive a master-slave
+  pipelines to Pipeline jobs, which have the ability to survive a master-agent
   connection interruptions.
 * **How important is a fast start-up time for your Jenkins instance?** The more
   jobs a master has configured, the longer it takes to load Jenkins after an
@@ -77,107 +77,121 @@ permissions on all Jenkins resources on the master. This means that, with a
 simple script, a malicious user can have direct access to private information
 whose integrity and privacy could not be, thus,  guaranteed.
 
-For all these reasons Jenkins supports the "master/slave" mode, where the
-workload of building projects are delegated to multiple slave nodes.
+For all these reasons Jenkins supports the "master/agent" mode, where the
+workload of building projects are delegated to multiple agents.
 
-[[slave_arch]]
-.Master slave architecture
+[[agent_arch]]
+.Master/agent architecture
 image::master-slave.png[scaledwidth="30%"]
 
-NOTE: An architecture with 1 Jenkins master connected to 1 slave over a TCP/IP
-socket. Slave has 4 execution slots and is building 3 of the master's
-configured jobs.
+NOTE: An architecture with 1 Jenkins master connected to 1 agent over a TCP/IP
+socket. The agent has 4 execution slots and is building 3 of the configured jobs.
 
-A slave is a machine set up to offload build projects from the master. The
-method for scheduling builds depends on the configuration given to a specific
-project: some projects may be configured to only use a specific slave while
-others can freely pick up slaves among the pool of slaves assigned to the
-master.
+An agent is a machine set up to offload projects from the master. The method
+with which builds are scheduled depends on the configuration given to each
+project. For example, some projects may be configured to "restrict where this
+project is run" which ties the project to a specific agent or set of labeled
+agents. Other projects which omit this configuration will select an agent from
+the available pool in Jenkins.
 
 In a distributed builds environment, the Jenkins master will use its resources
 to only handle HTTP requests and manage the build environment. Actual execution
-of builds will be delegated to the slaves. With this configuration it is
+of builds will be delegated to the agents. With this configuration it is
 possible to horizontally scale an architecture, which allows a single Jenkins
 installation to host a large number of projects and build environments.
 
-==== Master/slave communication protocols
+==== Master/agent communication protocols
 
-In order for a machine to be recognized a slave, it needs to run a specific
-agent program that establish a bi-directional communication with the master.
+In order for a machine to be recognized an agent, it needs to run a specific
+agent program to establish bi-directional communication with the master.
 
-There are different ways to establish a connection between master and slave:
+There are different ways to establish a connection between master and agent:
 
 [[node_config]]
 .New node configuration screen
 image::newNodeConfigPage.png[scaledwidth=90%]
 
-* *The SSH connector*: Configuring a slave to use the SSH connector is the
- preferred and the most stable way to establish master-slave communication.
- Jenkins has a built-in SSH client implementation. This means that the
- Jenkins master can easily communicate with any machine with a SSHD server
- installed. The only requirements is that the public key of the master is
- part of the set of the authorized-keys of the slaves. Once defined the host
- and the ssh key to be used (in the Manage Node -> Add New Node configuration
- page), Jenkins will manage the communication automatically by installing the
- binaries of the agent program and starting/stopping the slave program as
- needed.
+////
+TODO: The terminology used in these two bullet points needs to be sychronised
+with the actual Jenkins interface terminology
+////
 
+* *The SSH connector*: Configuring an agent to use the SSH connector is the
+ preferred and the most stable way to establish master-agent communication.
+ Jenkins has a built-in SSH client implementation. This means that the
+ Jenkins master can easily communicate with any machine with an SSH server
+ installed. The only requirement is that the public key of the master is
+ part of the set of the authorized keys on the agent. Once the host and SSH key
+ is defined for a new agent, Jenkins will establish a connection to
+ the machine and bootstrap the agent process.
+
+////
+TODO: This whole bullet point/section needs to be rewritten to be more
+clearly structured
+////
 * *The JNLP-TCP connector*: In this case the communication is established
-  starting the slave agent through Java Web Start (JNLP). With this connector
-  the Java Web Start program has to be launched in the slave machine in 2
+  starting the agent through Java Web Start (JNLP). With this connector
+  the Java Web Start program has to be launched in the machine in 2
   different ways:
 
-** Manually by navigating to the Jenkins master URL in the slave's browser.
-Once the Java Web Start icon is clicked, the slave agent will be launched on
-the slave machine. The downside of this approach is that the slaves cannot be
-centrally managed by the Jenkins master and each/stop/start/update of the slave
-agent needs to be executed manually on the slave machine in versions of Jenkins
-older than 1.611. This approach is convenient when the master cannot
-instantiate the connection with the client (i.e. it runs outside a firewall
-whereas the slave runs inside).
+ . Manually: by navigating to the Jenkins master URL in a browser on the agent.
+   Once the Java Web Start icon is clicked, the agent will be launched on the
+   machine. The downside of this approach is that the agents cannot be centrally
+   managed by the Jenkins master and each/stop/start/update of the agent needs to
+   be executed manually on the agent's machine in versions of Jenkins older than
+   1.611. This approach is convenient when the master cannot instantiate the
+   connection with the client, for example: with agents running inside a
+   firewalled network connecting to a master located outside the firewall.
 
-** As a service, which allows for restarts to be automated. First you'll need
-to manually launch the slave using the above method. After manually launching
-it, _jenkins-slave.exe_ and _jenkins-slave.xml_ will be created in the slave's
-work directory. Now go to the command line to execute the following command:
+ . As a service: First you'll need to manually launch the agent using the above
+   method. After manually launching it, _jenkins-slave.exe_ and
+   _jenkins-slave.xml_ will be created in the slave's work directory. Now go to
+   the command line to execute the following command:
 
+////
+TODO: This section on windows JNLP connection is not being indented or grouped
+properly
+////
 [source, width="300"]
 ----
 sc.exe create "<serviceKey>" start= auto binPath= "<path to jenkins-slave.exe>" DisplayName= "<service display name>"
 ----
 
-_<serviceKey>_ is the name of the registry key to define this slave service and
+_<serviceKey>_ is the name of the registry key to define this agent service and
 <service display name> is the label that will identify the service in the
 Service Manager interface.
 
-To ensure that restarts are automated, you will need to download a slave jar
-newer than v 2.37 and copy it to a permanent location on the slave machine. The
-_slave.jar_ can be found in:
+To ensure that restarts are automated, you will need to download a agent jar
+newer than v 2.37 and copy it to a permanent location on the machine. The
+_.jar_ file can be found at:
 
 [source, width="350"]
 ----
 http://<your-jenkins-host>/jnlpJars/slave.jar
 ----
 
-If running a version of Jenkins newer than 1.559, the _slave.jar_ will be kept
+If running a version of Jenkins newer than 1.559, the _.jar_ will be kept
 up to date each time it connects to the master.
 
- * *The JNLP-HTTP connector*: This approach is quite similar to the JNLP-TCP Java Web Start approach, with the difference in this case being that the slave agent is executed as headless and the connection can be tunneled via HTTP(s). The exact command can be found on your JNLP slave's configuration page:
+ * *The JNLP-HTTP connector*: This approach is quite similar to the JNLP-TCP
+   Java Web Start approach, with the difference in this case being that the
+   agent is executed as headless and the connection can be tunneled via HTTP(s).
+   The exact command can be found on your JNLP gaent's configuration page:
 
-[[jnlp_slave]]
-.JNLP slave launch command
+[[jnlp_agent]]
+.JNLP agent launch command
 image::jnlp-slave.png[scaledwidth=90%]
 
 This approach is convenient for an execution as a daemon on Unix.
 
 * *Custom-script*: It is also possible to create a custom script to initialize
-  the communication between master and slave if the other solutions do not
+  the communication between master and agent if the other solutions do not
   provide enough flexibility for a specific use-case. The only requirement is
   that the script runs the java program as a _java -jar slave.jar_ on the
-  slave.
+  agent.
 
-Windows slaves set-up can either follow the standard SSH and JNLP approach  or
-use a more Windows-specific configuration approach. Windows slaves have the
+Windows agent set-up can either follow the standard SSH and JNLP approach  or
+use a more Windows-specific configuration approach. Windows agents have the
 following options:
 
 * *SSH-connector approach with Putty*
