@@ -208,7 +208,7 @@ Select *GitHub Organization* and click *OK*.
 image::screenshot1.png[scaledwidth="75%"]
 
 Optionally, enter a better descriptive name for the _Description_, such as 'CloudBeers GitHub'.
-In the _Repository Sources_ section, complete the section for "GitHub Organization". 
+In the _Repository Sources_ section, complete the section for "GitHub Organization".
 Make sure the *owner* matches the GitHub Organization name exactly, in our case it must be: _cloudbeers_.
 This defaults to the same value that was entered for the item name in the first step.
 Next, select or add new "Scan credentials" - we'll enter our GitHub username and access token as the password.
@@ -226,9 +226,244 @@ Refresh the page after the job runs to ensure the view of repositories has been 
 [role="image-border"]
 image::screenshot4.png[scaledwidth="75%"]
 
-A this point, you're finished with basic project configuration and can now explore your imported repositories. 
+A this point, you're finished with basic project configuration and can now explore your imported repositories.
 You can also investigate the results of the jobs run as part of the initial _Folder Computation_.
 
 [role="image-border"]
 image::screenshot5.png[scaledwidth="75%"]
 
+
+=== Continuous Delivery with Pipeline
+
+==== Introduction
+
+////
+TODO: This section is remedial and doesn't flow properly. Suggest rewrite
+////
+Continuous delivery allows organizations to deliver software with lower risk.
+The path to continuous delivery starts by modeling the software delivery
+pipeline used within the organization and then focusing on the automation of it
+all. Early, directed feedback, enabled by pipeline automation enables software
+delivery more quickly over traditional methods of delivery.
+
+Jenkins is the Swiss army knife in the software delivery toolchain. Developers
+and operations (DevOps) personnel have different mindsets and use different
+tools to get their respective jobs done. Since Jenkins integrates with a huge
+variety of toolsets, it serves as the intersection point between development and
+operations teams.
+
+Many organizations have been orchestrating pipelines with existing Jenkins
+plugins for several years. As their automation sophistication and their own
+Jenkins experience increases, organizations inevitably want to move beyond
+simple pipelines and create complex flows specific to their delivery process.
+
+These Jenkins users require a feature that treats complex pipelines as a
+first-class object, and so the link::https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline
+plugin] was developed .
+
+==== Pre-requisites
+
+Continuous delivery is a process - rather than a tool - and requires a mindset
+and culture that must percolate from the top-down within an organization. Once
+the organization has bought into the philosophy, the next and most difficult
+part is mapping the flow of software as it makes its way from development to
+production.
+
+The root of such a pipeline will always be an orchestration tool like a Jenkins,
+but there are some key requirements that such an integral part of the pipeline
+must satisfy before it can be tasked with enterprise-critical processes:
+
+* *Zero or low downtime disaster recovery*: A commit, just as a mythical hero,
+  encounters harder and longer challenges as it makes its way down the pipeline.
+  It is not unusual to see pipeline executions that last days. A hardware or a
+  Jenkins failure on day six of a seven-day pipeline has serious consequences
+  for on-time delivery of a product.
+* *Audit runs and debug ability*: Build managers like to see the exact execution
+  flow through the pipeline, so they can easily debug issues.
+
+
+To ensure a tool can scale with an organization and suitably automate existing delivery pipelines without changing them, the tool should also support:
+
+* *Complex pipelines*: Delivery pipelines are typically more complex than
+  canonical examples (linear process: Dev->Test->Deploy, with a couple of
+  operations at each stage). Build managers want constructs that help
+  parallelize parts of the flow, run loops, perform retries and so forth. Stated
+  differently, build managers want programming constructs to define pipelines.
+
+* *Manual interventions*: Pipelines cross intra-organizational boundaries
+  necessitating manual handoffs and interventions. Build managers seek
+  capabilities such as being able to pause a pipeline for a human to intervene
+  and make manual decisions.
+
+The Pipeline plugin allows users to create such a pipeline through a new job
+type called Pipeline. The flow definition is captured in a Groovy script, thus
+adding control flow capabilities such as loops, forks and retries. Pipeline
+allows for stages with the option to set concurrencies, preventing multiple
+builds of the same pipeline from trying to access the same resource at the same
+time.
+
+==== Concepts
+
+.Pipeline Job Type
+
+There is just one job to capture the entire software delivery pipeline in an
+organization. Of course, you can still connect two Pipeline job types together
+if you want. A Pipeline job type uses a Groovy-based DSL for job definitions.
+    The DSL affords the advantage of defining jobs programmatically:
+
+
+[source, groovy]
+----
+node(‘linux’){
+  git url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
+  def mvnHome = tool 'M3'
+  env.PATH = "${mvnHome}/bin:${env.PATH}"
+  sh 'mvn -B clean verify'
+}
+----
+
+.Stages
+
+Intra-organizational (or conceptual) boundaries are captured through a primitive
+called “stages.” A deployment pipeline consists of various stages, where each
+subsequent stage builds on the previous one. The idea is to spend as few
+resources as possible early in the pipeline and find obvious issues, rather than
+spend a lot of computing resources for something that is ultimately discovered
+to be broken.
+
+[[throttled-concurrent]]
+.Throttled stage concurrency with Pipeline
+image::ch13/stage-concurrency.png[scaledwidth=“90%”]
+
+Consider a simple pipeline with three stages. A naive implementation of this
+pipeline can sequentially trigger each stage on every commit. Thus, the
+deployment step is triggered immediately after the Selenium test steps are
+complete. However, this would mean that the deployment from commit two overrides
+the last deployment in motion from commit one. The right approach is for commits
+two and three to wait for the deployment from commit one to complete,
+consolidate all the changes that have happened since commit one and trigger the
+deployment. If there is an issue, developers can easily figure out if the issue
+was introduced in commit two or commit three.
+
+Pipeline provides this functionality by enhancing the stage primitive.  For
+example, a stage can have a concurrency level of one defined to indicate that at
+any point only one thread should be running through the stage. This achieves the
+desired state of running a deployment as fast as it should run.
+
+[source, groovy]
+----
+ stage name: 'Production', concurrency: 1
+ node {
+     unarchive mapping: ['target/x.war' : 'x.war']
+     deploy 'target/x.war', 'production'
+     echo 'Deployed to http://localhost:8888/production/'
+ }
+----
+
+.Gates and Approvals
+
+Continuous delivery means having binaries in a release ready state whereas
+continuous deployment means pushing the binaries to production - or automated
+deployments. Although continuous deployment is a sexy term and a desired state,
+in reality organizations still want a human to give the final approval before
+bits are pushed to production.  This is captured through the “input” primitive
+in Pipeline. The input step can wait indefinitely for a human to intervene.
+
+[source, groovy]
+----
+input message: "Does http://localhost:8888/staging/ look good?"
+----
+
+.Deployment of Artifacts to Staging/Production
+
+Deployment of binaries is the last mile in a pipeline. The numerous servers
+employed within the organization and available in the market make it difficult
+to employ a uniform deployment step. Today, these are solved by third-party
+deployer products whose job it is to focus on deployment of a particular stack
+to a data center. Teams can also write their own extensions to hook into the
+Pipeline job type and make the deployment easier.
+
+Meanwhile, job creators can write a plain old Groovy function to define any
+custom steps that can deploy (or undeploy) artifacts from production.
+
+[source, groovy]
+----
+def deploy(war, id) {
+    sh "cp ${war} /tmp/webapps/${id}.war"
+}
+----
+
+.Restartable flows
+
+All Pipelines are resumable, so if Jenkins needs to be restarted while a flow is
+running, it should resume at the same point in its execution after Jenkins
+starts back up. Similarly, if a flow is running a lengthy sh or bat step when an
+agent unexpectedly disconnects, no progress should be lost when connectivity is
+restored.
+
+There are some cases when a flow build will have done a great deal of work and
+proceeded to a point where a transient error occurred: one which does not
+reflect the inputs to this build, such as source code changes. For example,
+after completing a lengthy build and test of a software component, final
+deployment to a server might fail because of network problems.
+
+
+.Pipeline Stage View
+
+When you have complex builds pipelines, it is useful to see the progress of each
+stage and to see where build failures are occurring in the pipeline. This can
+enable users to debug which tests are failing at which stage or if there are
+other problems in their pipeline. Many organization also want to make their
+pipelines user-friendly for non-developers without having to develop a homegrown
+UI, which can prove to be a lengthy and ongoing development effort.
+
+The Pipeline Stage View feature offers extended visualization of Pipeline build
+history on the index page of a flow project. This visualization also includes
+helpful metrics like average run time by stage and by build, and a user-friendly
+interface for interacting with input steps.
+
+.Pipeline Stage View plugin
+image::ch13/workflow-big-responsive.png[scaledwidth=“90%”]
+
+The only prerequisite for this plugin is a pipeline with defined stages in the
+flow. There can be as many stages as you desired and they can be in a linear
+sequence, and the stage names will be displayed as columns in the Stage View
+interface.
+
+===== Artifact traceability and with fingerprints
+
+Traceability is important for DevOps teams who need to be able to trace code
+from commit to deployment. It enables impact analysis by showing relationships
+between artifacts and allows for visibility into the full lifecycle of an
+artifact, from its code repository to where the artifact is eventually deployed
+in production.
+
+Jenkins and the Pipeline feature support tracking versions of artifacts using
+file fingerprinting, which allows users to trace which downstream builds are
+using any given artifact. To fingerprint with Pipeline, simply add a
+“fingerprint: true” argument to any artifact archiving step. For example:
+
+[source, groovy]
+----
+step([$class: 'ArtifactArchiver', artifacts: '**/target/*.war’, fingerprint: true])
+----
+
+will archive any WAR artifacts created in the Pipeline and fingerprint them for
+traceability. This trace log of this artifact and a list of all fingerprinted
+artifacts in a build will then be available in the left-hand menu of Jenkins:
+
+[[fingerprint-workflow]]
+.List of fingerprinted files
+image::ch13/workflow-fingerprint.png[scaledwidth=“90%”]
+
+To find where an artifact is used and deployed to, simply follow the “more
+details” link through the artifact’s name and view the entires for the artifact
+in its “Usage” list.
+
+[[fingerprinting]]
+.Fingerprint of a WAR
+image::ch13/fingerprinting.png[scaledwidth=“90%”]
+
+For more information, visit the
+https://wiki.jenkins-ci.org/display/JENKINS/Fingerprint[fingerprint
+documentation] to learn more about how fingerprints work.
