@@ -1,17 +1,17 @@
 ---
 layout: post
-title: "New Jenkins 2.0 Preview Build"
+title: "Jenkins 2.0-alpha-3 Preview Build has been released!"
 tags:
 - jenkins2
 author: daniel-beck
 ---
 
-We just published the new Jenkins 2.0 preview build alpha 3.
+We just published the new Jenkins 2.0-alpha-3 preview build.
 
 ## What's new?
 
 * **Jenkins is now secure out of the box**:
-  Administrators previous had to set up authentication and authorization while Jenkins was accessible to anyone on the same network.
+  Administrators previously had to set up authentication and authorization while Jenkins was accessible to anyone on the same network.
   Now, Jenkins is protected out of the box, so that it is always safe from unauthorized access.
 * **Plugin selection for setup**:
   We refined the plugin selection on the setup dialog.
