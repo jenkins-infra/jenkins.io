@@ -16,8 +16,8 @@ We just published the new Jenkins 2.0-alpha-3 preview build.
 * **Plugin selection for setup**:
   We refined the plugin selection on the setup dialog.
   You've always wondered why Jenkins does not install the Git Plugin by default?
-  Now it does.
-  We're also including more plugins improving [Pipeline](/solutions/pipeline/):
+  Now it does, along with a number of other plugins popular in the Jenkins community.
+  We're also including more plugins complementing the [Pipeline Plugin](/solutions/pipeline/):
   The [Pipeline Stage View](https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Stage+View+Plugin) plugin lets you quickly see what's going on in your CD pipeline, and the [GitHub Organization Folder Plugin](https://github.com/jenkinsci/github-organization-folder-plugin#github-organization-folder) allows you to set up a job container that automatically sets itself up with jobs for all Jenkins pipelines defined in any repo of your GitHub organization.
 * **Redesigned job configuration forms**:
   The job configuration form has been redesigned so its structure is visually clear when showing complex configuration forms.
