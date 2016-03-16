@@ -11,7 +11,7 @@ This document is intended for novice users of the Jenkins pipeline feature. The 
 
 While standard Jenkins “freestyle” jobs support simple continuous integration by allowing you to define sequential tasks in an application lifecycle, they do not create a persistent record of execution, enable one script to address all the steps in a complex workflow, or confer the other advantages of pipelines.
 
-In contrast to freestyle jobs, pipelines enable you to define the whole application lifecycle.  Pipeline functionality helps Jenkins to support continuous delivery (CD). The Pipeline plugin was built with community requirements for a flexible, extensible, and script-based CD workflow capability in mind. 
+In contrast to freestyle jobs, pipelines enable you to define the whole application lifecycle.  Pipeline functionality helps Jenkins to support continuous delivery (CD). The Pipeline plugin was built with requirements for a flexible, extensible, and script-based CD workflow capability in mind. 
 
 Accordingly, pipeline functionality is:
 
@@ -42,19 +42,19 @@ Step::
 Node::
     In pipeline coding contexts, as opposed to Jenkins generally, a “node” is a step that does two things, typically by enlisting help from available executors on agents:
     * Schedules the steps contained within it to run by adding them to the Jenkins build queue (so that as soon as an executor slot is free on a node, the appropriate steps run). 
-    * Creates a workspace, meaning a file directory specific to a particular job, where resource-intensive processing can occur without negatively impacting your pipeline performance. Workspaces last for the duration of the tasks assigned to them.
+    * Creates a workspace, meaning a file directory specific to a particular job, where resource-intensive processing can occur without negatively impacting your pipeline performance. Workspaces created by node are removed once all the steps contained inside the node declaration are finished executing.
 
 
 (In Jenkins generally, a “node” means any computer that is part of your Jenkins installation, whether that computer is used as a master or as an agent).
 
 Stage::
-    A “stage” is a step that calls supported APIs. Pipeline syntax is comprised of stages. Each stage can have one or more build steps within it. 
+    A “stage” is a logically distinct part of the execution of any task. Pipeline syntax is comprised of stages. Each stage can have one or more build steps within it. 
 
 Familiarity with Jenkins  terms such as “master,” “agent,” and “executor” also helps with understanding how pipelines work. These terms are not specific to pipelines:
 
-* master - A “master” is the basic installation of Jenkins on a computer; it handles tasks for your build system. Pipeline scripts are parsed on masters, and steps wrapped in node blocks are performed on available executors.
-* agent - An “agent” (formerly "slave")  is a computer set up to offload particular projects from the master. Your configuration determines the number and scope of operations that an agent can perform. Operations are performed by executors.
-* executor - An “executor” is a computational resource for compiling code. It can run on master or agent machines, either by itself or in parallel with other executors. Jenkins assigns a _java.lang.Thread_ to each executor.
+* master - A “master” is the computer where the Jenkins server is installed and running; it handles tasks for your build system. Pipeline scripts are parsed on masters, and steps wrapped in node blocks are performed on available executors.
+* agent - An “agent” (formerly "slave")  is a computer set up to offload available projects from the master. Your configuration determines the number and scope of operations that an agent can perform. Operations are performed by executors.
+* executor - An “executor” is a computational resource for running builds or Pipeline steps. It can run on master or agent machines, either by itself or in parallel with other executors.
 
 == Preparing Jenkins to Run Pipelines
 
@@ -68,10 +68,9 @@ To run pipelines, you need to have a Jenkins instance that is set up with the ap
 The Pipeline plugin is installed in the same way as other Jenkins plugins. Installing the Pipeline plugin also installs the suite of related plugins on which it depends:
 Open Jenkins in your web browser.
 On the Manage Jenkins page for your installation, navigate to Manage Plugins. 
-Find Pipeline Plugin from among the plugins listed on the Available tab.
-https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin (You can do this by scrolling through the plugin list or by using “Pipeline” as a term to filter results)
+Find https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline Plugin] from among the plugins listed on the Available tab. (You can do this by scrolling through the plugin list or by using “Pipeline” as a term to filter results)
 Select the checkbox for Pipeline Plugin.
-Select either Install without restart or Download now and install after restart. Pipeline plugin installation automatically includes all necessary dependencies. 
+Select either *Install without restart* or *Download now and install after restart*. Pipeline plugin installation automatically includes all necessary dependencies. 
 Restart Jenkins.
 
 === Pipeline Plugin Reference List
@@ -85,7 +84,7 @@ Optional plugins are mainly useful if you are creating pipelines that are relate
 
 [options="header"]
 |=======================
-|Plugin Name                     |Description      |Status
+|Plugin Name                     |Description           |Status
 |Pipeline (workflow-aggregator)  | Installs the core pipeline engine and its dependent plugins: 
 Pipeline: API,
 Pipeline: Basic Steps,
@@ -121,85 +120,176 @@ Pipeline: Step API
 |=======================
 
 
-
 Pipeline-related plugins other than those listed above are regularly “whitelisted” as compatible with or designed for Pipeline usage. For more information, see the link:https://github.com/jenkinsci/workflow-plugin/blob/541faf611659e1e6b8f2cbbd3435756b27633db4/COMPATIBILITY.md[Plugin Compatibility With Pipeline] wiki. Current contents of that wiki are summarized in the following table:
 
-SCMs::
-    * GitSCM (git)
-    * SubversionSCM (subversion)
-    * MercurialSCM (mercurial)
-    * PerforceScm (p4, not the older perforce)
-    * IntegritySCM (integrity-plugin)
-    * RepoScm (repo)
-    * teamconcert
-    * CVSSCM (cvs)
+[cols="3,5", options="header" width="80%"]
+|===
+|SCMs
+|SCM Plugins
 
-Build Steps and Post-Build Actions::
-    * ArtifactArchiver (core)
-    * Fingerprinter (core)
-    * JUnitResultArchiver (junit)
-    * JavadocArchiver (javadoc)
-    * Mailer (mailer)
-    * CopyArtifact (copyartifact)
-    * Analysis publishers
-    * HtmlPublisher (htmlpublisher)
-    * HipChatNotifier (hipchat)
-    * LogParserPublisher (log-parser)
-    * SeleniumHtmlReportPublisher (seleniumhtmlreport)
-    * ScoveragePublisher (scoverage)
-    * AnsiblePlaybookBuilder (ansible)
-    * GitHubCommitNotifier, GitHubSetCommitStatusBuilder (github)
-    * XUnitPublisher and XUnitBuilder (xunit)
+|
+|GitSCM (git)
+|
+|SubversionSCM (subversion)
+|
+|MercurialSCM (mercurial)
+|
+|PerforceScm (p4, not the older perforce)
+|
+|IntegritySCM (integrity-plugin)
+|
+|RepoScm (repo)
+|
+|teamconcert
+|
+|CVSSCM (cvs)
+|===
 
-Build Wrappers::
-    * ConfigFileBuildWrapper (config-file-provider)
-    * Xvnc (xvnc)
-    * BuildUser (build-user-vars)
-    * TimestamperBuildWrapper (timestamper)
-    * MaskPasswordsBuildWrapper (mask-passwords)
-    * XvfbBuildWrapper (xvfb)
-    * GCloudBuildWrapper (gcloud-sdk)
-    * NpmPackagesBuildWrapper (nodejs)
-    * AnsiColorBuildWrapper (ansicolor)
+[cols="3,5", options="header" width="80%"]
+|===
+|Build/Post-Build
+|Build/Post-Build Plugins
 
-Triggers::
-    * gerrit-trigger
-    * github
-    * deployment-notification
-    * gitlab-plugin
-    * bitbucket
+|
+|ArtifactArchiver (core)
+|
+|Fingerprinter (core)
+|
+|JUnitResultArchiver (junit)
+|
+|JavadocArchiver (javadoc)
+|
+|Mailer (mailer)
+|
+|CopyArtifact (copyartifact)
+|
+|Analysis publishers
+|
+|HtmlPublisher (htmlpublisher)
+|
+|HipChatNotifier (hipchat)
+|
+|LogParserPublisher (log-parser)
+|
+|SeleniumHtmlReportPublisher (seleniumhtmlreport)
+|
+|ScoveragePublisher (scoverage)
+|
+|AnsiblePlaybookBuilder (ansible)
+|
+|GitHubCommitNotifier, GitHubSetCommitStatusBuilder (github)
+|
+|XUnitPublisher and XUnitBuilder (xunit)
+|===
 
-Clouds::
-    * mock-slave (for prototyping)
-    * docker
-    * Nectar-vmware
-    * operations-center-cloud
-    * ec2
+[cols="3,5", options="header" width="80%"]
+|===
+|Build Wrappers
+|Build Wrapper Plugins
 
-Miscellaneous::
-    * rebuild
-    * parameterized-trigger
-    * build-token-root
-    * job-dsl
-    * zentimestamp
-    * claim
-    * listSubversionTagsParameterValue
-    * authorize-project
-    * customize-build-now
-    * embeddable-build-status
-    * groovy-postbuild
-    * buildtriggerbadge
-    * build-monitor-plugin
-    * radiatorview
+|
+|ConfigFileBuildWrapper (config-file-provider)
+|
+|Xvnc (xvnc)
+|
+|BuildUser (build-user-vars)
+|
+|TimestamperBuildWrapper (timestamper)
+|
+|MaskPasswordsBuildWrapper (mask-passwords)
+|
+|XvfbBuildWrapper (xvfb)
+|
+|GCloudBuildWrapper (gcloud-sdk)
+|
+|NpmPackagesBuildWrapper (nodejs)
+|
+|AnsiColorBuildWrapper (ansicolor)
+|===
 
-Custom Steps::
-    * docker-workflow
-    * credentials-binding
-    * ssh-agen
-    * parallel-test-executor
-    * mailer
-    * email-ext
+[cols="3,5", options="header" width="80%"]
+|===
+|Triggers
+|Trigger Plugins
+|
+|gerrit-trigger
+|
+|github
+|
+|deployment-notification
+|
+|gitlab-plugin
+|
+|bitbucket
+|===
 
+[cols="3,5", options="header" width="80%"]
+|===
+|Clouds
+|Cloud Plugins
+|
+|mock-slave (for prototyping)
+|
+|docker
+|
+|Nectar-vmware
+|
+|operations-center-cloud
+|
+|ec2
+|===
+
+[cols="3,5", options="header" width="80%"]
+|===
+|Miscellaneous
+|Miscellaneous Plugins
+|
+|rebuild
+|
+|parameterized-trigger
+|
+|build-token-root
+|
+|job-dsl
+|
+|zentimestamp
+|
+|claim
+|
+|listSubversionTagsParameterValue
+|
+|authorize-project
+|
+|customize-build-now
+|
+|embeddable-build-status
+|
+|groovy-postbuild
+|
+|buildtriggerbadge
+|
+|build-monitor-plugin
+|
+|radiatorview
+|===
+
+[cols="3,5", options="header" width="80%"]
+|===
+|Custom Steps
+|Custom Step Plugins
+|
+|docker-workflow
+|
+|credentials-binding
+|
+|ssh-agen
+|
+|parallel-test-executor
+|
+|mailer
+|
+|email-ext
+|===
 
 
 *Note:* Several plugins available in the Jenkins ecosystem but not actually related to the Pipeline feature set described in this guide also use the terms "pipeline" or "DSL" in their names. For example:
@@ -208,7 +298,7 @@ Custom Steps::
 * Build Flow Plugin - introduces a job type that lets you define an orchestration process as a script. 
 
 === More Information
-As with any Jenkins plugin, you have the option of installing the Pipeline plugin from the Plugins web page at https://wiki.jenkins-ci.org/display/JENKINS/Plugins, but using the Plugin Manager interface is preferred because you do not then have to make allowances for plugin dependencies or compatibility issues.
+As with any Jenkins plugin, you have the option of installing the Pipeline plugin from the link:https://wiki.jenkins-ci.org/display/JENKINS/Plugins[Plugins web page], but using the Plugin Manager interface is preferred because you do not then have to make allowances for plugin dependencies or compatibility issues.
 To investigate Pipeline without installing Jenkins separately or accessing your production system, you can run a link:https://github.com/jenkinsci/workflow-plugin/blob/master/demo/README.md[Docker demo] of Pipeline functionality.
 
 == Approaches to Defining Pipeline Script
@@ -276,7 +366,7 @@ Jenkins automatically scans the designated repository and creates appropriate br
   
 For example (again in Git), if you started with a master branch, and then wanted to experiment with some changes, and so did git checkout -b newfeature and pushed some commits, Jenkins would automatically detect the new branch in your repository and create a new sub-project for it. That sub-project would have its own build history unrelated to the trunk (main line).
   
-If you choose, you can ask for the sub-project to be automatically removed after its branch is merged with the main line and deleted. To change your Pipeline script—for example, to add a new Jenkins publisher step corresponding to new reports that your Makefile/pom.xml/etc. is creating—you edit the Jenkinsfile in your change. Your Pipeline script is always synchronized with the rest of the source code you are working on: the checkout scm command checks out the same revision as the script is loaded from.'''
+If you choose, you can ask for the sub-project to be automatically removed after its branch is merged with the main line and deleted. To change your Pipeline script—for example, to add a new Jenkins publisher step corresponding to new reports that your Makefile/pom.xml/etc. is creating—you edit the Jenkinsfile in your change. Your Pipeline script is always synchronized with the rest of the source code you are working on: the checkout scm command checks out the same revision as the script is loaded from.
 
 == Writing Pipeline Scripts in the Jenkins UI
 Because Pipelines are comprised of text scripts, they can be written (edited) in the same script creation area of the Jenkins user interface where you create them:
@@ -352,7 +442,7 @@ Sample key:
 
 The tool step makes sure a tool with the given name is installed on the current node. The script needs to know where it was installed, so the tool can be run later. For this, you need a variable.
 
-The def keyword in Groovy is the quickest way to define a new variable (with no specific type).
+The *def* keyword in Groovy is the quickest way to define a new variable (with no specific type).
 
 In the sample syntax discussed above, a variable is defined by the following expression:
 
@@ -434,4 +524,4 @@ To do this, select *Pipeline script from SCM* when defining the pipeline.
 
 With the *Pipeline script from SCM* option selected, you do not enter any Groovy code in the Jenkins UI; you just indicate by specifying a path where in source code you want to retrieve the pipeline from. When you update the designated repository, a new build will be triggered, as long as your job is configured with an SCM polling trigger.
 
-*Multibranch Pipeline* projects expose the name of the branch being built with the BRANCH_NAME environment variable. They also provide a special checkout scm Pipeline command, which checks out the specific commit that the Jenkinsfile originated, so that branch integrity is automatically maintained.
+*Multibranch Pipeline* projects expose the name of the branch being built with the BRANCH_NAME environment variable. They also provide a special *checkout scm* Pipeline command, which checks out the specific commit that the Jenkinsfile originated, so that branch integrity is automatically maintained.
