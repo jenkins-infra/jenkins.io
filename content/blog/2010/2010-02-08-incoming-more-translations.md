@@ -9,7 +9,11 @@
 - just for fun
 :author: rtyler
 ---
-As <a id="aptureLink_TBrShtrCPq" href="http://twitter.com/kohsukekawa">Kohsuke</a> mentioned on the dev@ [mailing list](http://wiki.hudson-ci.org/display/HUDSON/Mailing+List) on January 29th, another series of community translations of Hudson have been committed ([r26764](http://hudson-ci.org/commit/26764)) and have been released with the Hudson 1.344 release.
+As [Kohsuke](https://twitter.com/kohsukekawa) mentioned on the dev@ [mailing
+list](http://wiki.hudson-ci.org/display/HUDSON/Mailing+List) on January 29th,
+another series of community translations of Hudson have been committed
+([r26764](http://hudson-ci.org/commit/26764)) and have been released with the
+Hudson 1.344 release.
 
 The locales included in this update are:
 

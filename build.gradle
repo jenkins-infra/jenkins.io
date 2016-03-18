@@ -36,26 +36,26 @@ defaultTasks 'assemble', 'archive'
 
 configurations {
     asciidoctor
-    jekyllImport
     externalFetcher
 }
 
 dependencies {
     /* used for primary site generation */
-    asciidoctor 'rubygems:awestruct:[0.5.6,0.6)'
+    asciidoctor 'rubygems:awestruct:[0.5.7,0.6)'
     /* ensure we pull in a more recent version of asciidoctor */
-    asciidoctor 'rubygems:asciidoctor:[1.5.3,2.0)'
+    asciidoctor 'rubygems:asciidoctor:[1.5.4,2.0)'
     /* used for legacy markdown template processing via tilt */
     asciidoctor 'rubygems:kramdown:[1.9.0,2.0)'
+    /* contains a number of useful awestruct extensions */
+    asciidoctor 'rubygems:awestruct-ibeams:[0.2.1,1.0)'
+    /* 1.2.0 causes 'C extensions are not supported' error. It's known that
+        JRuby's C extensions are deprecated */
+    asciidoctor 'rubygems:eventmachine:[1.0, 1.2)'
 
     /* used for processing haml templates (haml.info) */
     asciidoctor 'rubygems:haml:[4.0.7,5.0)'
     /* used for processing inline liquid templating */
     asciidoctor 'rubygems:liquid:[3.0.6,4.0)'
-
-    jekyllImport 'rubygems:sequel:[4.27.0,5.0)'
-    jekyllImport 'org.postgresql:postgresql:9.3-1104-jdbc41'
-
 
     /* needed for clean HTTP accesses */
     externalFetcher 'rubygems:faraday:[0.9.2,1.0)'
@@ -105,7 +105,7 @@ task fetchExternalResources(type: JRubyExec) {
 task compileLegacyContent(type: JRubyExec) {
     group 'Site'
     description 'Compile the site using the awestruct CLI'
-    dependsOn 'fetchExternalResources', 'copyLegacyAssets'
+    dependsOn 'fetchExternalResources'
     script 'awestruct'
     environment 'LEGACY' : true
     scriptArgs '--generate', '--verbose',
@@ -118,8 +118,6 @@ task compileLegacyContent(type: JRubyExec) {
     /* without the --force option, awestruct is not smart enough to regenerate
      * files based on includes */
     configuration 'asciidoctor'
-    /* <https://github.com/awestruct/awestruct/issues/497> */
-    workingDir contentDir
     inputs.source fileTree(projectDir)
                     .include("${contentDir}/**/*.adoc")
                     .include("${contentDir}/**/*.haml")
@@ -129,7 +127,7 @@ task compileLegacyContent(type: JRubyExec) {
 task compileContent(type: JRubyExec) {
     group 'Site'
     description 'Compile the site using the awestruct CLI'
-    dependsOn 'fetchExternalResources', 'copyLegacyAssets'
+    dependsOn 'fetchExternalResources'
     script 'awestruct'
     scriptArgs '--generate', '--verbose',
                 /* forcefully set the site.base_url since the config is not
@@ -141,8 +139,6 @@ task compileContent(type: JRubyExec) {
     /* without the --force option, awestruct is not smart enough to regenerate
      * files based on includes */
     configuration 'asciidoctor'
-    /* <https://github.com/awestruct/awestruct/issues/497> */
-    workingDir contentDir
     inputs.source fileTree(projectDir)
                     .include("${contentDir}/**/*.adoc")
                     .include("${contentDir}/**/*.haml")
@@ -228,32 +224,3 @@ def defineDevTask(name, body) {
 
 defineDevTask('dev') {}
 defineDevTask('dev-legacy') { environment 'LEGACY', 'true' }
-
-/* LEGACY TASKS */
-////////////////////////////////////////////////////////////////////////////////
-task importFromDrupal(type: JRubyExec) {
-    group 'Other'
-    description 'Import the legacy Drupal site directly from a DB'
-    script "${projectDir}/scripts/drupal-import"
-    scriptArgs drupalDatabase, drupalUsername, drupalPassword
-    configuration 'jekyllImport'
-    workingDir "${projectDir}/${contentDir}"
-    inputs.source file("${projectDir}/scripts/drupal-import")
-}
-
-task copyLegacyAssets {
-    group 'Site'
-    description 'Copy legacy Drupal assets to preserve legacy content rendering'
-
-    doLast {
-        [project.ext.siteOutputDir, project.ext.legacyOutputDir].each {
-            File targetDir = file("${it}/sites/default/files")
-            targetDir.mkdirs()
-
-            copy {
-                from "${projectDir}/legacy/files"
-                into targetDir
-            }
-        }
-    }
-}
