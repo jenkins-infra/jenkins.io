@@ -31,6 +31,7 @@ Awestruct::Extensions::Pipeline.new do
 
   transformer VersionSwitcher.new
 
+  helper ActiveNav
   helper Authorship
   helper Legacy
 
