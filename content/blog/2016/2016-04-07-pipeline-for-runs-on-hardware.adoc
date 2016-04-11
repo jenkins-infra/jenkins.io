@@ -141,13 +141,14 @@ node("linux") {
 In this example it means that the Jenkins node contains the attacked FPGA of such type.*/
 node ("linux && $fpgaId") {  
   stage "Blast bitfile"
+  git url:"http://github.com/oleg-nenashev/pipeline_hw_samples";
   unarchive "target/image_${fpgaId}.bit"
-  sh "make impact target/image_${fpgaId}.bit"
+  sh "make FPGA_TYPE=$fpgaId impact"
   
   /* We run automatic tests.
   Then we report test results from the generated JUnit report. */
   stage "Auto Tests"
-  sh "make tests"
+  sh "make FPGA_TYPE=$fpgaId tests"
   sh "perl scripts/convertToJunit.pl --from=target/test-results/* --to=target/report_${fpgaId}.xml --classPrefix=\"myprj-${fpgaId}.\"";
   step([$class:"JUnitResultArchiver", testResults:"target/report_${fpgaId}.xml"])
   
@@ -157,13 +158,18 @@ node ("linux && $fpgaId") {
   input "Autotests passed on ${env.NODE_NAME}. Run manual tests on and click 'Proceed' if everything is fine"
   
   stage "Finalization"
-  sh "make flush_fpga"
+  sh "make FPGA_TYPE=$fpgaId flush_fpga"
   hipchatSend("${imageId} testing has been completed");
 }
 ```
 
 As you may see, the pipeline script mostly consists of various calls of command-line tools via the _sh()_ command. 
 All EDA tools provide great CLIs, so we do not need special plugins in order to invoke common operations from Jenkins.
+
+WARNING: Disclaimer. 
+Makefile above is a sample stuff for demo purposes.
+Never write such makefiles.
+
 
 It is possible to continue expanding the pipeline in such way.
 link:https://github.com/jenkinsci/pipeline-examples[Pipeline Examples]
