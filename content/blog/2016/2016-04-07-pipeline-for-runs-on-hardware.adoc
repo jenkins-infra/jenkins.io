@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Automating test runs on hardware with Pipeline-as-Code
+title: Automating test runs on hardware with Pipeline-as-Code. Part 1
 tags:
 - jenkins
 - jenkins2
@@ -16,7 +16,7 @@ link:https://www.cloudbees.com/jenkins/juc-2015/presentations/JUC-2015-Europe-Je
 In this blog post I would like to concentrate on link:https://jenkins.io/doc/pipeline/[Pipeline] (fka Workflow), which is a new automation-as-code ecosystem for Jenkins.
 It will be proposed by default in the incoming link:/2.0/[Jenkins 2.0 release].
 
-First time I've tried Pipeline 2.5 years ago, and unfortunately it didn't work for my cases at all. 
+First time I've tried Pipeline two and half years ago, and unfortunately it didn't work for my cases at all. 
 I was very disappointed and tried it only one year later, At this point the plugin became much more stable and useful. 
 It also attracted much more contributors, and it started evolving rapidly and finally became a huge ecosystem powered by Jenkins.
 
@@ -64,7 +64,7 @@ link:https://wiki.jenkins-ci.org/display/JENKINS/Flexible+Publish+Plugin[Flexibl
 ** Combination of the plugins above is possible, but it makes job configurations extremely large.
 * Tests on hardware peripherals may take much time. 
 If an infrastructure fails, we may have to restart the run from scratch. 
-So the builds should be robust against infra issues including network failures and Jenkins master restarts.
+So the builds should be robust against infrastructure issues including network failures and Jenkins master restarts.
 
 Usage of 
 link:https://jenkins.io/doc/pipeline/[Jenkins Pipeline]  can effectively address the use-cases above.
@@ -73,9 +73,9 @@ In this blogpost I want to address several cases.
 ## Pipeline-as-Code for test runs on hardware
 
 Pipeline-as-Code is an emerging technology for representing job configurations as code.
-In Jenkins there are two dominant implementations - Pipeline and JobDSL plugins.
+In Jenkins there are two most popular implementations: Pipeline and JobDSL plugins.
 JobDSL Plugin internally generates common freestyle jobs according to the script, so it's functionality is similar to the description above.
-In this post I will concentrate on the Pipeline plugin.
+In this post I will focus on the Pipeline plugin.
 
 Below you can find an example of Pipeline scripts, which runs tests on FPGA board. The id of this board comes from build parameters (_fpgaId_). In this script we also presume that all nodes have pre-installed tools (Xilinx ISE in this case).
 
@@ -117,24 +117,26 @@ We would like to get some added value from Jenkins.
 
 Let's enhance the script by using several features being provided by pipeline in order to get visualization of stages, report publishing and build notifications.
 
-We also want to minimize the time being spent on the node with the attached FPGA farm. 
-So we will split the bitfile generation and further runs to two different runs.
+We also want to minimize the time being spent on the node with the attached FPGA board. 
+So we will split the bitfile generation and further runs to two different nodes in this case: a general purpose linux node, and the node with the hardware attached.
 
 You can find the resulting Pipeline script below:
 
 ```groovy
 // Synthesize on any node
+def imageId="";
 node("linux") {
-  stage "Prepare environment"; 
+  stage "Prepare environment" 
   git url:"http://github.com/oleg-nenashev/pipeline_hw_samples";
   // Construct the bitfile image ID from commit ID
-  sh 'git rev-parse HEAD > GIT_COMMIT'
-  def imageId= "myprj-${fpgaId}-" + readFile('GIT_COMMIT').take(6)
+  sh 'git rev-parse HEAD > GIT_COMMIT'
+  imageId= "myprj-${fpgaId}-" + readFile('GIT_COMMIT').take(6)
   
   stage "Synthesize project"
   sh "make FPGA_TYPE=$fpgaId synthesize_for_fpga"
   /* We archive the bitfile before running the test, so it won't be lost it if something happens with the FPGA run stage. */
   archive "target/image_${fpgaId}.bit"
+  stash includes: "target/image_${fpgaId}.bit", name: 'bitfile'
 }
 
 /* Run on a node with 'my_fpga' label. 
@@ -142,7 +144,9 @@ In this example it means that the Jenkins node contains the attacked FPGA of suc
 node ("linux && $fpgaId") {  
   stage "Blast bitfile"
   git url:"http://github.com/oleg-nenashev/pipeline_hw_samples";
-  unarchive "target/image_${fpgaId}.bit"
+  def artifact='target/image_'+fpgaId+'.bit';
+  echo "Using ${artifact}" 
+  unstash 'bitfile'
   sh "make FPGA_TYPE=$fpgaId impact"
   
   /* We run automatic tests.
@@ -151,11 +155,6 @@ node ("linux && $fpgaId") {
   sh "make FPGA_TYPE=$fpgaId tests"
   sh "perl scripts/convertToJunit.pl --from=target/test-results/* --to=target/report_${fpgaId}.xml --classPrefix=\"myprj-${fpgaId}.\"";
   step([$class:"JUnitResultArchiver", testResults:"target/report_${fpgaId}.xml"])
-  
-  /*Ask engineers to perform manual tests on the board.*/
-  stage "Manual Tests"
-  hipchatSend("@Testers. ${imageId} is ready for testing on ${env.NODE_NAME}");
-  input "Autotests passed on ${env.NODE_NAME}. Run manual tests on and click 'Proceed' if everything is fine"
   
   stage "Finalization"
   sh "make FPGA_TYPE=$fpgaId flush_fpga"
@@ -170,12 +169,9 @@ WARNING: Disclaimer.
 Makefile above is a sample stuff for demo purposes.
 Never write such makefiles.
 
-
 It is possible to continue expanding the pipeline in such way.
 link:https://github.com/jenkinsci/pipeline-examples[Pipeline Examples]
 contain examples for common cases: build parallelization, code sharing between pipelines, error handling, etc.
-
-WARNING: TODO: add other examples
 
 ## Lessons learned
 
@@ -216,8 +212,13 @@ If you develop new automation flows, consider Pipeline as one of possible approa
 ## What's next?
 
 Jenkins automation server dominates in the HW/embedded area, but unfortunately there is not so much experience sharing for these use-cases. 
+So Jenkins community encourages everybody to share the experience in this area by writing docs and articles for Jenkins website and other resources.
 
-I am going to talk about running tests on hardware at the 
+This is just a a first blog post on this topic.
+I am planning to provide more examples of Pipeline-as-code usage for Embedded and Hardware tests in the future posts.
+The next post will be about concurrency and shared resource management in Pipelines.
+
+I am also going to talk about running tests on hardware at the 
 link:https://www.eventbrite.com/e/accelerating-automotive-innovation-with-continuous-integration-delivery-tickets-20809772590[incoming Automotive event] in Stuttgart on April 26th.
 This event is being held by 
 link:https://www.cloudbees.com/[CloudBees], but there will be several talks addressing Jenkins open-source as well.
