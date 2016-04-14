@@ -1,0 +1,176 @@
+---
+layout: post
+title: "Replay a Pipeline with script edits"
+tags:
+- jenkins2
+- pipeline
+---
+
+[NOTE]
+====
+This is a cross-post of
+link:https://www.cloudbees.com/blog/replay-pipeline[an article] authored by
+Pipeline plugin maintainer link:https://github.com/jglick[Jesse Glick] on the
+link:https://www.cloudbees.com/blog/[CloudBees blog].
+====
+
+For those of you not checking their _Updates_ tab obsessively, Pipeline 1.14 [up
+to 2.1 now] was
+link:https://github.com/jenkinsci/workflow-plugin/blob/master/CHANGES.md#114-feb-25-2016[released
+a couple of weeks ago] and I wanted to highlight the major feature in this
+release: link:https://issues.jenkins-ci.org/browse/JENKINS-32727[JENKINS-32727],
+or _replay_. Some folks writing "Jenkinsfiles" in the field had grumbled that it
+was awkward to develop the script incrementally, especially compared to jobs
+using inline scripts stored in the Jenkins job configuration: to try a change to
+the script, you had to edit `Jenkinsfile` in SCM, commit it (perhaps to a
+branch), and then go back to Jenkins to follow the output. Now this is a little
+easier. If you have a Pipeline build which did not proceed exactly as you
+expected, for reasons having to do with Jenkins itself (say, inability to find &
+publish test results, as opposed to test failures you could reproduce locally),
+try clicking the **Replay** link in the build’s sidebar. The quickest way to try
+this for yourself is to run the
+link:https://hub.docker.com/r/jenkinsci/workflow-demo/[stock CD demo] in its
+latest release:
+
+[source]
+----
+$ docker run --rm -p 2222:2222 -p 8080:8080 -p 8081:8081 -p 9418:9418 -ti jenkinsci/workflow-demo:1.14-3
+----
+
+When you see link:http://localhost:8080/job/cd/branch/master/1/replay/[the page **Replay
+#1**], you are shown two
+(Groovy) editor boxes: one for the main
+link:https://github.com/jenkinsci/workflow-aggregator-plugin/blob/master/demo/repo/Jenkinsfile[`Jenkinsfile`], one for a library script
+it loaded
+(link:https://github.com/jenkinsci/workflow-aggregator-plugin/blob/master/demo/repo/servers.groovy[`servers.groovy`], introduced to help demonstrate this feature). You
+can make edits to either or both. For example, the original demo allocates a
+temporary web application with a random name like
+`9c89e9aa-6ca2-431c-a04a-6599e81827ac` for the duration of the functional tests.
+Perhaps you wished to prefix the application name with `tmp-` to make it obvious
+to anyone encountering the link:http://localhost:8081/[Jetty index page] that these
+URLs are transient. So in the second text area, find the line
+
+[source]
+----
+def id = UUID.randomUUID().toString()
+----
+
+and change it to read
+
+[source]
+----
+def id = "tmp-${UUID.randomUUID()}"
+----
+
+then click **Run**. In
+link:http://localhost:8080/job/cd/branch/master/2/console[the new build’s log]
+you will now see
+
+[source]
+----
+Replayed #1
+----
+
+and later something like
+
+[source]
+----
+… test -Durl=http://localhost:8081/tmp-812725bb-74c6-41dc-859e-7d9896b938c3/ …
+----
+
+with the improved URL format. Like the result? You will want to make it
+permanent. So jump to the [second build’s index
+page](http://localhost:8080/job/cd/branch/master/2/) where you will see a note
+that this build > Replayed #1 (diff) If you
+link:http://localhost:8080/job/cd/branch/master/2/replay/diff[click on **diff**] you
+will see:
+
+[source,diff]
+----
+--- old/Script1
++++ new/Script1
+@@ -8,7 +8,7 @@
+ }
+
+ def runWithServer(body) {
+-    def id = UUID.randomUUID().toString()
++    def id = "tmp-${UUID.randomUUID()}"
+     deploy id
+     try {
+         body.call id
+----
+
+so you can know exactly what you changed from the last-saved version. In fact if you replay #2 and change `tmp` to `temp` in the loaded script, in the diff view for #3 you will see the diff from the _first_ build, the aggregate diff:
+
+[source,diff]
+----
+--- old/Script1
++++ new/Script1
+@@ -8,7 +8,7 @@
+ }
+
+ def runWithServer(body) {
+-    def id = UUID.randomUUID().toString()
++    def id = "temp-${UUID.randomUUID()}"
+     deploy id
+     try {
+         body.call id
+----
+
+At this point you could touch up the patch to refer to `servers.groovy`
+(link:https://issues.jenkins-ci.org/browse/JENKINS-31838[JENKINS-31838]), `git
+apply` it to a clone of your repository, and commit. But why go to the trouble
+of editing Groovy in the Jenkins web UI and then manually copying changes back
+to your IDE, when you could stay in your preferred development environment from
+the start?
+
+[source]
+----
+$ git clone git://localhost/repo
+Cloning into 'repo'...
+remote: Counting objects: 23, done.
+remote: Compressing objects: 100% (12/12), done.
+remote: Total 23 (delta 1), reused 0 (delta 0)
+Receiving objects: 100% (23/23), done.
+Resolving deltas: 100% (1/1), done.
+Checking connectivity... done.
+$ cd repo
+$ $EDITOR servers.groovy
+# make the same edit as previously described
+$ git diff
+diff --git a/servers.groovy b/servers.groovy
+index 562d92e..63ea8d6 100644
+--- a/servers.groovy
++++ b/servers.groovy
+@@ -8,7 +8,7 @@ def undeploy(id) {
+ }
+
+ def runWithServer(body) {
+-    def id = UUID.randomUUID().toString()
++    def id = "tmp-${UUID.randomUUID()}"
+     deploy id
+     try {
+         body.call id
+$ ssh -p 2222 -o StrictHostKeyChecking=no localhost replay-pipeline cd/master -s Script1 < servers.groovy
+Warning: Permanently added '[localhost]:2222' (RSA) to the list of known hosts.
+# follow progress in Jenkins (see JENKINS-33438)
+$ git checkout -b webapp-naming
+M                                                                              servers.groovy
+Switched to a new branch 'webapp-naming'
+$ git commit -a -m 'Adjusted transient webapp name.'
+[webapp-naming …] Adjusted transient webapp name.
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+$ git push origin webapp-naming
+Counting objects: 3, done.
+Delta compression using up to 4 threads.
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 330 bytes | 0 bytes/s, done.
+Total 3 (delta 2), reused 0 (delta 0)
+To git://localhost/repo
+ * [new branch]      webapp-naming -> webapp-naming
+----
+
+Using the `replay-pipeline` CLI command (in this example link:https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH#JenkinsSSH-JenkinsCLIvsJenkinsSSH[via
+SSH])
+you can prepare, test, and commit changes to your Pipeline script code without
+copying anything to or from a browser. That is all for now. Enjoy!
