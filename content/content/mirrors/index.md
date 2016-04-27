@@ -19,4 +19,4 @@ Currently releases are mirrored to the locations documented on the [mirror statu
 More mirrors are certainly welcome, Jenkins is primarily mirrored by the [Oregon State University Open Source Lab (OSUOSL)](http://osuosl.org/services/hosting/details). Both the hudson-labs and OSUOSL servers are primarily located within the United States, so international (Japan/UK/Germany) mirrors would be greatly appreciated.
 
 
-If you're interested in running a public mirror, drop an email to "tyler@linux.com" and we can discuss space and bandwidth requirements.
+If you're interested in running a public mirror, drop an email to `infra@lists.jenkins-ci.org` and we can discuss space and bandwidth requirements.
