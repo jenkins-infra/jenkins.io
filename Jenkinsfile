@@ -86,7 +86,7 @@ node {
 /* This code shame-lessly copied and pasted from some Jenkinsfile code abayer
    wrote for the jenkinsci/jenkins project */
 void withJavaEnv(List envVars = [], def body) {
-    String jdktool = tool name: "jdk7_80", type: 'hudson.model.JDK'
+    String jdktool = tool name: "jdk8", type: 'hudson.model.JDK'
 
     // Set JAVA_HOME, and special PATH variables for the tools we're
     // using.
