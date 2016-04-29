@@ -64,7 +64,7 @@ node {
      * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
      */
     if (env.BRANCH_NAME == 'master') {
-        sshagent(credentials: ['1d105eb8-fd08-489c-988f-694fd8b658f7']) {
+        sshagent(credentials: ['site-deployer']) {
             /* Make sure we delete our current directory on this node to make sure
             * we're only uploading what we unstash
             */
@@ -73,10 +73,10 @@ node {
             sh 'ls build/archives'
             parallel(
                 eggplant: {
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
+                    sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
                 },
                 cucumber: {
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
+                    sh 'echo "put build/archives/*.zip archives/" | sftp site-deployer@cucumber.jenkins.io'
                 })
         }
     }
