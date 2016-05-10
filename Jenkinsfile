@@ -1,3 +1,10 @@
+#!/usr/bin/env groovy
+
+/* Only keep the 10 most recent builds. */
+properties([[$class: 'BuildDiscarderProperty',
+                strategy: [$class: 'LogRotator', numToKeepStr: '10']]])
+
+
 
 /* Assuming that wherever we're going to build, we have nodes labelled with
  * "Docker" so we can have our own isolated build environment
