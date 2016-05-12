@@ -12,6 +12,8 @@ One of the fixes may well break some of your use cases in Jenkins, at least unti
 
 A number of plugins define additional parameters for builds. For example, GitHub Pull Request Builder passes a number of additional parameters describing the pull request. Release Plugin also allows adding several additional parameters to a build that are not considered to be defined in the job as part of this security fix.
 
+Please see [this wiki page](https://wiki.jenkins-ci.org/display/JENKINS/Plugins+affected+by+fix+for+SECURITY-170) for a list of plugins known to be affected by this change.
+
 Until these plugins have been adapted to work with the new restriction (and advice on that is available further down), you can define the following system properties to work around this limitation, at least for a time:
 
 * Set `hudson.model.ParametersAction.keepUndefinedParameters` to `true`, e.g. `java -Dhudson.model.ParametersAction.keepUndefinedParameters=true -jar jenkins.war` to revert to the old behavior of allowing any build parameters. Depending on your environment, this may be unsafe, as it opens you up to attacks as described above.
