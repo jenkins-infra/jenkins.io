@@ -1,32 +1,140 @@
 ---
 layout: post
-title: "External Workspace Manager Plugin"
+title: "GSoC Project Intro. External Workspace Manager Plugin"
 tags:
 - jenkins
 - pipeline
 - plugins
+- gsoc
 author: alexsomai
 ---
 
-Currently, Jenkins’ build workspace may become very large in size due to the fact that some compilers
-generate very large volumes of data. The existing plugins that share the workspace across builds are able
-to do this by copying the files from one workspace to another, process which is inefficient.
-A solution is to have a Jenkins plugin that is able to manage and reuse the same workspace between multiple
-builds.
+=== About myself
+My name is Alexandru Somai.
+I am following a major in Software Engineering at the Babes-Bolyai University of Cluj-Napoca, Romania.
+I have more than two years hands-on experience working in Software Development.
+I am always learning, always looking for new challenges.
+I want to start contributing to the open source community and this is a stating point for me.
+
+=== Project summary
+Currently, Jenkins’ build workspace may become very large in size due to the fact that some compilers generate
+very large volumes of data.
+The existing plugins that share the workspace across builds are able to do this by copying the files from
+one workspace to another, process which is inefficient.
+A solution is to have a Jenkins plugin that is able to manage and reuse the same workspace between multiple builds.
 
 As part of the link:https://summerofcode.withgoogle.com/[Google Summer of Code] 2016 I will be working on
-the External Workspace Manager plugin. This plugin aims to provide an external workspace management system.
-It should facilitate workspace share and reuse across multiple Jenkins jobs. It should eliminate the need
-to copy, archive or move files. The plugin will be written for
-link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline] jobs.
+the __External Workspace Manager__ plugin.
+My mentors for this project are link:https://github.com/oleg-nenashev[Oleg Nenashev]
+and link:https://github.com/martinda[Martin d'Anjou].
+This plugin aims to provide an external workspace management system.
+It should facilitate workspace share and reuse across multiple Jenkins jobs.
+It should eliminate the need to copy, archive or move files.
+The plugin will be written for link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline] jobs.
 
-The complete project proposal, along with the design details, features, estimated timeline and some implementation
-ideas may be found in this link:https://goo.gl/fq3RAe[Google Doc].
-The plugin repository will be public on link:https://github.com/jenkinsci/external-workspace-manager-plugin[GitHub].
+=== Usage
+
+Let's assume that we have two Jenkins jobs, one called `upstream` and the other one called `downstream`.
+In the upstream job, we clone the repository and build the project, and in the downstream job we run the tests.
+In the downstream job we don't want to clone and re-build the project, we need to use the same
+workspace created in the upstream job.
+We have to be able to do so without copying the workspace from one location to another.
+
+===== Prerequisites
+1. Multiple physical disks accessible to Master.
+2. The same physical disks must be accessible to Nodes.
+3. In the Jenkins global configuration, define a disk pool (or many) that will contain the physical disks.
+4. In each Node configuration, define the mounting point from the current node to each physical disk.
+
+===== Pipeline
+Allocate the external workspace from a disk pool defined in the Jenkins global configuration.
+
+[source,groovy]
+----
+// upstream job
+def extWorkspace = exwsAllocate id: 'diskpool1'
+----
+
+This step will allocate a directory on a selected physical disk from the `diskpool1`.
+The resulting workspace path will be: `/physicalPathOnDisk/$JOB_NAME/$BUILD_NUMBER`.
+
+Assume that the selected disk is `disk1` having defined the physical path as: `/jenkins-project/disk1/`.
+The `$JOB_NAME` is __upstream__ and the `$BUILD_NUMBER` is __14__, so the resulting path is:
+`/jenkins-project/disk1/upstream/14`.
+
+Execute the `exws` step within a `node` and apply the object returned by the `exwsAllocate` step.
+
+[source,groovy]
+----
+// upstream job
+node ('node1') {
+    exws (extWorkspace) {
+        // clone repo & build something
+        git ...
+        sh '$mvn clean install'
+    }
+}
+----
+
+`node1` should have access to the `disk1`, that was selected in the previous step.
+Also, in node's configuration, there should be defined a local path, that is the mounting point to `disk1`.
+
+The `exws` step will concatenate the local path with the path returned by the `exwsAllocate` step.
+Assume that the local path defined in `node1` configuration for `disk1` is `/node1/disk1/`.
+The resulting path that will be passed in as context is: `/node1/disk1/jenkins-project/disk1/upstream/14`.
+
+Further, we need to be able to use this workspace path in a different job.
+To reuse the same workspace in a downstream job, specify the name of the upstream job in the `exwsAllocate` step.
+
+[source,groovy]
+----
+// downstream job
+def extWorkspace = exwsAllocate id: 'diskpool1', upstream: 'upstream'
+----
+
+This will select the most recent stable upstream workspace.
+This is the default behaviour.
+The resulting path will be: `/physicalPathOnDisk/$UPSTREAM_NAME/$MOST_RECENT_STABLE_BUILD`.
+Assume that the last stable build number is __14__, then the resulting path will be:
+`/jenkins-project/disk1/upstream/14`.
+
+Apply the `exws` step, even on a different node, e.g. `node2`.
+
+[source,groovy]
+----
+// downstream job
+node ('node2') {
+    exws (extWorkspace) {
+        // test something
+        sh '$mvn test'
+    }
+}
+----
+
+Same as `node1`, also `node2` must have defined in its node configuration the mounting point to `disk1`.
+Assume that the local path is: `/node2/disk1/`.
+The resulting path that will be passed in as context is: `/node2/disk1/jenkins-project/disk1/upstream/14`.
+It will reuse the workspace defined in the upstream job.
+
+=== Additional details
+
+You may find the complete project proposal, along with the design details, features, more examples and use cases,
+implementation ideas and milestones in the link:https://goo.gl/fq3RAe[design document].
+The plugin repository will be available on link:https://github.com/jenkinsci/external-workspace-manager-plugin[GitHub].
 
 A prototype version of the plugin should be available in late June and the releasable version in late August.
-I will be presenting demos within the community with the plugin functionality.
+I will be holding plugin functionality demos within the community.
 
-If you are interested in this plugin, subscribe to the
-link:https://groups.google.com/forum/#!forum/jenkinsci-dev[Jenkins developers] mailing list where I will be
-posting updates from time to time.
+I do appreciate any feedback.
+You may add comments in the link:https://goo.gl/fq3RAe[design document].
+If you are interested to have a verbal conversation, feel free to join our regular meetings on Mondays at
+link:http://www.thetimezoneconverter.com/?t=12:00%20PM&tz=UTC&[12:00 PM UTC]
+on the link:http://jenkins-ci.org/hangout[Jenkins hangout].
+I will be posting updates from time to time about the plugin status on the
+link:https://groups.google.com/forum/#!forum/jenkinsci-dev[Jenkins developers] mailing list.
+
+=== Links
+* link:https://goo.gl/fq3RAe[Design document]
+* link:https://summerofcode.withgoogle.com/[GSoC program]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Google+Summer+Of+Code+2016[Jenkins GSoC Page]
+* link:https://github.com/jenkinsci/external-workspace-manager-plugin[Project repository]
