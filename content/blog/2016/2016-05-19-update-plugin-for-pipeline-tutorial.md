@@ -3,8 +3,13 @@
 :title: Refactoring a Jenkins plugin for compatibility with Pipeline jobs
 :tags:
 - core
-:author: Chris Price
+:author: cprice404
 ---
+
+NOTE: _This is a guest post by [Chris Price](https://github.com/cprice404).
+Chris is a software engineer at [Puppet](http://puppet.com), and has been
+spending some time lately on automating performance testing using the latest
+Jenkins features._
 
 ## Adventures in Jenkins plugin development: Pipeline refactoring edition
 
