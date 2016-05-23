@@ -70,22 +70,20 @@ node {
      *
      * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
      */
-    if (env.BRANCH_NAME == 'master') {
-        sshagent(credentials: ['site-deployer']) {
-            /* Make sure we delete our current directory on this node to make sure
-            * we're only uploading what we unstash
-            */
-            deleteDir()
-            unstash 'built-site'
-            sh 'ls build/archives'
-            parallel(
-                eggplant: {
-                    sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
-                },
-                cucumber: {
-                    sh 'echo "put build/archives/*.zip archives/" | sftp site-deployer@cucumber.jenkins.io'
-                })
-        }
+    sshagent(credentials: ['site-deployer']) {
+        /* Make sure we delete our current directory on this node to make sure
+        * we're only uploading what we unstash
+        */
+        deleteDir()
+        unstash 'built-site'
+        sh 'ls build/archives'
+        parallel(
+            eggplant: {
+                sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
+            },
+            cucumber: {
+                sh 'echo "put build/archives/*.zip archives/" | sftp site-deployer@cucumber.jenkins.io'
+            })
     }
 }
 
