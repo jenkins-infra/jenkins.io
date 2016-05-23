@@ -27,7 +27,6 @@ import com.github.jrubygradle.JRubyExec
 
 ext.gitRef = Grgit.open('.')?.head()?.abbreviatedId
 ext.siteOutputDir = "${buildDir}/_site"
-ext.legacyOutputDir = "${buildDir}/_legacy"
 
 description = 'Build for generating jenkins.io'
 version = "2.0.${System.env.BUILD_NUMBER ?: '0'}+${ext.gitRef}"
@@ -68,6 +67,8 @@ dependencies {
     /* needed for clean HTTP accesses */
     externalFetcher 'rubygems:faraday:[0.9.2,1.0)'
     externalFetcher 'rubygems:faraday_middleware:[0.9.2,1.0)'
+    /* used for running release.rss.groovy */
+    externalFetcher localGroovy()
 }
 
 /* for fetching javascript assets that we need for building the legacy and new
@@ -102,6 +103,18 @@ bower {
     }
 }
 
+task fetchReleaseHistory(type: JavaExec) {
+    group 'Site'
+    classpath = configurations.externalFetcher
+    main = 'groovy.ui.GroovyMain'
+    def groovyScript = "${projectDir}/scripts/release.rss.groovy"
+    args groovyScript, "http://updates.jenkins.io/release-history.json"
+
+    file(project.ext.siteOutputDir).mkdirs()
+
+    standardOutput file("${project.ext.siteOutputDir}/release.rss").newOutputStream()
+    inputs.source file(groovyScript)
+}
 
 task fetchExternalResources(type: JRubyExec) {
     group 'Site'
@@ -109,28 +122,6 @@ task fetchExternalResources(type: JRubyExec) {
     script "${projectDir}/scripts/fetch-external-resources"
     configuration 'externalFetcher'
     inputs.source file("${projectDir}/scripts/fetch-external-resources")
-}
-
-task compileLegacyContent(type: JRubyExec) {
-    group 'Site'
-    description 'Compile the site using the awestruct CLI'
-    dependsOn 'fetchExternalResources'
-    script 'awestruct'
-    environment 'LEGACY' : true
-    scriptArgs '--generate', '--verbose',
-                /* forcefully set the site.base_url since the config is not
-                 * being respected
-                 */
-                '--url', 'https://jenkins-ci.org',
-                '--source-dir', "${projectDir}/${contentDir}",
-                '--output-dir', project.ext.legacyOutputDir
-    /* without the --force option, awestruct is not smart enough to regenerate
-     * files based on includes */
-    configuration 'asciidoctor'
-    inputs.source fileTree(projectDir)
-                    .include("${contentDir}/**/*.adoc")
-                    .include("${contentDir}/**/*.haml")
-                    .include("${contentDir}/**/*.md")
 }
 
 task compileContent(type: JRubyExec) {
@@ -160,14 +151,12 @@ task prepareJavaScripts {
     dependsOn bowerInstall
 
     doLast {
-        [project.ext.siteOutputDir, project.ext.legacyOutputDir].each {
-            def assetsDir = file("${it}/assets")
-            assetsDir.mkdirs()
+        def assetsDir = file("${project.ext.siteOutputDir}/assets")
+        assetsDir.mkdirs()
 
-            copy {
-                from "${projectDir}/src/assets"
-                into assetsDir
-            }
+        copy {
+            from "${projectDir}/src/assets"
+            into assetsDir
         }
     }
 }
@@ -176,8 +165,8 @@ task assemble {
     group 'Site'
     description 'Assemble the full site'
     dependsOn fetchExternalResources,
+                fetchReleaseHistory,
                 compileContent,
-                compileLegacyContent,
                 prepareJavaScripts
 }
 
@@ -195,24 +184,10 @@ task archiveBeta(type: Zip) {
     destinationDir = targetDir
 }
 
-task archiveLegacy(type: Zip) {
-    def computedDirName = "jenkins.io-${project.version}"
-
-    group 'Site'
-    description 'Create a zip archive of the site for deployment'
-    dependsOn assemble
-    archiveName "${computedDirName}.zip"
-    into(computedDirName) { from project.ext.legacyOutputDir }
-
-    File targetDir = file("${buildDir}/archives")
-    targetDir.mkdirs()
-    destinationDir = targetDir
-}
-
 task archive {
     group 'Site'
     description 'Create a zip archive of the site for deployment'
-    dependsOn archiveLegacy, archiveBeta
+    dependsOn archiveBeta
 }
 
 task run(type:Exec) {
@@ -232,4 +207,3 @@ def defineDevTask(name, body) {
 }
 
 defineDevTask('dev') {}
-defineDevTask('dev-legacy') { environment 'LEGACY', 'true' }
