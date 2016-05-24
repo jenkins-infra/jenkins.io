@@ -3,6 +3,8 @@
 :title: Refactoring a Jenkins plugin for compatibility with Pipeline jobs
 :tags:
 - core
+- pipeline
+- plugins
 :author: cprice404
 ---
 
@@ -19,11 +21,13 @@ In this blog post, I'm going to attempt to provide some step-by-step notes on ho
 
 Recently, I started working on a project to automate some performance tests for my company's products.  We use the awesome [Gatling](http://gatling.io/#/) load testing tool for these tests, but we've largely been handling the testing very manually to date, due to a lack of bandwidth to get them automated in a clean, maintainable, extensible way.  We have a years-old Jenkins server where we use the [gatling jenkins plugin](https://wiki.jenkins-ci.org/display/JENKINS/Gatling+Plugin) to track the history of certain tests over time, but the setup of the Jenkins instance was very delicate and not easy to reproduce, so it had fallen into a state of disrepair.
 
-Over the last few days I've been putting some effort into getting things more automated and repeatable so that we can really maximize the value that we're getting out of the performance tests.  With some encouragement from the fine folks in the #jenkins IRC channel, I ended up exploring the [JobDSL plugin](https://wiki.jenkins-ci.org/display/JENKINS/Job+DSL+Plugin) plugin and the new [Pipeline jobs](https://jenkins.io/doc/pipeline/).  Combining those two things with some Puppet code to provision a Jenkins server via the [jenkins puppet module](https://github.com/jenkinsci/puppet-jenkins) gave me a really nice way to completely automate my Jenkins setup and get a seed job in place that would create my perf testing jobs.  And the Pipeline job format is just an *awesome* fit for what I wanted to do in terms of being able to easily monitor the stages of my performance tests, and to make the job definitions modular so that it would be really easy to create new performance testing jobs with slight variations.
+Over the last few days I've been putting some effort into getting things more automated and repeatable so that we can really maximize the value that we're getting out of the performance tests.  With some encouragement from the fine folks in the #jenkins IRC channel, I ended up exploring the [JobDSL plugin](https://wiki.jenkins-ci.org/display/JENKINS/Job+DSL+Plugin) and the new [Pipeline jobs](https://jenkins.io/doc/pipeline/).  Combining those two things with some Puppet code to provision a Jenkins server via the [jenkins puppet module](https://github.com/jenkinsci/puppet-jenkins) gave me a really nice way to completely automate my Jenkins setup and get a seed job in place that would create my perf testing jobs.  And the Pipeline job format is just an *awesome* fit for what I wanted to do in terms of being able to easily monitor the stages of my performance tests, and to make the job definitions modular so that it would be really easy to create new performance testing jobs with slight variations.
 
-So everything's going GREAT up to this point.  I'm really happy with how it's all shaping up.  But then... (you knew there was a "but" coming, right?) I started trying to figure out how to add the Gatling Jenkins plugin to the Pipeline jobs, and kind of ran into a wall.  As best as I could tell from my googling, the plugin was probably going to require some modifications in order to be able to be used with Pipeline jobs, but I wasn't able to find any really cohesive documentation that definitively confirmed that or explained how everything fits together.
+So everything's going GREAT up to this point.  I'm really happy with how it's all shaping up.  But then... (you knew there was a "but" coming, right?) I started trying to figure out how to add the Gatling Jenkins plugin to the Pipeline jobs, and kind of ran into a wall.
 
-After a few days of rando n00b mails to the mailing lists, asking dumb questions in IRC, absorbing bits of knowledge from READMEs in various github repos, and just poking at source code, I eventually got it all sorted out.  So, in hopes of saving the next person a little time, and encouraging plugin authors to invest the time to get their plugins working with Pipeline, here are some notes about what I learned.
+As best as I could tell from my Googling, the plugin was probably going to require some modifications in order to be able to be used with Pipeline jobs.  However, I wasn't able to find any really cohesive documentation that definitively confirmed that or explained how everything fits together.
+
+Eventually, I got it all sorted out.  So, in hopes of saving the next person a little time, and encouraging plugin authors to invest the time to get their plugins working with Pipeline, here are some notes about what I learned.
 
 Spoiler: if you're just interested in looking at the individual git commits that I made on may way to getting the plugin working with Pipeline, have a look at [this github branch](https://github.com/cprice404/gatling-plugin/commits/feature/master/compatibility-with-jenkins-pipeline.individual-commits).
 
@@ -74,13 +78,11 @@ With that (and the rest of the code from that commit) in place, I was able to fi
 
 GREAT SUCCESS!
 
-This step doesn't actually *do* anything yet, but it's recognized by Jenkins and can be included in your pipeline scripts at that point, so, we're on our way, kids!
+This step doesn't actually *do* anything yet, but it's recognized by Jenkins and can be included in your pipeline scripts at that point, so, we're on our way!
 
 ### The `step` metastep
 
 The step that we created above is a first-class DSL addition that can be used in Pipeline scripts.  There's another way to make your plugin work usable from a Pipeline job, without making it a first-class build step.  This is by use of the `step` "metastep", mentioned in the [pipeline-plugin DEVGUIDE.md](https://github.com/jenkinsci/pipeline-plugin/blob/893e3484a25289c59567c6724f7ce19e3d23c6ee/DEVGUIDE.md#build-steps).  When using this approach, you simply refactor your `Builder` or `Publisher` to extend `SimpleBuildStep`, and then you can reference the build step from the Pipeline DSL using the `step` method.
-
-Whoa, that's a lot of uses of the word "step".  Let's back up a... umm.. step.
 
 In the Jenkins GUI, go to the config screen for a Pipeline job and click on the Snippet Generator checkbox.  Select 'step: General Build Step' from the dropdown, and then have a look at the options that appear in the 'Build Step' dropdown.  To compare with our previous work, let's see what "Archive the artifacts" looks like:
 
@@ -90,7 +92,7 @@ From the snippet generator we can see that it's possible to trigger an Archive a
 
     step([$class: 'ArtifactArchiver', artifacts: 'foo*', excludes: null])
 
-This is the "metastep".  It's a way to trigger any build action that implements `SimpleBuildStep`, without having to actually implement a for-realz "step" that extends the Pipeline DSL like we did above.  In many cases, it might only make sense to do one or the other in your plugin; you probably don't really need both.
+This is the "metastep".  It's a way to trigger any build action that implements `SimpleBuildStep`, without having to actually implement a real "step" that extends the Pipeline DSL like we did above.  In many cases, it might only make sense to do one or the other in your plugin; you probably don't really need both.
 
 For the purposes of this tutorial, we're going to do both.  For a couple of reasons:
 
@@ -150,7 +152,7 @@ After making these changes, if we run the development Jenkins server, we can see
 
 ![gatling project page](images/2016-05-19-update-plugin-for-pipeline-tutorial/25_gatling_project_page.png)
 
-### Making our DSL step, you know, do something
+### Making our DSL step do something
 
 So at this point we've got the metastep syntax working from end-to-end, and we've got a valid Pipeline DSL step (`gatlingArchive()`) that we can use in our Pipeline scripts without breaking anything... but our custom step doesn't actually do anything.  Here's the part where we tie it all together... and it's pretty easy!  All we need to do is to [make our step "Execution" class instantiate a Publisher and call `perform` on it](https://github.com/cprice404/gatling-plugin/commit/d81229f86a8e3cb0a0496ed2c71b6b94f4707720).  As per the [notes in the pipeline-plugin DEVGUIDE.md](https://github.com/jenkinsci/pipeline-plugin/blob/893e3484a25289c59567c6724f7ce19e3d23c6ee/DEVGUIDE.md#variable-substitutions), we can use the `@StepContextParameter` annotation to inject in the objects that we need to pass to the Publisher's `perform` method:
 
@@ -187,3 +189,10 @@ After these changes, we can fire up the development Jenkins server, and hack up 
 
 With that, our plugin now works just as well in the brave new Pipeline world as it did in the olden days of Freestyle builds.  I hope these notes save someone else a little bit of time and googling on your way to writing (or porting) an awesome plugin for Jenkins Pipeline jobs!
 
+### Links
+
+* [Jenkins Pipeline Overview](https://jenkins.io/solutions/pipeline/)
+* [Pipeline Plugin Developer Guide](https://github.com/jenkinsci/pipeline-plugin/blob/master/DEVGUIDE.md)
+* [Jenkins Source Code](https://github.com/jenkinsci/jenkins)
+* [Workflow Step API Plugin](https://github.com/jenkinsci/workflow-step-api-plugin)
+* [Workflow Basic Steps Plugin](https://github.com/jenkinsci/workflow-basic-steps-plugin)
