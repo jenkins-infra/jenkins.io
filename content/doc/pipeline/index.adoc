@@ -57,12 +57,15 @@ Step::
 Node::
     In pipeline coding contexts, a "node" is a step that does two things, typically by enlisting help from available executors on agents:
     * Schedules the steps contained within it to run by adding them to the Jenkins build queue (so that as soon as an executor slot is free on a node, the appropriate steps run).
-    * Creates a workspace, meaning a file directory specific to a particular job, where resource-intensive processing can occur without negatively impacting your pipeline performance. Workspaces created by node are removed once all the steps contained inside the node declaration finish executing.
+    * Creates a workspace, meaning a file directory specific to a particular job, where resource-intensive processing can occur without negatively impacting your pipeline performance. Workspaces created by node are automatically removed after all the steps contained inside the node declaration finish executing.
+    It is a best practice to do all material work, such as building or running shell scripts, within nodes, because node blocks in a stage tell Jenkins that the steps within them are resource-intensive enough to be scheduled, request help from the agent pool, and lock a workspace only as long as they need it.
 
-In Jenkins generally, a "node" also means any computer that is part of your Jenkins installation, whether that computer is used as a master or as an agent.
+In Jenkins generally, "node" also means any computer that is part of your Jenkins installation, whether that computer is used as a master or as an agent.
 
 Stage::
     A "stage" is a logically distinct part of the execution of any task, with parameters for locking, ordering, and labeling its part of a process relative to other parts of the same process. Pipeline syntax is often comprised of stages. Each stage step can have one or more build steps within it.
+    It is a best practice to work within stages because they help with organization by lending logical divisions to a pipelines, and because the
+    Jenkins Pipeline visualization feature displays stages as unique segments of the pipeline.
 
 Familiarity with Jenkins  terms such as "master," "agent," and "executor" also helps with understanding how pipelines work. These terms are not specific to pipelines:
 
@@ -83,7 +86,7 @@ Familiarity with Jenkins  terms such as "master," "agent," and "executor" also h
 To run pipelines, you need to have a Jenkins instance that is set up with the
 appropriate plugins. This requires:
 
-* Jenkins 1.642.3 or later (Jenkins 2.0 is recommended)
+* Jenkins 1.642.3 or later (Jenkins 2 is recommended)
 * The Pipeline plugin
 
 === Installing the Pipeline Plugin
@@ -111,7 +114,9 @@ pipeline-related plugins in terms of their importance to pipeline functionality
 
 To get the basic pipeline functionality, you only need to install the main
 Pipeline plugin, but recommended plugins add additional capabilities that you
-will probably want.
+will probably want. For example, it is a best practice to develop pipelines as code by storing a `Jenkinsfile` with pipeline script in your SCM,
+so that you can apply the same version control and testing to pipelines as you do to your other software, and that is why the
+Multibranch Pipeline plugin is recommended.
 
 Optional plugins are mainly useful if you are creating pipelines that are
 related to the technologies that they support.
@@ -137,7 +142,7 @@ Pipeline: Step API
 | recommended
 
 | Multibranch Pipeline
-| Adds "Multibranch Pipeline" item type which allows Jenkins to automatically
+| Adds "Multibranch Pipeline" item type which enables Jenkins to automatically
 build branches that contain a `Jenkinsfile`
 | recommended
 
@@ -171,6 +176,9 @@ designed for Pipeline usage. For more information, see the
 link:https://github.com/jenkinsci/pipeline-plugin/blob/master/COMPATIBILITY.md[Plugin
 Compatibility With Pipeline] web page.
 
+When you get flows from source control through `Jenkinsfile` or a link:https://github.com/jenkinsci/workflow-cps-global-lib-plugin/blob/master/README.md[Pipeline Global Library],
+you may also have to whitelist method calls in the link:https://wiki.jenkins-ci.org/display/JENKINS/Script+Security+Plugin[Script Security Plugin].
+
 [NOTE]
 ====
 Several plugins available in the Jenkins ecosystem but not actually
@@ -179,6 +187,8 @@ related to the Pipeline feature set described in this guide also use the terms
 
 * Build Pipeline plugin - provides a way to execute Jenkins jobs sequentially
 * Build Flow Plugin - introduces a job type that lets you define an orchestration process as a script.
+
+This guide describes the link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline Plugin] that supports the current Pipeline feature set.
 ====
 
 == Approaches to Defining Pipeline Script
@@ -188,6 +198,13 @@ You can create pipelines in either of the following ways:
 * Through script entered in the configuration page of the web interface for your Jenkins instance.
 * Through a `Jenkinsfile` that you create with a text editor and then check into your project's source control repository, where it can be accessed when you select the *Pipeline Script from SCM* option while configuring the Pipeline in Jenkins.
 
+[NOTE]
+====
+When you use a Jenkinsfile, it is a best practice to put #!groovy at the top of the file so that IDEs and
+GitHub diffs detect the Groovy language properly.
+
+====
+
 == Creating a Simple Pipeline
 
 Initial pipeline usage typically involves the following tasks:
@@ -195,7 +212,7 @@ Initial pipeline usage typically involves the following tasks:
 . Downloading and installing the Pipeline plugin (Unless it is already part of your Jenkins installation)
 . Creating a Pipeline of a specific type
 . Configuring your Pipeline
-. Controlling Flow through your Pipeline
+. Controlling flow (workflow) through your Pipeline
 . Scaling your Pipeline
 
 To create a simple pipeline from the Jenkins interface, perform the following steps:
@@ -216,6 +233,13 @@ If you are a Jenkins administrator (in other words, authorized to approve your
 own scripts), sandboxing is optional but efficient, because it lets scripts run
 without approval as long as they limit themselves to operations that Jenkins
 considers inherently safe.
+
+[NOTE]
+====
+To use pathnames that include spaces, bracket those pathnames between escaped double quotes using \".
+The extra quotation marks ensure that any spaces in pathnames are parsed properly.
+
+====
 
 The following example shows a successful build of a pipeline created with a
 one-line script that uses the `echo` step to output the phrase, "Hello from
@@ -244,10 +268,19 @@ and the configuration page UI provides limited scripting space, pipeline
 creation is more commonly done using an editor of your choice from which scripts
 can be loaded into Jenkins using the *Pipeline script from SCM* option.
 
-To use pathnames that include spaces, bracket those pathnames between escaped double quotes using \".
-The extra quotation marks ensure that any spaces in pathnames are parsed properly.
-
 ====
+
+It is a best practice to use parallel steps whenever you can, as long as you remember not to attempt so much parallel processing
+that it swamps the number of available executors. For example, you can acquire a node within the parallel branches of your pipeline:
+
+[source,groovy]
+----
+parallel 'integration-tests':{
+    node('mvn-3.3'){}
+}, 'functional-tests':{
+    node('selenium'){}
+}
+----
 
 == Creating Multibranch Pipelines
 
@@ -294,29 +327,28 @@ own build history unrelated to the trunk (main line).
 If you choose, you can ask for the sub-project to be automatically removed after
 its branch is merged with the main line and deleted. To change your Pipeline
 script—for example, to add a new Jenkins publisher step corresponding to new
-reports that your `Makefile`/`pom.xml`/etc. is creating—you edit the
-`Jenkinsfile` in your change. Your Pipeline script is always synchronized with
-the rest of the source code you are working on: the `checkout scm` step
-checks out the same revision as the script is loaded from.
+reports that your `Makefile`/`pom.xml`/etc. is creating—you edit the appropriate
+`Jenkinsfile`. Your Pipeline script is always synchronized with
+the rest of the source code you are working on.
 
 *Multibranch Pipeline* projects expose the name of the branch being built with
-the `BRANCH_NAME` environment variable. In multibranch pipelinss, the `checkout
-scm` command checks out the specific commit that the `Jenkinsfile` originated, so
-that branch integrity is automatically maintained.
+the `BRANCH_NAME` environment variable. In multibranch pipelines, the `checkout
+scm` step checks out the specific commit that the `Jenkinsfile` originated, so
+as to maintain branch integrity.
 
 == Loading Pipeline Scripts from SCM
 
 Complex pipelines would be cumbersome to write and maintain if you could only do
 that in the text area provided by the Jenkins job configuration page.
 
-Accordingly, you also have the option of writing pipeline scripts (`Jenkinsfile`s)
+Accordingly, you also have the option of writing pipeline scripts (Jenkinsfiles)
 with the editor that you use in your IDE (integrated development environment) or
 SCM system, and then loading those scripts into Jenkins using the *Pipeline
 Script from SCM* option enabled by the workflow-scm-step plugin, which is one of
 the plugins that the Pipeline plugin depends on and automatically installs.
 
-Loading pipeline scripts from another source using the `checkout scm` step leverages the
-idea of "pipeline as code," and lets you maintain that source using version
+Loading pipeline scripts using the `checkout scm` step leverages the
+idea of "pipeline as code," and lets you maintain pipelines using version
 control and standalone Groovy editors.
 
 To do this, select *Pipeline script from SCM* when defining the pipeline.
@@ -415,7 +447,7 @@ Your Groovy pipeline script can include functions, conditional tests, loops,
 try/catch/finally blocks, and so on.
 
 Sample syntax for one node in a Java environment that is using the open source
-Maven build automation tool (hence the definition for `mvnHome`) is shown below:
+Maven build automation tool (note the definition for `mvnHome`) is shown below:
 
 image::/images/pipeline/pipeline-sample.png[title="Pipeline Sample", 800]
 
@@ -462,7 +494,7 @@ git([url: 'https://github.com/joe_user/simple-maven-project-with-tests.git', bra
 ----
 
 For convenience, when calling steps taking only one parameter (or only one
-mandatory parameter) you can omit the parameter name. For example:
+mandatory parameter), you can omit the parameter name. For example:
 
 
 [source, groovy]
@@ -494,7 +526,7 @@ special variable `env` that is defined for all pipelines:
 ----
 
 * Properties of this variable are environment variables on the current node.
-* You can override certain environment variables and the overrides are seen by
+* You can override certain environment variables, and the overrides are seen by
   subsequent `sh` steps (or anything else that pays attention to environment variables).
 * You can run `mvn` without a fully-qualified path.
 
@@ -517,7 +549,7 @@ Jenkins defines some environment variables by default:
 
 *Example:* `env.BUILD_TAG` can be used to get a tag like 'jenkins-projname-1' from
 Groovy code, or `$BUILD_TAG` can be used from a `sh` script.  The Snippet Generator
-help for the `withEnv` step has additional detail on this topic.
+help for the `withEnv` step has more detail on this topic.
 
 === Build Parameters
 
@@ -532,15 +564,29 @@ which is an uncounted (because it's a temporary rather than configured) slot. Fl
 require very little computing power. A flyweight executor (sometimes also called
 a flyweight task) represents Groovy script, which is idle as it waits for a step to complete.
 
-To highlight the contrast between executor types, some Jenkins documentation calls any regular executor a heavyweight executor.
+To highlight the contrast between executor types, some Jenkins documentation calls any regular executor a *heavyweight executor*.
 
 When you run a `node` step, an executor is allocated on a node, which is usually an agent, as soon as
-an appropriate node is available. Avoid placing `input` within a node when you write pipeline syntax, because doing that ties up both the flyweight executor used for input and the regular executor used by the node block, which will not be free for other tasks until input is complete.
+an appropriate node is available.
 
-Although any flyweight executor running a pipeline is hidden when the actual pipeline script is not doing anything, the *Build Executor Status* widget on the Jenkins page displays status for both types of executors. If the
+It is a best practice to avoid placing `input` within a node. The input element pauses pipeline execution to wait for either automatic or manual approval.
+By design and by nature, approval can take some time, so placing `input` within a node wastes resources by tying up both the flyweight executor
+used for input and the regular executor used by the node block, which will not be free for other tasks until input is complete.
+
+Although any flyweight executor running a pipeline is hidden when the pipeline script is idle (between tasks), the *Build Executor Status* widget on the Jenkins page displays status for both types of executors. If the
 one available executor on an agent has been pressed into service by a pipeline build that is paused and
 you start a second build of the same pipeline, both builds are shown running on the master, but the
 second build displays in the Build Queue until the initial build completes and executors are free to help with further processing.
+
+When you use inputs, it is a best practice to wrap them in timeouts. Wrapping inputs in timeouts allows them to be cleaned up if
+approvals do not occur within a given window. For example:
+
+[source, groovy]
+----
+timeout(time:5, unit:'DAYS') {
+    input message:'Approve deployment?', submitter: 'it-ops'
+}
+----
 
 === Recording Test Results and Artifacts
 
@@ -562,5 +608,5 @@ a build tool):
 ----
 
 * If tests fail, the Pipeline is marked unstable (as denoted by a yellow ball in
-  the Jenkins UI), and you can browse "Test Result Trend" to see the involved history.
+  the Jenkins UI), and you can browse "Test Result Trend" to see the relevant history.
 * You should see Last Successful Artifacts on the Pipeline index page.
