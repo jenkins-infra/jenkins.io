@@ -1,0 +1,192 @@
+---
+layout: post
+title: "Faster Pipelines with the Parallel Test Executor Plugin"
+tags:
+- pipeline
+- plugins
+author: lnewman
+---
+
+NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
+Technical Evangelist at Cloudbees.
+
+In this blog post, I’ll show you how to speed up your pipeline by using the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin[Parallel Test Executor Plugin].
+
+=== So much to do, so little time...
+
+Every time I've moved a team to continuous integration and delivery, one problem
+we always encounter is how to run all the tests needed to ensure high-quality
+changes while still keeping pipeline times reasonable and changes flowing
+smoothly. More tests mean greater confidence, but also longer wait times.
+Build systems may or may not support running tests in parallel but only on one
+machine even while other lab machines sit idle.  In these cases, parallelizing
+test execution across multiple machines is a great way to speed up pipelines.
+The Parallel Test Executor plugin lets us leverage Jenkins do just that with no
+disruption to the rest of the build system.
+
+
+=== Serial Test Execution
+
+For this post, I’ll be running a pipeline based on the
+link:https://github.com/jenkinsci/git-plugin[Jenkins Git Plugin]. I've modified
+the Jenkinsfile from that project to allow us to compare execution times to our
+later changes, and I've truncated the "mvn" utility method since it remains
+unchanged.  You can find the original file
+link:https://github.com/bitwiseman/git-plugin/blob/7a31858e61d2ca2e752b0e4f1285bddcb7a75c4d/Jenkinsfile[here].
+
+[source,groovy]
+----
+node {
+  stage 'Checkout'
+  checkout scm
+
+  stage 'Build'
+
+  /* Call the Maven build without tests. */
+  mvn "clean install -DskipTests"
+
+  stage 'Test'
+  runTests()
+
+  /* Save Results. */
+  stage 'Results'
+
+  /* Archive the build artifacts */
+  step([$class: 'ArtifactArchiver', artifacts: 'target/*.hpi,target/*.jpi'])
+}
+
+void runTests(def args) {
+  /* Call the Maven build with tests. */
+  mvn "install -Dmaven.test.failure.ignore=true"
+
+  /* Archive the test results */
+  step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
+}
+
+/* Run Maven */
+void mvn(def args) { /* ... */ }
+----
+
+It’s a Maven project, so the Jenkinsfile is pretty simple.
+As noted above, I’ve split the Maven build into separate “Build” and “Test”
+stages.  Maven doesn’t support this split very well, it wants to run its all
+the steps of the lifecycle in order every time. So, I have to call Maven twice:
+first using the “skipTests” property to do only build steps in the first call,
+and then a second time with out that property to run tests.
+
+On my quad-core machine, executing this pipeline takes about 13 minutes and 30
+seconds.  Of that time, it takes 13 minutes to run about 2.7 thousand tests in
+serial.
+
+image::/images/post-images/2016-06-16/serial.png[Serial Test Pipeline, role=center]
+
+
+=== Parallel Test Execution
+
+This looks like an ideal project for parallel test execution.  A short build
+followed by a large number of serially executed tests that consume the most of
+the pipeline time.  There are a number of things I could try to optimize this.
+For example, I could modify test harness to look for ways to parallelize
+the test execution on this single machine.  Or I could try speed up the tests
+themselves.  Both of those can be time-consuming and both risk destablizing the
+tests. I'd need to know more about the project to do it well.
+
+I'll avoid that risk by using Jenkins and the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin[Parallel Test Executor Plugin] to
+parallelize the tests across multiple nodes instead. This will isolate the tests
+from each other, while still giving us speed gains from parallel execution.
+
+The plugin will read the list of tests from the results archived in the previous execution of this
+job and splits that list into the specified number of sublists. I can then use
+those sublists to execute the tests in parallel, passing a different sublist to
+each node.
+
+Let’s look at how this changes the pipeline:
+
+[source,groovy]
+----
+node { /* ...unchanged... */ }
+
+void runTests(def args) {
+  /* Request the test groupings.  Based on previous test results. */
+  /* see https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin and demo on github
+  /* Using arbitrary parallelism of 4 and "generateInclusions" feature added in v1.8. */
+  def splits = splitTests parallelism: [$class: 'CountDrivenParallelism', size: 4], generateInclusions: true
+
+  /* Create dictionary to hold set of parallel test executions. */
+  def testGroups = [:]
+
+  for (int i = 0; i < splits.size(); i++) {
+    def split = splits[i]
+
+    /* Loop over each record in splits to prepare the testGroups that we'll run in parallel. */
+    /* Split records returned from splitTests contain { includes: boolean, list: List<String> }. */
+    /*     includes = whether list specifies tests to include (true) or tests to exclude (false). */
+    /*     list = list of tests for inclusion or exclusion. */
+    /* The list of inclusions is constructed based on results gathered from */
+    /* the previous successfully completed job. One additional record will exclude */
+    /* all known tests to run any tests not seen during the previous run.  */
+    testGroups["split-${i}"] = {  // example, "split3"
+      node {
+        checkout scm
+
+        /* Clean each test node to start. */
+        mvn 'clean'
+
+        def mavenInstall = 'install -DMaven.test.failure.ignore=true'
+
+        /* Write includesFile or excludesFile for tests.  Split record provided by splitTests. */
+        /* Tell Maven to read the appropriate file. */
+        if (split.includes) {
+          writeFile file: "target/parallel-test-includes-${i}.txt", text: split.list.join("\n")
+          mavenInstall += " -Dsurefire.includesFile=target/parallel-test-includes-${i}.txt"
+        } else {
+          writeFile file: "target/parallel-test-excludes-${i}.txt", text: split.list.join("\n")
+          mavenInstall += " -Dsurefire.excludesFile=target/parallel-test-excludes-${i}.txt"
+        }
+
+        /* Call the Maven build with tests. */
+        mvn mavenInstall
+
+        /* Archive the test results */
+        step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
+      }
+    }
+  }
+  parallel testGroups
+}
+
+/* Run Maven */
+void mvn(def args) { /* ... */ }
+----
+
+That’s it!  The change is significant but it is all encapsulated in this one
+method in the Jenkinsfile.
+
+=== Great (ish) Success!
+
+Here's the results for the new pipeline with parallel test execution:
+
+image::/images/post-images/2016-06-16/serial-vs-parallel.png[Pipeline Duration Comparison, role=center]
+
+The tests ran almost twice as fast, without changes outside pipeline.  Great!
+
+However, I used 4 test executors, so why am I not seeing a 4x? improvement.
+A quick review of the logs shows problem: A small number of tests are taking up
+to 5 minutes each to complete! This is actually good news.  It means that I
+should be able to see further improvement in pipeline throughput just by refactoring
+those few long running tests into smaller parts.
+
+=== Conclusion
+
+While I would like to have seen closer to a 4x improvement to match to number
+of executors, 2x is still perfectly respectable. If I were working on a group of projects
+with similar pipelines, I'd be completely comfortable reusing these same changes
+on my other project and I'd expect to similar improvement without any disruption to
+other tools or processes.
+
+
+=== Links
+
+* https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin
