@@ -1,0 +1,124 @@
+---
+layout: post
+title: "Making your own DSL with plugins, written in Pipeline script"
+tags:
+- jenkins
+- dsl
+- pipeline
+- plugins
+author: michaelneale
+---
+
+In this post I will show how you can make your own DSL extensions and distribute
+them as a plugin, using link:/doc/pipeline[Pipeline] Script.
+
+== A quick refresher
+
+Pipeline has a well kept secret: the ability to add your own DSL
+elements. Pipeline is itself a DSL, but you can extend it.
+
+There are 2 main reasons I can think you may want to do this:
+
+. You want to reduce boilerplate by encapsulating common snippets/things you do
+  in one DSL statement.
+. You want to provide a DSL that provides a prescriptive way that your builds
+  work - uniform across your organisations Jenkinsfiles.
+
+A DSL could look as simple as
+
+[source,groovy]
+----
+acmeBuild {
+    script = "./bin/ci"
+    environment = "nginx"
+    team = "evil-devs"
+    deployBranch = "production"
+}
+----
+
+This could be the entirety of your `Jenkinsfile`!
+
+In this "simple" example, it could actually be doing a multi stage build with
+retries, in a specified docker container, that deploys only from the production
+branch.  Detailed notifications are sent to the right team on important events
+(as defined by your org).
+
+Traditionally this is done via the
+link:https://github.com/jenkinsci/workflow-cps-global-lib-plugin/blob/master/README.md#pipeline-global-library[global
+library].  You take a snippet of DSL you want to want to make into a DSL, and
+drop it in the git repo that is baked into Jenkins.
+
+A great trivial
+https://github.com/jenkinsci/workflow-cps-global-lib-plugin/blob/master/README.md#define-more-structured-dsl[example]
+is this:
+
+[source,groovy]
+----
+jenkinsPlugin {
+    name = 'git'
+}
+----
+
+Which is enabled by git pushing the following into `vars/jenkinsPlugin.groovy`
+
+TIP: The name of the file is the name of the DSL expression you use in the `Jenkinsfile`
+
+
+[source,groovy]
+----
+def call(body) {
+    def config = [:]
+    body.resolveStrategy = Closure.DELEGATE_FIRST
+    body.delegate = config
+    body()
+
+    // This is where the magic happens - put your pipeline snippets in here, get variables from config.
+    node {
+        git url: "https://github.com/jenkinsci/${config.name}-plugin.git"
+        sh "mvn install"
+        mail to: "...", subject: "${config.name} plugin build", body: "..."
+    }
+}
+----
+
+You can imagine many more pipelines, or even archetypes/templates of pipelines
+you could do in this way, providing a really easy `Jenkinsfile` syntax for your
+users.
+
+== Making it a plugin
+
+Using the global DSL library is a handy thing if you have a single Jenkins, or
+want to keep the DSLs local to a Jenkins instance.  But what if you want to
+distribute it around your org, or, perhaps it is general purpose enough you want
+to share it with the world?
+
+Well this is possible, by wrapping it in a plugin. You use the same pipeline
+snippet tricks you use in the global lib, but put it in the dsl directory of a
+plugin.
+
+My link:https://github.com/jenkinsci/simple-build-for-pipeline-plugin[simple
+build plugin] shows how it is done.  To make your own plugin:
+
+
+. Create a new plugin project, either fork the simple build one, or add a
+  dependency to it in your `pom.xml` / `build.gradle` file
+. Put your dsl in the resources directory in a similar fashion to
+  link:https://github.com/jenkinsci/simple-build-for-pipeline-plugin/blob/master/src/main/resources/dsl/simpleBuild.groovy[this]
+  (note the "package dsl" declaration at the top)
+. Create the equivalent extension that just points to the DSL by name like
+link:https://github.com/jenkinsci/simple-build-for-pipeline-plugin/blob/master/src/main/java/org/jenkinsci/plugins/simplebuild/SimpleBuildDSL.java[this]
+  This is mostly "boiler plate" but it tells Jenkins there is a `GlobalVariable` extension available when Pipelines run.
+. Deploy it to an Jenkins Update Center to share with your org, or everyone!
+
+The advantage of delivering this DSL as a plugin is that it has a version (you
+can also put tests in there), and distributable just like any other plugin.
+
+For the more advanced, link:https://github.com/abayer[Andrew Bayer] has a Simple
+Travis Runner plugin that
+link:https://github.com/jenkinsci/simple-travis-runner-plugin[interprets and runs
+travis.yml files] which is also implemented in pipeline.
+
+So, approximately, you can build plugins for pipeline that extend pipeline, in
+pipeline script (with a teeny bit of boiler plate).
+
+Enjoy!

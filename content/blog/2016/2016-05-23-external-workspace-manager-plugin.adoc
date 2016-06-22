@@ -1,0 +1,182 @@
+---
+layout: post
+title: "GSoC Project Intro: External Workspace Manager Plugin"
+tags:
+- pipeline
+- plugins
+- gsoc
+author: alexsomai
+---
+
+=== About myself
+My name is Alexandru Somai.
+I'm following a major in Software Engineering at the Babes-Bolyai University of Cluj-Napoca, Romania.
+I have more than two years hands-on experience working in Software Development.
+
+I enjoy writing code in Java, Groovy and JavaScript.
+The technologies and frameworks that I'm most familiar with are: Spring Framework, Spring Security, Hibernate,
+JMS, Web Services, JUnit, TestNG, Mockito.
+As build tools and continuous integration, I'm using Maven and Jenkins.
+I'm a passionate software developer who is always learning, always looking for new challenges.
+I want to start contributing to the open source community and Google Summer of Code is a starting point for me.
+
+=== Project summary
+Currently, Jenkins’ build workspace may become very large in size due to the fact that some compilers generate
+very large volumes of data.
+The existing plugins that share the workspace across builds are able to do this by copying the files from
+one workspace to another, process which is inefficient.
+A solution is to have a Jenkins plugin that is able to manage and reuse the same workspace between multiple builds.
+
+As part of the link:https://summerofcode.withgoogle.com/[Google Summer of Code] 2016 I will be working on
+the __External Workspace Manager__ plugin.
+My mentors for this project are link:https://github.com/oleg-nenashev[Oleg Nenashev]
+and link:https://github.com/martinda[Martin d'Anjou].
+This plugin aims to provide an external workspace management system.
+It should facilitate workspace share and reuse across multiple Jenkins jobs.
+It should eliminate the need to copy, archive or move files.
+The plugin will be written for link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline] jobs.
+
+=== Usage
+
+==== Prerequisites
+1. Multiple physical disks accessible from Master.
+2. The same physical disks must be accessible from Jenkins Nodes (renamed to Agents in Jenkins 2.0).
+3. In the Jenkins global configuration, define a disk pool (or many) that will contain the physical disks.
+4. In each Node configuration, define the mounting point from the current node to each physical disk.
+
+The following diagram gives you an overview of how an __External Workspace Manager__ configuration may look like:
+
+image:/images/post-images/ewm/ewm-config.png[title="Simplified EWM config", role="center"]
+
+==== Example one
+Let's assume that we have one Jenkins job. In this job, we want to use the same workspace on multiple Jenkins nodes.
+Our pipeline code may look like this:
+
+[source,groovy]
+----
+stage ('Stage 1. Allocate workspace')
+def extWorkspace = exwsAllocate id: 'diskpool1'
+
+node ('linux') {
+    exws (extWorkspace) {
+        stage('Stage 2. Build on the build server')
+        git url: '...'
+        sh 'mvn clean install'
+    }
+}
+
+node ('test') {
+    exws (extWorkspace) {
+        stage('Stage 3. Run tests on a test machine')
+        sh 'mvn test'
+    }
+}
+----
+
+Note: The `stage()` steps are optional from the __External Workspace Manager__ plugin perspective.
+
+====== Stage 1. Allocate workspace
+The `exwsAllocate` step selects a disk from __diskpool1__
+(default behavior: the disk with the most available size).
+On that disk, let's say __disk1__, it allocates a directory.
+The computed directory path is: `/physicalPathOnDisk/$JOB_NAME/$BUILD_NUMBER`.
+
+For example, Let's assume that the `$JOB_NAME` is __integration__ and the `$BUILD_NUMBER` is __14__.
+Then, the resulting path is: `/jenkins-project/disk1/integration/14`.
+
+====== Stage 2. Build on the build server
+All the nodes labeled __linux__ must have access to the disks defined in the disk pool.
+In the Jenkins Node configurations we have defined the local paths that are the mounting points to each disk.
+
+The `exws` step concatenates the node's local path with the path returned by the `exwsAllocate` step.
+In our case, the node labeled __linux__ has its local path to __disk1__ defined as: `/linux-node/disk1/`.
+So, the complete workspace path is: `/linux-node/disk1/jenkins-project/disk1/integration/14`.
+
+====== Stage 3. Run tests on a test machine
+Further, we want to run our tests on a different node, but we want to reuse the previously created workspace.
+
+In the node labeled __test__ we have defined the local path to __disk1__ as: `/test-node/disk1/`.
+By applying the `exws` step, our tests will be able to run in the same workspace as the build.
+Therefore, the path is: `/test-node/disk1/jenkins-project/disk1/integration/14`.
+
+==== Example two
+Let's assume that we have two Jenkins jobs, one called __upstream__ and the other one called __downstream__.
+In the __upstream__ job, we clone the repository and build the project, and in the __downstream__ job we run the tests.
+In the __downstream__ job we don't want to clone and re-build the project, we need to use the same
+workspace created in the __upstream__ job.
+We have to be able to do so without copying the workspace content from one location to another.
+
+The pipeline code in the __upstream__ job is the following:
+
+[source,groovy]
+----
+stage ('Stage 1. Allocate workspace in the upstream job')
+def extWorkspace = exwsAllocate id: 'diskpool1'
+
+node ('linux') {
+    exws (extWorkspace) {
+        stage('Stage 2. Build in the upstream job')
+           git url: '...'
+           sh 'mvn clean install'
+    }
+}
+----
+
+And the __downstream__'s pipeline code is:
+[source,groovy]
+----
+stage ('Stage 3. Allocate workspace in the downstream job')
+def extWorkspace = exwsAllocate id: 'diskpool1', upstream: 'upstream'
+
+node ('test') {
+    exws (extWorkspace) {
+        stage('Stage 4. Run tests in the downstream job')
+        sh 'mvn test'
+    }
+}
+----
+
+====== Stage 1. Allocate workspace in the upstream job
+The functionality is the same as in example one - stage 1.
+In our case, the allocated directory on the physical disk is: `/jenkins-project/disk1/upstream/14`.
+
+====== Stage 2. Build in the upstream job
+Same functionality as example one - stage 2.
+The final workspace path is: `/linux-node/disk1/jenkins-project/disk1/upstream/14`.
+
+====== Stage 3. Allocate workspace in the downstream job
+By passing the __upstream__ parameter to the `exwsAllocate` step,
+it selects the most recent stable upstream workspace (default behavior).
+The workspace path pattern is like this: `/physicalPathOnDisk/$UPSTREAM_NAME/$MOST_RECENT_STABLE_BUILD`.
+Let's assume that the last stable build number is __12__, then the resulting path is:
+`/jenkins-project/disk1/upstream/12`.
+
+====== Stage 4. Run tests in the downstream job
+The `exws` step concatenates the node's local path with the path returned by the `exwsAllocate` step in stage 3.
+In this scenario, the complete path for running tests is: `/test-node/disk1/jenkins-project/disk1/upstream/12`.
+It will reuse the workspace defined in the upstream job.
+
+=== Additional details
+You may find the complete project proposal, along with the design details, features, more examples and use cases,
+implementation ideas and milestones in the link:https://goo.gl/fq3RAe[design document].
+The plugin repository will be available on link:https://github.com/jenkinsci/external-workspace-manager-plugin[GitHub].
+
+A prototype version of the plugin should be available in late June and the releasable version in late August.
+I will be holding plugin functionality demos within the community.
+
+I do appreciate any feedback.
+You may add comments in the link:https://goo.gl/fq3RAe[design document].
+If you are interested to have a verbal conversation, feel free to join our regular meetings on Mondays at
+link:http://www.thetimezoneconverter.com/?t=12:00%20PM&tz=UTC&[12:00 PM UTC]
+on the link:http://jenkins-ci.org/hangout[Jenkins hangout].
+I will be posting updates from time to time about the plugin status on the
+link:https://groups.google.com/forum/#!forum/jenkinsci-dev[Jenkins developers] mailing list.
+
+=== Links
+
+link:https://gitter.im/jenkinsci/external-workspace-manager-plugin?utm_source=share-link&utm_medium=link&utm_campaign=share-link[image:https://badges.gitter.im/jenkinsci/external-workspace-manager-plugin.svg[title: "Gitter"]]
+
+* link:https://goo.gl/fq3RAe[Design document]
+* link:https://summerofcode.withgoogle.com/[GSoC program]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Google+Summer+Of+Code+2016[Jenkins GSoC Page]
+* link:https://github.com/jenkinsci/external-workspace-manager-plugin[Project repository]

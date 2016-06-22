@@ -1,3 +1,10 @@
+#!/usr/bin/env groovy
+
+/* Only keep the 10 most recent builds. */
+properties([[$class: 'BuildDiscarderProperty',
+                strategy: [$class: 'LogRotator', numToKeepStr: '10']]])
+
+
 
 /* Assuming that wherever we're going to build, we have nodes labelled with
  * "Docker" so we can have our own isolated build environment
@@ -63,22 +70,20 @@ node {
      *
      * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
      */
-    if (env.BRANCH_NAME == 'master') {
-        sshagent(credentials: ['1d105eb8-fd08-489c-988f-694fd8b658f7']) {
-            /* Make sure we delete our current directory on this node to make sure
-            * we're only uploading what we unstash
-            */
-            deleteDir()
-            unstash 'built-site'
-            sh 'ls build/archives'
-            parallel(
-                eggplant: {
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@eggplant.jenkins-ci.org'
-                },
-                cucumber: {
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o "StrictHostKeyChecking=no" site-deployer@cucumber.jenkins-ci.org'
-                })
-        }
+    sshagent(credentials: ['site-deployer']) {
+        /* Make sure we delete our current directory on this node to make sure
+        * we're only uploading what we unstash
+        */
+        deleteDir()
+        unstash 'built-site'
+        sh 'ls build/archives'
+        parallel(
+            eggplant: {
+                sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
+            },
+            cucumber: {
+                sh 'echo "put build/archives/*.zip archives/" | sftp site-deployer@cucumber.jenkins.io'
+            })
     }
 }
 
@@ -86,7 +91,7 @@ node {
 /* This code shame-lessly copied and pasted from some Jenkinsfile code abayer
    wrote for the jenkinsci/jenkins project */
 void withJavaEnv(List envVars = [], def body) {
-    String jdktool = tool name: "jdk7_80", type: 'hudson.model.JDK'
+    String jdktool = tool name: "jdk8", type: 'hudson.model.JDK'
 
     // Set JAVA_HOME, and special PATH variables for the tools we're
     // using.

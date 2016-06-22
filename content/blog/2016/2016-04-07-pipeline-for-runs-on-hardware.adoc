@@ -1,0 +1,264 @@
+---
+layout: post
+title: Automating test runs on hardware with Pipeline as Code
+tags:
+- jenkins2
+- pipeline
+- embedded
+author: oleg_nenashev
+---
+
+In addition to Jenkins development, during last 8 years I've been involved into continuous integration for hardware and embedded projects.
+At JUC2015/London 
+link:https://www.cloudbees.com/jenkins/juc-2015/presentations/JUC-2015-Europe-Jenkins-Based-CI-for-Nenashev.pdf[I have conducted a talk] about common automation challenges in the area.
+
+In this blog post I would like to concentrate on link:/doc/pipeline/[Pipeline] (formerly known as Workflow), which is a new ecosystem in Jenkins that allows implementing jobs in a domain specific language.
+It is in the suggested plugins list in the upcoming link:/2.0/[Jenkins 2.0 release].
+
+The first time I tried Pipeline two and half years ago, it unfortunately did not work for my use-cases at all.
+I was very disappointed but tried it again a year later. 
+This time, the plugin had become much more stable and useful. 
+It had also attracted more contributors and started evolving more rapidly with the development of plugins extending the Pipeline ecosystem.
+
+Currently, Pipeline a powerful tool available for Jenkins users to implement a variety of software delivery pipelines in code.
+I would like to highlight several Pipeline features which may be interesting to Jenkins users working specifically with embedded and hardware projects.
+
+## Introduction
+
+In Embedded projects it's frequently required to run tests on specific hardware peripherals: development boards, prototypes, etc.
+It may be required for both software and hardware areas, and especially for products involving both worlds.
+CI and CD methodologies require continuous integration and system testing, and Jenkins comes to help here.
+Jenkins is an automation framework, which can be adjusted to reliably work with hardware attached to its nodes.
+
+## Area challenges
+
+Generally, any peripheral hardware device can be attached to a Jenkins node. 
+Since Jenkins nodes require Java only, almost every development machine can be attached.
+Below you can find a common connection scheme:
+
+image::/images/post-images/pipeline-as-code-for-hardware/connectBoard.png["Connecting the external device", width=550, align="center"]
+
+After the connection, Jenkins jobs could invoke common EDA tools via command-line interfaces.
+It can be easily done by a _Execute shell_ build steps in free-style projects.
+Such testing scheme is commonly affected by the following issues:
+
+* Nodes with peripherals are being shared across several projects. 
+Jenkins must ensure the correctness of access (e.g. by throttling the access). 
+** In a single Freestyle project builds utilize the node for a long period. If you synthesize the item before the run, much of the peripheral utilization file may be wasted.
+** The issue can be solved by one of concurrency management plugins:
+link:https://wiki.jenkins-ci.org/display/JENKINS/Throttle+Concurrent+Builds+Plugin[Throttle Concurrent Builds], link:https://wiki.jenkins-ci.org/display/JENKINS/Lockable+Resources+Plugin[Lockable Resources]
+ or 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Exclusion-Plugin[Exclusions].
+* Test parallelization on multiple nodes requires using of multiple projects or 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Matrix+Project+Plugin[Matrix configurations], so it causes job chaining again.
+** These build chains can be created via 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Parameterized+Trigger+Plugin[Parameterized Trigger] and 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Copy+Artifact+Plugin[Copy Artifacts], but it complicates job management and build history investigation.
+* Hardware infrastructure is usually flaky. 
+If it fails during the build due to any reason, it's hard to diagnose the issue and re-run the project if the issue comes from hardware.
+** link:https://wiki.jenkins-ci.org/display/JENKINS/Build+Failure+Analyzer[Build Failure Analyzer] allows to identify the root cause of a build failure (e.g. by build log parsing).
+** link:https://wiki.jenkins-ci.org/display/JENKINS/Conditional+BuildStep+Plugin[Conditional Build Step] and 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Flexible+Publish+Plugin[Flexible Publish] plugins allow altering the build flow according to the analysis results.
+** Combination of the plugins above is possible, but it makes job configurations extremely large.
+* Tests on hardware peripherals may take much time. 
+If an infrastructure fails, we may have to restart the run from scratch. 
+So the builds should be robust against infrastructure issues including network failures and Jenkins master restarts.
+* Tests on hardware should be reproducible, so the environment and input parameters should be controlled well.
+** Jenkins supports
+link:https://wiki.jenkins-ci.org/display/JENKINS/Workspace+Cleanup+Plugin[cleaning workspaces], so it can get rid of temporary files generated by previous runs.
+** Jenkins provides support of slaves connected via containers (e.g. 
+  link:https://wiki.jenkins-ci.org/display/JENKINS/Docker+Plugin[Docker]) or VMs, which allow creating clean environments for every new run.
+It's important for 3rd-party tools, which may modify files outside the workspace: user home directory, temporary files, etc.
+** These environments still need to be connected to hardware peripherals, which may be a serious obstacle for Jenkins admins
+
+The classic automation approaches in Jenkins are based on Free-style and Multi-configuration project types. 
+Links to various articles on this topic are collected on the 
+link:/solutions/embedded/[HW/Embedded Solution page]Embedded on the Jenkins website.
+Tests automation on hardware peripherals has been covered in several publications by Robert Martin, Steve Harris, JL Gray, Gordon McGregor, Martin d’Anjou, and Sarah Woodall.
+There is also a top-level overview of classic approaches made by me at JUC2015/London (a bit outdated now).
+
+On the other hand, there is no previous publications, which would address link:/doc/pipeline/[Pipeline] usage for the Embedded area.
+In this post I want to address this use-case.
+
+## Pipeline as Code for test runs on hardware
+
+Pipeline as Code is an approach for describing complex automation flows in software lifecycles: build, delivery, deployment, etc.
+It is being advertised in Continuous Delivery and DevOps methodologies.
+
+In Jenkins there are two most popular plugins: 
+link:/doc/pipeline/[Pipeline] and link:https://wiki.jenkins-ci.org/display/JENKINS/Job+DSL+Plugin[Job DSL].
+JobDSL Plugin internally generates common freestyle jobs according to the script, so it's functionality is similar to the classic approaches.
+Pipeline is fundamentally different, because it provides a new engine controlling flows independently from particular nodes and workspaces.
+So it provides a higher job description level, which was not available in Jenkins before.
+
+Below you can find an example of Pipeline scripts, which runs tests on FPGA board. The id of this board comes from build parameters (_fpgaId_). In this script we also presume that all nodes have pre-installed tools (Xilinx ISE in this case).
+
+[source, groovy]
+----
+// Run on node having my_fpga label 
+node("linux && ml509") {
+  git url:"http://github.com/oleg-nenashev/pipeline_hw_samples"
+  sh "make all"
+}
+----
+
+But such scenario could be also implemented in a Free-style project.
+What would we get from Pipeline plugin?
+
+## Getting added-value from Pipeline as code
+
+Pipeline provides much added-value features for hardware-based tests. 
+I would like to highlight the following advantages:
+
+* Robustness against restarts of Jenkins master.
+* Robustness against network disconnects. `sh()` steps are based on the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Durable+Task+Plugin[Durable Task plugin], so Jenkins can safely continue the execution flow once the node reconnects to the master.
+* It's possible to run tasks on multiple nodes without creating complex flows based on job triggers and copy artifact steps, etc. It can be achieved via combination of `parallel()` and `node()` steps.
+* Ability to store the shared logic in standalone Pipeline libraries
+* etc.
+
+First two advantages allow to improve the robustness of Jenkins nodes against infrastructure failures. 
+It is critical for long-running tests on hardware.
+
+Last two advantages address the flexibility of Pipeline flows.
+There are also plugins for freestyle projects, but they are not flexible enough.
+
+## Utilizing Pipeline features
+
+The sample Pipeline script above is very simple. 
+We would like to get some added value from Jenkins.
+
+### General improvements
+
+Let's enhance the script by using several features being provided by pipeline in order to get visualization of stages, report publishing and build notifications.
+
+We also want to minimize the time being spent on the node with the attached FPGA board. 
+So we will split the bitfile generation and further runs to two different nodes in this case: a general purpose linux node, and the node with the hardware attached.
+
+You can find the resulting Pipeline script below:
+
+[source, groovy]
+----
+// Synthesize on any node
+def imageId=""
+node("linux") {
+  stage "Prepare environment" 
+  git url:"http://github.com/oleg-nenashev/pipeline_hw_samples"
+  // Construct the bitfile image ID from commit ID
+  sh 'git rev-parse HEAD > GIT_COMMIT'
+  imageId= "myprj-${fpgaId}-" + readFile('GIT_COMMIT').take(6)
+  
+  stage "Synthesize project"
+  sh "make FPGA_TYPE=$fpgaId synthesize_for_fpga"
+  /* We archive the bitfile before running the test, so it won't be lost it if something happens with the FPGA run stage. */
+  archive "target/image_${fpgaId}.bit"
+  stash includes: "target/image_${fpgaId}.bit", name: 'bitfile'
+}
+
+/* Run on a node with 'my_fpga' label. 
+In this example it means that the Jenkins node contains the attacked FPGA of such type.*/
+node ("linux && $fpgaId") {  
+  stage "Blast bitfile"
+  git url:"http://github.com/oleg-nenashev/pipeline_hw_samples"
+  def artifact='target/image_'+fpgaId+'.bit'
+  echo "Using ${artifact}" 
+  unstash 'bitfile'
+  sh "make FPGA_TYPE=$fpgaId impact"
+  
+  /* We run automatic tests.
+  Then we report test results from the generated JUnit report. */
+  stage "Auto Tests"
+  sh "make FPGA_TYPE=$fpgaId tests"
+  sh "perl scripts/convertToJunit.pl --from=target/test-results/* --to=target/report_${fpgaId}.xml --classPrefix=\"myprj-${fpgaId}.\""
+  step([$class:"JUnitResultArchiver", testResults:"target/report_${fpgaId}.xml"])
+  
+  stage "Finalization"
+  sh "make FPGA_TYPE=$fpgaId flush_fpga"
+  hipchatSend("${imageId} testing has been completed")
+}
+----
+
+As you may see, the pipeline script mostly consists of various calls of command-line tools via the `sh()` command. 
+All EDA tools provide great CLIs, so we do not need special plugins in order to invoke common operations from Jenkins.
+
+WARNING: Makefile above is a sample stuff for demo purposes.
+It implements a set of unrelated routines merged into a single file without dependency declarations.
+Never write such makefiles.
+
+It is possible to continue expanding the pipeline in such way.
+link:https://github.com/jenkinsci/pipeline-examples[Pipeline Examples]
+contain examples for common cases: build parallelization, code sharing between pipelines, error handling, etc.
+
+## Lessons learned
+
+During last 2 years I've been using Pipeline for Hardware test automation several times.
+The first attempts were not very successful, but the ecosystem has been evolving rapidly. 
+I feel Pipeline has become a really powerful tool, but there are several missing features.
+I would like to mention the following ones:
+
+1. *Shared resource management across different pipelines*. 
+** Runs of a single Pipeline job can be synchronized using the `concurrency` parameter of the `stage()` step
+** It can be done by the incoming Pipeline integration in the 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Lockable+Resources+Plugin[Lockable Resources plugin] 
+(link:https://issues.jenkins-ci.org/browse/JENKINS-30269[JENKINS-30269]).
+** Another case is integration with 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Throttle+Concurrent+Builds+Plugin[Throttle Concurrent Builds plugin], which is an effective engine for limiting the license utilization in automation infrastructures 
+(link:https://issues.jenkins-ci.org/browse/JENKINS-31801[JENKINS-31801]).
+1. *Better support of CLI tools*. 
+** EDA tools frequently need a complex environment, which should be deployed on nodes somehow. 
+** Integration with 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Custom+Tools+Plugin[Custom Tools Plugin] seems to be the best option, especially in the case of multiple tool versions 
+(link:https://issues.jenkins-ci.org/browse/JENKINS-30680[JENKINS-30680]).
+1. *Pipeline package manager* (link:https://issues.jenkins-ci.org/browse/JENKINS-34186[JENKINS-34186])
+** Since there is almost no plugins for EDA tools in Jenkins, developers need to implement similar tasks at multiple jobs.
+** A common approach is to keep the shared "functions" in libraries.
+** link:https://github.com/jenkinsci/workflow-plugin/blob/master/cps-global-lib/README.md[Pipeline Global Library] and
+link:https://github.com/jenkinsci/workflow-remote-loader-plugin[Pipeline Remote Loader] can be used, but they do not provide features like dependency management.
+1. *Pipeline debugger* (link:https://issues.jenkins-ci.org/browse/JENKINS-34185[JENKINS-34185])
+** Hardware test runs are very slow, so it is difficult to troubleshoot and fix issues in the Pipeline code if you have to run every build from scratch. 
+** There are several features in Pipeline, which simplify the development, but we still need an IDE-alike implementation for complex scripts.
+
+## Conclusions
+
+Jenkins is a powerful *automation framework*, which can be used in many areas.
+Even though Jenkins has no dedicated plugins for test runs on hardware, it provides many general-purpose "building blocks", which allow implementing almost any flow.
+That's why Jenkins is so popular in the hardware and embedded areas.
+
+Pipeline as code can greatly simplify the implementation of complex flows in Jenkins.
+It continues to evolve and extend support of use-cases.
+if you're developing embedded projects, consider Pipeline as a durable, extensible and versatile means of implementing your automation.
+
+## What's next?
+
+Jenkins automation server dominates in the HW/Embedded area, but unfortunately there is not so much experience sharing for these use-cases. 
+So Jenkins community encourages everybody to share the experience in this area by writing docs and articles for Jenkins website and other resources.
+
+This is just a a first blog post on this topic.
+I am planning to provide more examples of Pipeline usage for Embedded and Hardware tests in the future posts.
+The next post will be about concurrency and shared resource management in Pipelines.
+
+I am also going to talk about running tests on hardware at the 
+link:https://www.eventbrite.com/e/accelerating-automotive-innovation-with-continuous-integration-delivery-tickets-20809772590[upcoming Automotive event] in Stuttgart on April 26th.
+This event is being held by 
+link:https://www.cloudbees.com/[CloudBees], but there will be several talks addressing Jenkins open-source as well.
+
+If you want to share your experience about Jenkins usage in Hardware/Embedded areas, consider submitting a talk for the 
+link:https://jenkins-cfp.herokuapp.com/events/jenkins-world-2016[Jenkins World conference] or join/organize a 
+link:https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup[Jenkins Area Meetup] in your city. 
+There is also a 
+link:http://www.meetup.com/Jenkins-online-meetup/[Jenkins Online Meetup].
+
+## Links
+
+Related articles and events:
+
+* link:/solutions/embedded/[HW/Embedded Solution page]
+* link:https://www.cloudbees.com/jenkins/juc-2015/presentations/JUC-2015-Europe-Jenkins-Based-CI-for-Nenashev.pdf[Jenkins-Based CI for Heterogeneous Hardware/Software Projects]
+* link:https://www.eventbrite.com/e/accelerating-automotive-innovation-with-continuous-integration-delivery-tickets-20809772590[Accelerating Automotive Innovation with Continuous Integration & Delivery] - meetup in Stuttgart
+
+Pipeline:
+
+* link:/solutions/pipeline[Pipeline page]
+* link:https://speakerdeck.com/onenashev/spb-jenkins-meetup-number-1-jenkins-2-dot-0-i-pipeline-as-code-eng[Jenkins 2.0 and Pipeline as code overview]
+* link:https://github.com/jenkinsci/workflow-plugin/blob/master/TUTORIAL.md[Pipeline Tutorial]
+* link:https://github.com/jenkinsci/pipeline-examples[Pipeline Examples]
