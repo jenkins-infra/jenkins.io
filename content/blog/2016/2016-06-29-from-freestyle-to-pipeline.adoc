@@ -1,0 +1,213 @@
+---
+layout: post
+title: "Migrating from chained Freestyle jobs to Pipelines"
+tags:
+- pipeline
+- infra
+author: rtyler
+---
+
+[NOTE]
+--
+This is a guest post by link:https;//github.com/rtyler[R. Tyler Croy], who is a
+long-time contributor to Jenkins and the primary contact for Jenkins project
+infrastructure. He is also a Jenkins Evangelist at
+link:http://cloudbees.com[CloudBees, Inc.]
+--
+
+For ages I have used the "Build After" feature in Jenkins to cobble together
+what one might refer to as a "pipeline" of sorts. The Jenkins project itself, a
+major consumer of Jenkins, has used these daisy-chained Freestyle jobs to drive
+a myriad of delivery pipelines in our infrastructure.
+
+One such "pipeline" helped drive the complex process of generating the pretty
+blue charts on
+link:http://stats.jenkins-ci.org/jenkins-stats/svg/svgs.html[stats.jenkins-ci.org].
+This statistics generation process primarily performs two major tasks, on rather
+large sets of data:
+
+. Generate aggregate monthly "census data."
+. Process the census data and create trend charts
+
+
+The chained jobs allowed us to resume the independent stages of the pipeline,
+and allowed us to run different stages on different hardware (different
+capabilities) as needed. Below is a diagram of what this looked like:
+
+image::/images/post-images/freestyle-to-pipeline-2016/freestyle-pipeline.png[role=center]
+
+
+The `infra_generate_monthly_json` would run periodically creating the
+aggregated census data, which would then be picked up by `infra_census_push`
+whose sole responsibility was to take census data and publish it to the
+necessary hosts inside the project's infrastructure.
+
+
+The second, semi-independent, "pipeline" would also run periodically. The
+`infra_statistics` job's responsibility was to use the census data, which had
+been previously pushed, to generate the myriad of pretty blue charts before notifying the
+`infra_checkout_stats` job which would make sure `stats.jenkins-ci.org` was
+properly updated.
+
+
+Suffice it to say, this "pipeline" had grown organically over a period time when
+link:/doc/pipeline[more advanced tools] weren't quite available.
+
+
+---
+
+
+When we migrated to newer infrastructure for
+link:https://ci.jenkins.io[ci.jenkins.io] earlier this year, instead of
+migrating jobs verbatim, I took the opportunity to prune stale jobs and refactor
+a number of others into proper link:/solutions/pipeline[Pipelines], statistics
+generation being an obvious target!
+
+Our requirements for statistics generation, in their most basic form, are:
+
+* Enable a sequence of dependent tasks to be executed as a logical group (a
+  pipeline)
+* Enable executing those dependent tasks on various pieces of infrastructure
+  which support different requirements
+* Actually generate those pretty blue charts
+
+
+[NOTE]
+--
+If you wish to skip ahead, you can jump straight to the
+link:https://github.com/jenkins-infra/infra-statistics/blob/a6dcaa29fca9a4f61143954fb9e1300c2f995a89/Jenkinsfile[Jenkinsfile]
+which implements our new Pipeline.
+--
+
+
+The first iteration of the `Jenkinsfile` simply defined the conceptual stages we
+would need:
+
+[source, groovy]
+----
+
+node {
+    stage 'Sync raw data and census files'
+
+    stage 'Process raw logs'
+
+    stage 'Generate census data'
+
+    stage 'Generate stats'
+
+    stage 'Publish census'
+
+    stage 'Publish stats'
+}
+----
+
+How exciting! But not terrifically useful. With the implementation of the first
+couple stages I noticed that the Pipeline might be syncing _dozens_ of gigabytes
+of data every time it ran on a new agent in the cluster. While this problem
+will soon be solved by the
+link:https://github.com/jenkinsci/external-workspace-manager-plugin[External
+Workspace Manager plugin], which is currently being developed, I needed to pin
+the execution to a consistent agent.
+
+
+[source, groovy]
+----
+/* `census` is a node label for a single machine, ideally, which will be
+ * consistently used for processing usage statistics and generating census data
+ */
+node('census && docker') {
+    /* .. */
+}
+----
+
+
+Restricting a workload which previously used multiple agents, to a single one,
+introduced the next challenge. As an infrastructure administrator, technically
+speaking, I _could_ just install all the system dependencies that I want on this
+one special Jenkins agent. But what kind of example would that be setting!
+
+This process was going to require:
+
+* JDK8
+* link:https://www.groovy-lang.org[Groovy]
+* A running link:https://www.mongodb.org/[MongoDB] instance
+
+
+Fortunately, with Pipeline we have a couple of useful tools at our disposal:
+
+* Tool Auto-Installers
+* The link:https://go.cloudbees.com/docs/cloudbees-documentation/cje-user-guide/chapter-docker-workflow.html[CloudBees Docker Pipeline plugin]
+
+
+Tool Auto-Installers are exposed in Pipeline through the `tool` step and on
+link:https://ci.jenkins.io[ci.jenkins.io] we already had JDK8 and Groovy
+available:
+
+[source,groovy]
+----
+node('census && docker') {
+    /* .. */
+
+    def javaHome = tool(name: 'jdk8')
+    def groovyHome = tool(name: 'groovy')
+
+    /* Set up environment variables for re-using our auto-installed tools */
+    def customEnv = [
+        "PATH+JDK=${javaHome}/bin",
+        "PATH+GROOVY=${groovyHome}/bin",
+        "JAVA_HOME=${javaHome}",
+    ]
+
+    /* .. */
+}
+----
+
+
+Satisfying the MongoDB dependency was still tricky. If I caved in and installed
+MongoDB on a single unicorn agent in the cluster, what could I say the next time
+somebody asked for a special, one-off, piece of software installed on our
+Jenkins build agents?
+
+
+After doing my usual complaining and whining, I discovered that the CloudBees
+Docker Pipeline plugin provides the ability to *run containers* inside of a
+`Jenkinsfile`. To make things even better, there are
+link:https://hub.docker.com/_/mongo/[official MongoDB docker images] readily
+available on DockerHub!
+
+[source, groovy]
+----
+node('census && docker') {
+    /* .. */
+
+    /* Run MongoDB in the background, mapping its port 27017 to our host's port
+     * 27017 so our script can talk to it, then execute our Groovy script with
+     * tools from our `customEnv`
+     */
+    docker.image('mongo:2').withRun('-p 27017:27017') { container ->
+        withEnv(customEnv) {
+            sh "groovy parseUsage.groovy --logs ${usagestats_dir} --output ${census_dir} --incremental"
+        }
+    }
+
+    /* .. */
+}
+----
+
+
+With that system requirement satisfied, the rest of the stages of the Pipeline
+fell into place. We now have a single source of truth, the
+link:https://github.com/jenkins-infra/infra-statistics/blob/master/Jenkinsfile[Jenkinsfile],
+for the sequence of dependent tasks which need to be executed, accounting for
+variations in systems requirements, and it actually generates
+link:http://stats.jenkins-ci.org/jenkins-stats/svg/svgs.html[those pretty
+blue charts]!
+
+image::/images/post-images/freestyle-to-pipeline-2016/stats-pipeline.png[role=center]
+
+
+=== Links
+
+* link:/doc/pipeline[Pipeline documentation]
+* link:https://go.cloudbees.com/docs/cloudbees-documentation/cje-user-guide/chapter-docker-workflow.html[CloudBees Docker Pipeline plugin documentation]
+* Live link:https://ci.jenkins.io/job/Infrastructure/job/statistics/[statistics Pipeline]
