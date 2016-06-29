@@ -44,8 +44,9 @@ necessary hosts inside the project's infrastructure.
 
 
 The second, semi-independent, "pipeline" would also run periodically. The
-`infra_statistics` job's responsibility was to use the census data, which had
-been previously pushed, to generate the myriad of pretty blue charts before notifying the
+`infra_statistics` job's responsibility was to use the census data, pushed
+earlier by `infra_census_push`, to generate the myriad of pretty blue charts
+before triggering the
 `infra_checkout_stats` job which would make sure `stats.jenkins-ci.org` was
 properly updated.
 
@@ -58,10 +59,11 @@ link:/doc/pipeline[more advanced tools] weren't quite available.
 
 
 When we migrated to newer infrastructure for
-link:https://ci.jenkins.io[ci.jenkins.io] earlier this year, instead of
-migrating jobs verbatim, I took the opportunity to prune stale jobs and refactor
-a number of others into proper link:/solutions/pipeline[Pipelines], statistics
-generation being an obvious target!
+link:https://ci.jenkins.io[ci.jenkins.io] earlier this year I took the
+opportunity to do some cleaning up. Instead of migrating jobs verbatim, I pruned
+stale jobs and refactored a number of others into proper
+link:/solutions/pipeline[Pipelines], statistics generation being an obvious
+target!
 
 Our requirements for statistics generation, in their most basic form, are:
 
@@ -101,13 +103,13 @@ node {
 }
 ----
 
-How exciting! But not terrifically useful. With the implementation of the first
-couple stages I noticed that the Pipeline might be syncing _dozens_ of gigabytes
-of data every time it ran on a new agent in the cluster. While this problem
-will soon be solved by the
+How exciting! Although not terrifically useful. When I began actually
+implementing the first couple stages, I noticed that the Pipeline might sync
+_dozens_ of gigabytes of data every time it ran on a new agent in the cluster.
+While this problem will soon be solved by the
 link:https://github.com/jenkinsci/external-workspace-manager-plugin[External
-Workspace Manager plugin], which is currently being developed, I needed to pin
-the execution to a consistent agent.
+Workspace Manager plugin], which is currently being developed. Until it's ready,
+I chose to mitigate the issue by pinning the execution to a consistent agent.
 
 
 [source, groovy]
@@ -121,27 +123,34 @@ node('census && docker') {
 ----
 
 
-Restricting a workload which previously used multiple agents, to a single one,
+Restricting a workload which previously used multiple agents to a single one
 introduced the next challenge. As an infrastructure administrator, technically
 speaking, I _could_ just install all the system dependencies that I want on this
 one special Jenkins agent. But what kind of example would that be setting!
 
-This process was going to require:
+The statistics generation process requires:
 
 * JDK8
 * link:https://www.groovy-lang.org[Groovy]
 * A running link:https://www.mongodb.org/[MongoDB] instance
 
 
-Fortunately, with Pipeline we have a couple of useful tools at our disposal:
+Fortunately, with Pipeline we have a couple of useful features at our disposal:
+tool auto-installers and the
+link:https://go.cloudbees.com/docs/cloudbees-documentation/cje-user-guide/chapter-docker-workflow.html[CloudBees
+Docker Pipeline plugin].
 
-* Tool Auto-Installers
-* The link:https://go.cloudbees.com/docs/cloudbees-documentation/cje-user-guide/chapter-docker-workflow.html[CloudBees Docker Pipeline plugin]
 
+=== Tool Auto-Installers
 
 Tool Auto-Installers are exposed in Pipeline through the `tool` step and on
 link:https://ci.jenkins.io[ci.jenkins.io] we already had JDK8 and Groovy
-available:
+available. This meant that the `Jenkinsfile` would invoke `tool` and Pipeline
+would automatically install the desired tool on the agent executing the current
+Pipeline steps. 
+
+The `tool` step does not modify the `PATH` environment variable, so it's usually
+used in conjunction with the `withEnv` step, for example:
 
 [source,groovy]
 ----
@@ -158,22 +167,31 @@ node('census && docker') {
         "JAVA_HOME=${javaHome}",
     ]
 
+    /* use our auto-installed tools */
+    withEnv(customEnv) {
+        sh 'java --version'
+    }
+
     /* .. */
 }
 ----
 
+=== CloudBees Docker Pipeline plugin
 
-Satisfying the MongoDB dependency was still tricky. If I caved in and installed
+Satisfying the MongoDB dependency would still be tricky. If I caved in and installed
 MongoDB on a single unicorn agent in the cluster, what could I say the next time
 somebody asked for a special, one-off, piece of software installed on our
 Jenkins build agents?
-
 
 After doing my usual complaining and whining, I discovered that the CloudBees
 Docker Pipeline plugin provides the ability to *run containers* inside of a
 `Jenkinsfile`. To make things even better, there are
 link:https://hub.docker.com/_/mongo/[official MongoDB docker images] readily
 available on DockerHub!
+
+This feature requires that the machine has a running Docker daemon which is
+accessible to the user running the Jenkins agent. After that, running a
+container in the background is easy, for example:
 
 [source, groovy]
 ----
@@ -195,6 +213,13 @@ node('census && docker') {
 ----
 
 
+The beauty, to me, of this example is that you can pass a
+link:http://www.groovy-lang.org/Closures[closure] to `withRun` which will
+execute _while_ the container is running. When the closure is finished executin,
+just the `sh` step in this case, the container is destroyed.
+
+
+
 With that system requirement satisfied, the rest of the stages of the Pipeline
 fell into place. We now have a single source of truth, the
 link:https://github.com/jenkins-infra/infra-statistics/blob/master/Jenkinsfile[Jenkinsfile],
@@ -203,7 +228,11 @@ variations in systems requirements, and it actually generates
 link:http://stats.jenkins-ci.org/jenkins-stats/svg/svgs.html[those pretty
 blue charts]!
 
-image::/images/post-images/freestyle-to-pipeline-2016/stats-pipeline.png[role=center]
+
+Of course, a nice added bonus is the beautiful visualization of our
+link:https://ci.jenkins.io/job/Infrastructure/job/statistics/[new Pipeline]!
+
+image::/images/post-images/freestyle-to-pipeline-2016/stats-pipeline.png[The New and Improved Statistics Pipeline, role=center]
 
 
 === Links
