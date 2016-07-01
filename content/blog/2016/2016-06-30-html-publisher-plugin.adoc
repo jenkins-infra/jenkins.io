@@ -1,0 +1,133 @@
+---
+layout: post
+title: "Publishing HTML Reports in Pipeline"
+tags:
+- pipeline
+- plugins
+author: lnewman
+---
+
+NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
+Technical Evangelist at Cloudbees.
+
+Most projects need more that just JUnit result reporting.  Rather than writing a
+custom plugin for each type of report, we can use the
+link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publisher Plugin].
+
+=== Let's Make This Quick
+
+I've found a ruby project,
+link:https://github.com/reiseburo/hermann[hermann], I'd like to build using Jenkins Pipeline. I'd
+also like to have the code coverage results published with each build job.  I could
+write a plugin to publish this data, but I'm in a bit of hurry and it the build
+already creates an html report file.
+
+=== Simple Build
+I'm going to use the
+link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publisher Plugin]
+to add the HTML-formatted code coverage report to my builds.  Here's a simple
+pipeline for building the link:https://github.com/reiseburo/hermann[hermann]
+project.
+
+[source,groovy]
+----
+stage 'Build'
+
+node {
+  // Checkout
+  checkout scm
+
+  // Use a particular version of ruby (configured by rvm) to run build
+  sh ('''
+  # install required bundles
+  bundle install
+
+  # compile native components
+  bundle exec rake compile
+
+  # build the package
+  bundle exec rake build
+
+  # run tests and coverage
+  bundle exec rake spec
+  ''')
+
+  // Archive the built artifacts
+  archive (includes: 'pkg/*.gem')
+}
+----
+
+Simple enough, it builds, runs tests, and archives the package.
+image::/images/post-images/2016-06-30/run-1.png[Job Run Without Report Link, role=center]
+
+Now I just need to add the step to publish the code coverage report.
+I know that `rake spec` creates an `index.html` file in the `coverage` directory.
+I've already installed the
+link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publisher Plugin].
+How do I add the HTML publishing step to the pipeline?  The plugin page doesn't
+say anything about it.
+
+=== Snippet Generator to the Rescue
+Documentation is hard to maintain and easy to miss, even more so in a system
+like Jenkins with hundreds of plugins the each potential have one or more
+groovy fixtures to add to the Pipeline.  The "Snippet Generator" helps users
+navigate this jungle by providing a way to generate a code snippet for any step using
+provided inputs.
+
+It offers a dynamically generated list of steps, based on the installed plugins.
+From that list I select the `publishHTML` step:
+
+image::/images/post-images/2016-06-30/snippet-generator-1.png[Snippet Generator Menu, role=center]
+
+The it shows me a UI similar to the one used in job configuration.  I fill in
+the fields, click "generate", and it shows me snippet of groovy generated from
+that input.
+
+image::/images/post-images/2016-06-30/snippet-generator-2.png[Snippet Generator Output, role=center]
+
+I can use that directly or as a template for further customization.
+
+=== HTML Published
+My use case is simple, so I'll just reformat it and copy it in at the end of my
+pipeline.  (I ran into a bug in the snippet generated for this step, but typing
+error string in my search bar immediately found the bug and a workaround.)
+
+[source,groovy]
+----
+  /* ...unchanged... */
+
+  // Archive the built artifacts
+  archive (includes: 'pkg/*.gem')
+
+  // publish html
+  // snippet generator doesn't include "target:"
+  // https://issues.jenkins-ci.org/browse/JENKINS-29711.
+  publishHTML (target: [
+      allowMissing: false,
+      alwaysLinkToLastBuild: false,
+      keepAll: true,
+      reportDir: 'coverage',
+      reportFiles: 'index.html',
+      reportName: "RCov Report"
+    ])
+
+}
+----
+
+When I run this new pipeline I am rewarded with an `RCov Report` link on left side,
+which I can follow to show the HTML report.
+
+image::/images/post-images/2016-06-30/run-2.png[Job Run With Report Link, role=center]
+
+image::/images/post-images/2016-06-30/rcov.png[RCov Report, role=center]
+
+I even added the `keepAll` setting to let I can also go back an look at reports on old jobs as
+more come in.  As I said to to begin with, this is not be as slick as what I
+could do with a custom plugin, but it is much easier and works with any static
+HTML.
+
+
+=== Links
+
+link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publisher Plugin]
+link:https://jenkins.io/blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]
