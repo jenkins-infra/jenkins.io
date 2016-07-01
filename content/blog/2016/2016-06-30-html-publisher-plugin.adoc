@@ -16,11 +16,12 @@ link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publ
 
 === Let's Make This Quick
 
-I've found a ruby project,
+I've found a Ruby project,
 link:https://github.com/reiseburo/hermann[hermann], I'd like to build using Jenkins Pipeline. I'd
 also like to have the code coverage results published with each build job.  I could
-write a plugin to publish this data, but I'm in a bit of hurry and it the build
-already creates an html report file.
+write a plugin to publish this data, but I'm in a bit of hurry and
+the build already creates an HTML report file using link:https://github.com/colszowka/simplecov[SimpleCov]
+when the unit tests run.
 
 === Simple Build
 I'm going to use the
@@ -37,20 +38,11 @@ node {
   // Checkout
   checkout scm
 
-  // Use a particular version of ruby (configured by rvm) to run build
-  sh ('''
-  # install required bundles
-  bundle install
+  // install required bundles
+  sh 'bundle install'
 
-  # compile native components
-  bundle exec rake compile
-
-  # build the package
-  bundle exec rake build
-
-  # run tests and coverage
-  bundle exec rake spec
-  ''')
+  // build and run tests with coverage
+  sh 'bundle exec rake build spec'
 
   // Archive the built artifacts
   archive (includes: 'pkg/*.gem')
@@ -58,7 +50,12 @@ node {
 ----
 
 Simple enough, it builds, runs tests, and archives the package.
-image::/images/post-images/2016-06-30/run-1.png[Job Run Without Report Link, role=center]
+
+'''
+
+image::/images/post-images/2016-06-30/run-1.png[Job Run Without Report Link, align="center"]
+
+'''
 
 Now I just need to add the step to publish the code coverage report.
 I know that `rake spec` creates an `index.html` file in the `coverage` directory.
@@ -77,19 +74,26 @@ provided inputs.
 It offers a dynamically generated list of steps, based on the installed plugins.
 From that list I select the `publishHTML` step:
 
-image::/images/post-images/2016-06-30/snippet-generator-1.png[Snippet Generator Menu, role=center]
+'''
 
-The it shows me a UI similar to the one used in job configuration.  I fill in
+image::/images/post-images/2016-06-30/snippet-generator-1.png[Snippet Generator Menu, align="center"]
+
+'''
+
+Then it shows me a UI similar to the one used in job configuration.  I fill in
 the fields, click "generate", and it shows me snippet of groovy generated from
 that input.
 
-image::/images/post-images/2016-06-30/snippet-generator-2.png[Snippet Generator Output, role=center]
+'''
 
-I can use that directly or as a template for further customization.
+image::/images/post-images/2016-06-30/snippet-generator-2.png[Snippet Generator Output, align="center"]
+
 
 === HTML Published
-My use case is simple, so I'll just reformat it and copy it in at the end of my
-pipeline.  (I ran into a bug in the snippet generated for this step, but typing
+I can use that snippet directly or as a template for further customization.
+In this case, I'll just reformat and copy it in at the end of my
+pipeline.  (I ran into a link:https://issues.jenkins-ci.org/browse/JENKINS-29711[minor bug]
+in the snippet generated for this plugin step. Typing
 error string in my search bar immediately found the bug and a workaround.)
 
 [source,groovy]
@@ -117,17 +121,23 @@ error string in my search bar immediately found the bug and a workaround.)
 When I run this new pipeline I am rewarded with an `RCov Report` link on left side,
 which I can follow to show the HTML report.
 
-image::/images/post-images/2016-06-30/run-2.png[Job Run With Report Link, role=center]
+'''
 
-image::/images/post-images/2016-06-30/rcov.png[RCov Report, role=center]
+image::/images/post-images/2016-06-30/run-2.png[Job Run With Report Link, align="center"]
+
+'''
+
+image::/images/post-images/2016-06-30/rcov.png[RCov Report, align="center"]
+
+'''
 
 I even added the `keepAll` setting to let I can also go back an look at reports on old jobs as
-more come in.  As I said to to begin with, this is not be as slick as what I
+more come in.  As I said to to begin with, this is not as slick as what I
 could do with a custom plugin, but it is much easier and works with any static
 HTML.
 
 
 === Links
 
-link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publisher Plugin]
-link:https://jenkins.io/blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/HTML+Publisher+Plugin[HTML Publisher Plugin]
+* link:blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]
