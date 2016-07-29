@@ -11,7 +11,7 @@ source 'https://rubygems.org'
 #   <https://github.com/jenkins-infra/jenkins.io/blob/master/CONTRIBUTING.adoc#advanced-building>
 
 gem 'awestruct', '~> 0.5.7'
-gem 'awestruct-ibeams', '~> 0.2.1'
+gem 'awestruct-ibeams', '~> 0.3'
 
 gem 'faraday', '~> 0.9.2'
 
