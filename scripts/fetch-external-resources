@@ -8,6 +8,7 @@ require 'faraday'
 require 'faraday_middleware'
 require 'uri'
 require 'yaml'
+require 'zip'
 
 
 RESOURCES = [
@@ -17,17 +18,26 @@ RESOURCES = [
     {
       :layout => 'post',
       :title => 'Changelog',
-    }
+    },
+    nil
   ],
   [
     'https://updates.jenkins.io/latestCore.txt',
     'content/_tmp/latestCore.txt',
+    nil,
     nil
   ],
   [
     'https://updates.jenkins.io/stable/latestCore.txt',
     'content/_tmp/latestLTSCore.txt',
+    nil,
     nil
+  ],
+  [
+    'https://jenkins.ci.cloudbees.com/job/infra/job/PipelineStepsDoc/lastSuccessfulBuild/artifact/allAscii.zip',
+    'content/_tmp/allAscii.zip',
+    nil,
+    'content/doc/pipeline/steps'
   ],
 ]
 
@@ -49,7 +59,7 @@ class Fetcher
   def process(resources)
     failures = []
 
-    resources.each do |origin, destination, frontmatter|
+    resources.each do |origin, destination, frontmatter, zip_dest|
       response = fetch_resource(origin)
 
       unless response.success?
@@ -63,6 +73,17 @@ class Fetcher
           f.write("---\n")
         end
         f.write(response.body)
+      end
+
+      #if downloading a zip file, extract it
+      if origin.include? ".zip"
+        Zip.on_exists_proc = true
+        Zip::File.open(destination) do |zip_file|
+          zip_file.each do |f|
+            fpath = File.join(zip_dest, f.name)
+            zip_file.extract(f, fpath)
+          end
+        end
       end
     end
 
