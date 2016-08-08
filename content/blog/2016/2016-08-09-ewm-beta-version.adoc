@@ -1,0 +1,173 @@
+---
+layout: post
+title: "GSoC: External Workspace Manager for Pipeline. Beta release is available"
+tags:
+- pipeline
+- plugins
+- external-workspace-manager
+- gsoc
+author: alexsomai
+---
+
+This blog post is a continuation of the External Workspace Manager Plugin related posts, starting with
+link:/blog/2016/05/23/external-workspace-manager-plugin/[the introductory blog post], and followed by
+link:/blog/2016/06/30/ewm-alpha-version/[the alpha version release announcement].
+
+As the title suggests, the beta version of the External Workspace Manager Plugin was launched!
+This means that it's available only in the
+link:/blog/2013/09/23/experimental-plugins-update-center/[Experimental Plugins Update Center].
+
+[NOTE]
+Take care when installing plugins from the Experimental Update Center, since they may change in
+backward-incompatible ways.
+It's advisable not to use it for Jenkins production environments.
+
+The plugin's repository is on link:https://github.com/jenkinsci/external-workspace-manager-plugin[GitHub].
+The complete plugin's documentation can be accessed
+link:https://github.com/jenkinsci/external-workspace-manager-plugin/blob/master/README.md[here].
+
+=== What's new
+Bellow is a summary of the features added so far, since the alpha version.
+
+==== Multiple upstream run selection strategies
+It has support for the
+link:https://github.com/jenkinsci/run-selector-plugin[Run Selector Plugin] (which is still in beta),
+so you can provide different run selection strategies when allocating a disk from the upstream job.
+
+Let's suppose that we have an upstream job that clones the repository and builds the project:
+```groovy
+def extWorkspace = exwsAllocate 'diskpool1'
+
+node ('linux') {
+    exws (extWorkspace) {
+        checkout scm
+        sh 'mvn clean install -DskipTests'
+    }
+}
+```
+
+In the downstream job, we run the tests on a different node, but we reuse the same workspace as the previous job:
+```groovy
+def run = selectRun 'upstream'
+def extWorkspace = exwsAllocate selectedRun: run
+
+node ('test') {
+    exws (extWorkspace) {
+        sh 'mvn test'
+    }
+}
+```
+
+The `selectRun` in this example selects the last stable build from the upstream job.
+But, we can be more explicit, and select a specific build number from the upstream job.
+```groovy
+def run = selectRun 'upstream',
+ selector: [$class: 'SpecificRunSelector', buildNumber: UPSTREAM_BUILD_NUMBER]
+def extWorkspace = exwsAllocate selectedRun: run
+// ...
+```
+When the `selectedRun` parameter is given to the `exwsAllocate` step, it will allocate the same workspace that was
+used by that run.
+
+The Run Selector Plugin has several run selection strategies that are briefly explained
+link:https://github.com/jenkinsci/run-selector-plugin/blob/master/README.md[here].
+
+==== Automatic workspace cleanup
+
+Provides an automatic workspace cleanup by integrating the
+link:https://github.com/jenkinsci/ws-cleanup-plugin[Workspace Cleanup Plugin].
+For example, if we need to delete the workspace only if the build has failed, we can do the following:
+
+```groovy
+def extWorkspace = exwsAllocate diskPoolId: 'diskpool1'
+
+node ('linux') {
+    exws (extWorkspace) {
+        try {
+            checkout scm
+            sh 'mvn clean install'
+        } catch (e) {
+            currentBuild.result = 'FAILURE'
+            throw e
+        } finally {
+            step ([$class: 'WsCleanup', cleanWhenFailure: false])
+        }
+    }
+}
+```
+
+More workspace cleanup examples can be found at this
+link:https://github.com/jenkinsci/external-workspace-manager-plugin/blob/master/doc/WORKSPACE_CLEANUP.md[link].
+
+==== Custom workspace path
+
+Allows the user to specify a custom workspace path to be used when allocating workspace on the disk.
+The plugin offers two alternatives for doing this:
+
+* by defining a global workspace template for each Disk Pool
+
+This can be defined in the Jenkins global config, __External Workspace Definitions__ section.
+
+image:/images/post-images/ewm/global-custom-workspace-path.png[title="Global Custom Workspace Path", role="center"]
+
+* by defining a custom workspace path in the Pipeline script
+
+We can make use of the Pipeline DSL to compute the workspace path as we want.
+Then we pass this path as input parameter to the `exwsAllocate` step.
+
+```groovy
+def customPath = "${env.JOB_NAME}/${PULL_REQUEST_NUMBER}/${env.BUILD_NUMBER}"
+def extWorkspace = exwsAllocate diskPoolId: 'diskpool1', path: customPath
+// ...
+```
+
+For more details see the afferent
+link:https://github.com/jenkinsci/external-workspace-manager-plugin/blob/master/doc/CUSTOM_WORKSPACE_PATH.md[documentation page].
+
+==== Disk Pool restrictions
+
+The plugin comes with Disk Pool restriction strategies.
+It does this by using the restriction capabilities provided by the
+link:https://github.com/jenkinsci/job-restrictions-plugin[Job Restrictions Plugin].
+
+For example, we can restrict a Disk Pool to be allocated only if the Jenkins job in which it's allocated was triggered
+by a specific user:
+
+image:/images/post-images/ewm/restriction-by-user.png[title="Disk Pool Restriction By User", role="center"]
+
+Or, we can restrict the Disk Pool to be allocated only for those jobs whose name matches a well defined pattern:
+
+image:/images/post-images/ewm/restriction-by-job-name.png[title="Disk Pool Restriction By Job Name", role="center"]
+
+=== What's next
+
+Currently there is ongoing work for providing flexible disk allocation strategies.
+The user will be able to define a default disk allocation strategy in the Jenkins global config.
+So for example, we want to select the disk with the most usable space as default allocation strategy:
+
+image:/images/post-images/ewm/global-disk-allocation-strategy.png[title="Global Disk Allocation Strategy", role="center"]
+
+If needed, this allocation strategy may be overridden in the Pipeline code.
+Let's suppose that for a specific job, we want to allocate the disk with the highest read speed.
+```groovy
+def extWorkspace = exwsAllocate diskPoolId: 'diskpool1', strategy: fastestRead()
+// ...
+```
+
+When this feature is completed, the plugin will enter a final testing phase.
+If all goes to plan, a stable version should be released in about two weeks.
+
+If you have any issues in setting up or using the plugin, please feel free to ask me on the plugin's Gitter
+link:https://gitter.im/jenkinsci/external-workspace-manager-plugin[chat].
+Any feedback is welcome, and you may provide it either on the Gitter chat, or on
+link:https://issues.jenkins-ci.org[Jira] by using the __external-workspace-manager-plugin__ component.
+
+=== Links
+
+link:https://gitter.im/jenkinsci/external-workspace-manager-plugin?utm_source=share-link&utm_medium=link&utm_campaign=share-link[image:https://badges.gitter.im/jenkinsci/external-workspace-manager-plugin.svg[title: "Gitter"]]
+
+* link:https://github.com/jenkinsci/external-workspace-manager-plugin[Project repository]
+* link:/blog/2016/05/23/external-workspace-manager-plugin/[Project intro blog post]
+* link:https://jenkins.io/blog/2016/06/30/ewm-alpha-version/[Alpha version announcement]
+* link:https://summerofcode.withgoogle.com/[GSoC page]
+* link:https://jenkins.io/projects/gsoc/[Jenkins GSoC Page]
