@@ -6,6 +6,7 @@ tags:
 - pipeline
 - rails
 - brakeman
+- continuousdelivery
 author: rtyler
 ---
 
@@ -51,6 +52,7 @@ image::/images/post-images/ruby-pipeline-2016/cfpapp-stage-view.png[role=center]
 * <<Writing the Pipeline>>
 * <<Security scanning>>
 * <<Deploying the good stuff>>
+* <<Wrap up>>
 
 
 For this demonstration, I used link:http://rubycentral.org/[Ruby Central]'s
@@ -305,5 +307,52 @@ page.
 === Deploying the good stuff
 
 
+Once the tests and security scanning are all working properly, we can start to
+set up the deployment stage. Jenkins Pipeline provides the variable
+`currentBuild` which we can use to determine whether our pipeline has been
+successful thus far or not. This allows us to add the logic to only deploy when
+everything is passing, as we would expect:
 
+[source,groovy]
+----
+node('docker') {
+    /* --8<--8<-- snipsnip --8<--8<-- */
+    stage 'Deploy'
+    if (currentBuild.result == 'SUCCESS') { // <1>
+        sh './deploy.sh' // <2>
+    }
+    else {
+        mail subject: "Something is wrong with ${env.JOB_NAME} ${env.BUILD_ID}",
+                  to: 'nobody@example.com',
+                body: 'You should fix it'
+    }
+    /* --8<--8<-- snipsnip --8<--8<-- */
+}
+----
+<1> `currentBuild` has the `result` property which would be `'SUCCESS'`, `'FAILED'`, `'UNSTABLE'`, `'ABORTED'`
+<2> Only if `currentBuild.result` is successful should we bother invoking our deployment script (e.g. `git push heroku master`)
+
+
+=== Wrap up
+
+
+I have gratuitously commented the full
 link:https://github.com/rtyler/cfp-app/blob/0e85db6d054deefd637de235766468631f551c7f/Jenkinsfile[Jenkinsfile]
+which I hope is a useful summation of the work outlined above. Having worked
+on a number of Rails applications in the past, the consistency provided by
+Docker and Jenkins Pipeline above would have definitely improved those
+projects's delivery times. There is still room for improvement however, which
+is left as an exercise for the reader. Such as: preparing new containers with
+all their
+link:https://github.com/rtyler/cfp-app/blob/0e85db6d054deefd637de235766468631f551c7f/Jenkinsfile#L36-L46[dependencies
+built-in] instead of installing them at run-time. Or utilizing the `parallel`
+step for executing RSpec across multiple Jenkins agents simultaneously.
+
+
+The beautiful thing about defining your continuous delivery, and continuous
+security, pipeline in code is that you can continue to iterate on it!
+
+
+image::/images/post-images/ruby-pipeline-2016/cfpapp-stage-view.png[role=center,link=https://github.com/rtyler/cfp-app/blob/0e85db6d054deefd637de235766468631f551c7f/Jenkinsfile]
+
+
