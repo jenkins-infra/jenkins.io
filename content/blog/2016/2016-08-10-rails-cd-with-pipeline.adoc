@@ -1,0 +1,358 @@
+---
+layout: post
+title: "Continuous Security for Rails apps with Pipeline and Brakeman"
+tags:
+- ruby
+- pipeline
+- rails
+- brakeman
+- continuousdelivery
+author: rtyler
+---
+
+:sectanchors:
+
+
+[NOTE]
+--
+This is a guest post by link:https;//github.com/rtyler[R. Tyler Croy], who is a
+long-time contributor to Jenkins and the primary contact for Jenkins project
+infrastructure. He is also a Jenkins Evangelist at
+link:http://cloudbees.com[CloudBees, Inc.]
+--
+
+
+When the link:http://rubyonrails.org[Ruby on Rails] framework debuted it
+changed the industry in two noteworthy ways: it created a trend of opinionated web
+application frameworks (link:https://www.djangoproject.com/[Django],
+link:https://playframework.com/[Play], link:https://grails.org/[Grails]) and it
+also _strongly_ encouraged thousands of developers to embrace test-driven
+development along with many other modern best practices (source control, dependency
+management, etc). Because Ruby, the language underneath Rails, is interpreted
+instead of compiled there isn't a "build" per se but rather tens, if not
+hundreds, of tests, linters and scans which are run to ensure the application's
+quality. With the rise in popularity of Rails, the popularity of application
+hosting services with easy-to-use deployment tools like link:http://heroku.com[Heroku] or
+link:http://engineyard.com[Engine Yard] rose too.
+
+This combination of good *test coverage* and easily *automated deployments*
+makes Rails easy to continuously deliver with Jenkins. In this post we'll cover
+testing non-trivial Rails applications with link:/doc/pipeline[Jenkins
+Pipeline] and, as an added bonus, we will add security scanning via
+link:http://brakemanscanner.org[Brakeman] and the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Brakeman+Plugin[Brakeman
+plugin].
+
+image::/images/post-images/ruby-pipeline-2016/cfpapp-stage-view.png[role=center]
+
+*Topics*
+
+* <<Preparing the app>>
+* <<Preparing Jenkins>>
+* <<Writing the Pipeline>>
+* <<Security scanning>>
+* <<Deploying the good stuff>>
+* <<Wrap up>>
+
+
+For this demonstration, I used link:http://rubycentral.org/[Ruby Central]'s
+link:https://github.com/rubycentral/cfp-app[cfp-app]:
+
+[quote]
+____
+A Ruby on Rails application that lets you manage your conference's call for
+proposal (CFP), program and schedule. It was written by Ruby Central to run the
+CFPs for RailsConf and RubyConf.
+____
+
+
+I chose this Rails app, not only because it's a sizable application with lots
+of tests, but it's actually the application we used to collect talk proposals
+for the "link:https://www.cloudbees.com/juc/agenda[Community Tracks]" at this
+year's link:http://jenkinsworld.com[Jenkins World]. For the most part,
+cfp-app is a standard Rails application. It uses
+link:https://www.postgresql.org/[PostgreSQL] for its database,
+link:http://rspec.info[RSpec] for its tests and
+link:http://ruby-lang.org[Ruby 2.3.x] as its runtime.
+
+
+[TIP]
+--
+If you prefer to just to look at the code, skip straight to the
+link:https://github.com/rtyler/cfp-app/blob/aff11d97b460ca4b630b1fa4f669c226aeadd8ae/Jenkinsfile[Jenkinsfile].
+--
+
+
+=== Preparing the app
+
+For _most_ Rails applications there are few, if any, changes needed to enable
+continuous delivery with Jenkins. In the case of
+link:https://github.com/rubycentral/cfp-app[cfp-app], I added two gems to get
+the most optimal integration into Jenkins:
+
+. link:https://github.com/ci-reporter/ci_reporter[ci_reporter], for test report
+integration
+. link:https://github.com/presidentbeef/brakeman[brakeman], for security scanning.
+
+Adding these was simple, I just needed to update the `Gemfile` and the
+`Rakefile` in the root of the repository to contain:
+
+
+.Gemfile
+[source, ruby]
+----
+# .. snip ..
+group :test do
+  # RSpec, etc
+  gem 'ci_reporter'
+  gem 'ci_reporter_rspec'
+  gem "brakeman", :require => false
+end
+----
+
+.Rakefile
+[source, ruby]
+----
+# .. snip ..
+require 'ci/reporter/rake/rspec'
+# Make sure we setup ci_reporter before executing our RSpec examples
+task :spec => 'ci:setup:rspec'
+----
+
+
+=== Preparing Jenkins
+
+[[plugins]]
+
+With the cfp-app project set up, next on the list is to ensure that Jenkins itself
+is ready. Generally I suggest running the link:/changelog-stable[latest LTS] of
+Jenkins; for this demonstration I used Jenkins 2.7.1 with the following
+plugins:
+
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline plugin]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Brakeman+Plugin[Brakeman plugin]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/CloudBees+Docker+Pipeline+Plugin[CloudBees
+  Docker Pipeline plugin]
+
+I also used the
+link:https://wiki.jenkins-ci.org/display/JENKINS/GitHub+Organization+Folder+Plugin[GitHub
+Organization Folder plugin] to automatically create pipeline items in my
+Jenkins instance; that isn't required for the demo, but it's pretty cool to see
+repositories and branches with a `Jenkinsfile` automatically show up in
+Jenkins, so I recommend it!
+
+
+In addition to the <<plugins, plugins>> listed above, I also needed at least _one_
+Jenkins agent with the link:https://docker.io[Docker] daemon installed and
+running on it. I label these agents with "docker" to make it easier to assign
+Docker-based workloads to them in the future.
+
+Any Linux-based machine with Docker installed will work, in my case I was
+provisioning on-demand agents with the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Azure+Slave+plugin[Azure
+plugin] which, like the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Amazon+EC2+Plugin[EC2 plugin],
+helps keep my test costs down.
+
+
+[TIP]
+--
+If you're using Amazon Web Services, you might also be interested in
+link:/blog/2016/06/10/save-costs-with-ec2-spot-fleet[this blog post] from
+earlier this year unveiling the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Amazon+EC2+Fleet+Plugin[EC2
+Fleet plugin] for working with EC2 Spot Fleets.
+--
+
+
+=== Writing the Pipeline
+
+To make sense of the various things that the `Jenkinsfile` needs to do, I find
+it easier to start by simply defining the stages of my pipeline. This helps me
+think of, in broad terms, what order of operations my pipeline should have.
+For example:
+
+[source, groovy]
+----
+/* Assign our work to an agent labelled 'docker' */
+node('docker') {
+    stage 'Prepare Container'
+    stage 'Install Gems'
+    stage 'Prepare Database'
+    stage 'Invoke Rake'
+    stage 'Security scan'
+    stage 'Deploy'
+}
+----
+
+As mentioned previously, this `Jenkinsfile` is going to rely heavily on the
+link:https://wiki.jenkins-ci.org/display/JENKINS/CloudBees+Docker+Pipeline+Plugin[CloudBees
+Docker Pipeline plugin]. The plugin provides two very important features:
+
+. Ability to execute steps _inside_ of a running Docker container
+. Ability to run a container in the "background."
+
+
+Like most Rails applications, one can effectively test the application with two
+commands: `bundle install` followed by `bundle exec rake`. I already had some
+Docker images prepared with link:http://rvm.io[RVM] and Ruby 2.3.0 installed,
+which ensures a common and consistent starting point:
+
+[source,groovy]
+----
+node('docker') {
+    // .. 'stage' steps removed
+    docker.image('rtyler/rvm:2.3.0').inside { // <1>
+        rvm 'bundle install' // <2>
+        rvm 'bundle exec rake'
+    } // <3>
+}
+----
+<1> Run the named container. The `inside` method can take optional additional flags for the `docker run` command.
+<2> Execute our shell commands using our tiny `sh` step wrapper
+link:https://github.com/rtyler/cfp-app/blob/aff11d97b460ca4b630b1fa4f669c226aeadd8ae/Jenkinsfile#L86-L91[`rvm`]. This ensures that the shell code is executed in the correct RVM environment.
+<3> When the closure completes, the container will be destroyed.
+
+
+
+Unfortunately, with this application, the `bundle exec rake` command will fail
+if PostgreSQL isn't available when the process starts. This is where the
+_second_ important feature of the CloudBees Docker Pipeline plugin comes
+into effect: the ability to run a container in the "background."
+
+[source, groovy]
+----
+node('docker') {
+    // .. 'stage' steps removed
+    /* Pull the latest `postgres` container and run it in the background */
+    docker.image('postgres').withRun { container -> // <1>
+        echo "PostgreSQL running in container ${container.id}" // <2>
+    } // <3>
+}
+----
+<1> Run the container, effectively `docker run postgres`
+<2> Any number of steps can go inside the closure
+<3> When the closure completes, the container will be destroyed.
+
+
+==== Running the tests
+
+Combining these two snippets of Jenkins Pipeline is, in my opinion, where the
+power of the link:https://en.wikipedia.org/wiki/Domain-specific_language[DSL]
+shines:
+
+[source,groovy]
+----
+node('docker') {
+    docker.image('postgres').withRun { container ->
+        docker.image('rtyler/rvm:2.3.0').inside("--link=${container.id}:postgres") { // <1>
+            stage 'Install Gems'
+            rvm "bundle install"
+
+            stage 'Invoke Rake'
+            withEnv(['DATABASE_URL=postgres://postgres@postgres:5432/']) { // <2>
+                rvm "bundle exec rake"
+            }
+            junit 'spec/reports/*.xml' // <3>
+        }
+    }
+}
+----
+<1> By passing the `--link` argument, the Docker daemon will allow the RVM container to talk to the PostgreSQL container under the host name 'postgres'.
+<2> Use the `withEnv` step to set environment variables for everything that is in the closure. In this case, the cfp-app DB scaffolding will look for the `DATABASE_URL` variable to override the DB host/user/dbname defaults.
+<3> Archive the test reports generated by link:https://github.com/ci-reporter/ci_reporter[ci_reporter] so that Jenkins can display test reports and trend analysis.
+
+
+image::/images/post-images/ruby-pipeline-2016/cfpapp-tests.png[role=center]
+
+With this done, the basics are in place to consistently run the tests for
+cfp-app in fresh Docker containers for each execution of the pipeline.
+
+
+
+=== Security scanning
+
+Using link:http://brakemanscanner.org[Brakeman], the security scanner for Ruby
+on Rails, is almost trivially easy inside of Jenkins Pipeline, thanks to the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Brakeman+Plugin[Brakeman
+plugin] which implements the `publishBrakeman` step.
+
+Building off our example above, we can implement the "Security scan" stage:
+
+[source,groovy]
+----
+node('docker') {
+    /* --8<--8<-- snipsnip --8<--8<-- */
+    stage 'Security scan'
+    rvm 'brakeman -o brakeman-output.tabs --no-progress --separate-models' // <1>
+    publishBrakeman 'brakeman-output.tabs' // <2>
+    /* --8<--8<-- snipsnip --8<--8<-- */
+}
+----
+<1> Run the link:http://brakemanscanner.org[Brakeman] security scanner for Rails and store the output for later in `brakeman-output.tabs`
+<2> Archive the reports generated by Brakeman so that Jenkins can display detailed reports with trend analysis.
+
+
+image::/images/post-images/ruby-pipeline-2016/cfpapp-brakeman.png[role=center]
+
+
+[CAUTION]
+--
+As of this writing, there is work in progress
+(link:https://issues.jenkins-ci.org/browse/JENKINS-31202[JENKINS-31202]) to
+render trend graphs from plugins like Brakeman on a pipeline project's main
+page.
+--
+
+=== Deploying the good stuff
+
+
+Once the tests and security scanning are all working properly, we can start to
+set up the deployment stage. Jenkins Pipeline provides the variable
+`currentBuild` which we can use to determine whether our pipeline has been
+successful thus far or not. This allows us to add the logic to only deploy when
+everything is passing, as we would expect:
+
+[source,groovy]
+----
+node('docker') {
+    /* --8<--8<-- snipsnip --8<--8<-- */
+    stage 'Deploy'
+    if (currentBuild.result == 'SUCCESS') { // <1>
+        sh './deploy.sh' // <2>
+    }
+    else {
+        mail subject: "Something is wrong with ${env.JOB_NAME} ${env.BUILD_ID}",
+                  to: 'nobody@example.com',
+                body: 'You should fix it'
+    }
+    /* --8<--8<-- snipsnip --8<--8<-- */
+}
+----
+<1> `currentBuild` has the `result` property which would be `'SUCCESS'`, `'FAILED'`, `'UNSTABLE'`, `'ABORTED'`
+<2> Only if `currentBuild.result` is successful should we bother invoking our deployment script (e.g. `git push heroku master`)
+
+
+=== Wrap up
+
+
+I have gratuitously commented the full
+link:https://github.com/rtyler/cfp-app/blob/0e85db6d054deefd637de235766468631f551c7f/Jenkinsfile[Jenkinsfile]
+which I hope is a useful summation of the work outlined above. Having worked
+on a number of Rails applications in the past, the consistency provided by
+Docker and Jenkins Pipeline above would have definitely improved those
+projects' delivery times. There is still room for improvement however, which
+is left as an exercise for the reader. Such as: preparing new containers with
+all their
+link:https://github.com/rtyler/cfp-app/blob/0e85db6d054deefd637de235766468631f551c7f/Jenkinsfile#L36-L46[dependencies
+built-in] instead of installing them at run-time. Or utilizing the `parallel`
+step for executing RSpec across multiple Jenkins agents simultaneously.
+
+
+The beautiful thing about defining your continuous delivery, and continuous
+security, pipeline in code is that you can continue to iterate on it!
+
+
+image::/images/post-images/ruby-pipeline-2016/cfpapp-stage-view.png[role=center,link=https://github.com/rtyler/cfp-app/blob/0e85db6d054deefd637de235766468631f551c7f/Jenkinsfile]
+
+
