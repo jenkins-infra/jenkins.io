@@ -1,0 +1,289 @@
+---
+layout: post
+title: "Browser-testing with Sauce OnDemand and Pipeline"
+tags:
+- pipeline
+- plugins
+- saucelabs
+- selenium
+- nightwatch
+author: lnewman
+---
+
+NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
+Technical Evangelist at Cloudbees.
+
+Testing web applications across multiple browsers on different platforms can be challenging even for smaller applications.
+With Jenkins and the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Sauce+OnDemand+Plugin[Sauce OnDemand Plugin],
+you can wrangle that complexity by defining your Pipeline as Code.
+
+
+=== Pipeline &#9829; UI Testing, Too
+I recently started looking for a way to do browser UI testing for an open-source JavaScript project to which I contribute.
+The project is targeted primarily at
+link:https://nodejs.org[Node.js]
+but we're committed to maintaining browser-client compatibility as well.
+That means we should run tests on a matrix of browsers.
+link:https://saucelabs.com/[Sauce Labs]
+has an "open-sauce" program that provides free test instances to open-source projects.
+I decided to try using the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Sauce+OnDemand+Plugin[Sauce OnDemand Plugin]
+and
+link:http://nightwatchjs.org/[Nightwatch.js]
+to run Selenium tests on a sample project first, before trying a full-blown suite of tests.
+
+=== Starting from Framework
+I started off by following Sauce Labs' instructions on
+"link:https://wiki.saucelabs.com/display/DOCS/Setting+Up+Sauce+Labs+with+Jenkins[Setting up Sauce Labs with Jenkins]"
+as far as I could.
+I installed the
+link:https://wiki.jenkins-ci.org/display/JENKINS/JUnit+Plugin[JUnit] and
+link:https://wiki.jenkins-ci.org/display/JENKINS/Sauce+OnDemand+Plugin[Sauce OnDemand]
+plugins, created an account with Sauce Labs, and
+link:https://wiki.saucelabs.com/display/DOCS/Installing+and+Configuring+the+Sauce+OnDemand+Plugin+for+Jenkins[added my Sauce Labs credentials to Jenkins].
+From there I started to get a little lost.
+I'm new to Selenium and I had trouble understanding how to translate the instructions to my situation.
+I needed a working example that I could play with.
+
+Happily, there's a whole range of sample projects in
+"link:https://github.com/saucelabs-sample-test-frameworks[saucelabs-sample-test-frameworks]"
+on GitHub, which show how to integrate Sauce Labs with various test frameworks, including Nightwatch.js.
+I forked the Nightwatch.js sample to
+link:https://github.com/bitwiseman/JS-Nightwatch.js[bitwiseman/JS-Nightwatch.js]
+and set to writing my `Jenkinkfile`.
+Between the sample and the Sauce Labs instructions,
+I was able to write a pipeline that ran five tests on one browser via
+link:https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy[Sauce Connect]:
+
+[source,groovy]
+----
+node {
+    stage "Build"
+    checkout scm
+
+    sh 'npm install' // <1>
+
+    stage "Test"
+    sauce('f0a6b8ad-ce30-4cba-bf9a-95afbc470a8a') { // <2>
+        sauceconnect(options: '', useGeneratedTunnelIdentifier: false, verboseLogging: false) { // <3>
+            sh './node_modules/.bin/nightwatch -e chrome --test tests/guineaPig.js || true' // <4>
+            junit 'reports/**' // <5>
+            step([$class: 'SauceOnDemandTestPublisher']) // <6>
+        }
+    }
+}
+----
+<1> Install dependencies
+<2> Use my
+https://wiki.saucelabs.com/display/DOCS/Installing+and+Configuring+the+Sauce+OnDemand+Plugin+for+Jenkins[previously added sauce credentials]
+<3> Start up the
+link:https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy[Sauce Connect]
+tunnel to Sauce Labs
+<4> Run Nightwatch.js
+<5> Use JUnit to track results and show a trend graph
+<6> Link result details from Sauce Labs
+
+[NOTE]
+====
+This pipeline expects to be run from a `Jenkinsfile` in SCM.
+To copy and paste it directly into a Jenkins Pipeline job, replace the `checkout scm` step with
+`git url:'https://github.com/bitwiseman/JS-Nightwatch.js', branch: 'sauce-pipeline'`.
+====
+
+I ran this job a few times to get the JUnit report to show a trend graph.
+
+image::/images/post-images/2016-08-29/pipeline-report.png[Pipeline Report for "sauce-pipeline" Branch, role="center"]
+
+This sample app generates the `SauceOnDemandSessionID` for each test, enabling the Jenkins Sauce OnDemand Plugin's result publisher to link results to details Sauce Labs captured during the run.
+
+image::/images/post-images/2016-08-29/pipeline-results.png[Sauce Test Results, role="center"]
+
+image::/images/post-images/2016-08-29/sauce-details.png[Sauce Test Result Details, role="center"]
+
+
+=== Adding Platforms
+Next I wanted to add a few more platforms to my matrix.
+This would require changing both the test framework configuration and the pipeline.
+I'd need to add new named combinations of platform, browser, and browser version (called "environments") to the Nightwatch.js configuration file,
+and modify the pipeline to run tests in those new environments.
+
+This is a perfect example of the power of pipeline as code.
+If I were working with a separately configured pipeline,
+I'd have to make the change to the test framework, then change the pipeline manually.
+With my pipeline checked in as code,
+I could change both in one commit,
+preventing errors resulting from pipeline configurations going out of sync from the rest of the project.
+
+I added three new environments to `nightwatch.json`:
+
+[source,js]
+----
+"test_settings" : {
+  "default": { /*----8<----8<----8<----*/ },
+  "chrome": { /*----8<----8<----8<----*/ },
+
+  "firefox": {
+    "desiredCapabilities": {
+      "platform": "linux",
+      "browserName": "firefox",
+      "version": "latest"
+    }
+  },
+  "ie": {
+    "desiredCapabilities": {
+      "platform": "Windows 10",
+      "browserName": "internet explorer",
+      "version": "latest"
+    }
+  },
+  "edge": {
+    "desiredCapabilities": {
+      "platform": "Windows 10",
+      "browserName": "MicrosoftEdge",
+      "version": "latest"
+    }
+  }
+}
+----
+
+And I modified my `Jenkinsfile` to call them:
+
+[source,groovy]
+----
+//----8<----8<----8<----8<----8<----8<----
+sauceconnect(options: '', useGeneratedTunnelIdentifier: false, verboseLogging: false) {
+    def configs = [ // <1>
+        'chrome',
+        'firefox',
+        'ie',
+        'edge'
+    ].join(',')
+    // Run selenium tests using Nightwatch.js
+    sh "./node_modules/.bin/nightwatch -e ${configs} --test tests/guineaPig.js" // <2>
+} //----8<----8<----8<----8<----8<----8<----
+----
+<1> Using an array to improve readability and make it easy to add more platforms later.
+<2> Changed from single-quoted string to double-quoted to support variable substitution.
+
+[WARNING]
+====
+Test frameworks have bugs too. Nightwatch.js (v0.9.8) generates incomplete JUnit files,
+reporting results without enough information in them to distinguish between platforms.
+I implemented a fix for it and
+link:https://github.com/nightwatchjs/nightwatch/pull/1160[submitted a PR] to Nightwatch.js.
+This blog shows output with that fix applied locally.
+
+====
+
+As expected, Jenkins picked up the new pipeline and ran Nightwatch.js on four platforms.
+Sauce Labs of course recorded the results and correctly linked them into this build.
+Nightwatch.js was already configured to use multiple worker threads to run tests against those platforms in parallel, and
+my Sauce Labs account supported running them all at the same time,
+letting me cover four configurations in less that twice the time,
+and that added time was most due to individual new environments taking longer to complete.
+When I move to the actual project, this will let me run broad acceptance passes quickly.
+
+image::/images/post-images/2016-08-29/platforms-results.png[Sauce Labs Results List, role="center"]
+
+image::/images/post-images/2016-08-29/platforms-report.png[JUnit Report Showing Added Platforms, role="center"]
+
+=== Conclusion: To Awesome and Beyond
+Considering the complexity of the system, I was impressed with how easy it was to integrate Jenkins with Sauce OnDemand to start testing on multiple browsers.
+The plugin worked flawlessly with Jenkins Pipeline.
+I went ahead and ran some additional tests to show that failure reporting also behaved as expected.
+
+[source,groovy]
+----
+//----8<----8<----8<----8<----8<----8<----
+    sh "./node_modules/.bin/nightwatch -e ${configs}" // <1>
+//----8<----8<----8<----8<----8<----8<----
+----
+<1> Removed `--test` filter to run all tests
+
+image::/images/post-images/2016-08-29/tests-report.png[Tests, Platorms, Results, role="center"]
+
+=== Epilogue: Pipeline vs. Freestyle
+Just for comparison here's the final state of this job in Freestyle UI versus fully-commented pipeline code:
+
+[NOTE]
+--
+This includes the
+link:https://wiki.jenkins-ci.org/display/JENKINS/AnsiColor+Plugin[AnsiColor Plugin]
+to support Nightwatch.js' default ANSI color output.
+--
+
+==== Freestyle
+image::/images/post-images/2016-08-29/freestyle-1.png[Freestyle Job Configuration - SCM, role="center"]
+
+image::/images/post-images/2016-08-29/freestyle-2.png[Freestyle Job Configuration - Wrappers and Sauce, role="center"]
+
+image::/images/post-images/2016-08-29/freestyle-3.png[Freestyle Job Configuration - Build and Publish, role="center"]
+
+
+==== Pipeline
+
+[source,groovy]
+----
+node {
+    stage "Build"
+    checkout scm
+
+    // Install dependencies
+    sh 'npm install'
+
+    stage "Test"
+
+    // Add sauce credentials
+    sauce('f0a6b8ad-ce30-4cba-bf9a-95afbc470a8a') {
+        // Start sauce connect
+        sauceconnect(options: '', useGeneratedTunnelIdentifier: false, verboseLogging: false) {
+
+            // List of browser configs we'll be testing against.
+            def platform_configs = [
+                'chrome',
+                'firefox',
+                'ie',
+                'edge'
+            ].join(',')
+
+            // Nightwatch.js supports color ouput, so wrap this step for ansi color
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
+
+                // Run selenium tests using Nightwatch.js
+                // Ignore error codes. The junit publisher will cover setting build status.
+                sh "./node_modules/.bin/nightwatch -e ${platform_configs} || true"
+            }
+
+            junit 'reports/**'
+
+            step([$class: 'SauceOnDemandTestPublisher'])
+        }
+    }
+}
+----
+[NOTE]
+====
+This pipeline expects to be run from a `Jenkinsfile` in SCM.
+To copy and paste it directly into a Jenkins Pipeline job, replace the `checkout scm` step with
+`git url:'https://github.com/bitwiseman/JS-Nightwatch.js', branch: 'sauce-pipeline'`.
+====
+
+Not only is the pipeline as code more compact,
+it also allows for comments to further clarify what is being done.
+And as I noted earlier,
+changes to this pipeline code are committed the same as changes to the rest of the project,
+keeping everything synchronized, reviewable, and testable at any commit.
+In fact, you can view the full set of commits for this blog post in the
+link:https://github.com/bitwiseman/JS-Nightwatch.js/tree/sauce-pipeline[sauce-pipeline]
+branch of the
+link:https://github.com/bitwiseman/JS-Nightwatch.js[bitwiseman/JS-Nightwatch.js]
+repository.
+
+
+
+=== Links
+
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Sauce+OnDemand+Plugin[Sauce OnDemand Plugin]
+* link:https://github.com/bitwiseman/JS-Nightwatch.js[bitwiseman/JS-Nightwatch.js]
+* link:https://github.com/saucelabs-sample-test-frameworks[saucelabs-sample-test-frameworks]
