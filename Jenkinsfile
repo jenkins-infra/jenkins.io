@@ -49,7 +49,16 @@ try {
             * for the building of the site
             */
             docker.image('java:8').inside {
-                sh './gradlew --console=plain --no-daemon --info --stacktrace'
+                /* One Weird Trick(tm) to allow git(1) to clone inside of a
+                 * container
+                 */
+                withEnv([
+                    'GIT_COMMITTER_EMAIL=me@hatescake.com',
+                    'GIT_COMMITTER_NAME=Hates',
+                    'GIT_AUTHOR_NAME=Cake',
+                    'GIT_AUTHOR_EMAIL=hates@cake.com']) {
+                    sh './gradlew --console=plain --no-daemon --info --stacktrace'
+                }
             }
         }
 
