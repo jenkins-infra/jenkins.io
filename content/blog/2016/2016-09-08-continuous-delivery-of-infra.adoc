@@ -1,0 +1,111 @@
+---
+layout: post
+title: "Continuous Delivery of Infrastructure with Jenkins"
+tags:
+- event
+- JenkinsWorld
+author: rtyler
+---
+
+NOTE: This is a guest post by Jenkins World speaker
+link:https://github.com/rtyler[R Tyler Croy], infrastructure maintainer for the
+Jenkins project.
+
+
+image:/images/conferences/Jenkins-World_125x125.png[Jenkins World, role=right]
+
+I don't think I have ever met a tools, infrastructure, or operations team that
+did not have a ton of work to do. The Jenkins project's
+link:https://github.com/jenkins-infra[infrastructure]
+"team" is no different; too much work, not enough time. In lieu of hiring more
+people, which isn't always an option, I have found heavy automation and
+continuous delivery pipelines to be two solutions within reach of the
+over-worked infrastructure team.
+
+
+As a big believer in the concept of "Infrastructure as Code", I have been,
+slwoly but surely, introducing more and more code to define the Jenkins
+project's infrastructure. Whether implemented in our
+link:https://github.com/jenkins-infra/jenkins-infra[Puppet code-base],
+link:https://github.com/jenkins-infra/ircbot[Docker containers],
+or even as
+link:https://github.com/jenkins-infra/azure/tree/master/machines[machine specifications]
+with
+link:http://packer.io[Packer].
+The more things that are _code_, the more we can apply continuous delivery
+practices to consistently and reliably build, test and deliver our
+infrastructure.
+
+
+This approach integrates nicely with
+link:/doc/pipeline[Jenkins Pipeline],
+allowing us to also define our continuous delivery pipelines themselves as
+code. Whether we're sanity-checking our BIND zone files:
+
+[source, groovy]
+.Jenkinsfile
+----
+node('docker') {
+    def dockerImage = 'rtyler/jenkins-infra-builder'
+
+    checkout scm
+    docker.image(dockerImage).inside {
+        sh "/usr/sbin/named-checkzone jenkins-ci.org dist/profile/files/bind/jenkins-ci.org.zone"
+        sh "/usr/sbin/named-checkzone jenkins.io dist/profile/files/bind/jenkins.io.zone"
+    }
+}
+----
+
+Or delivering our Docker containers automatically to
+link:http://hub.docker.com[Docker Hub]
+, with a `Jenkinsfile` such as:
+
+[source, groovy]
+.Jenkinsfile
+----
+node('docker') {
+    checkout scm
+
+    /* Get our abbreviated SHA-1 to uniquely identify this build */
+    def shortCommit = sh(script: 'git rev-parse HEAD', returnStdout: true).take(6)
+
+    stage 'Build ircbot' {
+        withEnv(["JAVA_HOME=${tool 'jdk8'}", "PATH+MVN=${tool 'mvn'}/bin"]) }
+            sh 'make bot'
+        }
+    }
+
+    def whale
+    stage 'Build container' {
+        whale = docker.build("jenkinsciinfra/ircbot:build${shortCommit}")
+    }
+
+    stage 'Deploy container' {
+        /* Push to Docker Hub */
+        whale.push()
+    }
+}
+----
+
+
+
+In
+link:https://www.cloudbees.com/continuous-delivery-infrastructure-jenkins[my talk at Jenkins World]
+(September 14th, 3:00 - 3:45pm in Exhibit Hall A-1) I will discuss these
+Jenkinsfiles along with some of the strategies, patterns and code used with the
+Jenkins project's
+link:https://github.com/jenkins-infra[open source]
+infrastructure to get the most out of our limited time.
+
+
+
+
+[CAUTION]
+--
+R Tyler will be
+link:https://www.cloudbees.com/continuous-delivery-infrastructure-jenkins[presenting]
+more about continous delivery of infrastructure at
+link:https://www.cloudbees.com/jenkinsworld/home[Jenkins World]
+in September.  Register with the code `JWFOSS` for 20% off your full conference
+pass.
+--
