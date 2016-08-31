@@ -85,7 +85,9 @@ try {
 
     }
 
-    if (env.BRANCH_NAME == 'master') {
+    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
+     */
+    if (env.BRANCH_NAME == null) {
         stage 'Deploy sitesite'
         node {
             /* This Credentials ID is from the `site-deployer` account on
