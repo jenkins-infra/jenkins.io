@@ -3,10 +3,15 @@
 
 if (!env.CHANGE_ID) {
     /* Only keep the 10 most recent builds. */
-    properties([[$class: 'BuildDiscarderProperty',
-                    strategy: [$class: 'LogRotator', numToKeepStr: '10']],
-                    pipelineTriggers([cron('H/30 * * * *')]),
-                    ])
+    def projectProperties = [
+        [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
+    ]
+
+    if (env.BRANCH_NAME == 'master') {
+        projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
+    }
+
+    properties(projectProperties)
 }
 
 
