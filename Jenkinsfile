@@ -7,7 +7,7 @@ if (!env.CHANGE_ID) {
         [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
     ]
 
-    if (env.BRANCH_NAME == 'master') {
+    if (env.BRANCH_NAME == null) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
     }
 
