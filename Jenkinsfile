@@ -107,13 +107,7 @@ try {
                 deleteDir()
                 unstash 'built-site'
                 sh 'ls build/archives'
-                parallel(
-                    eggplant: {
-                        sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
-                    },
-                    cucumber: {
-                        sh 'echo "put build/archives/*.zip archives/" | sftp site-deployer@cucumber.jenkins.io'
-                    })
+                sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
             }
         }
     }
