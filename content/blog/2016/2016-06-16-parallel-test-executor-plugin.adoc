@@ -2,6 +2,7 @@
 layout: post
 title: "Faster Pipelines with the Parallel Test Executor Plugin"
 tags:
+- tutorial
 - pipeline
 - plugins
 author: lnewman
@@ -15,16 +16,15 @@ link:https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin[P
 
 === So much to do, so little time...
 
-Every time I've moved a team to continuous integration and delivery, one problem
+In my career, I've helped many teams move to continuous integration and delivery. One problem
 we always encounter is how to run all the tests needed to ensure high-quality
 changes while still keeping pipeline times reasonable and changes flowing
 smoothly. More tests mean greater confidence, but also longer wait times.
-Build systems may or may not support running tests in parallel but only on one
-machine even while other lab machines sit idle.  In these cases, parallelizing
+Build systems may or may not support running tests in parallel, but they still only use one
+machine even while other lab machines sit idle. In these cases, parallelizing
 test execution across multiple machines is a great way to speed up pipelines.
 The Parallel Test Executor plugin lets us leverage Jenkins do just that with no
 disruption to the rest of the build system.
-
 
 === Serial Test Execution
 
@@ -33,7 +33,7 @@ link:https://github.com/jenkinsci/git-plugin[Jenkins Git Plugin]. I've modified
 the Jenkinsfile from that project to allow us to compare execution times to our
 later changes, and I've truncated the "mvn" utility method since it remains
 unchanged.  You can find the original file
-link:https://github.com/bitwiseman/git-plugin/blob/7a31858e61d2ca2e752b0e4f1285bddcb7a75c4d/Jenkinsfile[here].
+link:https://github.com/jenkinsci/git-plugin/blob/7a31858e61d2ca2e752b0e4f1285bddcb7a75c4d/Jenkinsfile[here].
 
 [source,groovy]
 ----
@@ -75,9 +75,9 @@ To copy and paste it directly into a Jenkins Pipeline job, replace the `checkout
 `git 'https://github.com/jenkinsci/git-plugin.git'`.
 ====
 
-It’s a Maven project, so the Jenkinsfile is pretty simple.
-As noted above, I’ve split the Maven build into separate “Build” and “Test”
-stages.  Maven doesn’t support this split very well, it wants to run its all
+This is a Maven project, so the Jenkinsfile is pretty simple.
+I’ve split the Maven build into separate “Build” and “Test”
+stages. Maven doesn’t support this split very well, it wants to run all
 the steps of the lifecycle in order every time. So, I have to call Maven twice:
 first using the “skipTests” property to do only build steps in the first call,
 and then a second time with out that property to run tests.
@@ -91,12 +91,12 @@ image::/images/post-images/2016-06-16/serial.png[Serial Test Pipeline, role=cent
 
 === Parallel Test Execution
 
-This looks like an ideal project for parallel test execution.  A short build
+This looks like an ideal project for parallel test execution: a short build
 followed by a large number of serially executed tests that consume the most of
-the pipeline time.  There are a number of things I could try to optimize this.
+the pipeline time. There are a number of things I could try to speed this up.
 For example, I could modify test harness to look for ways to parallelize
-the test execution on this single machine.  Or I could try speed up the tests
-themselves.  Both of those can be time-consuming and both risk destablizing the
+the test execution on this single machine. Or I could try speed up the tests
+themselves. Both of those can be time-consuming and both risk destabilizing the
 tests. I'd need to know more about the project to do it well.
 
 I'll avoid that risk by using Jenkins and the
@@ -104,8 +104,8 @@ link:https://wiki.jenkins-ci.org/display/JENKINS/Parallel+Test+Executor+Plugin[P
 parallelize the tests across multiple nodes instead. This will isolate the tests
 from each other, while still giving us speed gains from parallel execution.
 
-The plugin will read the list of tests from the results archived in the previous execution of this
-job and splits that list into the specified number of sublists. I can then use
+The plugin reads the list of tests from the results archived in the previous execution of this
+job and splits that list into a specified number of sublists. I can then use
 those sublists to execute the tests in parallel, passing a different sublist to
 each node.
 
@@ -169,7 +169,7 @@ void mvn(def args) { /* ... */ }
 ----
 
 That’s it!  The change is significant but it is all encapsulated in this one
-method in the Jenkinsfile.
+method in the `Jenkinsfile`.
 
 === Great (ish) Success!
 
@@ -181,7 +181,7 @@ The tests ran almost twice as fast, without changes outside pipeline.  Great!
 
 However, I used 4 test executors, so why am I not seeing a 4x? improvement.
 A quick review of the logs shows the problem: A small number of tests are taking up
-to 5 minutes each to complete! This is actually good news.  It means that I
+to 5 minutes each to complete! This is actually good news. It means that I
 should be able to see further improvement in pipeline throughput just by refactoring
 those few long running tests into smaller parts.
 
@@ -192,7 +192,6 @@ of executors, 2x is still perfectly respectable. If I were working on a group of
 with similar pipelines, I'd be completely comfortable reusing these same changes
 on my other project and I'd expect to similar improvement without any disruption to
 other tools or processes.
-
 
 === Links
 
