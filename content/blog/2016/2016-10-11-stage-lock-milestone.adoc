@@ -1,0 +1,123 @@
+---
+layout: post
+title: "Controlling the Flow with Stage, Lock, and Milestone"
+tags:
+- pipeline
+- newfeatures
+author: hrmpw
+---
+
+NOTE: This is a guest post by link:https://github.com/hrmpw[Patrick Wolf],
+Director of Product Management at link:http://cloudbees.com[CloudBees].
+
+Recently we began making several changes to improve the `stage` step and increase control of concurrent builds in Pipeline. Until now the `stage` step has been the catch-all for functionality related to the flow of builds through the Pipeline: grouping build steps into visualized stages, limiting concurrent builds, and discarding stale builds.
+
+In order to improve upon each of these areas independently we decided to break this functionality into discrete steps rather than push more and more features into an already packed `stage` step.
+
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Stage+Step+Plugin[stage] - the `stage` step remains but is now focused on grouping steps and providing boundaries for Pipeline segments.
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Lockable+Resources+Plugin[lock] - the `lock` step throttles the number concurrent builds in a defined section of the Pipeline.
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Milestone+Step+Plugin[milestone] - the `milestone` step will automatically discard builds that will finish out of order and become stale.
+
+Separating these concerns into explicit, independent steps allows for much greater control of Pipelines and broadens the use-cases possible.
+
+=== stage
+
+The `stage` step is a primary building block in Pipeline, dividing the steps of a Pipeline into explicit units and helping to visualize the progress. The visualization plugin is called "Stage View" due to this function of `stage`.
+
+Beginning with version 2.2 of `Pipeline Stage Step` plugin, the `stage` step now requires a block argument, wrapping all steps within the defined stage. This makes the boundaries of where each `stage` begins and ends much clearer and predictable.
+
+[source, groovy]
+----
+stage("Build"){
+  doSomething()
+  sh 'echo $PATH'
+}
+----
+
+Omitting the block from `stage` or using the concurrency argument is now deprecated in Pipeline. Either of these will produce a warning in your console log:
+----
+Using the 'stage' step without a block argument is deprecated
+----
+This message is only a reminder to update your Pipeline scripts; none of your Pipelines will stop working. If we reach a point where the old syntax is to be removed we will make an announcement prior to the change. We do, however, recommend that you update your existing Pipelines to utilize the new syntax.
+
+*note:* Stage View and Blue Ocean will both work with either the old `stage` syntax or the new.
+
+=== lock
+
+Rather than attempt to limit the number of concurrent builds of a job using the `stage` we now rely on the `Lockable Resources` plugin and the `lock` step. The `lock` step is limited to a concurrency of one (1) build but it provides much greater flexibility in designating where jobs should be restricted.
+
+* `lock` can be used to constrain just a sub-section of a `stage`
+
+[source, groovy]
+----
+stage("Build"){
+  doSomething()
+    lock("myResource"){
+    echo "locked build"
+  }
+}
+----
+
+* `lock` can be used to wrap multiple stages into a single concurrency unit
+
+[source, groovy]
+----
+lock("myResource"){
+  stage("Build"){
+    echo "Building"
+  }
+  stage("Test"){
+    echo "Testing"
+  }
+}
+----
+
+=== milestone
+
+The `milestone` step is the last piece of the puzzle to replace functionality originally intended for `stage` and adds even more control for handling concurrent builds of a job. The `lock` step limits the number of builds running concurrently in a section of your Pipeline while the `milestone` step ensures that older builds of a job will not overwrite or clobber a newer build.
+
+Concurrent builds of the same job do not always run at the same rate. Depending on the network, the node used, compilation times, test times, etc. it is always possible for a newer build to complete faster than an older build.
+
+* Build A is triggered
+* Build B is triggered
+* Build B builds faster than Build A and enters the Test stage sooner.
+
+Rather than allowing Build A to continue and possibly overwrite the newer artifact produced in Build B you can use the `milestone` step to abort Build A:
+
+[source, groovy]
+----
+stage("Build"){
+  milestone
+  echo "Building"
+}
+stage("Test"){
+  milestone
+  echo "Testing"
+}
+----
+
+When using the `input` step or the `lock` step it becomes much easier to build up a backlog of concurrent builds either waiting for user input or waiting for a resource to become free. The `milestone` step will automatically prune all older jobs that are waiting at these junctions.
+
+[source, groovy]
+----
+milestone
+input message: "Proceed?"
+milestone
+----
+
+Bookending an `input` step like this allows you to select a specific build to proceed and automatically abort all antecedent builds.
+
+[source, groovy]
+----
+milestone
+lock(resource: 'myResource', inversePrecedence: true){
+  echo "locked step"
+  milestone
+}
+----
+
+Similarly a pair of `milestone` steps used with a `lock` will discard all old builds waiting for a shared resource. In this example, the inversePrecedence argument instructs the `lock` to begin newest build in the queue first ensuring that the most recent code takes precedence.
+
+=== Putting it all together
+
+The link:https://github.com/jenkinsci/workflow-aggregator-plugin/blob/master/demo/repo/Jenkinsfile[Jenkinsfile] provided with the link:https://github.com/jenkinsci/workflow-aggregator-plugin/tree/master/demo[docker image for demonstrating Pipeline] utilizes all of the steps described here as well as several others. Please refer to it for a more complete example.
