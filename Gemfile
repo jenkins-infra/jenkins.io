@@ -12,6 +12,7 @@ source 'https://rubygems.org'
 
 gem 'awestruct', '~> 0.5.7'
 gem 'awestruct-ibeams', '~> 0.3'
+gem 'asciidoctor', '~> 1.5.5'
 
 gem 'faraday', '~> 0.9.2'
 
