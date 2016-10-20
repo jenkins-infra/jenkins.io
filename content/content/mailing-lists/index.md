@@ -48,6 +48,13 @@ Mailing list for jenkins-ci.org operations and infrastructure.<br/>
 &nbsp;|&nbsp;<a href="http://lists.jenkins-ci.org/mailman/listinfo/jenkins-infra">subscribe</a>
 &nbsp;|&nbsp;<a href="http://lists.jenkins-ci.org/mailman/listinfo/jenkins-infra">unsubscribe</a>
 
+##### jenkinsci-docs@googlegroups.com
+
+Mailing list for collaborating on Jenkins user and developer documentation.<br/>
+<a href="http://groups.google.com/group/jenkinsci-docs/topics">archive</a>
+&nbsp;|&nbsp;<a href="mailto:jenkinsci-docs+subscribe@googlegroups.com">subscribe</a>
+&nbsp;|&nbsp;<a href="mailto:jenkinsci-docs+unsubscribe@googlegroups.com">unsubscribe</a>
+
 ## Discussion lists in other languages
 
 ##### jenkinsci-br@googlegroups.com
