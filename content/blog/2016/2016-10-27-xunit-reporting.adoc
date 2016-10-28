@@ -28,9 +28,11 @@ this makes the JUnit plugin ideal for reporting results in Jenkins.
 It will consume results from a specified file or path, create a report,
 and if it finds test failures it will set the the job state to "unstable" or "failed".
 
-// TODO: Image of trend graph from JUnit similar to
+image::/images/post-images/2016-10-27/job-7-summary.png[Test summary with JUnit, width=800, role="center"]
 
-// TODO: Image of testReport showing failed case(s) with console output.
+image::/images/post-images/2016-10-27/job-7-report.png[Test reporting with JUnit, width=800, role="center"]
+
+image::/images/post-images/2016-10-27/job-7-report-chrome-test1.png[Test reporting with JUnit, width=800, role="center"]
 
 There are also plenty of scenarios where the JUnit plugin is not enough.
 If your project has some failing tests that will take some time to fix,
@@ -103,7 +105,7 @@ node {
 }
 ----
 
-TODO: Image showing results reporting.
+image::/images/post-images/2016-10-27/job-7-console.png[JUnit plugin console output, width=800, role="center"]
 
 === Switching from JUnit to xUnit
 
@@ -165,7 +167,9 @@ node {
 }
 ----
 
-TODO: Image showing same job result and report with flat line for two builds.
+image::/images/post-images/2016-10-27/job-8-summary.png[Test reporting with xUnit, width=800, role="center"]
+
+image::/images/post-images/2016-10-27/job-8-console.png[xUnit plugin console output, width=800, role="center"]
 
 
 === Accept a Baseline
@@ -175,7 +179,7 @@ As new tests are written, having tests checked-in, running, and failing can be v
 With the xUnit plugin we can accept a baseline of failed cases and drive that number down over time.
 
 I'll start by changing the Jenkinsfile to fail jobs only if the number of failures is greater than an expected baseline,
-in this case two failures.
+in this case four failures. When I run the job with this change, the reported numbers remain the same, but the job passes.
 
 .Jenkinsfile
 [source,groovy]
@@ -183,12 +187,13 @@ in this case two failures.
 // The rest of the Jenkinsfile is unchanged.
 // Only the xUnit step() call is modified.
 step([$class: 'XUnitBuilder',
-    thresholds: [[$class: 'FailedThreshold', failureThreshold: '2']],
+    thresholds: [[$class: 'FailedThreshold', failureThreshold: '4']],
     tools: [[$class: 'JUnitType', pattern: 'reports/**']]])
-}
 ----
 
-When I run the job with this change, the reported numbers remain the same, but the job passes.
+image::/images/post-images/2016-10-27/job-9-summary.png[Accept a baseline of failing tests., width=800, role="center"]
+
+
 Next, I can also check that the plugin reports the job as failed if more failures occur.
 Since this is sample code, I'll do this by adding another failing test and checking the job
 reports as failed.
@@ -213,7 +218,7 @@ reports as failed.
 // ... snip ...
 ----
 
-TODO: Image showing failed job result and report with new failure.
+image::/images/post-images/2016-10-27/job-10-summary.png[All tests pass!, width=800, role="center"]
 
 
 In a real project, we'd make fixes over a number of commits bringing the number of failures down and adjusting our baseline.
@@ -226,8 +231,8 @@ Since this is a sample, I'll just make all tests pass and set the job failure th
 // Only the xUnit step() call is modified.
 step([$class: 'XUnitBuilder',
     thresholds: [
-        [$class: 'SkippedThreshold',  failureThreshold: '0']
-        [$class: 'FailedThreshold',  failureThreshold: '0']],
+        [$class: 'SkippedThreshold', failureThreshold: '0'],
+        [$class: 'FailedThreshold', failureThreshold: '0']],
     tools: [[$class: 'JUnitType', pattern: 'reports/**']]])
 ----
 
@@ -266,7 +271,7 @@ step([$class: 'XUnitBuilder',
 ----
 
 
-TODO: Image showing passing job result and report with all passing tests.
+image::/images/post-images/2016-10-27/job-12-summary.png[All tests pass!, width=800, role="center"]
 
 
 === Allow for Flakiness
@@ -296,8 +301,9 @@ module.exports = {
 
     'Guinea Pig Flaky Assert Title 0': function(client) {
         var expectedTitle = 'I am a page title - Sauce Labs';
-        if (Date.now() % 3 === 0) {
-            expectedTitle += " - Nope";
+        // Fail every fifth minute
+        if (Math.floor(Date.now() / (1000 * 60)) % 5 === 0) {
+            expectedTitle += " - Cause failure";
         }
 
         client
@@ -318,12 +324,12 @@ module.exports = {
 };
 ----
 
-TODO: Image showing report with occasional failing test and job
+image::/images/post-images/2016-10-27/job-17-summary.png[The pain of flaky tests failing the build, width=800, role="center"]
 
-I can almost hear my team members screaming in frustration just looking at this report.
+I can almost hear my teammates screaming in frustration just looking at this report.
 To allow specific tests to be unstable but not others,
-I'm going to add a guard "suite completed" test to the test suites that should be stable,
-but put each flaky test on it's own.
+I'm going to add a guard "suite completed" test to the suites that should be stable,
+and keep flaky test on it's own.
 Then I'll tell xUnit to allow for a number of failed tests, but no skipped ones.
 If any test fails other than the ones I allow to be flaky,
 it will also result in one or more skipped tests and will fail the build.
@@ -334,8 +340,11 @@ it will also result in one or more skipped tests and will fail the build.
 // Only the xUnit step() call is modified.
 step([$class: 'XUnitBuilder',
     thresholds: [
-        [$class: 'SkippedThreshold',  failureThreshold: '0']
-        [$class: 'FailedThreshold',  failureThreshold: '1']],
+        [$class: 'SkippedThreshold', failureThreshold: '0'],
+        // Allow for a significant number of failures
+        // Keeping this threshold so that overwhelming failures are guaranteed
+        //     to still fail the build
+        [$class: 'FailedThreshold', failureThreshold: '10']],
     tools: [[$class: 'JUnitType', pattern: 'reports/**']]])
 ----
 
@@ -379,8 +388,9 @@ the test.  When they were confident they had stabilized the test the could add
 a "suite completed" test after it to enforce it passing without changes to other
 tests or framework.
 
-TODO: Image showing intermittent test failures but job remains in passing state.
+image::/images/post-images/2016-10-27/job-19-summary.png[Flaky tests don't have to fail the build, width=800, role="center"]
 
+image::/images/post-images/2016-10-27/job-18-report.png[Results from flaky test, width=800, role="center"]
 
 === Conclusion
 
