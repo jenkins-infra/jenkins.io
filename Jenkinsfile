@@ -72,7 +72,7 @@ try {
                      */
                     'HOME=.',
                     ]) {
-                    sh './gradlew --console=plain --no-daemon --info --stacktrace'
+                    sh './gradlew --quiet --console=plain --no-daemon --info --stacktrace'
                 }
             }
         }
