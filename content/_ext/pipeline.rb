@@ -34,6 +34,11 @@ Awestruct::Extensions::Pipeline.new do
                                                 :feed_title => 'Jenkins Blog',
                                                 :template => '_ext/atom.xml.haml')
 
+  extension Awestruct::Extensions::Tagger.new(:posts,
+                                              '/node/index',
+                                              '/node/tags',
+                                              :per_page => 10)
+
   extension Awestruct::Extensions::Sitemap.new
 
   extension Awestruct::IBeams::DataDir.new
