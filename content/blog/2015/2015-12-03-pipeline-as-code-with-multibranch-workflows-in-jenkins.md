@@ -85,7 +85,7 @@ Also, ensure that other dependencies, like SCM plugins and build tools, are met:
 * Maven build tool
 
 Finally, make sure you've created the required Webhook from your SCM (Github in this case) to Jenkins.
-Here's how to do that: 
+Here's how to do that:
 
 * [Setting up GitHub Webhooks in Jenkins](https://thepracticalsysadmin.com/setting-up-a-github-webhook-in-jenkins/)
 * [Step-by-step guide to setting up Jenkins for GitHub projects](https://gist.github.com/misterbrownlee/3708738)
