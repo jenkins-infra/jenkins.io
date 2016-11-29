@@ -28,13 +28,16 @@ module Awestruct
     end
 
     class HandbookExtension
-      def initialize(book_dir)
+      attr_accessor :name
+
+      def initialize(name, book_dir)
+        @name = name
         @book_dir = book_dir
       end
 
       def execute(site)
-        unless site.handbook
-          site.handbook = Handbook.new(@book_dir)
+        unless site[@name]
+          site[@name] = Handbook.new(@book_dir)
         end
         # We need a map of source files to their Awestruct::Page to avoid
         # re-rendering things too much in the process of generating this page
@@ -71,7 +74,7 @@ module Awestruct
             end
           end
 
-          site.handbook.chapters << chapter
+          site[@name].chapters << chapter
         end
       end
     end
