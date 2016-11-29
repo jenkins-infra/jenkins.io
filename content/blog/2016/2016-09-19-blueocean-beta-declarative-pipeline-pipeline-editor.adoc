@@ -50,7 +50,10 @@ you declare how you want your Pipeline to look rather than using Pipeline Script
 
 Here's a small example of a Declarative Pipeline for nodejs that runs the whole
 Pipeline inside a Docker container:
-```
+
+[pipeline]
+----
+// Declarative //
 pipeline {
   agent docker:'node:6.3'
   stages {
@@ -63,7 +66,21 @@ pipeline {
     }
   }
 }
-```
+
+// Script //
+node('docker') {
+  docker.image('node:6.3').inside {
+    stage('build') {
+      sh 'npm --version'
+      sh 'npm install'
+    }
+
+    stage('test') {
+      sh 'npm test'
+    }
+  }
+}
+----
 
 Docker support in Declarative Pipeline allows you to version your application code,
 Jenkins Pipeline configuration, and the environment where your pipeline will run,
@@ -73,7 +90,10 @@ Declarative Pipeline introduces the `postBuild` section that makes it
 easy to run things conditionally at the end of your Pipeline without the
 complexity of the `try... catch` of Pipeline script.
 
-```
+
+[pipeline]
+----
+// Declarative //
 postBuild {
   always {
     sh 'echo "This will always run"'
@@ -93,7 +113,33 @@ postBuild {
     sh 'echo "... or the other way around :)"'
   }
 }
-```
+
+
+// Script //
+node('docker') {
+  try {
+    stage('build') {
+      /* .. snip .. */
+    }
+    stage('test') {
+      /* .. snip .. */
+    }
+
+    sh 'echo "This will run only if successful"'
+  }
+  catch (exc) {
+    if (currentBuild.result == 'UNSTABLE') {
+      sh 'echo "This will run only if the run was marked as unstable"'
+    }
+    if (currentBuild.result == 'FAILURE') {
+      sh 'echo "This will run only if failed"'
+    }
+  }
+  finally {
+    sh 'echo "This will always run"'
+  }
+}
+----
 
 And there is so much more!
 

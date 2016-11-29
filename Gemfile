@@ -10,6 +10,7 @@ source 'https://rubygems.org'
 # See this section for more:
 #   <https://github.com/jenkins-infra/jenkins.io/blob/master/CONTRIBUTING.adoc#advanced-building>
 
+gem 'colorize'
 gem 'awestruct', '~> 0.5.7'
 gem 'awestruct-ibeams', '~> 0.3'
 gem 'asciidoctor', '~> 1.5.5'
