@@ -7,6 +7,11 @@ Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
   require extension
 end
 
+Dir[File.join(File.dirname(__FILE__), '/../../lib/**/*.rb')].each do |extension|
+  require extension
+end
+
+
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
   extension YearPosts.new('/blog', :posts)
