@@ -4,11 +4,21 @@ layout: section
 :notitle:
 :description:
 :author:
-:email: jenkinsci-users@googlegroups.com
+:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc: left
 
 = The Jenkinsfile
+
+
+////
+XXX: Still much reworking of this section to be done
+22:00 < rtyler> then I think the other pieces (recording test results, archiving artifacts, parallel, etc) should move over into the Jenkinsfile section of the chapter
+22:00 < rtyler> whatcha think bitwiseman (and hrmpw if he's floating about)
+22:02 < bitwiseman> References: yeah, that make sense.
+////
+
+
 
 == Audience and Purpose
 
@@ -64,6 +74,214 @@ checkout step that calls a particular repository, such as:
 
 git url: "https://github.com/my-organization/simple-maven-project-with-tests.git"
 ----
+
+== Basic Syntax for Pipeline Script
+
+You typically add functionality to a new pipeline by performing the following tasks:
+
+* Adding nodes
+* Adding more complex logic (usually expressed as stages and steps)
+
+To configure a pipeline you have created through the Jenkins UI, select the
+pipeline and click *Configure*.
+
+If you run Jenkins on Linux or another Unix-like operating system with a Git
+repository that you want to test, for example, you can do that with syntax like
+the following, substituting your own name for `jglick`:
+
+
+[pipeline]
+----
+// Script //
+node {
+    git url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
+    def mvnHome = tool 'M3'
+    sh "${mvnHome}/bin/mvn -B verify"
+}
+----
+
+In Windows environments, you would use `bat` in place of `sh`, for example,
+rather than:
+
+[source, groovy]
+----
+sh "${mvnHome}/bin/mvn -B verify"
+----
+
+you would use:
+
+[source, groovy]
+----
+bat "${mvnHome}/bin/mvn -B verify"
+----
+
+Your Groovy pipeline script can include functions, conditional tests, loops,
+try/catch/finally blocks, and so on.
+
+Sample syntax for one node in a Java environment that is using the open source
+Maven build automation tool (note the definition for `mvnHome`) is shown below:
+
+
+[pipeline]
+----
+// Script //
+node('remote') {
+    git url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
+
+    def mvnHome = tool 'M3' // <1>
+    def v = version()
+
+    if (v) {
+      echo "Building version ${v}"
+    }
+
+    sh "${mvnHome}/bin/mvn -B -Dmaven.test.failure.ignore verify"
+
+    archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+    junit '**/target/surefire-reports/TEST-*.xml'
+}
+
+/** Parse the pom.xml for the version number */
+def version() {
+  def matcher = readFile('pom.xml') =~ '<version>(.+)</version>'
+  if (matcher) {
+    return matcher[0][1]
+  }
+  return null
+}
+----
+
+Pipeline Sample (graphic) key:
+
+* `def` is a keyword to define a function (you can also give a Java type in
+  place of `def` to make it look more like a Java method)
+* `=~` is Groovy syntax to match text against a regular expression
+* [0] looks up the first match
+* [1] looks up the first (…) group within that match
+* `readFile` step loads a text file from the workspace and returns its content
+  (Note: Do not use `java.io.File` methods, these refer to files on the master
+  where Jenkins is running, not files in the current workspace).
+
+The tool step makes sure a tool with the given name is installed on the current
+node. The script needs to know where it was installed, so the tool can be run
+later. For this, you need a variable.
+
+The `def` keyword in Groovy is the quickest way to define a new variable (with no specific type).
+
+In the sample syntax discussed above, a variable is defined by the following expression:
+
+
+[source, groovy]
+----
+def mvnHome = tool 'M3'
+----
+
+This ensures that 'M3' is installed somewhere accessible to Jenkins and assigns
+the return value of the step (an installation path) to the `mvnHome` variable.
+
+== Advanced Syntax for Pipeline Script
+
+Groovy lets you omit parentheses around function arguments. The named-parameter
+syntax is also a shorthand for creating a map, which in Groovy uses the syntax
+`[key1: value1, key2: value2]`, so you could write:
+
+
+[source, groovy]
+----
+git([url: 'https://github.com/joe_user/simple-maven-project-with-tests.git', branch: 'master'])
+----
+
+For convenience, when calling steps taking only one parameter (or only one
+mandatory parameter), you can omit the parameter name. For example, the
+following two lines are functionally equivalent:
+
+[source, groovy]
+----
+sh 'echo hello' /* short form  */
+sh([script: 'echo hello'])  /* long form */
+----
+
+=== Working with the Environment
+
+Jenkins Pipeline exposes environment variables via the global variable `env`,
+which is available from anywhere within a `Jenkinsfile`. The full list of
+environment variables accessible from within Jenkins Pipeline is documented at
+link:http://localhost:8080/pipeline-syntax/globals#env[localhost:8080/pipeline-syntax/globals#env],
+assuming a Jenkins master is running on `localhost:8080`, and includes:
+
+BUILD_ID:: The current build ID, identical to BUILD_NUMBER for builds created in Jenkins versions 1.597+
+JOB_NAME:: Name of the project of this build, such as "foo" or "foo/bar".
+JENKINS_URL:: Full URL of Jenkins, such as http://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
+
+
+
+
+Referencing or using these environment variables can be accomplished like
+accessing any key in a Groovy
+link:http://groovy-lang.org/syntax.html#_maps[Map],
+for example:
+
+[pipeline]
+----
+// Script //
+node {
+    echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
+}
+----
+
+
+==== Setting environment variables
+
+Setting an environment variable within a Jenkins Pipeline can be done with the
+`withEnv` step, which allows overriding specified environment variables for a
+given block of Pipeline Script, for example:
+
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    withEnv(["PATH+MAVEN=${tool 'M3'}/bin"]) {
+        sh 'mvn -B verify'
+    }
+}
+----
+
+
+=== Build Parameters
+
+If you configured your pipeline to accept parameters using the *Build with
+Parameters* option, those parameters are accessible as Groovy variables of the
+same name.
+
+/////
+TODO: Expand this section with more examples
+/////
+
+=== Recording Test Results and Artifacts
+
+If there are any test failures in a given build, you want Jenkins to record
+them and then proceed, rather than stopping. If you want it saved, you must
+capture the `.jar` that you built. The following sample code for a node shows how
+(As previously seen in examples from this guide, Maven is being used as
+a build tool):
+
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+    junit '**/target/surefire-reports/TEST-*.xml'
+}
+----
+
+(Older versions of Pipeline require a slightly more verbose syntax.
+The “snippet generator” can be used to see the exact format.)
+
+* If tests fail, the Pipeline is marked unstable (as denoted by a yellow ball in
+  the Jenkins Web UI), and you can browse "Test Result Trend" to see the relevant history.
+* You should see Last Successful Artifacts on the Pipeline's main page.
 
 
 == Making Pull Requests

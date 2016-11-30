@@ -4,8 +4,156 @@ layout: section
 :notitle:
 :description:
 :author:
-:email: jenkinsci-users@googlegroups.com
+:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
 
 = Advanced Topics
+
+////
+XXX: This section needs to be gutted and reworked
+
+01:01 < bitwiseman> rtyler: executors - reading that section it seems like in mixes a number of differ ideas.  1) An implementation detail (Flyweight executors), 2) An naming convention 
+                    that I question the need for ("Heavyweight" executors), 3) Best practice guidance about where to use or not use the "input" step (not inside a node block), 4) a 
+                    discussion of why you'll see
+01:01 < bitwiseman> builds running on master even if you don't have any executors available on master (because of Flyweight executors).    I think I'd keep a section on the "input" in the 
+                    getting started, with a warning block about not using it inside a node block, and a link out to "advanced" or "best practices.   #4 might go somewhere as a note block 
+                    in getting started or
+01:01 < bitwiseman> might not.  The rest should certainly go elsewhere. 
+01:06 < bitwiseman> rtyler: yeah, and that "Pipeline Plugin Context" and the "More information" that follows it, go elsewhere.  As should multibranch and loading from SCM.  
+////
+
+=== Types of Executors
+
+Every Pipeline build runs on a Jenkins master using a *flyweight executor*,
+which is an uncounted (because it's a temporary rather than configured) slot.
+Flyweight executors require very little computing power. A flyweight executor
+(sometimes also called a flyweight task) represents Groovy script, which is
+idle as it waits for a step to complete.
+
+To highlight the contrast between executor types, some Jenkins documentation
+calls any regular executor a *heavyweight executor*.
+
+When you run a `node` step, an executor is allocated on a node, which is
+usually an agent, as soon as an appropriate node is available.
+
+It is a best practice to avoid placing `input` within a node. The input element
+pauses pipeline execution to wait for either automatic or manual approval.
+By design and by nature, approval can take some time, so placing `input` within
+a node wastes resources by tying up both the flyweight executor used for input
+and the regular executor used by the node block, which will not be free for
+other tasks until input is complete.
+
+Although any flyweight executor running a pipeline is hidden when the pipeline
+script is idle (between tasks), the *Build Executor Status* widget on the
+Jenkins page displays status for both types of executors. If the one available
+executor on an agent has been pressed into service by a pipeline build that is
+paused and you start a second build of the same pipeline, both builds are shown
+running on the master, but the second build displays in the Build Queue until
+the initial build completes and executors are free to help with further
+processing.
+
+When you use inputs, it is a best practice to wrap them in timeouts. Wrapping
+inputs in timeouts allows them to be cleaned up if approvals do not occur
+within a given window. For example:
+
+[source, groovy]
+----
+timeout(time:5, unit:'DAYS') {
+    input message:'Approve deployment?', submitter: 'it-ops'
+}
+----
+
+////
+XXX: This section needs to be gutted and reworked
+////
+
+=== Pipeline Plugin Context
+
+The Pipeline plugin works with a suite of related plugins that enhance the
+pipeline functionality of your Jenkins setup. The related plugins typically
+introduce additional pipeline syntax or visualizations.
+
+For example, the table below, while not comprehensive, describes a few
+pipeline-related plugins in terms of their importance to pipeline functionality
+(required, recommended, or optional).
+
+To get the basic pipeline functionality, you only need to install the main
+Pipeline plugin, but recommended plugins add additional capabilities that you
+will probably want. For example, it is a best practice to develop pipelines as code by storing a `Jenkinsfile` with pipeline script in your SCM,
+so that you can apply the same version control and testing to pipelines as you do to your other software, and that is why the
+Multibranch Pipeline plugin is recommended.
+
+Optional plugins are mainly useful if you are creating pipelines that are
+related to the technologies that they support.
+
+
+[options="header"]
+|=======================
+|Plugin Name                     |Description           |Status
+|Pipeline (workflow-aggregator)  | Installs the core pipeline engine and its dependent plugins:
+Pipeline: API,
+Pipeline: Basic Steps,
+Pipeline: Durable Task Step,
+Pipeline: Execution Support,
+Pipeline: Global Shared Library for CPS pipeline,
+Pipeline: Groovy CPS Execution,
+Pipeline: Job,
+Pipeline: SCM Step,
+Pipeline: Step API
+| required
+
+| Pipeline: Stage View
+| Provides a graphical swimlane view of pipeline stage execution, as well as a build history of the stages
+| recommended
+
+| Multibranch Pipeline
+| Adds "Multibranch Pipeline" item type which enables Jenkins to automatically
+build branches that contain a `Jenkinsfile`
+| recommended
+
+| GitHub Branch Source
+| Adds GitHub Organization Folder item type and adds "GitHub" as a branch source on Multibranch pipelines
+| recommended for teams hosting repositories in GitHub
+
+| Bitbucket Branch Source
+| Adds Bitbucket Team item type and adds "Bitbucket" as a branch source on Multibranch pipelines
+| recommended for teams hosting repositories in Bitbucket; best with Bitbucket Server 4.0 or later.
+
+| Docker Pipeline
+| Enables pipeline to build and use Docker containers inside pipeline scripts.
+| optional
+
+|=======================
+
+
+=== More Information
+
+As with any Jenkins plugin, you can install the Pipeline plugin using the Plugin
+Manager in a running Jenkins instance.
+
+To explore Pipeline without installing
+Jenkins separately or accessing your production system, you can run a
+link:https://github.com/jenkinsci/workflow-aggregator-plugin/blob/master/demo/README.md[Docker
+demo] of Pipeline functionality.
+
+Pipeline-related plugins are regularly "whitelisted" as compatible with or
+designed for Pipeline usage. For more information, see the
+link:https://github.com/jenkinsci/pipeline-plugin/blob/master/COMPATIBILITY.md[Plugin
+Compatibility With Pipeline] web page.
+
+When you get flows from source control through `Jenkinsfile` or a link:https://github.com/jenkinsci/workflow-cps-global-lib-plugin/blob/master/README.md[Pipeline Global Library],
+you may also have to whitelist method calls in the link:https://wiki.jenkins-ci.org/display/JENKINS/Script+Security+Plugin[Script Security Plugin].
+
+[NOTE]
+====
+Several plugins available in the Jenkins ecosystem but not actually
+related to the Pipeline feature set described in this guide also use the terms
+"pipeline," "DSL," and "Job DSL" in their names. For example:
+
+* Build Pipeline plugin - provides a way to execute Jenkins jobs sequentially
+* Build Flow Plugin - introduces a job type that lets you define an orchestration process as a script.
+
+This guide describes the link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline Plugin] that supports the current Pipeline feature set.
+====
+
