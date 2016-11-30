@@ -26,10 +26,11 @@ from commit to delivery.
 To run pipelines, you need to have a Jenkins instance that is set up with the
 appropriate plugins. This requires:
 
-* Jenkins 1.642.3 or later (Jenkins 2 is recommended)
-* The Pipeline plugin
+* Jenkins 2.x or later (older versions back to 1.642.3 will work but are not
+  recommended)
+* Pipeline plugin
 
-=== Installing the Pipeline Plugin
+=== Installing Pipeline
 
 The Pipeline plugin is installed in the same way as other Jenkins plugins.
 Installing the Pipeline plugin also installs the suite of related plugins on
@@ -37,101 +38,13 @@ which it depends:
 
 . Open Jenkins in your web browser.
 . On the Manage Jenkins page for your installation, navigate to *Manage Plugins*.
-. Find https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline] from among the plugins listed on the Available tab (You can do this by scrolling through the plugin list or by using "Pipeline" as a term to filter results).
+. Find https://plugins.jenkins.io/workflow-aggregator[Pipeline] from the plugins listed on the Available tab (You can do this by scrolling through the plugin list or by using "Pipeline" as a term to filter results).
 . Select the checkbox for Pipeline plugin.
 . Select either *Install without restart* or *Download now and install after restart*.
 . Restart Jenkins.
 
-=== Pipeline Plugin Context
 
-The Pipeline plugin works with a suite of related plugins that enhance the
-pipeline functionality of your Jenkins setup. The related plugins typically
-introduce additional pipeline syntax or visualizations.
-
-For example, the table below, while not comprehensive, describes a few
-pipeline-related plugins in terms of their importance to pipeline functionality
-(required, recommended, or optional).
-
-To get the basic pipeline functionality, you only need to install the main
-Pipeline plugin, but recommended plugins add additional capabilities that you
-will probably want. For example, it is a best practice to develop pipelines as code by storing a `Jenkinsfile` with pipeline script in your SCM,
-so that you can apply the same version control and testing to pipelines as you do to your other software, and that is why the
-Multibranch Pipeline plugin is recommended.
-
-Optional plugins are mainly useful if you are creating pipelines that are
-related to the technologies that they support.
-
-
-[options="header"]
-|=======================
-|Plugin Name                     |Description           |Status
-|Pipeline (workflow-aggregator)  | Installs the core pipeline engine and its dependent plugins:
-Pipeline: API,
-Pipeline: Basic Steps,
-Pipeline: Durable Task Step,
-Pipeline: Execution Support,
-Pipeline: Global Shared Library for CPS pipeline,
-Pipeline: Groovy CPS Execution,
-Pipeline: Job,
-Pipeline: SCM Step,
-Pipeline: Step API
-| required
-
-| Pipeline: Stage View
-| Provides a graphical swimlane view of pipeline stage execution, as well as a build history of the stages
-| recommended
-
-| Multibranch Pipeline
-| Adds "Multibranch Pipeline" item type which enables Jenkins to automatically
-build branches that contain a `Jenkinsfile`
-| recommended
-
-| GitHub Branch Source
-| Adds GitHub Organization Folder item type and adds "GitHub" as a branch source on Multibranch pipelines
-| recommended for teams hosting repositories in GitHub
-
-| Bitbucket Branch Source
-| Adds Bitbucket Team item type and adds "Bitbucket" as a branch source on Multibranch pipelines
-| recommended for teams hosting repositories in Bitbucket; best with Bitbucket Server 4.0 or later.
-
-| Docker Pipeline
-| Enables pipeline to build and use Docker containers inside pipeline scripts.
-| optional
-
-|=======================
-
-
-=== More Information
-
-As with any Jenkins plugin, you can install the Pipeline plugin using the Plugin
-Manager in a running Jenkins instance.
-
-To explore Pipeline without installing
-Jenkins separately or accessing your production system, you can run a
-link:https://github.com/jenkinsci/workflow-aggregator-plugin/blob/master/demo/README.md[Docker
-demo] of Pipeline functionality.
-
-Pipeline-related plugins are regularly "whitelisted" as compatible with or
-designed for Pipeline usage. For more information, see the
-link:https://github.com/jenkinsci/pipeline-plugin/blob/master/COMPATIBILITY.md[Plugin
-Compatibility With Pipeline] web page.
-
-When you get flows from source control through `Jenkinsfile` or a link:https://github.com/jenkinsci/workflow-cps-global-lib-plugin/blob/master/README.md[Pipeline Global Library],
-you may also have to whitelist method calls in the link:https://wiki.jenkins-ci.org/display/JENKINS/Script+Security+Plugin[Script Security Plugin].
-
-[NOTE]
-====
-Several plugins available in the Jenkins ecosystem but not actually
-related to the Pipeline feature set described in this guide also use the terms
-"pipeline," "DSL," and "Job DSL" in their names. For example:
-
-* Build Pipeline plugin - provides a way to execute Jenkins jobs sequentially
-* Build Flow Plugin - introduces a job type that lets you define an orchestration process as a script.
-
-This guide describes the link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Plugin[Pipeline Plugin] that supports the current Pipeline feature set.
-====
-
-== Approaches to Defining Pipeline Script
+== Defining Pipeline Script
 
 You can create pipelines in either of the following ways:
 
@@ -142,7 +55,6 @@ You can create pipelines in either of the following ways:
 ====
 When you use a Jenkinsfile, it is a best practice to put #!groovy at the top of the file so that IDEs and
 GitHub diffs detect the Groovy language properly.
-
 ====
 
 == Creating a Simple Pipeline
@@ -178,15 +90,15 @@ considers inherently safe.
 ====
 To use pathnames that include spaces, bracket those pathnames between escaped double quotes using \".
 The extra quotation marks ensure that any spaces in pathnames are parsed properly.
-
 ====
 
 The following example shows a successful build of a pipeline created with a
 one-line script that uses the `echo` step to output the phrase, "Hello from
 Pipeline":
 
-[source,groovy]
+[pipeline]
 ----
+// Script //
 node {
     echo 'Hello from Pipeline'
 }
@@ -213,12 +125,20 @@ can be loaded into Jenkins using the *Pipeline script from SCM* option.
 It is a best practice to use parallel steps whenever you can, as long as you remember not to attempt so much parallel processing
 that it swamps the number of available executors. For example, you can acquire a node within the parallel branches of your pipeline:
 
-[source,groovy]
+[pipeline]
 ----
-parallel 'integration-tests':{
-    node('mvn-3.3'){}
-}, 'functional-tests':{
-    node('selenium'){}
+// Script //
+node {
+    parallel 'integration-tests' : {
+        node('mvn-3.3') {
+          /* run Maven-based integration tests */
+        }
+    },
+    'functional-tests' : {
+        node('selenium') {
+          /* run selenium */
+        }
+    }
 }
 ----
 
@@ -342,7 +262,7 @@ a starting point, perhaps deleting any optional parameters that you do not need.
 To access information about steps marked with the help icon (question mark),
 click on that icon.
 
-== Basic Groovy Syntax for Pipeline Configuration
+== Basic Syntax for Pipeline Script
 
 You typically add functionality to a new pipeline by performing the following tasks:
 
@@ -354,23 +274,21 @@ pipeline and click *Configure*.
 
 If you run Jenkins on Linux or another Unix-like operating system with a Git
 repository that you want to test, for example, you can do that with syntax like
-the following, substituting your own name for "joe-user":
+the following, substituting your own name for `jglick`:
 
 
-[source, groovy]
+[pipeline]
 ----
-  node {
-     git url: 'https://github.com/joe_user/simple-maven-project-with-tests.git'
-     def mvnHome = tool 'M3'
-     sh "${mvnHome}/bin/mvn -B verify"
-  }
+// Script //
+node {
+    git url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
+    def mvnHome = tool 'M3'
+    sh "${mvnHome}/bin/mvn -B verify"
+}
 ----
 
-In Windows environments, you would use `bat` in place of `sh` and you might
-use backslashes as the file separator where needed (backslashes need to be
-escaped inside strings).
-
-For example, rather than:
+In Windows environments, you would use `bat` in place of `sh`, for example,
+rather than:
 
 [source, groovy]
 ----
@@ -381,12 +299,8 @@ you would use:
 
 [source, groovy]
 ----
-bat "${mvnHome}\\bin\\mvn -B verify"
+bat "${mvnHome}/bin/mvn -B verify"
 ----
-
-However, it's really only DOS that requires backslashes as path separators.  Windows
-can work with backslashes, but it does not require them.  Therefore, the same paths
-using forward slashes should work fine on Windows using the `bat` function.
 
 Your Groovy pipeline script can include functions, conditional tests, loops,
 try/catch/finally blocks, and so on.
@@ -394,7 +308,35 @@ try/catch/finally blocks, and so on.
 Sample syntax for one node in a Java environment that is using the open source
 Maven build automation tool (note the definition for `mvnHome`) is shown below:
 
-image::/images/pipeline/pipeline-sample.png[title="Pipeline Sample", 800]
+
+[pipeline]
+----
+// Script //
+node('remote') {
+    git url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
+
+    def mvnHome = tool 'M3' // <1>
+    def v = version()
+
+    if (v) {
+      echo "Building version ${v}"
+    }
+
+    sh "${mvnHome}/bin/mvn -B -Dmaven.test.failure.ignore verify"
+
+    archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+    junit '**/target/surefire-reports/TEST-*.xml'
+}
+
+/** Parse the pom.xml for the version number */
+def version() {
+  def matcher = readFile('pom.xml') =~ '<version>(.+)</version>'
+  if (matcher) {
+    return matcher[0][1]
+  }
+  return null
+}
+----
 
 Pipeline Sample (graphic) key:
 
@@ -406,8 +348,6 @@ Pipeline Sample (graphic) key:
 * `readFile` step loads a text file from the workspace and returns its content
   (Note: Do not use `java.io.File` methods, these refer to files on the master
   where Jenkins is running, not files in the current workspace).
-* The `writeFile` step saves content to a text file in the workspace
-* The `fileExists` step checks whether a file exists without loading it.
 
 The tool step makes sure a tool with the given name is installed on the current
 node. The script needs to know where it was installed, so the tool can be run
@@ -426,7 +366,7 @@ def mvnHome = tool 'M3'
 This ensures that 'M3' is installed somewhere accessible to Jenkins and assigns
 the return value of the step (an installation path) to the `mvnHome` variable.
 
-== Advanced Groovy Syntax for Pipeline Configuration
+== Advanced Syntax for Pipeline Script
 
 Groovy lets you omit parentheses around function arguments. The named-parameter
 syntax is also a shorthand for creating a map, which in Groovy uses the syntax
@@ -439,62 +379,61 @@ git([url: 'https://github.com/joe_user/simple-maven-project-with-tests.git', bra
 ----
 
 For convenience, when calling steps taking only one parameter (or only one
-mandatory parameter), you can omit the parameter name. For example:
-
-
-[source, groovy]
-----
-sh 'echo hello'
-----
-
-is really shorthand for:
+mandatory parameter), you can omit the parameter name. For example, the
+following two lines are functionally equivalent:
 
 [source, groovy]
 ----
-sh([script: 'echo hello'])
+sh 'echo hello' /* short form  */
+sh([script: 'echo hello'])  /* long form */
 ----
 
-=== Managing the Environment
+=== Working with the Environment
 
-One way to use tools by default is to add them to your executable path using the
-special variable `env` that is defined for all pipelines:
+Jenkins Pipeline exposes environment variables via the global variable `env`,
+which is available from anywhere within a `Jenkinsfile`. The full list of
+environment variables accessible from within Jenkins Pipeline is documented at
+link:http://localhost:8080/pipeline-syntax/globals#env[localhost:8080/pipeline-syntax/globals#env],
+assuming a Jenkins master is running on `localhost:8080`, and includes:
+
+BUILD_ID:: The current build ID, identical to BUILD_NUMBER for builds created in Jenkins versions 1.597+
+JOB_NAME:: Name of the project of this build, such as "foo" or "foo/bar".
+JENKINS_URL:: Full URL of Jenkins, such as http://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
 
 
-[source, groovy]
+
+
+Referencing or using these environment variables can be accomplished like
+accessing any key in a Groovy
+link:http://groovy-lang.org/syntax.html#_maps[Map],
+for example:
+
+[pipeline]
 ----
+// Script //
 node {
-    git url: 'https://github.com/joe_user/simple-maven-project-with-tests.git'
-    def mvnHome = tool 'M3'
-    env.PATH = "${mvnHome}/bin:${env.PATH}"
-    sh 'mvn -B verify'
+    echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
 }
 ----
 
-* Properties of this variable are environment variables on the current node.
-* You can override certain environment variables, and the overrides are seen by
-  subsequent `sh` steps (or anything else that pays attention to environment variables).
-* You can run `mvn` without a fully-qualified path.
 
-Setting a variable such as `PATH` in this way is only safe if you are using a
-single agent for this build. Alternatively, you can use the `withEnv` step to
-set a variable within a scope:
+==== Setting environment variables
 
+Setting an environment variable within a Jenkins Pipeline can be done with the
+`withEnv` step, which allows overriding specified environment variables for a
+given block of Pipeline Script, for example:
 
-[source, groovy]
+[pipeline]
 ----
+// Script //
 node {
-    git url: 'https://github.com/jglick/simple-maven-project-with-tests.git'
+    /* .. snip .. */
     withEnv(["PATH+MAVEN=${tool 'M3'}/bin"]) {
         sh 'mvn -B verify'
     }
 }
 ----
 
-Jenkins defines some environment variables by default:
-
-*Example:* `env.BUILD_TAG` can be used to get a tag like 'jenkins-projname-1' from
-Groovy code, or `$BUILD_TAG` can be used from a `sh` script.  The Snippet Generator
-help for the `withEnv` step has more detail on this topic.
 
 === Build Parameters
 
@@ -502,36 +441,9 @@ If you configured your pipeline to accept parameters using the *Build with
 Parameters* option, those parameters are accessible as Groovy variables of the
 same name.
 
-=== Types of Executors
-
-Every Pipeline build runs on a Jenkins master using a *flyweight executor*,
-which is an uncounted (because it's a temporary rather than configured) slot. Flyweight executors
-require very little computing power. A flyweight executor (sometimes also called
-a flyweight task) represents Groovy script, which is idle as it waits for a step to complete.
-
-To highlight the contrast between executor types, some Jenkins documentation calls any regular executor a *heavyweight executor*.
-
-When you run a `node` step, an executor is allocated on a node, which is usually an agent, as soon as
-an appropriate node is available.
-
-It is a best practice to avoid placing `input` within a node. The input element pauses pipeline execution to wait for either automatic or manual approval.
-By design and by nature, approval can take some time, so placing `input` within a node wastes resources by tying up both the flyweight executor
-used for input and the regular executor used by the node block, which will not be free for other tasks until input is complete.
-
-Although any flyweight executor running a pipeline is hidden when the pipeline script is idle (between tasks), the *Build Executor Status* widget on the Jenkins page displays status for both types of executors. If the
-one available executor on an agent has been pressed into service by a pipeline build that is paused and
-you start a second build of the same pipeline, both builds are shown running on the master, but the
-second build displays in the Build Queue until the initial build completes and executors are free to help with further processing.
-
-When you use inputs, it is a best practice to wrap them in timeouts. Wrapping inputs in timeouts allows them to be cleaned up if
-approvals do not occur within a given window. For example:
-
-[source, groovy]
-----
-timeout(time:5, unit:'DAYS') {
-    input message:'Approve deployment?', submitter: 'it-ops'
-}
-----
+/////
+TODO: Expand this section with more examples
+/////
 
 === Recording Test Results and Artifacts
 
@@ -541,12 +453,11 @@ capture the `.jar` that you built. The following sample code for a node shows ho
 (As previously seen in examples from this guide, Maven is being used as
 a build tool):
 
-[source, groovy]
+[pipeline]
 ----
+// Script //
 node {
-    git 'https://github.com/joe_user/simple-maven-project-with-tests.git'
-    def mvnHome = tool 'M3'
-    sh "${mvnHome}/bin/mvn -B -Dmaven.test.failure.ignore verify"
+    /* .. snip .. */
     archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
     junit '**/target/surefire-reports/TEST-*.xml'
 }
@@ -556,5 +467,5 @@ node {
 The “snippet generator” can be used to see the exact format.)
 
 * If tests fail, the Pipeline is marked unstable (as denoted by a yellow ball in
-  the Jenkins UI), and you can browse "Test Result Trend" to see the relevant history.
-* You should see Last Successful Artifacts on the Pipeline index page.
+  the Jenkins Web UI), and you can browse "Test Result Trend" to see the relevant history.
+* You should see Last Successful Artifacts on the Pipeline's main page.
