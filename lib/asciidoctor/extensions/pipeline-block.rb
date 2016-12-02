@@ -18,8 +18,8 @@ Asciidoctor::Extensions.register do
 
       # Find where our "// Script" comment is for highlighting the Pipeline
       # Script syntax
-      script_index = codelines.find_index { |c| c.match(/\/\/ (script) \/\//i) } || -1
-      decl_index = codelines.find_index { |c| c.match(/\/\/ (declarative) \/\//i) } || -1
+      script_index = codelines.find_index { |c| c.match(/\/\/ (script)(.*)?\/\//i) } || -1
+      decl_index = codelines.find_index { |c| c.match(/\/\/ (declarative)(.*)?\/\//i) } || -1
 
       # It would be great to re-use the [source] block styling, but it turns
       # out that our parser is going to delete WHATEVER style attribute we
@@ -36,16 +36,24 @@ Asciidoctor::Extensions.register do
           last_line = script_index - 1
         end
         declarative = codelines[(decl_index + 1) .. last_line].join("\n").chomp
-        declarative = CodeRay::Duo[:groovy, :html, {:css => :style}].highlight(declarative)
-        snippet << <<-EOF
-<div class="listingblock pipeline-declarative">
-  <div class="title">Jenkinsfile (Declarative Pipeline)</div>
-  <div class="content">
-EOF
-        snippet << <<-EOF
-<pre class="CodeRay highlight nowrap"><code class="language-groovy" data-lang="groovy">#{declarative}</code></pre>
-EOF
-        snippet << '</div></div>'
+
+        # If the declarative block is empty, we should just pretend it doesn't
+        # exist. This is helpful for making notes/todos where Declarative isn't
+        # applicable
+        if declarative.empty?
+          declarative = nil
+        else
+          declarative = CodeRay::Duo[:groovy, :html, {:css => :style}].highlight(declarative)
+          snippet << <<-EOF
+  <div class="listingblock pipeline-declarative">
+    <div class="title">Jenkinsfile (Declarative Pipeline)</div>
+    <div class="content">
+  EOF
+          snippet << <<-EOF
+  <pre class="CodeRay highlight nowrap"><code class="language-groovy" data-lang="groovy">#{declarative}</code></pre>
+  EOF
+          snippet << '</div></div>'
+        end
       end
 
       if script_index >= 0
@@ -58,29 +66,35 @@ EOF
           last_line = decl_index - 1
         end
 
-        # Since we have a declarative block, let's show that by default and
-        # hide this but leave a bread-crumb
-        unless declarative.nil?
-          snippet << <<-EOF
-<div class="pipeline-script-expand">
-  <a href="#" onclick="javascript:$(this).parent().siblings('.pipeline-script').toggle(); return false;">Toggle Pipeline Script</a>
-  <em>(Advanced)</em>
-</div>
-EOF
-        end
-
         script = codelines[(script_index + 1) .. last_line].join("\n").chomp
-        script = CodeRay::Duo[:groovy, :html, {:css => :style}].highlight(script)
-        snippet << <<-EOF
-<div class="listingblock pipeline-script"
-      style="display: #{(declarative.nil? or 'none') or 'inherit'}">
-  <div class="title">Jenkinsfile (Pipeline Script)</div>
-  <div class="content">
-EOF
-        snippet << <<-EOF
-<pre class="CodeRay highlight nowrap"><code class="language-groovy" data-lang="groovy">#{script}</code></pre>
-EOF
-        snippet << '</div></div>'
+
+        # If the script block is empty, we should just pretend it doesn't
+        # exist. This is helpful for highlighting blocks where a script example
+        # is yet to be written
+        unless script.empty?
+          # Since we have a declarative block, let's show that by default and
+          # hide this but leave a bread-crumb
+          unless declarative.nil?
+            snippet << <<-EOF
+  <div class="pipeline-script-expand">
+    <a href="#" onclick="javascript:$(this).parent().siblings('.pipeline-script').toggle(); return false;">Toggle Pipeline Script</a>
+    <em>(Advanced)</em>
+  </div>
+  EOF
+          end
+
+          script = CodeRay::Duo[:groovy, :html, {:css => :style}].highlight(script)
+          snippet << <<-EOF
+  <div class="listingblock pipeline-script"
+        style="display: #{(declarative.nil? or 'none') or 'inherit'}">
+    <div class="title">Jenkinsfile (Pipeline Script)</div>
+    <div class="content">
+  EOF
+          snippet << <<-EOF
+  <pre class="CodeRay highlight nowrap"><code class="language-groovy" data-lang="groovy">#{script}</code></pre>
+  EOF
+          snippet << '</div></div>'
+        end
       end
 
       snippet << '</div>'
