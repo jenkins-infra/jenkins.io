@@ -1,0 +1,68 @@
+If you have a test runner (such as maven surefire, or many of the
+javascript runners) chances are it can output the junit/xml style of
+test result reports. If so, recording them is easy:
+
+[source,groovy]
+----
+post {
+  always {
+    junit "path/to/xml"
+  }
+}
+----
+
+This will always grab the test results and let Jenkins track them,
+calculate trends, and report on them. Jenkins has plugins for pretty
+much all other types of test runners too. A build that has failing tests
+is marked as `UNSTABLE` (to separate it from `FAILED`).
+
+If you want to store an artifact for downloading later (i.e., keep a
+record of it):
+
+[source,groovy]
+----
+post {
+   success {
+      archive "target/**/*"
+   }
+}
+----
+
+You can also run actions, such as notifications, artifact archiving, or
+any arbitrary step, after individual stages:
+
+[source,groovy]
+----
+stage('some-stage') {
+    steps {
+        sh 'do-something.sh'
+    }
+    post {
+        failure {
+            sh 'rollback.sh'
+        }
+    }
+}
+----
+
+A more complete example:
+
+[source,groovy]
+----
+pipeline {
+    agent docker:"java"
+    stages {
+        stage("build") {
+            steps {
+                sh 'mvn clean install -Dmaven.test.failure.ignore=true'
+            }
+        }
+    }
+    post {
+        always {
+            archive "target/**/*"
+            junit 'target/surefire-reports/*.xml'
+        }
+    }
+}
+----

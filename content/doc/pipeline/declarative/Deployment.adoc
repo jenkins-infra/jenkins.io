@@ -1,0 +1,298 @@
+As your pipeline grows to accommodate deployment, you will have multiple
+stages. You have likely already seen stages in use in some examples:
+
+[[multiple-stages]]
+Multiple stages
+~~~~~~~~~~~~~~~
+
+Adding more stages makes clear what your pipeline is doing.
+
+....
+pipeline {
+     agent docker:'node'
+     stages {
+         stage('build') {
+             steps {
+                 sh 'echo building...'
+             }
+         }
+         stage('test') {
+             steps {
+                 sh 'echo testing...'
+             }
+         }
+         stage('deploy') {
+             steps {
+                 retry(3) {
+                     sh 'echo deploying...'
+                 }
+             }
+         }
+     }
+}
+....
+
+This is a pipeline of build->test->deploy. The `deploy` stage actually
+retries a script 3 times.
+
+Retrying things, with a timeout, is a pretty common pattern in
+deployment:
+
+....
+   timeout(time: 3, unit: 'MINUTES') {
+       retry(5) {    
+           sh 'echo deploying'
+       }
+   }
+....
+
+This gives it 5 chances to get it right, but in 3 minutes (if your app
+isn't deployed in 3 minutes, it's free!).
+
+You can also sleep between steps:
+
+....
+    stage('deploy') {
+        steps {
+            sh 'echo deploying...'
+            sleep 30
+            sh 'echo 30 seconds should be long enough'
+        }
+    }
+....
+
+Default is in seconds.
+
+[[stages-as-deploy-environments]]
+Stages as deploy environments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One useful way to use stages is to have them represent deployment
+environments:
+
+....
+pipeline {
+     agent any
+     stages {
+         stage('Build') {
+             steps {
+                 sh 'echo building...'
+             }
+         }
+         stage('Test') {
+             steps {
+                 sh 'echo testing...'
+             }
+         }
+         stage('Deploy - Staging') {
+             steps {
+                 sh 'echo deploying to staging...'
+                 sh 'echo smoke tests...'
+             }
+         }
+         stage('Deploy - Production') {
+             steps {
+                 sh 'echo deploying to production...'
+             }
+         }
+     }
+}
+....
+
+The final 2 stages represent staging and production environments.
+Typically you would want to run some smoke tests before things are
+promoted to the production environment.
+
+[[asking-for-human-input-to-proceed]]
+Asking for human input to proceed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Often when passing between stages, especially environment stages, you
+may want a human to judge whether the application is in a good enough
+state to promote (you can also ask for input parameters too, but I won't
+show that here):
+
+....
+pipeline {
+     agent none
+     stages {
+
+         stage('Deploy - Staging') {
+             agent label:'master'
+             steps {
+                checkout scm
+                sh 'echo deploying $APP_NAME to staging...'
+             }             
+         }
+
+         stage('Sanity check') {
+             steps {
+                 input "Does the staging environment for ${env.APP_NAME} look ok?"
+             }
+         }
+
+         stage('Deploy - Production') {
+             agent label:'master'
+             steps {
+                 sh 'echo deploying $APP_NAME to production'
+             }             
+         }
+     }
+
+     environment {
+        APP_NAME = 'my-app'
+     }
+}
+....
+
+In this example, the "Sanity check" stage actually blocks for input and
+won't proceed without a person allowing it to. You may want to do this
+if you don't trust your test suite, but don't tell anyone that, it can
+be our secret.
+
+There are also a few other things going on in the human input example
+above: i.e., `agent none` means that is is up to each stage to get its
+own `node` to run steps on. This also means that when it is waiting for
+input from a person, it isn't keeping an agent running (i.e., it can
+wait for hours or days, with no harm done).
+
+[[deployment-targets-and-techniques]]
+Deployment targets and techniques
+---------------------------------
+
+[[deploying-a-serverless-application]]
+Deploying a serverless application
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To make this a little more concrete, this example builds on the
+excellent https://serverless.com/ library, which is a tool to automate a
+lot of stuff around AWS Lambda (https://aws.amazon.com/lambda/).
+
+Lets dive in to the sample, don't worry if it looks a bit long, it will
+be explained below:
+
+....
+
+pipeline {
+    agent any    
+    
+    stages {
+        stage('Unit test') {
+            steps {             
+                sh 'serverless --help' // to ensure it is installed
+            }
+        }           
+        
+        stage('Integration test') {
+            steps {
+                sh 'serverless deploy --stage dev'
+                sh 'serverless invoke --stage dev --function hello'                 
+            }
+        }
+                
+        
+        stage('Production') {
+            when {
+               env.BRANCH_NAME == 'master'  
+            }
+            steps { 
+                parallel (
+                    'us-east-1' : {
+                      sh 'serverless deploy --stage production --region us-east-1'  
+                      sh 'serverless invoke --stage production --region us-east-1 --function hello'
+                    },
+                    'ap-southeast-2' : {
+                      sh 'serverless deploy --stage production --region ap-southeast-2'  
+                      sh 'serverless invoke --stage production --region ap-southeast-2 --function hello'  
+                    }
+                    
+                    )
+            }   
+        }
+        
+        stage('Teardown') {
+            steps {             
+                echo 'No need for DEV environment now, tear it down'
+                sh 'serverless remove --stage dev'  
+            }
+        }
+     
+     }
+    
+    
+     environment {
+            AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+            AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+     }
+
+} 
+....
+
+This requires that the "serverless" tool is installed where the build
+runs (you could run it anywhere, it runs on all platforms). Critical to
+this is the `environment` section that pulls out some credentials - in
+this case they are 2 "secret text" types of secrets stored encrypted in
+Jenkins. These are set to environment variables (and masked in any
+output so logs/etc don't leak secrets).
+
+[[unit-tests-stage]]
+Unit tests stage
+^^^^^^^^^^^^^^^^
+
+This is really a placeholder to check that serverless is setup
+correctly. You could also run some in-container unit tests here as well
+(there isn't really compiling to do for a javscript app like this, so no
+compile stage).
+
+[[integration-test-stage]]
+Integration test stage
+^^^^^^^^^^^^^^^^^^^^^^
+
+In this stage we actually push the code to a real AWS region, but in a
+"dev" capacity (so it doesn't replace production just yet). We then run
+a "real" test by invoking the "hello" function to check that it works.
+
+[[production-stage]]
+Production stage
+^^^^^^^^^^^^^^^^
+
+In this stage we push in parallel to all the regions we want to support
+this application in (in this case, just 2) and do a quick "smoke test"
+in each.
+
+Note this stage only happens on the `master` branch (by using the `when`
+conditional). If you push to any other branch this stage will be
+skipped.
+
+[[teardown-stage]]
+Teardown stage
+^^^^^^^^^^^^^^
+
+In this stage (should it make it this far without failure) it will
+remove the `dev` environment which is used for integration testing (in
+theory to save money, no need to run code you know you won't need).
+
+[[running-this-sample]]
+Running this sample
+^^^^^^^^^^^^^^^^^^^
+
+If you want to try this sample for real: * Get an AWS account (and
+create some access keys) * Install the serverless library
+https://serverless.com/ * Setup 2 credentials for the secrets in the
+environment section * Fork this repository:
+https://github.com/michaelneale/sample-serverless, and setup a
+multibranch pipeline pointing to your fork * You can use the
+https://serverless.com/ tool to create your own start serverless app and
+adapt the above to your needs.
+
+[[other-deployment-targets]]
+Other deployment targets
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+You could see how the patterns established above could be adapted to
+many deployment targets. Jenkins is used every day to deploy to every
+known deployment target on earth, including, often, home grown internal
+deployment tools.
+
+Over time you should be able to find more starters/samples on these
+docs.

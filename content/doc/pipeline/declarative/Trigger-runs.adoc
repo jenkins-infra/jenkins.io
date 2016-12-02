@@ -1,0 +1,64 @@
+[[triggers]]
+Triggers
+--------
+
+Runs of a pipeline are normally triggered by a SCM change. However, you
+can specify other triggers like a cron-based schedule:
+
+....
+pipeline {
+    agent any
+
+    triggers {
+        cron '@daily'
+    }
+
+   ...
+}
+....
+
+This will run the pipeline once per day. The Unix cron style syntax is
+supported.
+
+[[additional-repositories]]
+Additional repositories
+-----------------------
+
+A pipeline, even one that is defined a Jenkinsfile, can also bring in
+other source repositories as needed.
+
+For example:
+
+....
+pipeline {
+    agent none
+    stages {
+        stage('build') {
+            agent any    
+            steps {
+                // run main build here and collect the results via "stashing" for later use
+                stash includes: 'app/*.py', name: 'stuff'
+            }
+        }
+
+        stage('testing') {
+            agent label:'master'
+            steps {
+                // use a different repo to get the test suite:
+                git 'https://github.com/jenkinsci/acceptance-test-harness'
+
+                // we unstash our stuff from before (because this may be a different node)
+                unstash 'stuff'
+
+                sh 'run-test-suite.sh'    
+
+            }
+
+        }
+    }
+
+}
+....
+
+Jenkins will track changes from all repositories you mention this way,
+and allow the pipeline run to be triggered accordingly.

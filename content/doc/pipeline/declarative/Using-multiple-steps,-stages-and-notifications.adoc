@@ -1,0 +1,66 @@
+You have probably landed here because you are in a hurry, and want to
+eyeball a real example. Here is one that builds the pipeline config
+plugin itself (it builds itself, in itself, also known as 'eating your
+own dogfood'):
+
+[source,groovy]
+----
+pipeline {
+    tools {
+        maven "Maven 3.3.9"
+        jdk "Oracle JDK 8u40"
+    }
+
+    agent label:"any-executor"
+
+    stages {
+        stage("build") {
+            steps {
+                sh 'echo "path: ${PATH}"'
+                sh 'echo "M2_HOME: ${M2_HOME}"'
+                sh 'mvn clean install -Dmaven.test.failure.ignore=true'
+            }
+        }
+    }
+
+    post {
+        always {
+            archive "target/**/*"
+            junit 'target/surefire-reports/*.xml'
+        }
+        success {
+            mail to:"me@example.com", subject:"SUCCESS: ${currentBuild.fullDisplayName}", body: "Yay, we passed."
+        }
+        failure {
+            mail to:"me@example.com", subject:"FAILURE: ${currentBuild.fullDisplayName}", body: "Boo, we failed."
+        }
+        unstable {
+            mail to:"me@example.com", subject:"UNSTABLE: ${currentBuild.fullDisplayName}", body: "Huh, we're unstable."
+        }
+        changed {
+            mail to:"me@example.com", subject:"CHANGED: ${currentBuild.fullDisplayName}", body: "Wow, our status changed!"
+        }
+    }
+}
+----
+
+Let's tear this down a bit.
+
+1.  There is a `tool` installation section. Jenkins has the concept of
+tool installers, and if you specify this section, it will attempt to
+install the listed tools on the agent before any build starts. In many
+cases, you may use a docker image, which already has the tools (hence
+you might not see this often).
+2.  `agent`: In this case, Andrew is specifying he wants an agent called
+"any-executor" - any one that is free will do. You can leave this as an
+empty string, and it will run on any available agent.
+3.  `stages`: This is the business end of things. There is a single
+stage that has a few steps, which perform the maven build.
+4.  `post`: In this section, the results of the build are archived for
+future downloading, as are any test results. The use of `junit` looks
+for any output from a test runner that can output the junit style of XML
+report. Jenkins knows how to read this, and if it finds errors, will
+mark the build as _unstable_. Note that this post build section runs
+`always`. Also in this section, Andrew spams himself depending on the
+result of a build, with an amusing message. Go on, email him, he would
+love to hear from you.
