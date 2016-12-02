@@ -53,6 +53,7 @@ The Jenkins developers decided to continue the current open commit policy despit
 
 
 ## FAQ
+
 ### Does everyone in the organization have full commit privileges to all the repositories?
 Yes, with some exceptions. To encourage co-maintenance of plugins by different people, and to reduce the overhead of adding and removing people from our 1100+ repositories, we use one team that gives access to most repositories, and put committers in this team.
 

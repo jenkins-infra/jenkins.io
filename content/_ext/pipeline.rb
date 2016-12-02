@@ -7,17 +7,10 @@ Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
   require extension
 end
 
-begin
-  require 'tilt/asciidoc'
-  Haml::Filters.register_tilt_filter 'AsciiDoc'
-  Haml::Filters::AsciiDoc.options[:safe] = :safe
-  Haml::Filters::AsciiDoc.options[:attributes] ||= {}
-  Haml::Filters::AsciiDoc.options[:attributes]['notitle!'] = ''
-rescue Exception => e
-  # Catch exceptions which will be raised when we reload this file in an
-  # awestruct development environment, see:
-  # <https://github.com/haml/haml/blob/master/lib/haml/filters.rb#L39>
+Dir[File.join(File.dirname(__FILE__), '/../../lib/**/*.rb')].each do |extension|
+  require extension
 end
+
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
@@ -34,6 +27,11 @@ Awestruct::Extensions::Pipeline.new do
                                                 :feed_title => 'Jenkins Blog',
                                                 :template => '_ext/atom.xml.haml')
 
+  extension Awestruct::Extensions::Tagger.new(:posts,
+                                              '/node/index',
+                                              '/node/tags',
+                                              :per_page => 10)
+
   extension Awestruct::Extensions::Sitemap.new
 
   extension Awestruct::IBeams::DataDir.new
@@ -41,7 +39,8 @@ Awestruct::Extensions::Pipeline.new do
   extension SolutionPage.new
   extension Releases.new
 
-  extension Awestruct::IBeams::HandbookExtension.new(File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
+  extension Awestruct::IBeams::HandbookExtension.new(:handbook,
+                                                     File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
 
   transformer VersionSwitcher.new
 

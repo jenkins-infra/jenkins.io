@@ -1,18 +1,17 @@
 #!/usr/bin/env groovy
 
+/* Only keep the 10 most recent builds. */
+def projectProperties = [
+    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
+]
 
 if (!env.CHANGE_ID) {
-    /* Only keep the 10 most recent builds. */
-    def projectProperties = [
-        [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '10']],
-    ]
-
     if (env.BRANCH_NAME == null) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
     }
-
-    properties(projectProperties)
 }
+
+properties(projectProperties)
 
 
 try {
@@ -73,7 +72,7 @@ try {
                      */
                     'HOME=.',
                     ]) {
-                    sh './gradlew --console=plain --no-daemon --info --stacktrace'
+                    sh './gradlew --quiet --console=plain --no-daemon --info --stacktrace'
                 }
             }
         }
