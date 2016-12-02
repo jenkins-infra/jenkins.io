@@ -4,145 +4,480 @@ layout: section
 :notitle:
 :description:
 :author:
-:email: jenkinsci-users@googlegroups.com
+:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
-:toc: left
+:toc:
+:hide-uri-scheme:
 
 = The Jenkinsfile
 
-== Audience and Purpose
+This section builds on the information covered in <<getting-started#, Getting Started>>,
+and introduces more useful steps, common patterns, and demonstrates some
+non-trivial `Jenkinsfile` examples.
 
-This document is intended for Jenkins users who want to leverage the power of
-pipeline functionality. Extending the reach of what was learned from a "Hello
-World" example in link:/doc/pipeline/[Getting Started with Pipeline], this
-document explains how to use a `Jenkinsfile` to perform a simple checkout and
-build for the contents of a repository.
+Creating a `Jenkinsfile`, which is checked into source control
+footnoteref:[scm, https://en.wikipedia.org/wiki/Source_control_management],
+provides a number of immediate benefits:
+
+* Code review/iteration on the Pipeline
+* Audit trail for the Pipeline
+* Single source of truth
+  footnote:[https://en.wikipedia.org/wiki/Single_Source_of_Truth]
+  for the Pipeline, which can be viewed and edited by multiple members of the project.
+
+
+While the syntax for defining a Pipeline, either in the web UI or with a
+`Jenkinsfile`, is the same, it's generally considered best practice to define
+the Pipeline in a `Jenkinsfile` and check that in to source control.
+
 
 == Creating a Jenkinsfile
 
-A `Jenkinsfile` is a container for your pipeline (or other) script, which details
-what specific steps are needed to perform a job for which you want to use
-Jenkins. You create a `Jenkinsfile` with your preferred Groovy editor, or through
-the configuration page on the web interface of your Jenkins instance.
+As discussed in the <<getting-started#defining-a-pipeline-in-scm, Getting Started>>
+section, a `Jenkinsfile` is a text file that contains the definition of a
+Jenkins Pipeline and is checked into source control. Consider the following
+Pipeline which implements a basic three-stage continuous delivery pipeline.
 
-Using a Groovy editor to code a `Jenkinsfile` gives you more flexibility for
-building complex single or multibranch pipelines, but whether you use an editor
-or the Jenkins interface does not matter if what you want to do is get familiar
-with basic `Jenkinsfile` content.
+[pipeline]
+----
+// Script //
+node { // <1>
+    stage('Build') { // <2>
+        /* .. snip .. */
+    }
+    stage('Test') {
+        /* .. snip .. */
+    }
+    stage('Deploy') {
+        /* .. snip .. */
+    }
+}
+// Declarative not yet implemented //
+----
+<1> `node` allocates an executor and workspace in the Jenkins environment.
+<2> `stage` describes distinct parts of the Pipeline for better visualization of progress/status.
+
+Not all Pipelines will have these same three stages, but this is a good
+continuous delivery starting point to define them for most projects. The
+sections below will demonstrate the creation and execution of a simple Pipeline
+in a test installation of Jenkins.
+
+[NOTE]
+====
+It is assumed that there is already a source control repository set up for
+project and a Pipeline has been defined in Jenkins following
+<<getting-started#defining-a-pipeline-in-scm, these instructions>>.
+====
+
+Using a text editor, ideally one which supports
+link:http://groovy-lang.org[Groovy]
+syntax highlighting, create a new `Jenkinsfile` in the root directory of the
+project.
 
 
-. Open your Jenkins instance or Groovy editor.
-. Navigate to the directory you want (it should be the root directory for your project).
-. Use standard Jenkins syntax.
-. Save your file.
+In the example above, `node` is a crucial first step as it allocates an
+executor and workspace for the Pipeline. In essence, without `node`, a Pipeline
+cannot do any work! From within `node`, the first order of business will be to
+checkout the source code for this project.  Since the `Jenkinsfile` is being
+pulled directly from source control, Pipeline provides a quick and easy way to
+access the right revision of the source code
 
-The following example shows a basic `Jenkinsfile` made to build and test code for
-a Maven project. `node` is the step that schedules tasks in the following block
-to run on the machine (usually an agent) that matches the label specified in the
-step argument (in this case, a node called "linux"). Code between the braces (
-`{` and `}` ) is the body of the `node` step. The `checkout scm` command
-indicates that this `Jenkinsfile` was created with an eye toward multibranch
-support:
+[pipeline]
+----
+// Script //
+node {
+    checkout scm // <1>
+    /* .. snip .. */
+}
+// Declarative not yet implemented //
+----
+<1> The `checkout` step will checkout code from source control; `scm` is a
+special variable which instructs the `checkout` step to clone the specific
+revision which triggered this Pipeline run.
 
+=== Build
+
+For many projects the beginning of "work" in the Pipeline would be the "build"
+stage. Typically this stage of the Pipeline will be where source code is
+assembled, compiled, or packaged. The `Jenkinsfile` is *not* a replacement for an
+existing build tool such as GNU/Make, Maven, Gradle, etc, but rather can be
+viewed as a glue layer to bind the multiple phases of a project's development
+lifecycle (build, test, deploy, etc) together.
+
+Jenkins has a number of plugins for invoking practically any build tool in
+general use, but this example will simply invoke `make` from a shell step
+(`sh`).  The `sh` step assumes the system is Unix/Linux-based, for
+Windows-based systems the `bat` could be used instead.
+
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    stage('Build') {
+        sh 'make' // <1>
+        archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // <2>
+    }
+    /* .. snip .. */
+}
+// Declarative not yet implemented //
+----
+<1> The `sh` step invokes the `make` command and will only continue if a
+zero exit code is returned by the command. Any non-zero exit code will fail the
+Pipeline.
+<2> `archiveArtifacts` captures the files built matching the include pattern
+(`**/target/*.jar`) and saves them to the Jenkins master for later retrieval.
+
+
+[CAUTION]
+====
+Archiving artifacts is not a substitute for using external artifact
+repositories such as Artifactory or Nexus and should be considered only for
+basic reporting and file archival.
+====
+
+=== Test
+
+Running automated tests is a crucial component of any successful continuous
+delivery process. As such, Jenkins has a number of test recording, reporting,
+and visualization facilities provided by a
+link:https://plugins.jenkins.io/?labels=report[number of plugins].
+At a fundamental level, when there are test failures, it is useful to have
+Jenkins record the failures for reporting and visualization in the web UI.  The
+example below uses the `junit` step, provided by the
+link:https://plugins.jenkins.io/junit[JUnit plugin].
+
+In the example below, if tests fail, the Pipeline is marked "unstable", as
+denoted by a yellow ball in the web UI. Based on the recorded test reports,
+Jenkins can also provide historical trend analysis and visualization.
+
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    stage('Test') {
+        /* `make check` returns non-zero on test failures,
+         * using `true` to allow the Pipeline to continue nonetheless
+         */
+        sh 'make check || true' // <1>
+        junit '**/target/*.xml' // <2>
+    }
+    /* .. snip .. */
+}
+// Declarative not yet implemented //
+----
+<1> Using an inline shell conditional (`sh 'make || true'`) ensures that the
+`sh` step always sees a zero exit code, giving the `junit` step the opportunity
+to capture and process the test reports. Alternative approaches to this are
+covered in more detail in the <<handling-failures>> section below.
+<2> `junit` captures and associates the JUnit XML files matching the inclusion
+pattern (`**/target/*.xml`).
+
+=== Deploy
+
+Deployment can imply a variety of steps, depending on the project or
+organization requirements, and may be anything from publishing built artifacts
+to an Artifactory server, to pushing code to a production system.
+
+At this stage of the example Pipeline, both the "Build" and "Test" stages have
+successfully executed. In essense, the "Deploy" stage will only execute
+assuming previous stages completed successfully, otherwise the Pipeline would
+have exited early.
+
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    stage('Deploy') {
+        if (currentBuild.result == 'SUCCESS') { // <1>
+            sh 'make publish'
+        }
+    }
+    /* .. snip .. */
+}
+// Declarative not yet implemented //
+----
+<1> Accessing the `currentBuild.result` variable allows the Pipeline Script to
+determine if there were any test failures. In which case, the value would be
+`UNSTABLE`.
+
+Assuming everything has executed successfully in the example Jenkins Pipeline,
+each successful Pipeline run will have associated build artifacts archived,
+test results reported upon and the full console output all in Jenkins.
+
+A Pipeline Script can include conditional tests (shown above), loops,
+try/catch/finally blocks and even functions. The next section will cover this
+more advanced Pipeline Script syntax in more detail.
+
+
+== Advanced Syntax for Pipeline Scripts
+
+Pipeline Script is a domain-specific language
+footnoteref:[dsl, https://en.wikipedia.org/wiki/Domain-specific_language]
+based on Groovy, most
+link:http://groovy-lang.org/semantics.html[Groovy syntax]
+can be in Pipeline Script without modification.
+
+=== String Interpolation
+
+Groovy's "String" interpolation support can be confusing to many newcomers to
+the language. While Groovy supports declaring a string with either single quotes, or
+double quotes, for example:
 
 [source,groovy]
 ----
- node ('linux'){
-  stage 'Build and Test'
-  env.PATH = "${tool 'Maven 3'}/bin:${env.PATH}"
-  checkout scm
-  sh 'mvn clean package'
- }
+def singlyQuoted = 'Hello'
+def doublyQuoted = "World"
 ----
 
-In single-branch contexts, you could replace .checkout scm. with a source code
-checkout step that calls a particular repository, such as:
-
+Only the latter string will support the dollar-sign (`$`) based string
+interpolation, for example:
 
 [source,groovy]
 ----
+def username = 'Jenkins'
+echo 'Hello Mr. ${username}'
+echo "I said, Hello Mr. ${username}"
+----
 
-git url: "https://github.com/my-organization/simple-maven-project-with-tests.git"
+Would result in:
+
+[source]
+----
+Hello Mr. ${username}
+I said, Hello Mr. Jenkins
+----
+
+Understanding how to use Groovy's string interpolation is vital for using some
+of Pipeline Script's more advanced features.
+
+=== Working with the Environment
+
+Jenkins Pipeline exposes environment variables via the global variable `env`,
+which is available from anywhere within a `Jenkinsfile`. The full list of
+environment variables accessible from within Jenkins Pipeline is documented at
+link:http://localhost:8080/pipeline-syntax/globals#env[localhost:8080/pipeline-syntax/globals#env],
+assuming a Jenkins master is running on `localhost:8080`, and includes:
+
+BUILD_ID:: The current build ID, identical to BUILD_NUMBER for builds created in Jenkins versions 1.597+
+JOB_NAME:: Name of the project of this build, such as "foo" or "foo/bar".
+JENKINS_URL:: Full URL of Jenkins, such as http://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
+
+
+Referencing or using these environment variables can be accomplished like
+accessing any key in a Groovy
+link:http://groovy-lang.org/syntax.html#_maps[Map],
+for example:
+
+[pipeline]
+----
+// Script //
+node {
+    echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
+}
+// Declarative not yet implemented //
 ----
 
 
-== Making Pull Requests
+==== Setting environment variables
 
-A pull request notifies the person responsible for maintaining a Jenkins
-repository that you have a change or change set that you want to see merged into
-the main branch associated with that repository. Each individual change is
-called a "commit."
+Setting an environment variable within a Jenkins Pipeline can be done with the
+`withEnv` step, which allows overriding specified environment variables for a
+given block of Pipeline Script, for example:
 
-You make pull requests from a command line, or by selecting the appropriately
-labeled button (typically "Pull" or "Create Pull Request") in the interface for
-your source code management system.
-
-A pull request to a repository included in or monitored by an Organization
-Folder can be used to automatically execute a multibranch pipeline build.
-
-
-== Using Organization Folders
-
-Organization folders enable Jenkins to automatically detect and include any new
-repositories within them as resources.
-
-When you create a new repository (as might be the case for a new project), that
-repository has a `Jenkinsfile`. If you also configure one or more organization
-folders, Jenkins automatically detects any repository in an organization folder,
-scans the contents of that repository at either default or configurable
-intervals, and creates a Multibranch Pipeline project for what it finds in the
-scan. An organization folder functions as a "parent," and any item within it is
-treated as a "child" of that parent.
-
-Organization folders alleviate the need to manually create projects for new
-repositories. When you use organization folders, Jenkins views your repositories
-as a hierarchy, and each repository (organization folder) may optionally have
-child elements such as branches or pull requests.
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    withEnv(["PATH+MAVEN=${tool 'M3'}/bin"]) {
+        sh 'mvn -B verify'
+    }
+}
+// Declarative not yet implemented //
+----
 
 
-To create Organization folders:
+=== Build Parameters
 
-. Open Jenkins in your web browser.
-. Go to: New Item → GitHub Organization or New Item → Bitbucket Team.
-. Follow the configuration steps, making sure to specify appropriate scan
-  credentials and a specific owner for the GitHub Organization or Bitbucket Team
-  name.
-. Set build triggers by selecting the checkbox associated with the trigger type
-  you want. Folder scans and the pipeline builds associated with those scans can
-  be initiated by command scripts or performed at defined intervals. They can also
-  triggered by project promotion or changes to the images in a monitored Docker
-  hub.
-. Decide whether to automatically remove or retain unused items. "Orphaned Item
-  Strategy" fields in the configuration interface let you specify how many days to
-  keep old items, and how many old items to keep. If you enter no values in these
-  fields, unused items are removed by default.
+If you configured your pipeline to accept parameters using the *Build with
+Parameters* option, those parameters are accessible as Groovy variables of the
+same name.
 
-While configuring organization folders, you can set the following options:
 
-* Repository name pattern - a regular expression to specify which repositories are included in scans
-* API endpoint - an alternate API endpoint to use a self-hosted GitHub Enterprise
-* Checkout credentials - alternate credentials to use when checking out (cloning) code
+Assuming that a String parameter named "Greeting" has been configured for the
+Pipeline project in the web UI, a `Jenkinsfile` can access that parameter via
+`$Greeting`:
 
-Multibranch Pipeline projects and Organization Folders are examples of
-"computed folder" functionality. In Multibranch Pipeline projects, computation
-creates child items for eligible branches. In Organization folders, computation
-populates child items as individual Multibranch Pipelines for scanned
-repositories.
+[pipeline]
+----
+// Script //
+node {
+    echo "${Greeting} World!"
+}
+// Declarative not yet implemented //
+----
 
-Select the "Folder Computation" section of your Jenkins interface to see the
-duration (in seconds) and result (success or failure) of computation operations,
-or to access a Folder Computation Log that provides more detail about this
-activity.
+/////
+TODO: Expand this section with more examples
+/////
 
-== Basic Checkout and Build
+=== Handling Failures
 
-Checkout and build command examples are shown in the code example used by the
-introduction above. Examples shown assume that Jenkins is running on Linux or
-another Unix-like operating system.
+Pipeline Script relies on Groovy's built-in `try`/`catch`/`finally` semantics
+for handling failures during execution of the Pipeline.
 
-If your Jenkins server or agent is running on Windows, you are less likely to be
-using the Bourne shell (`sh`) or
-link:http://www.computerhope.com/unix/ubash.htm[Bourne-Again shell] (`bash`) as
-a command language interpreter for starting software builds. In Windows
-environments, use `bat` in place of `sh`, and backslashes (`\`) rather than
-slashes as file separators in pathnames.
+In the <<test>> example above, the `sh` step was modified to never return a
+non-zero exit code (`sh 'make check || true'`). This approach, while valid,
+means the following stages need to check `currentBuild.result` to know if
+there has been a test failure or not.
+
+An alternative way of handling this, which preserves the early-exit behavior of
+failures in Pipeline, while still giving `junit` the chance to capture test
+reports, is to use a series of `try`/`finally` blocks:
+
+[pipeline]
+----
+// Script //
+node {
+    /* .. snip .. */
+    stage('Test') {
+        try {
+            sh 'make check'
+        }
+        finally {
+            junit '**/target/*.xml'
+        }
+    }
+    /* .. snip .. */
+}
+// Declarative not yet implemented //
+----
+
+=== Using multiple nodes
+
+In all previous uses of the `node` step, it has been used without any
+arguments. This means Jenkins will allocate an executor wherever one is
+available. The `node` step can take an optional "label" parameter, which is
+helpful for more advanced use-cases such as  executing builds/tests across
+multiple platforms.
+
+In the example below, the "Build" stage will be performed on one node and
+the built results will be reused on two different nodes, labelled "linux" and
+"windows" respectively, during the "Test" stage.
+
+[pipeline]
+----
+// Script //
+stage('Build') {
+    node {
+        checkout scm
+        sh 'make'
+        stash includes: '**/target/*.jar', name: 'app' // <1>
+    }
+}
+
+stage('Test') {
+    node('linux') { // <2>
+        checkout scm
+        try {
+            unstash 'app' // <3>
+            sh 'make check'
+        }
+        finally {
+            junit '**/target/*.xml'
+        }
+    }
+    node('windows') {
+        checkout scm
+        try {
+            unstash 'app'
+            bat 'make check' // <4>
+        }
+        finally {
+            junit '**/target/*.xml'
+        }
+    }
+}
+// Declarative not yet implemented //
+----
+<1> The `stash` step allows capturing files matching an inclusion pattern
+(`**/target/*.jar`) for reuse within the _same_ Pipeline. Once the Pipeline has
+completed its execution, stashed files are deleted from the Jenkins master.
+<2> The optional parameter to `node` allows for any valid Jenkins label
+expression. Consult the inline help for `node` in the <<getting-started#snippet-generator#, Snippet Generator>> for more details.
+<3> `unstash` will retrieve the named "stash" from the Jenkins master into the
+Pipeline's current workspace.
+<4> The `bat` script allows for executing batch scripts on Windows-based
+platforms.
+
+=== Executing in parallel
+
+The example in the <<using-multiple-nodes,section above>> runs tests across two
+different platforms in a linear series. In practice, if the `make check`
+execution takes 30 minutes to complete, the "Test" stage would now take 60
+minutes to complete!
+
+Fortunately, Pipeline has built-in functionality for executing portions of
+Pipeline Script in parallel, implemented in the aptly named `parallel` step.
+
+Refactoring the example above to use the `parallel` step:
+
+[pipeline]
+----
+// Script //
+stage('Build') {
+    /* .. snip .. */
+}
+
+stage('Test') {
+    parallel linux: {
+        node('linux') {
+            checkout scm
+            try {
+                unstash 'app'
+                sh 'make check'
+            }
+            finally {
+                junit '**/target/*.xml'
+            }
+        }
+    },
+    windows: {
+        node('windows') {
+            /* .. snip .. */
+        }
+    }
+}
+// Declarative not yet implemented //
+----
+
+Instead of executing the tests on the "linux" and "windows" labelled nodes in
+series, they will now execute in parallel assuming the requisite capacity
+exists in the Jenkins environment.
+
+
+=== Optional step arguments
+
+Groovy allows parentheses around function arguments to be omitted.
+
+Many Pipeline steps also use the named-parameter syntax as a shorthand for
+creating a Map in Groovy, which uses the syntax `[key1: value1, key2: value2]`.
+Making statements like the following functionally equivalent:
+
+[source, groovy]
+----
+git url: 'git://example.com/amazing-project.git', branch: 'master'
+git([url: 'git://example.com/amazing-project.git', branch: 'master'])
+----
+
+For convenience, when calling steps taking only one parameter (or only one
+mandatory parameter), the parameter name may be omitted, for example:
+
+[source, groovy]
+----
+sh 'echo hello' /* short form  */
+sh([script: 'echo hello'])  /* long form */
+----
