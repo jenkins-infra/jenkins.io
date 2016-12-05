@@ -5,12 +5,12 @@ module Awestruct
   module IBeams
 
     class Section
-      attr_accessor :title, :file, :asciidoc, :key
+      attr_accessor :title, :file, :asciidoc, :key, :summary
     end
 
     class Chapter
       attr_accessor :sections, :title,
-                    :file, :asciidoc, :key
+                    :file, :asciidoc, :key, :summary
 
       def initialize
         @sections = []
@@ -63,6 +63,7 @@ module Awestruct
           chapter = Chapter.new
           chapter.key = c
           chapter.title = pagemap[overview].title
+          chapter.summary = pagemap[overview].summary
 
           if sections = yaml['sections']
             sections.each do |s|
@@ -70,6 +71,7 @@ module Awestruct
               section.key = s
               full_path = File.join(dir, "#{s}.adoc")
               section.title = pagemap[full_path].title
+              section.summary = pagemap[full_path].summary
               chapter.sections << section
             end
           end
