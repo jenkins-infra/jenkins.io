@@ -58,8 +58,8 @@ The directory structure of a Shared Library repository is as follows:
 |       +- foo
 |           +- Bar.groovy  # for org.foo.Bar class
 +- vars
-|   +- foo.groovy          # for global 'foo' variable/function
-|   +- foo.txt             # help for 'foo' variable/function
+|   +- foo.groovy          # for global 'foo' variable
+|   +- foo.txt             # help for 'foo' variable
 +- resources               # resource files (external libraries only)
 |   +- org
 |       +- foo
@@ -148,7 +148,7 @@ import com.mycorp.pipeline.somelib.UsefulClass
 
 [NOTE]
 ====
-It is legal, though unnecessary, to `import` a global variable (or function)
+It is legal, though unnecessary, to `import` a global variable (or method)
 defined in the `vars/` directory:
 ====
 
@@ -170,7 +170,7 @@ int useSomeLib(Helper helper) {
 echo useSomeLib(new Helper('some text'))
 ----
 
-Global Variables/functions however, are resolved at runtime.
+Global Variables however, are resolved at runtime.
 
 === Overriding versions
 
@@ -183,7 +183,7 @@ annotation (unless the definition specifically forbids this).
 
 At the base level, any valid
 link:http://groovy-lang.org/syntax.html[Groovy code]
-is okay for use. Different data structures, utility functions, etc, such as:
+is okay for use. Different data structures, utility methods, etc, such as:
 
 [source,groovy]
 ----
@@ -198,8 +198,8 @@ class Point {
 
 === Accessing steps
 
-Library classes cannot directly call step functions such as `sh` or `git`.
-They can however implement functions, outside of the scope of an enclosing
+Library classes cannot directly call steps such as `sh` or `git`.
+They can however implement methods, outside of the scope of an enclosing
 class, which in turn invoke Pipeline steps, for example:
 
 [source,groovy]
@@ -252,7 +252,7 @@ node {
 ----
 
 If the library needs to access global variables, such as `env`, those should be
-explicitly passed into the library classes, or functions, in a similar manner.
+explicitly passed into the library classes, or methods, in a similar manner.
 
 Instead of passing numerous variables from the Pipeline Script into a library,
 
@@ -280,57 +280,60 @@ node {
 
 === Defining global variables
 
-Internally, scripts in the `vars` directory are instantiated as a singleton
-on-demand, when used first.  So it is possible to define more methods,
-properties on a single file that interact with each other:
+Internally, scripts in the `vars` directory are instantiated on-demand  as
+singletons. This allows multiple methods or properties to be defined in a
+single `.groovy` file which interact with each other, for example:
 
 [source,groovy]
 ----
 // vars/acme.groovy
-def setFoo(v) {
-    this.foo = v;
+def setName(value) {
+    this.name = value;
 }
-def getFoo() {
-    return this.foo;
+def getName() {
+    return this.name;
 }
-def say(name) {
-    echo "Hello world, ${name}"
+def caution(message) {
+    echo "Hello, ${this.name}! CAUTION: ${message}"
 }
 ----
 
-Then the Pipeline Script can invoke these functions, rooted off the `acme`
-object:
+The Pipeline Script can then invoke these methods which will be defined on the
+`acme` object:
 
 [source,groovy]
 ----
-acme.foo = "5";
-echo acme.foo; // print 5
-acme.say "Joe" // print "Hello world, Joe"
+acme.name = 'Alice'
+echo acme.name /* prints: 'Alice' */
+acme.caution 'The queen is angry!' /* prints: 'Hello, Alice. CAUTION: The queen is angry!' */
 ----
 
 [NOTE]
 ====
 A variable defined in a shared library will only show up in _Global Variables
-Reference_ (under _Pipeline Syntax_) after you have first run a successful
-build using that library, allowing its sources to be checked out by Jenkins.
+Reference_ (under _Pipeline Syntax_) after Jenkins loads and uses that library
+as part of a successful Pipeline run.
 ====
 
 === Defining steps
 
-Shared Libraries can also define global variables which look and feel like
-built-in steps, such as `sh` or `git`.
+Shared Libraries can also define global variables which behave similarly to
+built-in steps, such as `sh` or `git`. Global variables defined in Shared
+Libraries *must* be named with all lower-case or "camelCased" in order to be
+loaded properly by Pipeline.
+footnote:[https://gist.github.com/rtyler/e5e57f075af381fce4ed3ae57aa1f0c2]
 
-For example, to define `helloWorld`, the file `vars/helloWorld.groovy`
+For example, to define `sayHello`, the file `vars/sayHello.groovy`
 should be created and should implement a `call` method. The `call` method
-allows the global variable to be invoked in a manner similar to an step:
+allows the global variable to be invoked in a manner similar to a step:
 
 [source,groovy]
 ----
-// vars/helloWorld.groovy
-def call(name) {
-    // you can call any valid step functions from your code, just like you can
-    // from Pipeline scripts
-    echo "Hello world, ${name}"
+// vars/sayHello.groovy
+def call(String name = 'human') {
+    // Any valid steps can be called from this code, just like in other
+    // Pipeline scripts
+    echo "Hello, ${name}."
 }
 ----
 
@@ -338,16 +341,9 @@ The Pipeline Script would then be able to reference and invoke this variable:
 
 [source,groovy]
 ----
-helloWorld "Joe"
+sayHello 'Joe'
+sayHello() /* invoke with default arguments */
 ----
-
-[NOTE]
-====
-The `call()` method will not be automatically invoked if `helloWorld` is
-referenced without *any* arguments. Implementing a global variable which
-requires no default arguments **must** be explicitly invoked like a method, for
-example: `helloWorld()`
-====
 
 If called with a block, the `call` method will receive a
 link:http://groovy-lang.org/closures.html[`Closure`].
