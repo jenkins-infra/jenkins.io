@@ -277,57 +277,6 @@ node {
 }
 ----
 
-=== Defining steps
-
-
-Shared Libraries can also define functions which look and feel like built-in
-steps, such as `sh` or `git`.
-
-
-For example, to define `helloWorld` step, the file `vars/helloWorld.groovy`
-should be created and have a `call` method defined:
-
-[source,groovy]
-----
-// vars/helloWorld.groovy
-def call(name) {
-    // you can call any valid step functions from your code, just like you can from Pipeline scripts
-    echo "Hello world, ${name}"
-}
-----
-
-The Pipeline Script would then be able to call this step:
-
-[source,groovy]
-----
-helloWorld "Joe"
-----
-
-If called with a block, the `call` method will receive a 
-link:http://groovy-lang.org/closures.html[`Closure`].
-The type should be defined explicitly to clarify the intent of the step, for
-example:
-
-[source,groovy]
-----
-// vars/windows.groovy
-def call(Closure body) {
-    node('windows') {
-        body()
-    }
-}
-----
-
-The Pipeline Script can then use this like any other step which accepts a
-block:
-
-[source,groovy]
-----
-windows {
-    bat "cmd /?"
-}
-----
-
 
 === Defining global variables
 
@@ -366,18 +315,76 @@ Reference_ (under _Pipeline Syntax_) after you have first run a successful
 build using that library, allowing its sources to be checked out by Jenkins.
 ====
 
+=== Defining steps
+
+Shared Libraries can also define global variables which look and feel like
+built-in steps, such as `sh` or `git`.
+
+For example, to define `helloWorld`, the file `vars/helloWorld.groovy`
+should be created and should implement a `call` method. The `call` method
+allows the global variable to be invoked in a manner similar to an step:
+
+[source,groovy]
+----
+// vars/helloWorld.groovy
+def call(name) {
+    // you can call any valid step functions from your code, just like you can
+    // from Pipeline scripts
+    echo "Hello world, ${name}"
+}
+----
+
+The Pipeline Script would then be able to reference and invoke this variable:
+
+[source,groovy]
+----
+helloWorld "Joe"
+----
+
+[NOTE]
+====
+The `call()` method will not be automatically invoked if `helloWorld` is
+referenced without *any* arguments. Implementing a global variable which
+requires no default arguments **must** be explicitly invoked like a method, for
+example: `helloWorld()`
+====
+
+If called with a block, the `call` method will receive a
+link:http://groovy-lang.org/closures.html[`Closure`].
+The type should be defined explicitly to clarify the intent of the step, for
+example:
+
+[source,groovy]
+----
+// vars/windows.groovy
+def call(Closure body) {
+    node('windows') {
+        body()
+    }
+}
+----
+
+The Pipeline Script can then use this variable like any built-in step which
+accepts a block:
+
+[source,groovy]
+----
+windows {
+    bat "cmd /?"
+}
+----
 
 === Defining a more structured DSL
 
 If you have a lot of Pipeline jobs that are mostly similar, the global
-function/variable mechanism gives you a handy tool to build a higher-level DSL
+variable mechanism gives you a handy tool to build a higher-level DSL
 that captures the similarity. For example, all Jenkins plugins are built and
 tested in the same way, so we might write a step named
-`jenkinsPlugin`:
+`buildPlugin`:
 
 [source,groovy]
 ----
-// vars/jenkinsPlugin.groovy
+// vars/buildPlugin.groovy
 def call(body) {
     // evaluate the body block, and collect configuration into the object
     def config = [:]
@@ -402,7 +409,7 @@ the resulting `Jenkinsfile` will be dramatically simpler:
 [pipeline]
 ----
 // Script //
-jenkinsPlugin {
+buildPlugin {
     name = 'git'
 }
 // Declarative not yet implemented //
@@ -412,7 +419,7 @@ jenkinsPlugin {
 
 It is possible to use third-party Java libraries, typically found in
 link:http://search.maven.org/[Maven Central],
-from *trusted* library code using the `@Grab` annotation.  Refer to the 
+from *trusted* library code using the `@Grab` annotation.  Refer to the
 link:http://docs.groovy-lang.org/latest/html/documentation/grape.html#_quick_start[Grape documentation]
 for details, but simply put:
 
