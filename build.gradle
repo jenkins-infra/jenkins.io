@@ -27,6 +27,7 @@ import com.github.jrubygradle.JRubyExec
 
 ext.gitRef = Grgit.open('.')?.head()?.abbreviatedId
 ext.siteOutputDir = "${buildDir}/_site"
+ext.userHandbook  = "${buildDir}/user-handbook"
 
 description = 'Build for generating jenkins.io'
 version = "2.0.${System.env.BUILD_NUMBER ?: '0'}+${ext.gitRef}"
@@ -137,7 +138,7 @@ task fetchReleaseHistory(type: JavaExec) {
     classpath = configurations.externalFetcher
     main = 'groovy.ui.GroovyMain'
     def groovyScript = "${projectDir}/scripts/release.rss.groovy"
-    args groovyScript, "http://updates.jenkins.io/release-history.json"
+    args groovyScript, "https://updates.jenkins.io/release-history.json"
 
     file(project.ext.siteOutputDir).mkdirs()
 
@@ -189,6 +190,40 @@ task prepareJavaScripts {
         }
     }
 }
+task prepareUserHandbook(type: JRubyExec) {
+    group 'Handbook'
+    description 'Generate the raw .adoc file for PDF generation'
+    script "${projectDir}/scripts/generate-handbook-pdf"
+    scriptArgs "${project.ext.userHandbook}.adoc"
+    configuration 'asciidoctor'
+    inputs.source file("${projectDir}/scripts/generate-handbook-pdf")
+}
+
+task printHandbook(type: JRubyExec) {
+    group 'Handbook'
+    description 'Take the computed .adof file and generate a PDF'
+    dependsOn prepareUserHandbook
+    script 'asciidoctor-pdf'
+    scriptArgs '--base-dir', 'content', '--out-file',
+                    "${project.ext.userHandbook}.pdf",
+                    "${project.ext.userHandbook}.adoc"
+    configuration 'asciidoctor'
+
+    doLast {
+        file(project.ext.siteOutputDir).mkdirs()
+        copy {
+            from "${project.ext.userHandbook}.pdf"
+            into project.ext.siteOutputDir
+        }
+    }
+
+}
+
+task printBooks {
+    group 'Handbook'
+    description 'Generate all non-HTML-based handbook files'
+    dependsOn printHandbook
+}
 
 task assemble {
     group 'Site'
@@ -197,7 +232,8 @@ task assemble {
                 fetchExamples,
                 fetchReleaseHistory,
                 prepareJavaScripts,
-                compileContent
+                compileContent,
+                printBooks
 }
 
 task archiveBeta(type: Zip) {
@@ -219,6 +255,7 @@ task archive {
     description 'Create a zip archive of the site for deployment'
     dependsOn archiveBeta
 }
+
 
 task run(type:Exec) {
     description 'inspect the generated build/_site locally through http://localhost:4242/'
