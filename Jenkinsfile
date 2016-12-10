@@ -85,7 +85,7 @@ try {
             * which we can use for the deployment of the site. This stage will archive
             * that artifact so we can pick it up later
             */
-            archiveArtifacts artifacts: 'build/**/*.zip,build/**/*.pdf', fingerprint: true
+            archiveArtifacts artifacts: 'build/**/*.zip,build/_site/*.pdf', fingerprint: true
             /* stash the archived site so we can pull it back out when we deploy */
             stash includes: 'build/**/*.zip', name: 'built-site'
         }
