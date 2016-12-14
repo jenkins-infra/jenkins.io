@@ -6,43 +6,150 @@ layout: chapter
 :author:
 :email: jenkinsci-users@googlegroups.com
 :sectanchors:
-:toc: left
+:toc:
+
+////
+NOTE: The sections are ordered from simpler to progressively more complex
+subjects.  The earlier sections are intended for those new to pipeline or
+unfamiliar with its latest features.  The later sections with discuss
+expert-level considerations and corner-cases.
+
+This chapter functions as a continuation of "Getting Started with Jenkins" and
+"Using Jenkins" , but the format will be slightly different - see the
+description above.  The first sections should lead users through the basics of
+pipeline, and later sections can switch to feature reference for experienced
+users. All sections should still be written and ordered to only assume
+knowledge from "Getting Started", "Using Jenkins", or from previous sections in
+this chapter.
+////
+
 
 = Pipeline
 
-This chapter will cover all aspects of the Jenkins Pipeline, from running pipeline jobs
-to writing your own pipeline code.
+This chapter will cover all aspects of Jenkins Pipeline, from running pipeline jobs
+to writing your own pipeline code, and even extending Pipeline.
 
 This chapter is intended to be used by Jenkins users of all skill levels,
 but beginners may need to refer to some sections of "<<using#,Using Jenkins>>"
 to understand some topics covered in this chapter.
 
-The sections are ordered from simpler to progressively more complex subjects.
-The earlier sections are intended for those new to pipeline or unfamiliar with its
-latest features.  The later sections with discuss expert-level considerations
-and corner-cases.
-
 If you are not yet familiar with basic Jenkins terminology and features, start with
 <<getting-started#,Getting Started with Jenkins>>.
 
-If you are already familiar with Jenkins basics and would like to delve deeper
-into generally how to use various features, see
-<<using#,Using Jenkins>>.
+[[overview]]
+== What is Pipeline?
 
-If you are a Jenkins administrator and want to know more about managing Jenkins nodes and instances, see
-<<managing#,Managing Jenkins>>.
+Jenkins Pipeline is a suite of plugins which supports implementing and
+integrating continuous delivery pipelines into Jenkins. Pipeline provides an
+extensible set of tools for modeling simple-to-complex delivery pipelines "as
+code" via the Pipeline DSL.
+footnoteref:[dsl,link:https://en.wikipedia.org/wiki/Domain-specific_language[Domain-Specific Language]]
 
-If you are a system administrator and want learn how to back-up, restore, maintain as Jenkins servers and nodes, see
-<<operating#,Operating Jenkins>>.
+Typically, this "Pipeline as Code" would be written to  a `Jenkinsfile` and
+checked into a project's source control repository, for example:
+
+[pipeline]
+----
+// Script //
+node { // <1>
+    stage('Build') { // <2>
+        sh 'make' // <3>
+    }
+
+    stage('Test') {
+        sh 'make check'
+        junit 'reports/**/*.xml' // <4>
+    }
+
+    stage('Deploy') {
+        sh 'make publish'
+    }
+}
+
+// Declarative not yet implemented //
+----
+<1> <<node,`node`>> indicates that Jenkins should allocate an executor and workspace for
+this part of the Pipeline.
+<2> <<stage,`stage`>> describes a stage of this Pipeline.
+<3> `sh` executes the given shell command
+<4> `junit` is a Pipeline <<step,step>> provided by the
+link:https://plugins.jenkins.io/junit[JUnit plugin]
+for aggregating test reports.
+
+[[why]]
+== Why Pipeline?
+
+Jenkins is, fundamentally, an automation engine which supports a number of
+automation patterns. Pipeline adds a powerful set of automation tools onto
+Jenkins, supporting use cases that span from simple continuous integration to
+comprehensive continuous delivery pipelines. By modeling a series of related
+tasks, users can take advantage of the many features of Pipeline:
+
+* *Code*: Pipelines are implemented in code and typically checked into
+  source control, giving teams the ability to edit, review, and iterate upon
+  their delivery pipeline.
+* *Durable*: Pipelines can survive both planned and unplanned restarts of the
+  Jenkins master.
+* *Pausable*: Pipelines can optionally stop and wait for human input or approval
+  before continuing the Pipeline run.
+* *Versatile*: Pipelines support complex real-world continuous delivery
+  requirements, including the ability to fork/join, loop, and perform work in
+  parallel.
+* *Extensible*: The Pipeline plugin supports custom extensions to its DSL
+  footnoteref:[dsl]
+  and multiple options for integration with other plugins.
 
 
-[WARNING]
-====
-*To Contributors*:
-This chapter functions as a continuation of "<<getting-started#,Getting Started with Jenkins>>"
-and "<<using#,Using Jenkins>>", but the format will be slightly different - see the description above.
-The first sections should lead users through the basics of pipeline, and later sections can switch to
-feature reference for experienced users. All sections should still
-be written and ordered to only assume knowledge from "Getting Started", "Using Jenkins", or
-from previous sections in this chapter.
-====
+While Jenkins has always allowed rudimentary forms of chaining Freestyle Jobs
+together to perform sequential tasks,
+footnote:[Additional plugins have been used to implement complex behaviors
+utilizing Freestyle Jobs such as the Copy Artifact, Parameterized Trigger,
+and Promoted Builds plugins]
+Pipeline makes this concept a first-class citizen in Jenkins.
+
+Building on the core Jenkins value of extensibility, Pipeline is also
+extensible both by users with <<pipeline/shared-libraries#,Pipeline Shared Libraries>>
+and by plugin developers.
+footnoteref:[ghof,link:https://plugins.jenkins.io/github-organization-folder[GitHub
+Organization Folder plugin]]
+
+
+The flowchart below is an example of one continuous delivery scenario easily
+modeled in Jenkins Pipeline:
+
+image::/images/pipeline/realworld-pipeline-flow.png[title="Pipeline Flow", 800]
+
+
+[[terms]]
+== Pipeline Terms
+
+[[step]]
+Step::
+    A single task; fundamentally steps tell Jenkins _what_ to do. For example,
+    to execute the shell command `make` use the `sh` step: `sh 'make'`.
+    When a plugin extends the Pipeline DSL, that typically means the plugin has
+    implemented a new _step_.
+
+[[node]]
+Node::
+    Most _work_ a Pipeline performs is done in the context of one or more
+    declared `node` steps. Confining the work inside of a node step does two
+    things:
+    . Schedules the steps contained within the block to run by adding an item
+      to the Jenkins queue. As soon as an executor is free on a node, the
+      steps will run.
+    . Creates a workspace (a directory specific to that particular
+      Pipeline) where work can be done on files checked out from source control.
+
+CAUTION: Depending on your Jenkins configuration, some workspaces may not get
+automatically cleaned up after a period of inactivity. See tickets and
+discussion linked from
+https://issues.jenkins-ci.org/browse/JENKINS-2111[JENKINS-2111]
+for more information.
+
+[[stage]]
+Stage::
+    `stage` is a step for defining a conceptually distinct subset of the
+    entire Pipeline, for example: "Build", "Test", and "Deploy", which is tused by many.
+    plugins to visualize or present Jenkins Pipeline status/progress.
+    footnoteref:[blueocean,link:/projects/blueocean[Blue Ocean], link:https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Stage+View+Plugin[Pipeline Stage View plugin]]

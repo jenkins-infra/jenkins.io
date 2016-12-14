@@ -1,0 +1,467 @@
+---
+layout: section
+---
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:imagesdir: /doc/book/resources/pipeline
+:hide-uri-scheme:
+:toc:
+
+= Shared Libraries
+
+As Pipeline is adopted for more and more projects in an organization, common
+patterns are likely to emerge. Oftentimes it is useful to share parts of
+Pipeline scripts between various projects to reduce redundancies and keep code
+"DRY"
+footnoteref:[dry, http://en.wikipedia.org/wiki/Don\'t_repeat_yourself].
+
+Pipeline has support for creating "Shared Libraries" which can be defined in
+external source control repositories and loaded into existing Pipelines.
+
+== Defining Shared Libraries
+
+An Shared Library is defined with a name, a source code retrieval method such
+as by SCM, and optionally a default version.  The name should be a short
+identifier as it will be used in scripts.
+
+The version could be anything understood by that SCM; for example, branches,
+tags, and commit hashes all work for Git.  You may also declare whether scripts
+need to explicitly request that library (detailed below), or if it is present
+by default.  Furthermore, if you specify a version in Jenkins configuration,
+you can block scripts from selecting a _different_ version.
+
+The best way to specify the SCM is using an SCM plugin which has been
+specifically updated to support a new API for checking out an arbitrary named
+version (_Modern SCM_ option).  As of this writing, the latest versions of the
+Git and Subversion plugins support this mode; others should follow.
+
+If your SCM plugin has not been integrated, you may select _Legacy SCM_ and
+pick anything offered.  In this case, you need to include
+`${library.yourLibName.version}` somewhere in the configuration of the SCM, so
+that during checkout the plugin will expand this variable to select the desired
+version.  For example, for Subversion, you can set the _Repository URL_ to
+`https://svnserver/project/${library.yourLibName.version}` and then use
+versions such as `trunk` or `branches/dev` or `tags/1.0`.
+
+=== Directory structure
+
+The directory structure of a Shared Library repository is as follows:
+
+[source]
+----
+(root)
++- src                     # Groovy source files
+|   +- org
+|       +- foo
+|           +- Bar.groovy  # for org.foo.Bar class
++- vars
+|   +- foo.groovy          # for global 'foo' variable
+|   +- foo.txt             # help for 'foo' variable
++- resources               # resource files (external libraries only)
+|   +- org
+|       +- foo
+|           +- bar.json    # static helper data for org.foo.Bar
+----
+
+The `src` directory should look like standard Java source directory structure.
+This directory is added to the classpath when executing Pipelines.
+
+The `vars` directory hosts scripts that define global variables accessible from
+Pipeline scripts.
+The basename of each `*.groovy` file should be a Groovy (~ Java) identifier, conventionally `camelCased`.
+The matching `*.txt`, if present, can contain documentation, processed through the system’s configured markup formatter
+(so may really be HTML, Markdown, etc., though the `txt` extension is required).
+
+The Groovy source files in these directories get the same “CPS transformation” as your Pipeline scripts.
+
+A `resources` directory allows the `libraryResource` step to be used from an external library to load associated non-Groovy files.
+Currently this feature is not supported for internal libraries.
+
+Other directories under the root are reserved for future enhancements.
+
+=== Global Shared Libraries
+
+There are several places where Shared Libraries can be defined, depending on
+the use-case. _Manage Jenkins » Configure System » Global Pipeline Libraries_
+as many libraries as necessary can be configured.
+
+Since these libraries will be globally usable, any Pipeline in the system can
+utilize functionality implemented in these libraries.
+
+These libraries are considered "trusted:" they can run any methods in Java,
+Groovy, Jenkins internal APIs, Jenkins plugins, or third-party libraries.  This
+allows you to define libraries which encapsulate individually unsafe APIs in a
+higher-level wrapper safe for use from any job.  Beware that **anyone able to
+push commits to this SCM repository could obtain unlimited access to Jenkins**.
+You need the _Overall/RunScripts_ permission to configure these libraries
+(normally this will be granted to Jenkins administrators).
+
+=== Folder-level Shared Libraries
+
+Any Folder created can have Shared Libraries associated with it. This mechanism
+allows scoping of specific libraries to all the Pipelines inside of the folder
+or subfolder.
+
+Folder-based libraries are not considered "trusted:" they run in the Groovy
+sandbox just like typical Pipeline scripts.
+
+===  Automatic Shared Libraries
+
+Other plugins may add ways of defining libraries on the fly.
+For example, the
+link:https://plugins.jenkins.io/github-organization-folder[GitHub Organization Folder]
+plugin allows a scripty to use an untrusted library such as
+`github.com/someorg/somerepo` without any additional configuration.  In this
+case, the specified GitHub repository would be loaded, from the `master`
+branch, using an anonymous checkout.
+
+== Using libraries
+
+Pipeline scripts can access shared libraries marked _Load implicitly_, They may
+immediately use classes or global variables defined by any such libraries
+(details below).
+
+To access other shared libraries, a script needs to use the `@Library`
+annotation, specifying the library's name:
+
+[source,groovy]
+----
+@Library('somelib')
+/* Using a version specifier, such as branch, tag, etc */
+@Library('somelib@1.0')
+/* Accessing multiple libraries with one statement */
+@Library(['somelib', 'otherlib@abc1234'])
+----
+
+The annotation can be anywhere in the script where an annotation is permitted
+by Groovy.  When referring to class libraries (with `src/` directories),
+conventionally the annotation goes on an `import` statement:
+
+[source,groovy]
+----
+@Library('somelib')
+import com.mycorp.pipeline.somelib.UsefulClass
+----
+
+[NOTE]
+====
+It is legal, though unnecessary, to `import` a global variable (or method)
+defined in the `vars/` directory:
+====
+
+Note that libraries are resolved and loaded during _compilation_ of the script,
+before it starts executing.  This allows the Groovy compiler to understand the
+meaning of symbols used in static type checking, and permits them to be used
+in type declarations in the script, for example:
+
+[source,groovy]
+----
+@Library('somelib')
+import com.mycorp.pipeline.somelib.Helper
+
+int useSomeLib(Helper helper) {
+    helper.prepare()
+    return helper.count()
+}
+
+echo useSomeLib(new Helper('some text'))
+----
+
+Global Variables however, are resolved at runtime.
+
+=== Overriding versions
+
+A `@Library` annotation may override a default version given in the library’s
+definition, if the definition permits this.  In particular, a shared library
+marked for implicit use can still be loaded in a different version using the
+annotation (unless the definition specifically forbids this).
+
+== Writing libraries
+
+At the base level, any valid
+link:http://groovy-lang.org/syntax.html[Groovy code]
+is okay for use. Different data structures, utility methods, etc, such as:
+
+[source,groovy]
+----
+// src/org/foo/Point.groovy
+package org.foo;
+
+// point in 3D space
+class Point {
+  float x,y,z;
+}
+----
+
+=== Accessing steps
+
+Library classes cannot directly call steps such as `sh` or `git`.
+They can however implement methods, outside of the scope of an enclosing
+class, which in turn invoke Pipeline steps, for example:
+
+[source,groovy]
+----
+// src/org/foo/Zot.groovy
+package org.foo;
+
+def checkOutFrom(repo) {
+  git url: "git@github.com:jenkinsci/${repo}"
+}
+----
+
+Which can then be called from a Pipeline Script:
+
+[source,groovy]
+----
+def z = new org.foo.Zot()
+z.checkOutFrom(repo)
+----
+
+This approach has limitations; for example, it prevents the declaration of a
+superclass.
+
+Alternately, a set of `steps` can be passed explicitly to a library class, in a
+constructor, or just one method:
+
+[source,groovy]
+----
+package org.foo
+class Utilities implements Serializable {
+  def steps
+  Utilities(steps) {this.steps = steps}
+  def mvn(args) {
+    steps.sh "${steps.tool 'Maven'}/bin/mvn -o ${args}"
+  }
+}
+----
+
+When saving state on classes, such as above, the class *must* impmlement the
+`Serializable` interface. This ensures that a Pipeline using the class, as seen
+in the example below, can properly suspend and resume in Jenkins.
+
+[source,groovy]
+----
+@Library('utils') import org.foo.Utilities
+def utils = new Utilities(steps)
+node {
+  utils.mvn 'clean package'
+}
+----
+
+If the library needs to access global variables, such as `env`, those should be
+explicitly passed into the library classes, or methods, in a similar manner.
+
+Instead of passing numerous variables from the Pipeline Script into a library,
+
+[source,groovy]
+----
+package org.foo
+class Utilities {
+  static def mvn(script, args) {
+    script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
+  }
+}
+----
+
+The above example shows the script being passed in to one `static` method,
+invoked from a Pipeline Script as follows:
+
+[source,groovy]
+----
+@Library('utils') import static org.foo.Utilities.*
+node {
+  mvn this, 'clean package'
+}
+----
+
+
+=== Defining global variables
+
+Internally, scripts in the `vars` directory are instantiated on-demand  as
+singletons. This allows multiple methods or properties to be defined in a
+single `.groovy` file which interact with each other, for example:
+
+[source,groovy]
+----
+// vars/acme.groovy
+def setName(value) {
+    this.name = value;
+}
+def getName() {
+    return this.name;
+}
+def caution(message) {
+    echo "Hello, ${this.name}! CAUTION: ${message}"
+}
+----
+
+The Pipeline Script can then invoke these methods which will be defined on the
+`acme` object:
+
+[source,groovy]
+----
+acme.name = 'Alice'
+echo acme.name /* prints: 'Alice' */
+acme.caution 'The queen is angry!' /* prints: 'Hello, Alice. CAUTION: The queen is angry!' */
+----
+
+[NOTE]
+====
+A variable defined in a shared library will only show up in _Global Variables
+Reference_ (under _Pipeline Syntax_) after Jenkins loads and uses that library
+as part of a successful Pipeline run.
+====
+
+=== Defining steps
+
+Shared Libraries can also define global variables which behave similarly to
+built-in steps, such as `sh` or `git`. Global variables defined in Shared
+Libraries *must* be named with all lower-case or "camelCased" in order to be
+loaded properly by Pipeline.
+footnote:[https://gist.github.com/rtyler/e5e57f075af381fce4ed3ae57aa1f0c2]
+
+For example, to define `sayHello`, the file `vars/sayHello.groovy`
+should be created and should implement a `call` method. The `call` method
+allows the global variable to be invoked in a manner similar to a step:
+
+[source,groovy]
+----
+// vars/sayHello.groovy
+def call(String name = 'human') {
+    // Any valid steps can be called from this code, just like in other
+    // Pipeline scripts
+    echo "Hello, ${name}."
+}
+----
+
+The Pipeline Script would then be able to reference and invoke this variable:
+
+[source,groovy]
+----
+sayHello 'Joe'
+sayHello() /* invoke with default arguments */
+----
+
+If called with a block, the `call` method will receive a
+link:http://groovy-lang.org/closures.html[`Closure`].
+The type should be defined explicitly to clarify the intent of the step, for
+example:
+
+[source,groovy]
+----
+// vars/windows.groovy
+def call(Closure body) {
+    node('windows') {
+        body()
+    }
+}
+----
+
+The Pipeline Script can then use this variable like any built-in step which
+accepts a block:
+
+[source,groovy]
+----
+windows {
+    bat "cmd /?"
+}
+----
+
+=== Defining a more structured DSL
+
+If you have a lot of Pipeline jobs that are mostly similar, the global
+variable mechanism gives you a handy tool to build a higher-level DSL
+that captures the similarity. For example, all Jenkins plugins are built and
+tested in the same way, so we might write a step named
+`buildPlugin`:
+
+[source,groovy]
+----
+// vars/buildPlugin.groovy
+def call(body) {
+    // evaluate the body block, and collect configuration into the object
+    def config = [:]
+    body.resolveStrategy = Closure.DELEGATE_FIRST
+    body.delegate = config
+    body()
+
+    // now build, based on the configuration provided
+    node {
+        git url: "https://github.com/jenkinsci/${config.name}-plugin.git"
+        sh "mvn install"
+        mail to: "...", subject: "${config.name} plugin build", body: "..."
+    }
+}
+----
+
+Assuming the script has either been loaded as a
+<<global-shared-libraries,Global Shared Library>> or as a
+<<folder-level-shared-libraries, Folder-level Shared Library>>
+the resulting `Jenkinsfile` will be dramatically simpler:
+
+[pipeline]
+----
+// Script //
+buildPlugin {
+    name = 'git'
+}
+// Declarative not yet implemented //
+----
+
+=== Using third-party libraries
+
+It is possible to use third-party Java libraries, typically found in
+link:http://search.maven.org/[Maven Central],
+from *trusted* library code using the `@Grab` annotation.  Refer to the
+link:http://docs.groovy-lang.org/latest/html/documentation/grape.html#_quick_start[Grape documentation]
+for details, but simply put:
+
+[source,groovy]
+----
+@Grab('org.apache.commons:commons-math3:3.4.1')
+import org.apache.commons.math3.primes.Primes
+void parallelize(int count) {
+  if (!Primes.isPrime(count)) {
+    error "${count} was not prime"
+  }
+  // …
+}
+----
+
+Third-party libraries are cached by default in `~/.groovy/grapes/` on the
+Jenkins master.
+
+=== Loading resources
+
+External libraries may load adjunct files from a `resources/` directory using
+the `libraryResource` step.  The argument is a relative pathname, akin to Java
+resource loading:
+
+[source,groovy]
+----
+def request = libraryResource 'com/mycorp/pipeline/somelib/request.json'
+----
+
+The file is loaded as a string, suitable for passing to certain APIs or saving
+to a workspace using `writeFile`.
+
+It is advisable to use an unique package structure so you do not accidentally
+conflict with another library.
+
+=== Pretesting library changes
+
+If you notice a mistake in a build using an untrusted library,
+simply click the _Replay_ link to try editing one or more of its source files,
+and see if the resulting build behaves as expected.
+Once you are satisfied with the result, follow the diff link from the build’s status page,
+and apply the diff to the library repository and commit.
+
+(Even if the version requested for the library was a branch, rather than a fixed version like a tag,
+replayed builds will use the exact same revision as the original build:
+library sources will not be checked out again.)
+
+_Replay_ is not currently supported for trusted libraries.
+Modifying resource files is also not currently supported during _Replay_.
