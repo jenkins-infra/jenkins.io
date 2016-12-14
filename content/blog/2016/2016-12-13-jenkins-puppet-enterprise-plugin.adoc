@@ -8,13 +8,34 @@ tags:
 author: ccaum
 ---
 
-During PuppetConf 2016, myself and Brian Dawson from CloudBees announced the link:https://wiki.jenkins-ci.org/display/JENKINS/Puppet+Enterprise+Pipeline+Plugin[Puppet Enterprise plugin for Jenkins Pipeline.] Let's take a look at how the plugin makes it trivial to use Puppet to perform some or all of the deployment tasks in continuous delivery pipelines.
+During PuppetConf 2016, myself and Brian Dawson from CloudBees announced the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Puppet+Enterprise+Pipeline+Plugin[Puppet
+Enterprise plugin for Jenkins Pipeline.] Let's take a look at how the plugin
+makes it trivial to use Puppet to perform some or all of the deployment tasks
+in continuous delivery pipelines.
 
-Jenkins Pipeline introduced an amazing world where pipelines are defined and managed from the version control repository that houses the code the pipeline delivers. This is a powerful idea, and one I fealt complemented Puppet's automation strengths. I wanted to make it trivial to control Puppet Enterprise's orchestration and infrastructure code management capabilities, as well as control Hiera data and use PuppetDB as a source of truth – all from a Pipeline script. The result was a plugin that fully buys into the Pipeline ideals by providing methods to control the different capabilities in Puppet Enterprise. The methods provide ways to query PuppetDB, set Hiera key/value pairs, deploy Puppet code environments, and kick off orchestrated Puppet runs.
+Jenkins Pipeline introduced an amazing world where pipelines are defined and
+managed from the version control repository that houses the code the pipeline
+delivers. This is a powerful idea, and one I felt complemented Puppet's
+automation strengths. I wanted to make it trivial to control Puppet
+Enterprise's orchestration and infrastructure code management capabilities, as
+well as control Hiera data and use PuppetDB as a source of truth – all from a
+Pipeline script. The result was the Puppet Enterprise plugin,which fully buys
+into the Pipeline ideals by providing methods to control the different
+capabilities in Puppet Enterprise. The methods provide ways to query PuppetDB,
+set Hiera key/value pairs, deploy Puppet code environments, and kick off
+orchestrated Puppet runs.
 
 == The Puppet Enterprise for Jenkins Pipeline plugin
 
-The Puppet Enterprise for Jenkins Pipeline plugin itself has zero system dependencies. You need only to install the plugin from the update center. The plugin uses APIs available in Puppet Enterprise to do its work. Since the PuppetDB query, code management, node management, and orchestrator APIs are all backed by Puppet Enterprise's role-based access control (RBAC) system, it's easy to restrict what pipelines are allowed to control in Puppet Enterprise. To learn more about RBAC in Puppet Enterprise, link:https://docs.puppet.com/pe/latest/rbac_intro.html[read the docs here.]
+The Puppet Enterprise for Jenkins Pipeline plugin itself has zero system
+dependencies. You need only to install the plugin from the update center. The
+plugin uses APIs available in Puppet Enterprise to do its work. Since the
+PuppetDB query, code management, node management, and orchestrator APIs are all
+backed by Puppet Enterprise's role-based access control (RBAC) system, it's
+easy to restrict what pipelines are allowed to control in Puppet Enterprise. To
+learn more about RBAC in Puppet Enterprise,
+link:https://docs.puppet.com/pe/latest/rbac_intro.html[read the docs here.]
 
 == Configuring
 
@@ -26,13 +47,26 @@ Configuring the plugin is fairly straight forward. It takes three simple steps
 
 === Setting the Puppet Enterprise server address
 
-Go to Jenkins > Manage Jenkins > Puppet Enterprise page. Put the DNS address of the Puppet server in the *Puppet Master Address* text field. Click the *Test Connection* button to verify the server is reachable, the Puppet CA certificate is retrievable, and HTTPS connections are successful. Click *Save* if the test comes back successful.
+Go to Jenkins > Manage Jenkins > Puppet Enterprise page. Put the DNS address of
+the Puppet server in the *Puppet Master Address* text field. Click the *Test
+Connection* button to verify the server is reachable, the Puppet CA certificate
+is retrievable, and HTTPS connections are successful. Click *Save* if the test
+comes back successful.
 
 === Authentication Token
 
-The plugin uses the Jenkins built-in credentials system (the plain-credentials plugin) to store and refer RBAC tokens to Puppet Enterprise for authentication and authorization. First, generate an RBAC toke in Puppet Enterprise by following link:https://docs.puppet.com/pe/latest/rbac_token_auth.html#generating-a-token-for-use-by-a-service[the instructions on the docs site.] Next, create a new Jenkins Credentials item with Kind *Secret text* and the *Secret* value the Puppet Enterprise RBAC token. It's highly recommended to give the credential an ID value that's descriptive and identifiable. You'll use it in your Pipeline scripts.
+The plugin uses the Jenkins built-in credentials system (the plain-credentials
+plugin) to store and refer RBAC tokens to Puppet Enterprise for authentication
+and authorization. First, generate an RBAC toke in Puppet Enterprise by
+following
+link:https://docs.puppet.com/pe/latest/rbac_token_auth.html#generating-a-token-for-use-by-a-service[the
+instructions on the docs site.] Next, create a new Jenkins Credentials item
+with Kind *Secret text* and the *Secret* value the Puppet Enterprise RBAC
+token. It's highly recommended to give the credential an ID value that's
+descriptive and identifiable. You'll use it in your Pipeline scripts.
 
-In your Jenkinsfile, use the puppet.credentials method to set all future Puppet methods to use the RBAC token. For example:
+In your Jenkinsfile, use the puppet.credentials method to set all future Puppet
+methods to use the RBAC token. For example:
 
 ----
 puppet.credentials 'pe-team-token'
@@ -40,15 +74,23 @@ puppet.credentials 'pe-team-token'
 
 === Hiera Backend
 
-The plugin exposes an HTTP API for performing Hiera data lookups for key/value pairs managed by Pipeline jobs. To configure Hiera on the Puppet compile master(s) to query the Jenkins Hiera data store backend, use the link:https://github.com/crayfishx/hiera-http[hiera-http] backend.
-On the Puppet Enterprise compile master(s), run the following commands:
+The plugin exposes an HTTP API for performing Hiera data lookups for key/value
+pairs managed by Pipeline jobs. To configure Hiera on the Puppet compile
+master(s) to query the Jenkins Hiera data store backend, use the
+link:https://github.com/crayfishx/hiera-http[hiera-http] backend.  On the
+Puppet Enterprise compile master(s), run the following commands:
 
 ----
 /opt/puppetlabs/puppet/bin/gem install hiera-http
 /opt/puppetlabs/bin/puppetserver gem install hiera-http
 ----
 
-Now you can configure the /etc/puppetlabs/puppet/hiera.yaml file. The following configuration instructs Hiera to first look to the Hiera yaml files in the Puppet code's environment, then fall back to the http backend. The http backend will first query the Hiera data store API looking for the key in the scope with the same name as the node. If nothing's found, look for the key in the node's environments. You can use any Facter fact to match scope names.
+Now you can configure the /etc/puppetlabs/puppet/hiera.yaml file. The following
+configuration instructs Hiera to first look to the Hiera yaml files in the
+Puppet code's environment, then fall back to the http backend. The http backend
+will first query the Hiera data store API looking for the key in the scope with
+the same name as the node. If nothing's found, look for the key in the node's
+environments. You can use any Facter fact to match scope names.
 
 ----
 :backends:
@@ -77,13 +119,26 @@ Finally, restart the pe-puppetserver process to pick up the new configs.
 
 ==== Hiera HTTP Authentication
 
-If Jenkins' Global Security is configured to allow unauthenticated read-only access, the 'use_auth', 'auth_pass', and 'auth_user' parameters are unnecessary. Otherwise, create a local Jenkins user that has permissions to view the Hiera Data Lookup page and use that user's credentials for the hiera.yaml configuration.
+If Jenkins' Global Security is configured to allow unauthenticated read-only
+access, the 'use_auth', 'auth_pass', and 'auth_user' parameters are
+unnecessary. Otherwise, create a local Jenkins user that has permissions to
+view the Hiera Data Lookup page and use that user's credentials for the
+hiera.yaml configuration.
 
 == Querying the infrastructure
 
-PuppetDB is an extensive data store that holds every bit of information Puppet generates and collects across every system Puppet is installed on. PuppetDB's provides a sweet query language called link:https://docs.puppet.com/puppetdb/4.3/api/query/v4/pql.html[PQL.] With PQL, you can ask complex questions of your infrastructure such as "How production Red Hat systems are there with the openssl package installed?" or "What are are the us-west-2c nodes with the MyApp role that were created in the last 24 hours?"
+PuppetDB is an extensive data store that holds every bit of information Puppet
+generates and collects across every system Puppet is installed on. PuppetDB's
+provides a sweet query language called
+link:https://docs.puppet.com/puppetdb/4.3/api/query/v4/pql.html[PQL.] With PQL,
+you can ask complex questions of your infrastructure such as "How production
+Red Hat systems are there with the openssl package installed?" or "What are are
+the us-west-2c nodes with the MyApp role that were created in the last 24
+hours?"
 
-This can be a pretty powerful tool for parts of your pipeline where you need to perform specific operations on subsets of the infrastructure like draining a loadbalancer.
+This can be a pretty powerful tool for parts of your pipeline where you need to
+perform specific operations on subsets of the infrastructure like draining a
+loadbalancer.
 
 To perform a query, use the puppet.query method.
 
@@ -91,7 +146,11 @@ To perform a query, use the puppet.query method.
 results = puppet.query 'inventory[certname] { facts.os.name = "RedHat" and facts.ec2_metadata.placement.availability-zone = "us-west-2c" and uptime_hours < 24 }'
 ----
 
-The value returned is an array of items matching the query. The results can be iterated on, and even passed to a series of puppet.job calls. For example, the following code will query all nodes in production that experienced a failure on the last Puppet run, break the resulting list into groups of 3, and runs Puppet on each sub group.
+The value returned is an array of items matching the query. The results can be
+iterated on, and even passed to a series of puppet.job calls. For example, the
+following code will query all nodes in production that experienced a failure on
+the last Puppet run, break the resulting list into groups of 3, and runs Puppet
+on each sub group.
 
 ----
 results = puppet.query 'nodes { latest_report_status = "failed" and catalog_environment = "production"}'
@@ -105,13 +164,23 @@ for (String certnames : nodesubgroups ) {
 }
 ----
 
-Note that once you can use closures in Pipeline scripts, doing the above example will be much simpler.
+Note that once you can use closures in Pipeline scripts, doing the above
+example will be much simpler.
 
 == Creating an orchestrator job
 
-The orchestration service in Puppet Enterprise is a powerful tool that enables orchestrated Puppet runs across as broad or as targeted an infrastructure as you need at different parts of a pipeline. You can use the orchestrator to update applications in an environment, or update a specific list of nodes, or update nodes across a set of nodes that match certain criteria. In each scenario, Puppet will always push distributed changes in the correct order by respecting the cross-node dependencies.
+The orchestration service in Puppet Enterprise is a powerful tool that enables
+orchestrated Puppet runs across as broad or as targeted an infrastructure as
+you need at different parts of a pipeline. You can use the orchestrator to
+update applications in an environment, or update a specific list of nodes, or
+update nodes across a set of nodes that match certain criteria. In each
+scenario, Puppet will always push distributed changes in the correct order by
+respecting the cross-node dependencies.
 
-To create a job in the Puppet orchestrator from a Jenkins pipeline, use the puppet.job method. The puppet.job method will create a new orchestrator job, monitor the job for completion, and determine if any Puppet runs failed. If there were failures, the pipeline will fail.
+To create a job in the Puppet orchestrator from a Jenkins pipeline, use the
+puppet.job method. The puppet.job method will create a new orchestrator job,
+monitor the job for completion, and determine if any Puppet runs failed. If
+there were failures, the pipeline will fail.
 
 To run Puppet against all of production:
 
@@ -131,17 +200,26 @@ To run Puppet against nodes db.example.com, appserver01.example.com, and appserv
 puppet.job 'production', nodes: ['db.example.com','appserver01.example.com','appserver02.example.com']
 ----
 
-To run Puppet against all Red Hat nodes in the AWS us-west-2c region that were created in the last 24 hours using a PQL query:
+To run Puppet against all Red Hat nodes in the AWS us-west-2c region that were
+created in the last 24 hours using a PQL query:
 
 ----
 puppet.job 'production', query: 'inventory[certname] { facts.os.name = "RedHat" and facts.ec2_metadata.placement.availability-zone = "us-west-2c" and uptime_hours < 24 }'
 ----
 
-As you can see, the puppet.job command means you can be as broad or as targeted as you need to be for different parts of your pipeline. There are many other options you can add to the puppet.job method call, such as setting the Puppet runs to noop, or giving the orchestrator a maximum concurrency limit. link:https://puppet.com/product/capabilities/application-orchestration[Learn more about the orchestrator here.]
+As you can see, the puppet.job command means you can be as broad or as targeted
+as you need to be for different parts of your pipeline. There are many other
+options you can add to the puppet.job method call, such as setting the Puppet
+runs to noop, or giving the orchestrator a maximum concurrency limit.
+link:https://puppet.com/product/capabilities/application-orchestration[Learn
+more about the orchestrator here.]
 
 == Updating Puppet code
 
-If you're using code management in Puppet Enterprise (and you should), you can ensure that all the modules, site manifests, Hiera data, and roles and profiles are staged, synced, and ready across all your Puppet masters, direct from your Jenkins pipeline.
+If you're using code management in Puppet Enterprise (and you should), you can
+ensure that all the modules, site manifests, Hiera data, and roles and profiles
+are staged, synced, and ready across all your Puppet masters, direct from your
+Jenkins pipeline.
 
 To update Puppet code across all Puppet masters, use the puppet.codeDeploy method.
 
@@ -153,9 +231,17 @@ link:https://puppet.com/product/capabilities/code-management[Learn more code man
 
 == Setting Hiera values
 
-The plugin includes an experimental feature to set Hiera key/value pairs. There are many cases where you need to promote information through a pipeline, such as a build version or artifact location. Doing so is very difficult in Puppet, since data promotion almost always involves changing Hiera files and committing to version control.
+The plugin includes an experimental feature to set Hiera key/value pairs. There
+are many cases where you need to promote information through a pipeline, such
+as a build version or artifact location. Doing so is very difficult in Puppet,
+since data promotion almost always involves changing Hiera files and committing
+to version control.
 
-The plugin exposes an HTTP API endpoint that Hiera can query using the hiera-http backend. With the backend configured on the Puppet master(s), key/value pairs can be set to scopes. A scope is arbitrary and can be anything you like, such as a Puppet environment, a node's certname, or the name of a Facter fact like operatingsystem or domain.
+The plugin exposes an HTTP API endpoint that Hiera can query using the
+hiera-http backend. With the backend configured on the Puppet master(s),
+key/value pairs can be set to scopes. A scope is arbitrary and can be anything
+you like, such as a Puppet environment, a node's certname, or the name of a
+Facter fact like operatingsystem or domain.
 
 To set a Hiera value from a pipeline, use the puppet.hiera method.
 
@@ -163,13 +249,23 @@ To set a Hiera value from a pipeline, use the puppet.hiera method.
 puppet.hiera scope: 'staging', key: 'build-version', value: env.BUILD_ID
 ----
 
-Now you can set the same key with the same value to the production scope later in the pipeline, followed by a call to puppet.job to push the change out.
+Now you can set the same key with the same value to the production scope later
+in the pipeline, followed by a call to puppet.job to push the change out.
 
 == Examples
 
-The link:https://github.com/jenkinsci/puppet-enterprise-pipeline-plugin/tree/master/examples[plugin's Github repository] contains a set of example Pipeline scripts. Feel free to issue pull requests to add your own scripts!
+The
+link:https://github.com/jenkinsci/puppet-enterprise-pipeline-plugin/tree/master/examples[plugin's
+Github repository] contains a set of example Pipeline scripts. Feel free to
+issue pull requests to add your own scripts!
 
 == What's next
 
-I'm pretty excited to see how this is going to help simplify continuous delivery pipelines. I encourage everyone to get started with continuous delivery today, even if it's just a simple pipeline. As your practices evolve, you can begin to add automated tests, automate away manual checkpoints, start to incorporate InfoSec tests, and include phases for practices like patch management that require lots of manual approvals, verifications and rollouts. You'll be glad you did.
+I'm pretty excited to see how this is going to help simplify continuous
+delivery pipelines. I encourage everyone to get started with continuous
+delivery today, even if it's just a simple pipeline. As your practices evolve,
+you can begin to add automated tests, automate away manual checkpoints, start
+to incorporate InfoSec tests, and include phases for practices like patch
+management that require lots of manual approvals, verifications and rollouts.
+You'll be glad you did.
 
