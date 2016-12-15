@@ -20,7 +20,7 @@ delivers. This is a powerful idea, and one I felt complemented Puppet's
 automation strengths. I wanted to make it trivial to control Puppet
 Enterprise's orchestration and infrastructure code management capabilities, as
 well as control Hiera data and use PuppetDB as a source of truth – all from a
-Pipeline script. The result was the Puppet Enterprise plugin,which fully buys
+Pipeline script. The result was the Puppet Enterprise plugin, which fully buys
 into the Pipeline ideals by providing methods to control the different
 capabilities in Puppet Enterprise. The methods provide ways to query PuppetDB,
 set Hiera key/value pairs, deploy Puppet code environments, and kick off
@@ -39,25 +39,25 @@ link:https://docs.puppet.com/pe/latest/rbac_intro.html[read the docs here.]
 
 == Configuring
 
-Configuring the plugin is fairly straight forward. It takes three simple steps
+Configuring the plugin is fairly straight forward. It takes three simple steps:
 
 . Set the address of the Puppet server
 . Create a Jenkins credential with a Pupppet Enterprise RBAC authentication token
 . Configure the Hiera backend
 
-=== Setting the Puppet Enterprise server address
+=== Set the Puppet Enterprise Server Address
 
 Go to Jenkins > Manage Jenkins > Puppet Enterprise page. Put the DNS address of
 the Puppet server in the *Puppet Master Address* text field. Click the *Test
 Connection* button to verify the server is reachable, the Puppet CA certificate
-is retrievable, and HTTPS connections are successful. Click *Save* if the test
-comes back successful.
+is retrievable, and HTTPS connections are successful. Once the test succeeds,
+Click *Save*.
 
-=== Authentication Token
+=== Create a Jenkins Credentials Entry
 
 The plugin uses the Jenkins built-in credentials system (the plain-credentials
 plugin) to store and refer RBAC tokens to Puppet Enterprise for authentication
-and authorization. First, generate an RBAC toke in Puppet Enterprise by
+and authorization. First, generate an RBAC token in Puppet Enterprise by
 following
 link:https://docs.puppet.com/pe/latest/rbac_token_auth.html#generating-a-token-for-use-by-a-service[the
 instructions on the docs site.] Next, create a new Jenkins Credentials item
@@ -72,7 +72,7 @@ methods to use the RBAC token. For example:
 puppet.credentials 'pe-team-token'
 ----
 
-=== Hiera Backend
+=== Configure the Hiera Backend
 
 The plugin exposes an HTTP API for performing Hiera data lookups for key/value
 pairs managed by Pipeline jobs. To configure Hiera on the Puppet compile
@@ -111,7 +111,8 @@ environments. You can use any Facter fact to match scope names.
     - /hiera/lookup?path=%{environment}&key=%{key}
 ----
 
-Finally, restart the pe-puppetserver process to pick up the new configs.
+Finally, restart the pe-puppetserver process to pick up the new configs:
+
 ----
 /opt/puppetlabs/bin/puppet resource service pe-puppetserver ensure=stopped
 /opt/puppetlabs/bin/puppet resource service pe-puppetserver ensure=running
@@ -128,25 +129,30 @@ hiera.yaml configuration.
 == Querying the infrastructure
 
 PuppetDB is an extensive data store that holds every bit of information Puppet
-generates and collects across every system Puppet is installed on. PuppetDB's
+generates and collects across every system Puppet is installed on. PuppetDB
 provides a sweet query language called
 link:https://docs.puppet.com/puppetdb/4.3/api/query/v4/pql.html[PQL.] With PQL,
-you can ask complex questions of your infrastructure such as "How production
-Red Hat systems are there with the openssl package installed?" or "What are are
-the us-west-2c nodes with the MyApp role that were created in the last 24
+you can ask complex questions of your infrastructure such as "How many
+production Red Hat systems are there with the openssl package installed?" or
+"What us-west-2c nodes with the MyApp role that were created in the last 24
 hours?"
 
-This can be a pretty powerful tool for parts of your pipeline where you need to
+This can be a powerful tool for parts of your pipeline where you need to
 perform specific operations on subsets of the infrastructure like draining a
 loadbalancer.
 
-To perform a query, use the puppet.query method.
+Here's an example using the `puppet.query` method:
 
 ----
-results = puppet.query 'inventory[certname] { facts.os.name = "RedHat" and facts.ec2_metadata.placement.availability-zone = "us-west-2c" and uptime_hours < 24 }'
+results = puppet.query '''
+  inventory[certname] {
+    facts.os.name = "RedHat" and
+    facts.ec2_metadata.placement.availability-zone = "us-west-2c" and
+    facts.uptime_hours < 24
+  }'''
 ----
 
-The value returned is an array of items matching the query. The results can be
+The query returns an array of matching items. The results can be
 iterated on, and even passed to a series of puppet.job calls. For example, the
 following code will query all nodes in production that experienced a failure on
 the last Puppet run, break the resulting list into groups of 3, and runs Puppet
@@ -154,14 +160,6 @@ on each sub group.
 
 ----
 results = puppet.query 'nodes { latest_report_status = "failed" and catalog_environment = "production"}'
-nodes = []
-for (Map node : results) {
-  nodes.add(node.certname)
-}
-nodesubgroups = nodes.collate(3) //Break results into groups of 3
-for (String certnames : nodesubgroups ) {
-  puppet.job 'production', nodes: certnames
-}
 ----
 
 Note that once you can use closures in Pipeline scripts, doing the above
@@ -169,7 +167,7 @@ example will be much simpler.
 
 == Creating an orchestrator job
 
-The orchestration service in Puppet Enterprise is a powerful tool that enables
+The orchestration service in Puppet Enterprise is a tool to perform
 orchestrated Puppet runs across as broad or as targeted an infrastructure as
 you need at different parts of a pipeline. You can use the orchestrator to
 update applications in an environment, or update a specific list of nodes, or
@@ -221,7 +219,7 @@ ensure that all the modules, site manifests, Hiera data, and roles and profiles
 are staged, synced, and ready across all your Puppet masters, direct from your
 Jenkins pipeline.
 
-To update Puppet code across all Puppet masters, use the puppet.codeDeploy method.
+To update Puppet code across all Puppet masters, use the puppet.codeDeploy method:
 
 ----
 puppet.codeDeploy 'staging'
