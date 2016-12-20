@@ -87,7 +87,7 @@ Asciidoctor::Extensions.register do
           snippet << <<-EOF
   <div class="listingblock pipeline-script"
         style="display: #{(declarative.nil? or 'none') or 'inherit'}">
-    <div class="title">Jenkinsfile (Pipeline Script)</div>
+    <div class="title">Jenkinsfile (Scripted Pipeline)</div>
     <div class="content">
   EOF
           snippet << <<-EOF
