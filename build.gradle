@@ -27,6 +27,7 @@ import com.github.jrubygradle.JRubyExec
 
 ext.gitRef = Grgit.open('.')?.head()?.abbreviatedId
 ext.siteOutputDir = "${buildDir}/_site"
+ext.userHandbook  = "${buildDir}/user-handbook"
 
 description = 'Build for generating jenkins.io'
 version = "2.0.${System.env.BUILD_NUMBER ?: '0'}+${ext.gitRef}"
@@ -36,6 +37,11 @@ defaultTasks 'assemble', 'archive'
 configurations {
     asciidoctor
     externalFetcher
+}
+
+repositories {
+    /* needed for alpha gems like asciidoctor-pdf */
+    maven { url 'http://rubygems.lasagna.io/proxy/maven/prereleases/' }
 }
 
 dependencies {
@@ -53,6 +59,12 @@ dependencies {
         JRuby's C extensions are deprecated */
     asciidoctor 'rubygems:eventmachine:[1.0, 1.2)'
 
+    /* newer or beta versions of unf don't package their extensions properly */
+    asciidoctor 'rubygems:unf:0.1.4'
+
+    /* needed for generating handbook PDFs and others */
+    asciidoctor 'rubygems:asciidoctor-pdf:[1.5.0,)'
+
     /* listen 3.1.2 breaks support for JRuby see :
      * <https://github.com/guard/listen/pull/377#issuecomment-216241081>
      */
@@ -64,7 +76,7 @@ dependencies {
     asciidoctor 'rubygems:ffi:1.9.10'
 
     /* used for processing haml templates (haml.info) */
-    asciidoctor 'rubygems:haml:[4.0.7,5.0)'
+    asciidoctor 'rubygems:haml:4.0.7'
     /* used for processing inline liquid templating */
     asciidoctor 'rubygems:liquid:[3.0.6,4.0)'
 
@@ -126,7 +138,7 @@ task fetchReleaseHistory(type: JavaExec) {
     classpath = configurations.externalFetcher
     main = 'groovy.ui.GroovyMain'
     def groovyScript = "${projectDir}/scripts/release.rss.groovy"
-    args groovyScript, "http://updates.jenkins.io/release-history.json"
+    args groovyScript, "https://updates.jenkins.io/release-history.json"
 
     file(project.ext.siteOutputDir).mkdirs()
 
@@ -178,6 +190,40 @@ task prepareJavaScripts {
         }
     }
 }
+task prepareUserHandbook(type: JRubyExec) {
+    group 'Handbook'
+    description 'Generate the raw .adoc file for PDF generation'
+    script "${projectDir}/scripts/generate-handbook-pdf"
+    scriptArgs "${project.ext.userHandbook}.adoc"
+    configuration 'asciidoctor'
+    inputs.source file("${projectDir}/scripts/generate-handbook-pdf")
+}
+
+task printHandbook(type: JRubyExec) {
+    group 'Handbook'
+    description 'Take the computed .adof file and generate a PDF'
+    dependsOn prepareUserHandbook
+    script 'asciidoctor-pdf'
+    scriptArgs '--base-dir', 'content', '--out-file',
+                    "${project.ext.userHandbook}.pdf",
+                    "${project.ext.userHandbook}.adoc"
+    configuration 'asciidoctor'
+
+    doLast {
+        file(project.ext.siteOutputDir).mkdirs()
+        copy {
+            from "${project.ext.userHandbook}.pdf"
+            into project.ext.siteOutputDir
+        }
+    }
+
+}
+
+task printBooks {
+    group 'Handbook'
+    description 'Generate all non-HTML-based handbook files'
+    dependsOn printHandbook
+}
 
 task assemble {
     group 'Site'
@@ -186,7 +232,8 @@ task assemble {
                 fetchExamples,
                 fetchReleaseHistory,
                 prepareJavaScripts,
-                compileContent
+                compileContent,
+                printBooks
 }
 
 task archiveBeta(type: Zip) {
@@ -208,6 +255,7 @@ task archive {
     description 'Create a zip archive of the site for deployment'
     dependsOn archiveBeta
 }
+
 
 task run(type:Exec) {
     description 'inspect the generated build/_site locally through http://localhost:4242/'
