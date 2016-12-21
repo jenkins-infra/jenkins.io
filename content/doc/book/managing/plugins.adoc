@@ -4,13 +4,257 @@ layout: section
 :notitle:
 :description:
 :author:
-:email: jenkinsci-users@googlegroups.com
+:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
-:toc: left
+:toc:
+:imagesdir: /doc/book/resources
+:hide-uri-scheme:
 
 = Managing Plugins
 
+////
+Pages to mark as deprecated by this document:
+
+https://wiki.jenkins-ci.org/display/JENKINS/Plugins (header)
+https://wiki.jenkins-ci.org/display/JENKINS/Removing+and+disabling+plugins
+https://wiki.jenkins-ci.org/display/JENKINS/Pinned+Plugins
+////
+
+Plugins are the primary means of enhancing the functionality of a Jenkins
+environment to suit organization- or user-specific needs. There are
+link:https://plugins.jenkins.io[over a thousand different plugins]
+which can be installed on a Jenkins master and to integrate various
+build tools, cloud providers, analysis tools, and much more.
+
+Plugins can be automaticaly downloaded, with their dependencies, from the
+<<../glossary#update-center,Update Center>>. The Update Center is a service
+operated by the Jenkins project which provides an inventory of open source
+plugins which have been developed and maintained by various members of the
+Jenkins community.
+
+This section will cover everything from the basics of managing plugins within
+the Jenkins web UI, to making changes on the <<../glossary#master,master's>>
+file system.
+
+== Installing a plugin
+
+Jenkins provides a couple of different methods for installing plugins on the master:
+
+. Using the "Plugin Manager" in the web UI.
+. Using the <<install-with-cli,Jenkins CLI>> `install-plugin` command.
+
+Each approach will result in the plugin being loaded by Jenkins but may require
+different levels of access and trade-offs in order to use.
+
+The two approaches require that the Jenkins master be able to download
+meta-data from an Update Center, whether the primary Update Center operated by
+the Jenkins project
+footnoteref:[uc, https://updates.jenkins.io],
+or a custom Update Center.
+
+The plugins are packaged as self-contained `.hpi` files, which have all the
+necessary code, images, and other resources which the plugin needs to operate
+successfully.
+
+=== From the web UI
+
+The simplest and most common way of installing plugins is through the
+*Configure System* > *Manage Plugins* view, available to administrators of a
+Jenkins environment.
+
+Under the *Available* tab, plugins available for download from the configured
+Update Center can be searched and considered:
+
+image::managing/plugin-manager-available.png["Available tab in the Plugin Manager", role=center]
+
+Most plugins can be installed and used immediately by checking the box adjacent
+to the plugin and clicking *Install without restart*.
+
+
+[CAUTION]
+====
+If the list of available plugins is empty, the master might be incorrectly
+configured or has not yet downloaded plugin meta-data from the Update Center.
+Clicking the *Check now* button will force Jenkins to attempt to contact its
+configured Update Center.
+====
+
+[[install-with-cli]]
+=== Using the Jenkins CLI
+
+Administrators may also use the <<cli#,Jenkins CLI>> which provides a command
+to install plugins. Scripts to manage Jenkins environments, or configuration
+management code, may need to install plugins without direct user interaction in
+the web UI. The Jenkins CLI allows a command line user or automation tool to
+download a plugin and its dependencies.
+
+[source]
+----
+java -jar jenkins-cli.jar -s http://localhost:8080/ install-plugin SOURCE ... [-deploy] [-name VAL] [-restart]
+
+Installs a plugin either from a file, an URL, or from update center.
+
+ SOURCE    : If this points to a local file, that file will be installed. If
+             this is an URL, Jenkins downloads the URL and installs that as a
+             plugin.Otherwise the name is assumed to be the short name of the
+             plugin in the existing update center (like "findbugs"),and the
+             plugin will be installed from the update center.
+ -deploy   : Deploy plugins right away without postponing them until the reboot.
+ -name VAL : If specified, the plugin will be installed as this short name
+             (whereas normally the name is inferred from the source name
+             automatically).
+ -restart  : Restart Jenkins upon successful installation.
+----
+
+
+=== Advanced installation
+
+The Update Center only allows the installation of the most recently released
+version of a plugin. In cases where an older release of the plugin is desired,
+a Jenkins administrator can download an older `.hpi` archive and manually
+install that on the Jenkins master.
+
+==== From the web UI
+
+Assuming a `.hpi` file has been downloaded, a logged-in Jenkins administrator
+may upload the file from within the web UI:
+
+. Navigate to the *Manage Jenkins* > *Manage Plugins* page in the web UI.
+. Click on the *Advanced* tab.
+. Choose the `.hpi` file under the *Upload Plugin* section.
+. *Upload* the plugin file.
+
+image::managing/plugin-manager-upload.png["Advanced tab in the Plugin Manager", role=center]
+
+Once a plugin file has been uploaded, the Jenkins master must be manually
+restarted in order for the changes to take effect.
+
+==== On the master
+
+Assuming a `.hpi` file has been explicitly downloaded by a systems
+administrator, the administrator can manually place the `.hpi` file in a
+specific location on the file system.
+
+Copy the downloaded `.hpi`` file into the `JENKINS_HOME/plugins` directory on
+the Jenkins master (for example, on Debian systems `JENKINS_HOME` is generally
+`/var/lib/jenkins`).
+
+The master will need to be restarted before the plugin is loaded and
+made available in the Jenkins environment.
+
 [NOTE]
 ====
-This is still very much a work in progress
+The names of the plugin directories in the Update Site footnoteref:[uc] are
+not always the same as the plugin's display name. Searching
+link:https://plugins.jenkins.io/[plugins.jenkins.io]
+for the desired plugin will provide the appropriate link to the `.hpi` files.
 ====
+
+== Updating a plugin
+
+Updates are listed in the *Updates* tab of the *Manage Plugins* page and can be
+installed by checking the checkboxes of the desired plugin updates and clicking
+the *Download now and install after restart* button.
+
+image::managing/plugin-manager-update.png["Updates tab in the Plugin Manager", role=center]
+By default, the Jenkins master will check for updates from the Update Center
+once every 24 hours. To manually trigger a check for updates, simply click on
+the *Check now* button in the *Updates* tab.
+
+== Removing a plugin
+
+When a plugin is no longer used in a Jenkins environment, it is prudent to
+remove the plugin from the Jenkins master. This provides a number of benefits
+such as reducing memory overhead at boot or runtime, reducing configuration
+options in the web UI, and removing the potential for future conflicts with new
+plugin updates.
+
+=== Uninstalling a plugin
+
+The simplest way to uninstall a plugin is to navigate to the *Installed* tab on
+the *Manage Plugins* page. From there, Jenkins will automatically determine
+which plugins are safe to uninstall, those which are not dependencies of other
+plugins, and present a button for doing so.
+
+image::managing/plugin-manager-uninstall.png["Installed tab in the Plugin Manager", role=center]
+
+
+A plugin may also be uninstalled by removing the corresponding `.hpi`
+file from the `JENKINS_HOME/plugins` directory on the master. The plugin will
+continue to function until the master has been restarted.
+
+[CAUTION]
+====
+If a plugin `.hpi` file is removed but required by other plugins, the Jenkins
+master may fail to boot correctly.
+====
+
+Uninstalling a plugin does *not* remove the configuration that the plugin may
+have created. If there are existing jobs/nodes/views/builds/etc configurations
+that reference data created by the plugin, during boot Jenkins will warn that
+some configurations could not be fully loaded and ignore the unrecognized data.
+
+Since the configuration(s) will be preserved until they are overwritten,
+re-installing the plugin will result in those configuration values reappearing.
+
+==== Removing old data
+
+Jenkins provides a facility for purging configuration left behind by
+uninstalled plugins. Navigate to *Manage Jenkins* and then click on *Manage
+Old Data* to review and remove old data.
+
+=== Disabling a plugin
+
+Disabling a plugin is a softer way to retire a plugin. Jenkins will continue to
+recognize that the plugin is installed, but it will not start the plugin, and
+no extensions contributed from this plugin will be visible.
+
+A Jenkins administrator may disable a plugin by unchecking the box on the
+*Installed* tab of the *Manage Plugins* page (see below).
+
+image::managing/plugin-manager-disable.png["Installed tab in the Plugin Manager", role=center]
+
+
+A systems administrator may also disable a plugin by creating a file on the
+Jenkins master, such as: `JENKINS_HOME/plugins/PLUGIN_NAME.hpi.disabled`.
+
+The configuration(s) created by the disabled plugin behave as if the plugin
+were uninstalled, insofar that they result in warnings on boot but are
+otherwise ignored.
+
+
+== Pinned plugins
+
+[CAUTION]
+====
+Pinned plugins feature was removed in Jenkins 2.0. Versions later than Jenkins
+2.0 do not bundle plugins, instead providing a wizard to install the most
+useful plugins.
+====
+
+The notion of *pinned plugins* applies to plugins that are bundled with
+Jenkins 1.x, such as the
+link:https://plugins.jenkins.io/matrix-auth[*Matrix Authorization plugin*].
+
+By default, whenever Jenkins is upgraded, its bundled plugins overwrite the
+versions of the plugins that are currently installed in `JENKINS_HOME`.
+
+However, when a bundled plugin has been manually updated, Jenkins will mark
+that plugin as pinned to the particular version. On the file system, Jenkins
+creates an empty file called `JENKINS_HOME/plugins/PLUGIN_NAME.hpi.pinned`
+to indicate the pinning.
+
+Pinned plugins will never be overwritten by bundled plugins during Jenkins
+startup. (Newer versions of Jenkins do warn you if a pinned plugin is _older_
+than what is currently bundled.)
+
+It is safe to update a bundled plugin to a version offered by the Update
+Center. This is often necessary to pick up the newest features and fixes. The
+bundled version is occasionally updated, but not consistently.
+
+The Plugin Manager allows plugins to be explicitly unpinned. The
+`JENKINS_HOME/plugins/PLUGIN_NAME.hpi.pinned` file can also be manually
+created/deleted to control the pinning behavior. If the `pinned` file is
+present, Jenkins will use whatever plugin version the user has specified.
+If the file is absent, Jenkins will restore the plugin to the default version
+on startup.
