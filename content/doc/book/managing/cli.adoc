@@ -7,6 +7,7 @@ layout: section
 :email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
+:imagesdir: /doc/book/resources
 :hide-uri-scheme:
 
 = Jenkins CLI
@@ -20,17 +21,250 @@ https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH
 ////
 
 
-== Downloading the client
+Jenkins has a built-in command line interface that allows users and
+administrators to access Jenkins from a script or shell environment. This can
+be convenient for scripting of routine tasks, bulk updates, troubleshooting,
+and more.
 
-== Using the client
+The command line interface can be accessed over SSH or with the Jenkins CLI
+client, a `.jar` file distributed with Jenkins. The SSH approach is preferred
+over the CLI client as it is considered more secure.
 
-=== Transport
+////
+Background:
+23:19 <@rtyler> danielbeck: I'm writing CLI documentation, should I just encourage people to use SSH or stick with the default of jenkins-clir.jar?
+23:20 <@rtyler> we've told enough people to turn off the CLI over the past year...
+23:20 <@rtyler> :/
+23:21 <@danielbeck> it's probably better in general, but e.g. firewalls rules may require regular CLI use
+23:21 <@danielbeck> in any case, auth needs to use SSH keys
+////
 
-==== SSH
 
-==== JNLP
+== Using the CLI
+
+By default Jenkins will boot with a randomly assigned SSH port, which
+administrators may choose to override in the <<system-configuration#ssh-server,
+Configure System>> page. In order to determine the randomly assigned SSH port,
+inspect the headers returned on a Jenkins URL, for example:
+
+[source]
+----
+% curl -Lv https://JENKINS_URL/login 2>&1 | grep 'X-SSH-Endpoint'
+< X-SSH-Endpoint: localhost:53801
+%
+----
+
+With the random SSH port (`53801` in this example), and <<Authentication>>
+configured, any modern SSH client may securely execute CLI commands.
 
 === Authentication
 
-== Common Problems
+Whichever user used for authentication with the Jenkins master must have the
+`Overall/Read` permission in order to _access_ the CLI. The user may require
+additional permissions depending on the commands executed.
 
+Whether using the CLI via SSH, or with the CLI client, both rely primarily on
+SSH-based public/private key authentication. In order to add an SSH public key
+for the appropriate user, navigate to
+`https://JENKINS_URL/user/USERNAME/configure` and paste an SSH public key
+into the appropriate text area.
+
+image::managing/cli-adding-ssh-public-keys.png["Adding public SSH keys for a user", role=center]
+
+=== Common Commands
+
+Jenkins has a number of built-in CLI commands which can be found in every
+Jenkins environment, such as `build` or `list-jobs`. Plugins may also provide
+CLI commands; in order to determine the full list of commands available
+in a given Jenkins environment, execute the CLI `help` command:
+
+[source]
+----
+% ssh -l kohsuke -p 53801 localhost help
+----
+
+The following list of commands is not comprehensive, but it is a useful
+starting point for Jenkins CLI usage.
+
+==== build
+
+One of the most common and useful CLI commands is `build`, which allows the
+user to trigger any job or Pipeline for which they have permission.
+
+The most basic invocation will simply trigger the job or Pipeline and exit, but
+with the additional options a user may also pass parameters, poll SCM, or even
+follow the console output of the triggered build or Pipeline run.
+
+[source]
+----
+% ssh -l kohsuke -p 53801 localhost help build
+
+java -jar jenkins-cli.jar build JOB [-c] [-f] [-p] [-r N] [-s] [-v] [-w]
+Starts a build, and optionally waits for a completion.  Aside from general
+scripting use, this command can be used to invoke another job from within a
+build of one job.  With the -s option, this command changes the exit code based
+on the outcome of the build (exit code 0 indicates a success) and interrupting
+the command will interrupt the job.  With the -f option, this command changes
+the exit code based on the outcome of the build (exit code 0 indicates a
+success) however, unlike -s, interrupting the command will not interrupt the
+job (exit code 125 indicates the command was interrupted).  With the -c option,
+a build will only run if there has been an SCM change.
+ JOB : Name of the job to build
+ -c  : Check for SCM changes before starting the build, and if there's no
+       change, exit without doing a build
+ -f  : Follow the build progress. Like -s only interrupts are not passed
+       through to the build.
+ -p  : Specify the build parameters in the key=value format.
+ -s  : Wait until the completion/abortion of the command. Interrupts are passed
+       through to the build.
+ -v  : Prints out the console output of the build. Use with -s
+ -w  : Wait until the start of the command
+% ssh -l kohsuke -p 53801 localhost build build-all-software -f -v
+Started build-all-software #1
+Started from command line by admin
+Building in workspace /tmp/jenkins/workspace/build-all-software
+[build-all-software] $ /bin/sh -xe /tmp/hudson1100603797526301795.sh
++ echo hello world
+hello world
+Finished: SUCCESS
+Completed build-all-software #1 : SUCCESS
+%
+----
+
+==== console
+
+Similarly useful is the `console` command, which retrieves the console output
+for the specified build or Pipeline run. When no build number is provided, the
+`console` command will output the last completed build's console output.
+
+[source]
+----
+% ssh -l kohsuke -p 53801 localhost help console
+
+java -jar jenkins-cli.jar console JOB [BUILD] [-f] [-n N]
+Produces the console output of a specific build to stdout, as if you are doing 'cat build.log'
+ JOB   : Name of the job
+ BUILD : Build number or permalink to point to the build. Defaults to the last
+         build
+ -f    : If the build is in progress, stay around and append console output as
+         it comes, like 'tail -f'
+ -n N  : Display the last N lines
+% ssh -l kohsuke -p 53801 localhost console build-all-software
+Started from command line by kohsuke
+Building in workspace /tmp/jenkins/workspace/build-all-software
+[build-all-software] $ /bin/sh -xe /tmp/hudson1100603797526301795.sh
++ echo hello world
+yes
+Finished: SUCCESS
+%
+----
+
+==== who-am-i
+
+The `who-am-i` command is helpful for listing the current user's credentials
+and permissions available to the user. This can be useful when debugging the
+absence of CLI commands due to the lack of certain permissions.
+
+[source]
+----
+
+% ssh -l kohsuke -p 53801 localhost help who-am-i
+
+java -jar jenkins-cli.jar who-am-i
+Reports your credential and permissions.
+% ssh -l kohsuke -p 53801 localhost who-am-i
+Authenticated as: kohsuke
+Authorities:
+  authenticated
+%
+----
+
+
+== Using the CLI client
+
+
+While the SSH-based CLI is preferred, there may be situations where the CLI
+client is a better fit. For example, the default transport for the CLI client
+is HTTP which means no additional ports need to be opened in a firewall for its
+use.
+
+
+=== Downloading the client
+
+The CLI client can be downloaded directly from a Jenkins master at the URL
+`/jnlpJars/jenkins-cli.jar`, in effect  `https://JENKINS_URL/jnlpJars/jenkins-cli.jar`
+
+While a CLI `.jar` can be used against different versions of Jenkins, should
+any compatibility issues arise during use, please re-download the latest `.jar`
+file from the Jenkins master.
+
+=== Using the client
+
+The general syntax for invoking the client is as follows:
+
+[source]
+----
+java -jar jenkins-cli.jar [-s JENKINS_URL] command [options...] [arguments...]
+----
+
+The `JENKINS_URL` can be specified via the environment variable `$JENKINS_URL`.
+
+[TIP]
+====
+The `JENKINS_URL` environment variable is automatically set when Jenkins forks a process
+during builds or Pipelines, allowing the use of the Jenkins CLI from inside a
+project without explicit configuration of the Jenkins URL.
+====
+
+
+=== Common Problems
+
+There are a number of common problems that may be experienced when running the
+CLI client.
+
+==== Operation timed out
+
+Check that the HTTP or JNLP port is opened if you are using a firewall on your
+server.  You can configure its value in Jenkins configuration. By default it is
+set to use a random port.
+
+[source]
+----
+% java -jar jenkins-cli.jar -s JENKINS_URL help
+Exception in thread "main" java.net.ConnectException: Operation timed out
+    at java.net.PlainSocketImpl.socketConnect(Native Method)
+    at java.net.PlainSocketImpl.doConnect(PlainSocketImpl.java:351)
+    at java.net.PlainSocketImpl.connectToAddress(PlainSocketImpl.java:213)
+    at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:200)
+    at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:432)
+    at java.net.Socket.connect(Socket.java:529)
+    at java.net.Socket.connect(Socket.java:478)
+    at java.net.Socket.<init>(Socket.java:375)
+    at java.net.Socket.<init>(Socket.java:189)
+    at hudson.cli.CLI.<init>(CLI.java:97)
+    at hudson.cli.CLI.<init>(CLI.java:82)
+    at hudson.cli.CLI._main(CLI.java:250)
+    at hudson.cli.CLI.main(CLI.java:199)
+----
+
+==== No X-Jenkins-CLI2-Port
+
+Go to *Manage Jenkins* > *Configure Global Security* and choose "Fixed" or
+"Random" under *TCP port for JNLP agents*.
+
+[source]
+----
+java.io.IOException: No X-Jenkins-CLI2-Port among [X-Jenkins, null, Server, X-Content-Type-Options, Connection, X-You-Are-In-Group, X-Hudson, X-Permission-Implied-By, Date, X-Jenkins-Session, X-You-Are-Authenticated-As, X-Required-Permission, Set-Cookie, Expires, Content-Length, Content-Type]
+    at hudson.cli.CLI.getCliTcpPort(CLI.java:284)
+    at hudson.cli.CLI.<init>(CLI.java:128)
+    at hudson.cli.CLIConnectionFactory.connect(CLIConnectionFactory.java:72)
+    at hudson.cli.CLI._main(CLI.java:473)
+    at hudson.cli.CLI.main(CLI.java:384)
+    Suppressed: java.io.IOException: Server returned HTTP response code: 403 for URL: http://citest.gce.px/cli
+        at sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:1840)
+        at sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1441)
+        at hudson.cli.FullDuplexHttpStream.<init>(FullDuplexHttpStream.java:78)
+        at hudson.cli.CLI.connectViaHttp(CLI.java:152)
+        at hudson.cli.CLI.<init>(CLI.java:132)
+        ... 3 more
+----
