@@ -6,7 +6,7 @@
 - security
 :author: daniel-beck
 ---
-Jenkins 2.40 was released earlier this week, and readers of the [changelog](http://jenkins-ci.org/changelog) will have noticed that it now includes the ability to show security warnings published by the configured update site.
+Jenkins 2.40 was released earlier this week, and readers of the [changelog](/changelog) will have noticed that it now includes the ability to show security warnings published by the configured update site.
 But what does that mean?
 
 In the past, we've notified users about security issues in Jenkins and in plugins through various means:
