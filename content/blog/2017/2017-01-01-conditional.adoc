@@ -234,10 +234,9 @@ if (token ==~ /(?i)(Y|YES|T|TRUE|ON|RUN)/) {
 Will run if any of the contained conditions would run.
 ====
 
-This condition, along with the `AND` and `NOT` conditions, wraps other conditions.
-
-// TODO: Image of the OR condition.
-
+This condition wraps other conditions.
+It takes their results as inputs and performs a logical "or" of the results.
+The `AND` and `NOT` conditions do the same, performing their respective operations.
 
 .Pipeline
 [pipeline]
@@ -258,36 +257,106 @@ if (A || B) {
 }
 ----
 
-==== Condition number 3
-
-// Add one more Condition example
-
 === Tokens
 
-Tokens can be considerably more trouble than conditions. There are more of them
-and they cover a much broader range of behaviors.  In the previous example,
-showed one of the simpler cases, accessing a build parameter, where a token has
-a  direct equivalent in Pipeline.  Many tokens do not have direct
-equivalents and some provide functionality not exposed in pipeline yet.
-Determining how to migrate tokens need to be done on case by case basis.
+Tokens can be considerably more work than conditions.
+There are more of them and they cover a much broader range of behaviors.
+The previous example showed one of the simpler cases, accessing a build parameter,
+where the token has a direct equivalent in Pipeline.
+However, many tokens don't have direct equivalents,
+some take a parameters (adding to their complexity),
+and some provide information that is simply not exposed in pipeline yet.
+So, determining how to migrate tokens needs to be done on case-by-case basis.
 
 Let's look at a few examples.
 
-// TODO: Discuss a few common tokens and their Pipeline equivalents
-==== Token_1
+==== "FILE" token
 
-// TODO
+[QUOTE]
+====
+*${FILE,path="PATH"}*
 
-==== Token_2
+Expands to the contents of a file. The file path is relative to the build workspace root.
+====
 
-// TODO
+This token maps directly to the `readFile` step.
+The only difference is the file path for `readFile` is relative to the
+current working directory on the agent, but that is the workspace root by default.
+No problem.
 
-==== Token_3
+.Pipeline
+[pipeline]
+----
+// Declarative //
+when {
+    expression { return readFile('pom.xml').contains('mycomponent') }
+}
+steps {
+    /* step */
+}
 
-// TODO
+// Script //
+if (readFile('pom.xml').contains('mycomponent')) {
+    /* step */
+}
+----
 
 
-== Another Example
+==== GIT_BRANCH
+
+[QUOTE]
+====
+Expands to the name of the branch that was built.
+
+*Parameters*
+
+_all_
+
+If specified, all the branches that point to the given commit is listed. By default, the token expands to just one of them.
+
+_fullName_
+
+If specified, this token expands to the full branch name, such as 'origin/master'. Otherwise, it only expands to the short name, such as 'master'.
+====
+
+This information may or may not be exposed in Pipeline.  If you're using
+multibranch pipeline plugin `env.BRANCH_NAME` give similar basic information, but doesn't
+offer the parameters.  There are also
+link:https://issues.jenkins-ci.org/browse/JENKINS-35230[several]
+link:https://issues.jenkins-ci.org/browse/JENKINS-24141[issues]
+filed around `GIT_*` tokens in Pipeline.
+Until they are addressed fully, we can follow the pattern shown in
+link:https://github.com/jenkinsci/pipeline-examples/blob/master/pipeline-examples/gitcommit/gitcommit.groovy[pipeline-examples],
+executing a shell to get the information we need.
+
+
+.Pipeline
+[source, groovy]
+----
+GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+----
+
+==== CHANGES_SINCE_LAST_SUCCESS
+
+[QUOTE]
+====
+Displays the changes since the last successful build.
+
+*Parameters* (descriptions omitted):
+_reverse_, _format_, _changesFormat_, _showPaths_, _pathFormat_,
+_showDependencies_, _dateFormat_, _regex_, _replace_, _default_.
+====
+
+Not only is the information provided by this token not exposed in Pipeline,
+the token has ten optional parameters, including format strings and regular expression
+searches. There are some examples,
+link:http://stackoverflow.com/questions/38084806/how-to-get-the-changes-since-the-last-successful-build-in-jenkins-pipeline[this answer on stackoverflow.com],
+that show how to get similar information in Pipeline,
+but nothing comes close to functional parity.
+Translating this token is beyond the scope of this post.
+
+== Complex Example
+
 
 // TODO: Show a more complex example, using each of the conditions and tokens above.
 
@@ -314,4 +383,4 @@ Look for it soon!
 
 == Links
 
-* link:https://wiki.jenkins-ci.org/display/JENKINS/Conditional+BuildStep+Plugin[Conditional+BuildStep+Plugin]
+* link:https://plugins.jenkins.io/conditional-buildstep[Conditional BuildStep plugin]
