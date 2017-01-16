@@ -62,9 +62,9 @@ these provide values to the Conditions for evaluation
 In the example below, this project will run the shell script step when the value of the
 `REQUESTED_ACTION` token equals "greeting".
 
-image::/images/post-images/2017-01-11/freestyle-conditional-param.png[Freestyle Job Parameters, role="center"]
+image::/images/post-images/2017-01-11/freestyle-conditional-param.png[Freestyle Job Parameters, role="center", width=800]
 
-image::/images/post-images/2017-01-11/freestyle-conditional-config.png[Freestyle Job Conditional BuildStep, role="center"]
+image::/images/post-images/2017-01-11/freestyle-conditional-config.png[Freestyle Job Conditional BuildStep, role="center", width=800]
 
 Here's the output when I run this project with `REQUESTED_ACTION` set to "greeting":
 
@@ -92,7 +92,7 @@ Hello, bitwiseman!
 Finished: SUCCESS
 ----
 
-This is basic example but the conditional step can contain any regular build step available.
+This is a simple example but the conditional step can contain any regular build step.
 When combined with other plugins, it can control whether to send notifications,
 gather data from other sources, wait for user feedback, or call other projects.
 
@@ -205,8 +205,8 @@ Truth is a case insensitive match of one of the following:
 You might think that a boolean condition would be the simplest condition, but it isn't.
 Since it works with string values from tokens, the Conditional BuildStep plugin offers
 a number of ways to indicate true or false.
-Pipeline can duplicate these, but we might consider if a simpler expression
-would suffice on a case-by-case basis.
+Pipeline can duplicate these, but depending on the scenario we might consider
+whether a simpler expression would suffice.
 
 .Pipeline
 [pipeline]
@@ -355,11 +355,131 @@ that show how to get similar information in Pipeline,
 but nothing comes close to functional parity.
 Translating this token is beyond the scope of this post.
 
-== Complex Example
+== Slightly More Complex Example
+
+Let's do one more example that shows some of these conditions and tokens.
+This time we'll perform different build steps depending on what branch we're building.
+
+=== Freestyle
+
+Here's the configuration for Freestyle version
+(It's pretty long, click <<longer-pipeline, here>> to skip down to the Pipeline version):
+
+image::/images/post-images/2017-01-11/freestyle-conditional-long-full.png[Longer Freestyle Job, role="center", width=800]
 
 
-// TODO: Show a more complex example, using each of the conditions and tokens above.
+[[longer-pipeline]]
+=== Pipeline
 
+Here's the equivalent Pipeline:
+
+.Pipeline
+[pipeline]
+----
+// Script //
+properties ([
+    parameters ([
+        string (
+            defaultValue: '*',
+            description: '',
+            name : 'BRANCH_PATTERN'),
+        booleanParam (
+            defaultValue: false,
+            description: '',
+            name : 'FORCE_FULL_BUILD')
+    ])
+])
+
+node {
+    stage ('Build') {
+        checkout([$class: 'GitSCM',
+            branches: [[name: "origin/${BRANCH_PATTERN}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[$class: 'LocalBranch']],
+            submoduleCfg: [],
+            userRemoteConfigs: [[credentialsId: '9f926524-9fac-44df-99dd-53069380f286', url: 'https://github.com/bitwiseman/hermann']]])
+
+        GIT_BRANCH = 'origin/' + sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+        if (GIT_BRANCH == 'origin/master' || params.FORCE_FULL_BUILD) {
+
+            parallel (
+                linux: {
+                    build job: 'full-build-linux', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
+                },
+                mac: {
+                    build job: 'full-build-mac', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
+                },
+                windows: {
+                    build job: 'full-build-windows', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
+                },
+                failFast: false)
+
+        } else {
+            echo 'Skipped full build.'
+        }
+    }
+}
+// Declarative //
+pipeline {
+    agent any
+    parameters {
+        string (
+            defaultValue: '*',
+            description: '',
+            name : 'BRANCH_PATTERN')
+        booleanParam (
+            defaultValue: false,
+            description: '',
+            name : 'FORCE_FULL_BUILD')
+    }
+
+    stages {
+        stage ('Prepare') {
+            steps {
+                checkout([$class: 'GitSCM',
+                    branches: [[name: "origin/${BRANCH_PATTERN}"]],
+                    doGenerateSubmoduleConfigurations: false,
+                    extensions: [[$class: 'LocalBranch']],
+                    submoduleCfg: [],
+                    userRemoteConfigs: [[credentialsId: '9f926524-9fac-44df-99dd-53069380f286', url: 'https://github.com/bitwiseman/hermann']]])
+            }
+        }
+
+        stage ('Build') {
+            when {
+                expression {
+                    GIT_BRANCH = 'origin/' + sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+                    return GIT_BRANCH == 'origin/master' || params.FORCE_FULL_BUILD
+                }
+            }
+            steps {
+                parallel (
+                    linux: {
+                        build job: 'full-build-linux', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
+                    },
+                    mac: {
+                        build job: 'full-build-mac', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
+                    },
+                    windows: {
+                        build job: 'full-build-windows', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
+                    },
+                    failFast: false)
+            }
+        }
+        stage ('Build Skipped') {
+            when {
+                expression {
+                    GIT_BRANCH = 'origin/' + sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+                    return !(GIT_BRANCH == 'origin/master' || params.FORCE_FULL_BUILD)
+                }
+            }
+            steps {
+                echo 'Skipped full build.'
+            }
+        }
+    }
+}
+----
 
 
 == Conclusion
@@ -374,7 +494,7 @@ begin looking at migrating from
 This is blog post discussed how to approach migrating conditional build steps to pipeline
 and showed a couple concrete examples.  Overall, I'm pleased with the results so far.
 I found scenarios which could not easily be migrated to Pipeline, but even those
-are just more difficult not impossible.
+are only more difficult not impossible.
 
 The next thing to do is add a section to the
 link:https://jenkins.io/doc/book/[Jenkins Handbook] documenting the Pipeline
