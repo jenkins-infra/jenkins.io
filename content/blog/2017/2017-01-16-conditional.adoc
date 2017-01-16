@@ -12,38 +12,29 @@ author: lnewman
 NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
 Technical Evangelist at link:http://cloudbees.com[CloudBees].
 
+== Introduction
+
+With all the new developments in Jenkins Pipeline and with Declarative Pipeline
+on the horizon, it's easy forget what we did to create "pipelines" before Pipeline.
+There are number of plugins, some that have been around since before Jenkins was
+Jenkins, that enable users to create "pipelines" in Jenkins.
+For example, basic job chaining worked well in many cases, and the
+link:https://plugins.jenkins.io/parameterized-trigger[Parameterized Trigger plugin]
+made chaining more flexible.
+However, creating chained jobs with conditional behavior was
+still one of the harder things to do in Jenkins.
+
 The
 link:https://plugins.jenkins.io/conditional-buildstep[Conditional BuildStep plugin]
 is a powerful tool that has allowed Jenkins users to write Jenkins jobs with
 complex conditional logic.  The plugin also includes a set of
 token macros that expose a wide range of job state information on which to base
-those conditions.  Implementing conditional behavior in Jenkins Pipeline is trivial,
-but migrating jobs using complex conditional build steps requires a bit more care.
+those conditions.
 
-
-== Introduction
-
-There are number of plugins, some that have been around since before Jenkins was
-Jenkins, that enable users to create "pipelines" in Jenkins.
-
-With all the new developments in Jenkins Pipeline and with Declarative Pipeline
-on the horizon, it's easy forget what we did to create pipelines before Pipeline.
-
-In particular, creating chained jobs with conditional behavior was one of the harder things to
-do in Jenkins.
-
-Basic job chaining worked well in most cases, but what about when
-a pipeline needed conditional logic?
-
-// TODO: This intro is still coming together.
-
-The
-link:https://plugins.jenkins.io/conditional-buildstep[Conditional BuildStep plugin]
-addresses this need head-on.
-In this post, we'll look some examples of things we might do using the
-Conditional BuildStep plugin and how to implement the same behavior in
-Jenkins Pipeline.
-
+In this post, we'll take a first look at how Freestyle jobs using the
+Conditional BuildStep plugin might be migrated to Jenkins Pipeline.
+Implementing conditional behavior in Jenkins Pipeline is trivial,
+but migrating jobs using complex conditional build steps will require a bit more care.
 
 
 == Graphical Programming
@@ -108,8 +99,6 @@ and flexibility: more options or clearer presentation.
 There's only so much space on the screen.
 
 == Migrating to Pipeline
-
-// TODO: Transitional paragraph about migrating to pipeline
 
 The Pipeline equivalent of the example above is:
 
@@ -180,31 +169,22 @@ Finished: SUCCESS
 
 When at I pass the value "silence", the only change is "Hello, bitwiseman!" is not printed.
 
-The Pipeline code is considerably more compact than the Jenkins UI presentation.
-I had to do a some web searching to find out how to had build
-parameters to Pipeline
-(link:https://issues.jenkins-ci.org/browse/WEBSITE-281[One more task] for our
-documentation efforts).
-It took several iterations to get this pipeline to work, but it was pretty quick.
-
+Some might argue that the Pipeline code is a bit harder to understand on first reading.
+Others would say the UI is just as confusing if not more so.
+Either way, the Pipeline representation is considerably more compact than the Jenkins UI presentation.
 
 === Conditions
 The previous example showed the "Strings match" condition and it's Pipeline equivalent.
-Let's look at couple more interesting conditions and their pipeline equivalents.
+Let's look at couple more interesting conditions and their Jenkins Pipeline equivalents.
 
 ==== Boolean condition
-
-[QUOTE]
-====
-Expand the Token Macro and run the build step if it evaluates to true.
-
-Truth is a case insensitive match of one of the following:
-1 (the number one), Y, YES, T, TRUE, ON or RUN.
-====
 
 You might think that a boolean condition would be the simplest condition, but it isn't.
 Since it works with string values from tokens, the Conditional BuildStep plugin offers
 a number of ways to indicate true or false.
+Truth is a case insensitive match of one of the following:
+1 (the number one), Y, YES, T, TRUE, ON or RUN.
+
 Pipeline can duplicate these, but depending on the scenario we might consider
 whether a simpler expression would suffice.
 
@@ -228,11 +208,6 @@ if (token ==~ /(?i)(Y|YES|T|TRUE|ON|RUN)/) {
 ----
 
 ==== Logical "OR" of conditions
-
-[QUOTE]
-====
-Will run if any of the contained conditions would run.
-====
 
 This condition wraps other conditions.
 It takes their results as inputs and performs a logical "or" of the results.
@@ -272,12 +247,9 @@ Let's look at a few examples.
 
 ==== "FILE" token
 
-[QUOTE]
-====
-*${FILE,path="PATH"}*
+*Expands to the contents of a file. The file path is relative to the build workspace root.*
 
-Expands to the contents of a file. The file path is relative to the build workspace root.
-====
+_${FILE,path="PATH"}_
 
 This token maps directly to the `readFile` step.
 The only difference is the file path for `readFile` is relative to the
@@ -304,20 +276,9 @@ if (readFile('pom.xml').contains('mycomponent')) {
 
 ==== GIT_BRANCH
 
-[QUOTE]
-====
-Expands to the name of the branch that was built.
+*Expands to the name of the branch that was built.*
 
-*Parameters*
-
-_all_
-
-If specified, all the branches that point to the given commit is listed. By default, the token expands to just one of them.
-
-_fullName_
-
-If specified, this token expands to the full branch name, such as 'origin/master'. Otherwise, it only expands to the short name, such as 'master'.
-====
+*Parameters* (descriptions omitted): _all_, _fullName_.
 
 This information may or may not be exposed in Pipeline.  If you're using
 multibranch pipeline plugin `env.BRANCH_NAME` give similar basic information, but doesn't
@@ -338,14 +299,11 @@ GIT_BRANCH = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').t
 
 ==== CHANGES_SINCE_LAST_SUCCESS
 
-[QUOTE]
-====
-Displays the changes since the last successful build.
+*Displays the changes since the last successful build.*
 
 *Parameters* (descriptions omitted):
 _reverse_, _format_, _changesFormat_, _showPaths_, _pathFormat_,
 _showDependencies_, _dateFormat_, _regex_, _replace_, _default_.
-====
 
 Not only is the information provided by this token not exposed in Pipeline,
 the token has ten optional parameters, including format strings and regular expression
