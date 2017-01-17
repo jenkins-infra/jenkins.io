@@ -38,9 +38,12 @@ some of them.
 == Enabling Security
 
 When the *Enable Security* checkbox is checked, which has been the default
-since Jenkins 2.0, users must log in with a username and password in order to
-perform administrative operations. This checkbox should *always* be enabled for
-any non-local (test) Jenkins environment.
+since Jenkins 2.0, users can log in with a username and password in order to
+perform operations not available to anonymous users. Which operations require
+users to log in depends on the chosen authorization strategy and its configuration;
+by default anonymous users have no permissions, and logged in users have full
+control. This checkbox should *always* be enabled for any non-local (test) Jenkins
+environment.
 
 The Enable Security section of the web UI allows a Jenkins administrator to
 enable, configure, or disable key security features which apply to the entire
@@ -104,10 +107,15 @@ environments.
 LDAP:: Delegate all authentication to a configured LDAP server, including both
 users and groups. This option is more common for larger installations in
 organizations which already have configured an external identity provider such
-as LDAP. Organizations using Active Directory can use this setting with Active
-Directory's LDAP integration, but may want to consider using the
-link:https://plugins.jenkins.io/active-directory[Active Directory] plugin
-instead.
+as LDAP. This also supports Active Directory installations.
+
+
+[NOTE]
+====
+This feature is provided by the link:https://plugins.jenkins.io/ldap[LDAP plugin]
+that may not be installed on your instance.
+====
+
 Unix user/group database:: Delegates the authentication to the underlying Unix
 OS-level user database on the Jenkins master. This mode will also allow re-use
 of Unix groups for authorization. For example, Jenkins can be configured such
@@ -142,17 +150,17 @@ _what_ they can access in the Jenkins environment. By default Jenkins supports
 a few different Authorization options:
 
 
-Anyone can do anything:: No authorization is performed. Everyone gets full control of Jenkins,
-including anonymous users who haven't signed on. *Do not use this setting* for
-anything other than local test Jenkins masters.
+Anyone can do anything:: Everyone gets full control of Jenkins, including 
+anonymous users who haven't logged in. *Do not use this setting* for anything
+other than local test Jenkins masters.
 Legacy mode:: Behaves exactly the same as Jenkins <1.164. Namely, if a user has
 the "admin" role, they will be granted full control over the system, and otherwise
 (including anonymous users) will only have the read access. *Do not use this
 setting* for anything other than local test Jenkins masters.
-Logged in users can do anything:: In this mode, every logged-in user gets full control of Jenkins. The only user
-who won't have full control is an anonymous user, who only gets read access.
-This mode is useful to force users to log in before taking actions, so that
-there is an audit trail of users' actions.
+Logged in users can do anything:: In this mode, every logged-in user gets full
+control of Jenkins. Depending on an advanced option, anonymous users get read
+access to Jenkins, or no access at all. This mode is useful to force users to 
+log in before taking actions, so that there is an audit trail of users' actions.
 Matrix-based security:: This authorization scheme allows for granular control
 over which users and groups are able to perform which actions in the Jenkins
 environment (see the screenshot below).
@@ -164,6 +172,13 @@ projects, instead of all projects in the Jenkins environment. The ACLs defined
 with Project-based Matrix Authorization are additive such that access grants
 defined in the Configure Global Security screen will be combined with
 project-specific ACLs.
+
+[NOTE]
+====
+Matrix-based security and Project-based Matrix Authorization Strategy are provided
+by the link:https://plugins.jenkins.io/matrix-auth[Matrix Authorization Strategy Plugin]
+and may not be installed on your Jenkins.
+====
 
 
 For most Jenkins environments, Matrix-based security provides the most security
@@ -187,7 +202,8 @@ to all authenticated users accessing the environment.
 The permissions granted in the matrix are additive. For example, if a user
 "kohsuke" is in the groups "developers" and "administrators", then the
 permissions granted to "kohsuke" will be a union of all those permissions
-granted to "kohsuke", "developers", "administrators", and "anonymous."
+granted to "kohsuke", "developers", "administrators", "authenticated", and 
+"anonymous."
 
 === Markup Formatter
 
@@ -203,12 +219,6 @@ Using the *Safe HTML* Markup Formatter allows for users and
 administrators to inject useful and information HTML snippets into Project
 Descriptions and elsewhere.
 
-It is not recommended that administrators
-operating Jenkins on hostile networks (for example, the internet) select any
-markup formatter other than *Plain Text* to reduce the risk for
-link:https://en.wikipedia.org/wiki/Cross-site_scripting[Cross-site Scripting]
-attacks.
-
 == Cross Site Request Forgery
 
 A cross site request forgery (or CSRF/XSRF)
@@ -222,12 +232,13 @@ by default with all Jenkins versions since 2.0.
 
 image::managing/configure-global-security-prevent-csrf.png["Configure Global Security - Prevent Cross Site Request Forgery exploits", role=center]
 
-When the option is enabled, Jenkins will check for a nonce
-footnoteref:[nonce, https://en.wikipedia.org/wiki/Cryptographic_nonce],
-or "crumb", on any request that may change data in the Jenkins environment.
-This includes any form submission and calls to the remote API.
+When the option is enabled, Jenkins will check for a CSRF token, or "crumb", 
+on any request that may change data in the Jenkins environment. This includes
+any form submission and calls to the remote API, including those using "Basic"
+authentication.
 
-It is *strongly recommended* that this option be left *enabled*.
+It is *strongly recommended* that this option be left *enabled*, including on
+instances operating on private, fully trusted networks.
 
 === Caveats
 
