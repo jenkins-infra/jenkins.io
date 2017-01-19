@@ -10,16 +10,17 @@ author: lnewman
 ---
 
 NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
-Technical Evangelist at link:http://cloudbees.com[CloudBees].
+Technical Evangelist at link:https://cloudbees.com[CloudBees].
 
 == Introduction
 
-With all the new developments in Jenkins Pipeline (and
+With all the new developments in
+link:https://jenkins.io/doc/book/pipeline/[Jenkins Pipeline] (and
 link:https://jenkins.io/blog/2017/01/12/declarative-pipeline-beta-2/[Declarative Pipeline on the horizon]),
 it's easy to forget what we did to create "pipelines" before
-*link:https://jenkins.io/doc/book/pipeline/[Pipeline]*.
-There are number of plugins, some that have been around since before Jenkins was
-Jenkins, that enable users to create "pipelines" in Jenkins.
+*Pipeline*.
+There are number of plugins, some that have been around since the very beginning,
+that enable users to create "pipelines" in Jenkins.
 For example, basic job chaining worked well in many cases, and the
 link:https://plugins.jenkins.io/parameterized-trigger[Parameterized Trigger plugin]
 made chaining more flexible.
@@ -28,8 +29,7 @@ still one of the harder things to do in Jenkins.
 
 The
 link:https://plugins.jenkins.io/conditional-buildstep[Conditional BuildStep plugin]
-is a powerful tool that has allowed Jenkins users to write Jenkins jobs with
-complex conditional logic.
+is a powerful tool that has allowed Jenkins users to write Jenkins jobs with complex conditional logic.
 In this post, we'll take a look at how we might converting Freestyle jobs that
 include conditional build steps to Jenkins Pipeline.
 Unlike Freestyle jobs, implementing conditional operations in Jenkins Pipeline is trivial,
@@ -39,7 +39,7 @@ but matching the behavior of complex conditional build steps will require a bit 
 == Graphical Programming
 
 The Conditional BuildStep plugin lets users add conditional logic to Freestyle
-jobs from within the Jenkin web UI.  It does this by:
+jobs from within the Jenkins web UI.  It does this by:
 
 * Adding two types of Conditional BuildStep ("Single" and "Multiple") -
 these build steps contain one or more other build steps to be run when the configured
@@ -74,11 +74,8 @@ And when I pass the value "silence":
 [source]
 ----
 Run condition [Strings match] enabling prebuild for step [Execute shell]
-Strings match run condition: string 1=[greeting], string 2=[greeting]
-Run condition [Strings match] enabling perform for step [Execute shell]
-[freestyle-conditional] $ /bin/sh -xe /var/folders/hp/f7yc_mwj2tq1hmbv_5n10v2c0000gn/T/hudson5963233933358491209.sh
-+ echo 'Hello, bitwiseman!'
-Hello, bitwiseman!
+Strings match run condition: string 1=[silence], string 2=[greeting]
+Run condition [Strings match] preventing perform for step [Execute shell]
 Finished: SUCCESS
 ----
 
@@ -99,7 +96,7 @@ There's only so much space on the screen.
 
 == Converting to Pipeline
 
-Jenkin Pipeline, on the other hand, enables users to implement their pipeline as code.
+Jenkins Pipeline, on the other hand, enables users to implement their pipeline as code.
 Pipeline code can be written directly in the Jenkins Web UI or in any text editor.
 It is a full-featured programming language,
 which gives users access to much broader set of conditional statements
@@ -114,8 +111,9 @@ pipeline {
     agent any
     parameters {
         choice(
-            // choices must be newline separated
-            choices: ['greeting','silence'].join('\n'),
+            // choices are a string of newline separated values
+            // https://issues.jenkins-ci.org/browse/JENKINS-41180
+            choices: 'greeting\nsilence',
             description: '',
             name: 'REQUESTED_ACTION')
     }
@@ -124,7 +122,7 @@ pipeline {
         stage ('Speak') {
             when {
                 // Only say hello if a "greeting" is requested
-                expression { return params.REQUESTED_ACTION == 'greeting' }
+                expression { params.REQUESTED_ACTION == 'greeting' }
             }
             steps {
                 echo "Hello, bitwiseman!"
@@ -136,8 +134,9 @@ pipeline {
 properties ([
     parameters ([
         choice (
-            // choices must be newline separated
-            choices: ['greeting','silence'].join('\n'),
+            // choices are a string of newline separated values
+            // https://issues.jenkins-ci.org/browse/JENKINS-41180
+            choices: 'greeting\nsilence',
             description: '',
             name : 'REQUESTED_ACTION')
     ])
@@ -172,7 +171,7 @@ Hello, bitwiseman!
 Finished: SUCCESS
 ----
 
-When at I pass the value "silence", the only change is "Hello, bitwiseman!" is not printed.
+When I pass the value "silence", the only change is "Hello, bitwiseman!" is not printed.
 
 Some might argue that the Pipeline code is a bit harder to understand on first reading.
 Others would say the UI is just as confusing if not more so.
@@ -182,7 +181,7 @@ And we can easily put this Pipeline in a `Jenkinsfile` to be code-reviewed, chec
 along with the rest of our code.
 
 === Conditions
-The previous example showed the "Strings match" condition and it's Pipeline equivalent.
+The previous example showed the "Strings match" condition and its Pipeline equivalent.
 Let's look at couple more interesting conditions and their Jenkins Pipeline equivalents.
 
 ==== Boolean condition
@@ -191,7 +190,7 @@ You might think that a boolean condition would be the simplest condition, but it
 Since it works with string values from tokens, the Conditional BuildStep plugin offers
 a number of ways to indicate true or false.
 Truth is a case insensitive match of one of the following:
-1 (the number one), Y, YES, T, TRUE, ON or RUN.
+`1` (the number one), `Y`, `YES`, `T`, `TRUE`, `ON` or `RUN`.
 
 Pipeline can duplicate these, but depending on the scenario we might consider
 whether a simpler expression would suffice.
@@ -288,9 +287,10 @@ if (readFile('pom.xml').contains('mycomponent')) {
 
 *Parameters* (descriptions omitted): _all_, _fullName_.
 
-This information may or may not be exposed in Pipeline.  If you're using
-multibranch pipeline plugin `env.BRANCH_NAME` give similar basic information, but doesn't
-offer the parameters.  There are also
+This information may or may not be exposed in Pipeline.  If you're using the
+link:https://plugins.jenkins.io/workflow-multibranch[Pipeline Multibranch plugin]
+`env.BRANCH_NAME` will give similar basic information, but doesn't offer the parameters.
+There are also
 link:https://issues.jenkins-ci.org/browse/JENKINS-35230[several]
 link:https://issues.jenkins-ci.org/browse/JENKINS-24141[issues]
 filed around `GIT_*` tokens in Pipeline.
@@ -315,21 +315,39 @@ _showDependencies_, _dateFormat_, _regex_, _replace_, _default_.
 
 Not only is the information provided by this token not exposed in Pipeline,
 the token has ten optional parameters, including format strings and regular expression
-searches. There are some examples,
-link:http://stackoverflow.com/questions/38084806/how-to-get-the-changes-since-the-last-successful-build-in-jenkins-pipeline[this answer on stackoverflow.com],
-that show how to get similar information in Pipeline,
-but nothing comes close to functional parity.
-Translating this token is beyond the scope of this post.
+searches. There are a number of ways we might get similar information in Pipeline.
+Each have their own particular limitations and ways they differ from the token output.
+Then we'll need to consider how each of the parameters changes the output.
+If nothing else, translating this token is clearly beyond the scope of this post.
 
 == Slightly More Complex Example
 
 Let's do one more example that shows some of these conditions and tokens.
 This time we'll perform different build steps depending on what branch we're building.
+We'll take two build parameters: `BRANCH_PATTERN` and `FORCE_FULL_BUILD`.
+Based on `BRANCH_PATTERN`, we'll checkout a repository.
+If we're building on the `master` branch or the user checked `FORCE_FULL_BUILD`,
+we'll call three other builds in parallel
+(`full-build-linux`, `full-build-mac`, and `full-build-windows`),
+wait for them to finish, and report the result.
+If we're not building on the `master` branch and the user did not check `FORCE_FULL_BUILD`,
+we'll print a message saying we skipped the full builds.
 
 === Freestyle
 
-Here's the configuration for Freestyle version
-(It's pretty long, click <<longer-pipeline, here>> to skip down to the Pipeline version):
+Here's the configuration for Freestyle version.
+(It's pretty long.  Feel free to <<longer-pipeline, skip down to the Pipeline version>>):
+
+[NOTE]
+====
+The Pipeline version of this job determines the `GIT_BRANCH` branch by
+running a shell script that returns the current local branch name.
+This means that the Pipeline version must checkout to a local branch (not a detached head).
+
+Freestyle version of this job does not require a local branch, `GIT_BRANCH` is set automatically.
+However, to maintain functional parity, the Freestyle version of this job includes
+"Checkout to Specific Local Branch" as well.
+====
 
 image::/images/post-images/2017-01-18/freestyle-conditional-long-full.png[Longer Freestyle Job, role="center", width=800]
 
@@ -338,6 +356,16 @@ image::/images/post-images/2017-01-18/freestyle-conditional-long-full.png[Longer
 === Pipeline
 
 Here's the equivalent Pipeline:
+
+[NOTE]
+====
+Freestyle version of this job is not stored in source control.
+
+In general, the Pipeline version of this job would be stored in source control,
+would `checkout scm`, and would run that same repository.
+However, to maintain functional parity, the Pipeline version shown does a checkout
+from source control but is not stored in that repository.
+====
 
 .Pipeline
 [pipeline]
@@ -357,17 +385,25 @@ properties ([
 ])
 
 node {
-    stage ('Build') {
+    stage ('Prepare') {
         checkout([$class: 'GitSCM',
             branches: [[name: "origin/${BRANCH_PATTERN}"]],
             doGenerateSubmoduleConfigurations: false,
             extensions: [[$class: 'LocalBranch']],
             submoduleCfg: [],
-            userRemoteConfigs: [[credentialsId: '9f926524-9fac-44df-99dd-53069380f286', url: 'https://github.com/bitwiseman/hermann']]])
+            userRemoteConfigs: [[
+                credentialsId: 'bitwiseman_github',
+                url: 'https://github.com/bitwiseman/hermann']]])
+    }
 
+    stage ('Build') {
         GIT_BRANCH = 'origin/' + sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
         if (GIT_BRANCH == 'origin/master' || params.FORCE_FULL_BUILD) {
 
+            // Freestyle build trigger calls a list of jobs
+            // Pipeline build() step only calls one job
+            // To run all three jobs in parallel, we use "parallel" step
+            // https://jenkins.io/doc/pipeline/examples/#jobs-in-parallel
             parallel (
                 linux: {
                     build job: 'full-build-linux', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
@@ -407,7 +443,9 @@ pipeline {
                     doGenerateSubmoduleConfigurations: false,
                     extensions: [[$class: 'LocalBranch']],
                     submoduleCfg: [],
-                    userRemoteConfigs: [[credentialsId: '9f926524-9fac-44df-99dd-53069380f286', url: 'https://github.com/bitwiseman/hermann']]])
+                    userRemoteConfigs: [[
+                        credentialsId: 'bitwiseman_github',
+                        url: 'https://github.com/bitwiseman/hermann']]])
             }
         }
 
@@ -419,6 +457,10 @@ pipeline {
                 }
             }
             steps {
+                // Freestyle build trigger calls a list of jobs
+                // Pipeline build() step only calls one job
+                // To run all three jobs in parallel, we use "parallel" step
+                // https://jenkins.io/doc/pipeline/examples/#jobs-in-parallel
                 parallel (
                     linux: {
                         build job: 'full-build-linux', parameters: [string(name: 'GIT_BRANCH_NAME', value: GIT_BRANCH)]
