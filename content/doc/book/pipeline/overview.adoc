@@ -1,4 +1,297 @@
 ---
-layout: refresh
-refresh_to_post_id: '/doc/book/pipeline/getting-started'
+layout: section
 ---
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:imagesdir: /doc/book/resources
+:hide-uri-scheme:
+
+
+= Pipeline Overview
+
+This section of the handbook will walk through all aspects of creating a Jenkins
+Pipeline beginning with very simple examples and progressing to more complex
+use-cases.
+
+Pipelines are a series of steps that allow you to orchestrate the work required
+to build, test and deploy applications. Pipelines are defined in a file called
+`Jenkinsfile` that is stored in the root of your project's source repository.
+Pipeline can be used to use almost any tool and work with any language. For example:
+
+*Java*
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent { label ' }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'mvn --version'
+        sh 'mvn install'
+      }
+    }
+  }
+}
+// Script //
+node {
+  stage('Build') {
+    sh 'mvn --version'
+    sh 'mvn install'
+  }
+}
+----
+
+*Node.js / JavaScript*
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent { label '' }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'npm --version'
+        sh 'npm install'
+        sh 'npm test'
+      }
+    }
+  }
+}
+// Script //
+node {
+  stage('Build') {
+    sh 'npm --version'
+    sh 'npm install'
+    sh 'npm test'
+  }
+}
+----
+
+
+*Ruby*
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent { label '' }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'ruby --version'
+        sh 'bundle install'
+      }
+    }
+  }
+}
+// Script //
+node {
+  stage('Build') {
+    sh 'ruby --version'
+    sh 'bundle install'
+  }
+}
+----
+
+*Python*
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent { label ' }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'pip --version'
+        sh 'python --version'
+      }
+    }
+  }
+}
+// Script //
+node {
+  stage('Build') {
+    sh 'pip --version'
+    sh 'python --version'
+  }
+}
+----
+
+*PHP*
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent { label '' }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'php --version'
+      }
+    }
+  }
+}
+// Script //
+node {
+  stage('Build') {
+    sh 'php --version'
+  }
+}
+----
+
+[[agents]]
+== Working with Agents
+
+In the simple examples above, you will have seen the `agent` directive in use with
+Declarative Pipeline and `node` with Scripted Pipeline. `agent` and `node` perform
+similar functions in each respective syntax to define where the Pipeline is executed,
+but `agent` includes additional inputs to easily work with Docker.
+As a distributed system most _work_ a Pipeline performs is done in the context
+of one or more nodes. Defining a `node` or `agent` does two things:
+
+* Schedules the steps contained within the block to run by adding an item to the Jenkins queue.
+As soon as an executor is free on a node, the steps will run.
+* Creates a workspace (a directory specific to that particular Pipeline) where
+work can be done on files checked out from source control.
+
+There are several ways to define agents to use in your Pipeline.
+
+=== Using Labels
+This is useful for when you want to specify a particular machine size, or requirement. Use `agent { label 'windows' }` to specify that you want your build to run on an agent that has been labelled as `windows`. If you make this `label ''` then it will run on any agent connected to your Jenkins master that is available.
+
+Example (will use the `master` node):
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent {
+        label 'master'
+    }
+    stages {
+        stage('testing 123') {
+            steps {
+                sh 'echo hello from master node'
+            }
+        }
+    }
+}
+// Script //
+node('master') {
+  stage('testing 123') {
+    sh 'echo hello from master node'
+  }
+}
+----
+
+=== Using Docker
+Declarative Pipeline is designed to easily use Docker images and containers to run
+inside. This allows the Pipeline to define the build and test environment and tools
+required without having to manually configure various agents. This can pretty
+much be any image you like, your build steps and stages will run inside it.
+
+Example:
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent {
+        docker { image 'node' }
+    }
+    stages {
+        stage("testing 123") {
+            steps {
+                sh 'node --version'
+            }
+        }
+    }
+}
+// Script //
+node {
+  stage('testing 123') {
+    docker('node').inside {
+      sh 'node --version'
+    }
+  }
+}
+----
+
+=== Using Dockerfile
+You can also use a Dockerfile in your source repository - with `agent { dockerfile true }`, the Dockerfile at the root of your repository will be built and the resulting image will be used for a container your build will run in.
+
+Example:
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent {
+        docker {
+          image 'node'
+        }
+    }
+    stages {
+        stage("testing 123") {
+            steps {
+                sh 'node --version'
+            }
+        }
+    }
+}
+// Script //
+node {
+  stage('testing 123') {
+    docker('node').inside {
+      sh 'node --version'
+    }
+  }
+}
+----
+
+
+
+=== Manual configuration
+In this case, put `agent none` as your agent directive. Pipeline won't try to find an agent to run on, or pull any Docker images. Inside your `stage ...` directives, you will need to specify what `node` to run on, should you need one.
+
+
+Example:
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none
+    stages {
+        stage('say hi') {
+            steps {
+                echo "I don't need no node"
+            }
+        }
+        stage('build') {
+             agent {
+                 label 'master'
+             }
+             steps {
+                checkout scm
+                sh 'echo from master'
+            }
+        }
+        stage('deploy') {
+            agent {
+                label 'deploy-host'
+            }
+            steps {
+                sh './deploy-code-here'
+            }
+        }
+    }
+}
+----
+
+In this case, we have a few stages. The last 2 actually get different nodes to execute on (a node is a machine that is running the Jenkins agent). Note the `checkout scm` step - this actually fetches the code into the nodes workspace (previously it was done automatically for you).
