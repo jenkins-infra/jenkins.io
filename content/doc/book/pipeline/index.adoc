@@ -1,5 +1,6 @@
 ---
-layout: chapter
+layout: documentation
+title: Pipeline
 ---
 :notitle:
 :description:
@@ -24,7 +25,6 @@ knowledge from "Getting Started", "Using Jenkins", or from previous sections in
 this chapter.
 ////
 
-
 = Pipeline
 
 This chapter will cover all aspects of Jenkins Pipeline, from running pipeline jobs
@@ -43,37 +43,61 @@ If you are not yet familiar with basic Jenkins terminology and features, start w
 Jenkins Pipeline is a suite of plugins which supports implementing and
 integrating continuous delivery pipelines into Jenkins. Pipeline provides an
 extensible set of tools for modeling simple-to-complex delivery pipelines "as
-code" via the Pipeline DSL.
+code" via the <<syntax,Pipeline DSL>>.
 footnoteref:[dsl,link:https://en.wikipedia.org/wiki/Domain-specific_language[Domain-Specific Language]]
 
-Typically, this "Pipeline as Code" would be written to  a `Jenkinsfile` and
+Typically, this "Pipeline as Code" would be written to  a <<Jenkinsfile,`Jenkinsfile`>> and
 checked into a project's source control repository, for example:
 
 [pipeline]
 ----
-// Script //
-node { // <1>
+// Declarative //
+pipeline {
+  agent { // <1>
+    label ''
+  }
+
+  stages{
     stage('Build') { // <2>
-        sh 'make' // <3>
+      steps { // <3>
+        sh 'make' // <4>
+      }
+    }
+    stage('Test'){
+      steps {
+        sh 'make check'
+        junit 'reports/**/*.xml' // <5>
+      }
+    }
+    stage('Deploy') {
+        steps {
+          sh 'make publish'
+        }
+    }
+  }
+}
+// Script //
+node {
+    stage('Build') {
+        sh 'make'
     }
 
     stage('Test') {
         sh 'make check'
-        junit 'reports/**/*.xml' // <4>
+        junit 'reports/**/*.xml'
     }
 
     stage('Deploy') {
         sh 'make publish'
     }
 }
-
-// Declarative not yet implemented //
 ----
-<1> <<node,`node`>> indicates that Jenkins should allocate an executor and workspace for
+<1> <<agent,`agent`>> indicates that Jenkins should allocate an executor and workspace for
 this part of the Pipeline.
 <2> <<stage,`stage`>> describes a stage of this Pipeline.
-<3> `sh` executes the given shell command
-<4> `junit` is a Pipeline <<step,step>> provided by the
+<3> <<steps, `steps`>> describes the steps to be run in this `stage`
+<4> `sh` executes the given shell command
+<5> `junit` is a Pipeline <<step,step>> provided by the
 link:https://plugins.jenkins.io/junit[JUnit plugin]
 for aggregating test reports.
 
@@ -120,6 +144,54 @@ modeled in Jenkins Pipeline:
 
 image::pipeline/realworld-pipeline-flow.png[title="Pipeline Flow", 800]
 
+[[syntax]]
+== Scripted Pipeline Syntax and Declarative Pipeline Syntax
+
+When Pipeline was first conceived it was natural to begin with Groovy as the
+foundation. Jenkins already had an embedded Groovy scripting engine with a console
+to interact with all parts of Jenkins and Groovy is a great language for creating
+a custom Domain-Specific Language (DSL). The
+link:https://plugins.jenkins.io/job-dsl[Job-DSL],
+plugin for Jenkins was also written in Groovy. This plugin lets you automate the
+creation and editing of any job in Jenkins, including Pipelines.
+
+Pipeline initially introduced key pipeline-specific concepts such as `node`,
+`stage`, `parallel`, and extension points to allow plugins to add other steps
+to the DSL but, otherwise didn't restrict the use of Groovy. This original syntax
+for creating Pipelines is now referred to as "Scripted Pipeline" and includes
+full programmatic control to allow scripting continuous delivery pipelines in Groovy.
+This givesPipeline creators tremendous flexibility in defining a pipeline and allows it to
+be extended via <<shared-libraries#, Shared Libraries>> or plugins.
+
+
+CAUTION: Due to the need to serialize all variables for durability some Groovy
+idioms are not fully supported yet. See
+https://issues.jenkins-ci.org/browse/JENKINS-27421[JENKINS-27421]
+and
+https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481]
+for more information.
+
+Writing Pipelines with Scripted Pipeline syntax, however, does require at least
+some proficiency with Groovy. Requiring all team members that touch the application's
+Pipeline to understand Groovy limits the ability for full-participation in
+code-review, audits, and editing of the Pipeline as part of the application code.
+Enter "Declarative Pipeline" syntax.
+
+Declarative Pipeline syntax was created to extend Pipeline to users of all experience
+levels and complement Scripted Pipeline syntax. As the name implies, it is intended
+to enable declarative programming
+footnoteref:[declarative, link:https://en.wikipedia.org/wiki/Declarative_programming[Declarative Programming]]
+for defining Pipelines as opposed to the imperative programming
+footnoteref:[imperative, link:https://en.wikipedia.org/wiki/Imperative_programming[Imperative Programming]]
+provided by Scripted Pipeline. While it is still a DSL written
+on top of Groovy, Declarative Pipeline is a limited to a pre-defined structure
+that is much more specific to continuous delivery. This allows all stakeholders
+to help create, edit, review, and audit the application's Pipeline.
+
+Scripted Pipeline and Declarative Pipeline both use the same underlying Pipeline
+execution engine and both are fully-supported. You can use whichever you prefer
+in any of your Pipelines and even combine them when needed. All examples in this handbook will show
+both a Declarative Pipeline version and Scripted Pipeline version for your reference.
 
 [[terms]]
 == Pipeline Terms
