@@ -14,7 +14,7 @@ module ActiveNav
       classes << options[:class]
     end
 
-    if page.output_path.match(relative_url)
+    if page.output_path.match(/^\/#{relative_url}\/index.html/)
       classes << 'active'
     end
     classes = classes.join(' ')
