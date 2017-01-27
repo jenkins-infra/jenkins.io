@@ -8,52 +8,74 @@ title: Using environment variables
 :imagesdir: /doc/book/resources
 :hide-uri-scheme:
 
-Environment variables are set using name/value pairs:
+
+Environment variables can be set globally, like the example below, or per
+stage. As you might expect, setting environment variables per stage means they
+will only apply to the stage in which they're defined.
+
 
 [pipeline]
 ----
+// Declarative //
 pipeline {
+    agent any
+
     environment {
-        FOO = "BAR"
+        DISABLE_AUTH = 'true'
+        DB_ENGINE    = 'sqlite'
     }
 
-    agent { label "master" }
-
     stages {
-        stage("foo") {
+        stage('Build') {
             steps {
-                sh 'echo "FOO is $FOO"'
+                sh 'printenv'
             }
+        }
+    }
+}
+// Scripted //
+node {
+    withEnv(['DISABLE_AUTH=true',
+             'DB_ENGINE=sqlite']) {
+        stage('Build') {
+            sh 'printenv'
         }
     }
 }
 ----
 
-You can add many more variables, one per line, like so:
+This approach to defining environment variables from within the `Jenkinsfile`
+can be very useful for instructing scripts, such as a `Makefile`, to configure
+the build or tests differently to run them inside of Jenkins.
 
-[source, groovy]
-----
-    environment {
-        FOO = "BAR"
-        BAZ = "bang"
-    }
-----
+Another common need for environment variables is to set or override "dummy"
+credentials in build or test scripts. Because it's (_obviously_) a bad idea to
+put credentials directly into a `Jenkinsfile`, Jenkins Pipeline allows users to quickly
+and safely access pre-defined credentials in the `Jenkinsfile` without ever
+needing to know their values.
 
-Environment variables can be set globally (like the above) or per stage. If they are set per stage, they only apply to the running stage. Other stages will not get those environment variables.
+=== Credentials in the Environment
 
-You can also access credentials (ie. secrets) and set them to environment variables. For example:
+If your Jenkins environment has credentials configured, such as build secrets
+or API tokens, those can be easily inserted into environment variables for use
+in the Pipeline. The snippet below is for "Secret Text" type Credentials, for
+example.
 
 [source, groovy]
 ----
 environment {
-AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+    AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
 }
 ----
 
-This looks up the *secret text* for each credential `id`.
+Just as the first example, these variables will be available either globally or
+per-stage depending on where the `environment` directive is located in the
+`Jenkinsfile`.
 
-If you use username and password style of credentials, this is slightly different:
+The second most common type of Credentials is "Username and Password" which can
+still be used in the `environment` directive, but results in slightly
+different variables being set.
 
 [source,groovy]
 ----
@@ -62,11 +84,21 @@ environment {
 }
 ----
 
-This will actually set 3 variables:
+This will actually set 3 environment variables:
 
 * `SAUCE_ACCESS` containing `<username>:<password>`
 * `SAUCE_ACCESS_USR` containing the username
 * `SAUCE_ACCESS_PSW` containing the password
 
+[NOTE]
+====
+`credentials` is only available for Declarative Pipeline. For those using Scripted
+Pipeline, see the documentation for the `withCredentials` step.
+====
+
+Thus far we have concerned ourselves with creating a Pipeline that is
+configured and executes the way we might expect. In the next couple sections,
+we'll cover another crucial aspectof continuous delivery: surfacing feedback
+and information.
 
 **link:../tests-and-artifacts[Continue to "Recording tests and artifacts"]**
