@@ -77,7 +77,7 @@ Asciidoctor::Extensions.register do
           unless declarative.nil?
             snippet << <<-EOF
   <div class="pipeline-script-expand">
-    <a href="#" onclick="javascript:$(this).parent().siblings('.pipeline-script').toggle(); return false;">Toggle Pipeline Script</a>
+    <a href="#" onclick="javascript:$(this).parent().siblings('.pipeline-script').toggle(); return false;">Toggle Scripted Pipeline</a>
     <em>(Advanced)</em>
   </div>
   EOF
