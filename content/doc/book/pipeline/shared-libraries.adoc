@@ -6,7 +6,7 @@ layout: section
 :author:
 :email: jenkinsci-docs@googlegroups.com
 :sectanchors:
-:imagesdir: /doc/book/resources/pipeline
+:imagesdir: /doc/book/resources
 :hide-uri-scheme:
 :toc:
 
@@ -89,6 +89,8 @@ There are several places where Shared Libraries can be defined, depending on
 the use-case. _Manage Jenkins » Configure System » Global Pipeline Libraries_
 as many libraries as necessary can be configured.
 
+image::pipeline/add-global-pipeline-libraries.png["Add a Global Pipeline Library", role=center]
+
 Since these libraries will be globally usable, any Pipeline in the system can
 utilize functionality implemented in these libraries.
 
@@ -121,25 +123,27 @@ branch, using an anonymous checkout.
 
 == Using libraries
 
-Pipelines can access shared libraries marked _Load implicitly_, They may
-immediately use classes or global variables defined by any such libraries
-(details below).
+Shared Libraries marked _Load implicitly_ allows Pipelines to immediately use
+classes or global variables defined by any such libraries. To access other
+shared libraries, the `Jenkinsfile` needs to use the `@Library` annotation,
+specifying the library's name:
 
-To access other shared libraries, a script needs to use the `@Library`
-annotation, specifying the library's name:
+image::pipeline/configure-global-pipeline-library.png["Configuring a Global Pipeline Library", role=center]
 
 [source,groovy]
 ----
-@Library('somelib')
+@Library('my-shared-library') _
 /* Using a version specifier, such as branch, tag, etc */
-@Library('somelib@1.0')
+@Library('my-shared-library@1.0') _
 /* Accessing multiple libraries with one statement */
-@Library(['somelib', 'otherlib@abc1234'])
+@Library(['my-shared-library', 'otherlib@abc1234']) _
 ----
 
 The annotation can be anywhere in the script where an annotation is permitted
 by Groovy.  When referring to class libraries (with `src/` directories),
-conventionally the annotation goes on an `import` statement:
+conventionally the annotation goes on an `import` statement: It is legal,
+though unnecessary, to `import` a global variable (or method) defined in the
+`vars/` directory:
 
 [source,groovy]
 ----
@@ -147,13 +151,17 @@ conventionally the annotation goes on an `import` statement:
 import com.mycorp.pipeline.somelib.UsefulClass
 ----
 
-[NOTE]
+[TIP]
 ====
-It is legal, though unnecessary, to `import` a global variable (or method)
-defined in the `vars/` directory:
+For Shared Libraries which only define Global Variables (`vars/`), or a
+`Jenkinsfile` which only needs a Global Variable, the
+link:http://groovy-lang.org/objectorientation.html#_annotation[annotation]
+pattern `@Library('my-shared-library') _` may be useful for keeping code
+concise. In essence, instead of annotating an unnecessary `import` statement,
+the symbol `_` is annotated.
 ====
 
-Note that libraries are resolved and loaded during _compilation_ of the script,
+Libraries are resolved and loaded during _compilation_ of the script,
 before it starts executing.  This allows the Groovy compiler to understand the
 meaning of symbols used in static type checking, and permits them to be used
 in type declarations in the script, for example:
@@ -173,12 +181,39 @@ echo useSomeLib(new Helper('some text'))
 
 Global Variables however, are resolved at runtime.
 
-=== Overriding versions
+=== Library versions
 
-A `@Library` annotation may override a default version given in the library’s
-definition, if the definition permits this.  In particular, a shared library
-marked for implicit use can still be loaded in a different version using the
-annotation (unless the definition specifically forbids this).
+The "Default version" for a configured Shared Library is used when "Load
+implicitly" is checked, or if a Pipeline references the library only by name,
+for example `@Library('my-shared-library') _`. If a "Default version" is *not*
+defined, the Pipeline must specify a version, for example
+`@Library('my-shared-library@master') _`.
+
+If "Allow default version to be overridden" is enabled in the Shared Library's
+configuration, a `@Library` annotation may also override a default version
+defined for the library. This also allows a library with "Load implicitly" to
+be loaded from a different version if necessary.
+
+=== Retrieval Method
+
+The best way to specify the SCM is using an SCM plugin which has been
+specifically updated to support a new API for checking out an arbitrary named
+version (**Modern SCM** option). As of this writing, the latest versions of the
+Git and Subversion plugins support this mode.
+
+image::pipeline/global-pipeline-library-modern-scm.png["Configuring a 'Modern SCM' for a Pipeline Library", role=center]
+
+==== Legacy SCM
+
+SCM plugins which have not yet been updated to support the newer features
+required by Shared Libraries, may still be used via the **Legacy SCM** option.
+In this case, include `${library.yourlibrarynamehere.version}` wherever a
+branch/tag/ref may be configured for that particular SCM plugin.  This ensures
+that during checkout of the library's source code, the SCM plugin will expand
+this variable to checkout the appropriate version of the library.
+
+image::pipeline/global-pipeline-library-legacy-scm.png["Configuring a 'Legacy SCM' for a Pipeline Library", role=center]
+
 
 == Writing libraries
 
