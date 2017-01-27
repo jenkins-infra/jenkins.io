@@ -1,7 +1,6 @@
 ---
 layout: documentation
-title: Agents and Workspaces
-section: doc
+title: Defining execution environments
 ---
 :description:
 :author:
@@ -11,63 +10,48 @@ section: doc
 :imagesdir: /doc/book/resources
 :hide-uri-scheme:
 
-== Working with Agents
 
-In the examples above, you will have seen the `agent` directive in use for all Pipelines.
-It is required for all Pipelines even if 'any' `agent` .
-As a distributed system most _work_ a Pipeline performs is done in the context
-of one or more nodes. Defining a `node` or `agent` does two things:
+In the
+link:../running-multiple-steps[previous section]
+you may have noticed the `agent` directive in each of the examples. The
+`agent` directive tells Jenkins where and how to execute the Pipeline, or
+subset thereof. As you might expect, the `agent` is required for all Pipelines.
 
-* Schedules the steps contained within the block to run by adding an item to the Jenkins queue.
-As soon as an executor is free on a node, the steps will run.
-* Creates a workspace (a directory specific to that particular Pipeline) where
-work can be done on files checked out from source control.
 
-There are several ways to define agents to use in your Pipeline.
+Underneath the hood, there are a few things `agent` causes to happen:
 
-=== Using Labels
-This is useful for when you want to specify a particular machine size, or requirement. Use `agent { label 'windows' }` to specify that you want your build to run on an agent that has been labelled as `windows`. If you make this `label ''` then it will run on any agent connected to your Jenkins master that is available.
+* All the steps contained within the block are queued for execution by Jenkins.
+  As soon as an <<../../book/glossary/#executor, executor>> is available, the
+  steps will begin to execute.
+* A <<../../book/glossary/#workspace, workspace>> is allocated which will
+  contain files checked out from source control as well as any additional
+  working files for the Pipeline.
 
-Example (will use the `master` node):
-[pipeline]
-----
-// Declarative //
-pipeline {
-    agent {
-        label 'master'
-    }
-    stages {
-        stage('testing 123') {
-            steps {
-                sh 'echo hello from master node'
-            }
-        }
-    }
-}
-// Script //
-node('master') {
-  stage('testing 123') {
-    sh 'echo hello from master node'
-  }
-}
-----
+
+////
+XXX: Link to all the various agent directive options in the handbook
+https://gist.github.com/abayer/93b68cddfac2b808d905e27d12d7ef99
+////
+There are several ways to define agents for use in Pipeline, for this tour we
+will only focus on using an ephemeral Docker container for the Pipeline.
 
 === Using Docker
-Declarative Pipeline is designed to easily use Docker images and containers to run
-inside. This allows the Pipeline to define the build and test environment and tools
-required without having to manually configure various agents. This can pretty
-much be any image you like, your build steps and stages will run inside it.
 
-Example:
+Pipeline is designed to easily use Docker images and containers to
+run inside. This allows the Pipeline to define the build and test environment
+and tools required without having to manually configure various agents. This
+can pretty much be any image you like, your build steps and stages will run
+inside it.
+
 [pipeline]
 ----
 // Declarative //
 pipeline {
     agent {
-        docker { image 'node' }
+        docker { image 'node:7-alpine' }
     }
     stages {
-        stage("testing 123") {
+        stage('Test') {
             steps {
                 sh 'node --version'
             }
@@ -76,82 +60,13 @@ pipeline {
 }
 // Script //
 node {
-  stage('testing 123') {
-    docker('node').inside {
-      sh 'node --version'
+    /* Requires the Docker Pipeline plugin to be installed */
+    docker.image('node:7-alpine').inside {
+        stage('Test') {
+            sh 'node --version'
+        }
     }
-  }
+
 }
 ----
 
-=== Using Dockerfile
-You can also use a Dockerfile in your source repository - with `agent { dockerfile true }`, the Dockerfile at the root of your repository will be built and the resulting image will be used for a container your build will run in.
-
-Example:
-[pipeline]
-----
-// Declarative //
-pipeline {
-    agent {
-        docker {
-          image 'node'
-        }
-    }
-    stages {
-        stage("testing 123") {
-            steps {
-                sh 'node --version'
-            }
-        }
-    }
-}
-// Script //
-node {
-  stage('testing 123') {
-    docker('node').inside {
-      sh 'node --version'
-    }
-  }
-}
-----
-
-
-
-=== Manual configuration
-In this case, put `agent none` as your agent directive. Pipeline won't try to find an agent to run on, or pull any Docker images. Inside your `stage ...` directives, you will need to specify what `node` to run on, should you need one.
-
-
-Example:
-[pipeline]
-----
-// Declarative //
-pipeline {
-    agent none
-    stages {
-        stage('say hi') {
-            steps {
-                echo "I don't need no node"
-            }
-        }
-        stage('build') {
-             agent {
-                 label 'master'
-             }
-             steps {
-                checkout scm
-                sh 'echo from master'
-            }
-        }
-        stage('deploy') {
-            agent {
-                label 'deploy-host'
-            }
-            steps {
-                sh './deploy-code-here'
-            }
-        }
-    }
-}
-----
-
-In this case, we have a few stages. The last 2 actually get different nodes to execute on (a node is a machine that is running the Jenkins agent). Note the `checkout scm` step - this actually fetches the code into the nodes workspace (previously it was done automatically for you).
