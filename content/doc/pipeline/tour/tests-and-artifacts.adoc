@@ -9,60 +9,95 @@ title: Recording tests and artifacts
 :imagesdir: /doc/book/resources
 :hide-uri-scheme:
 
-== Reporting test results
 
-If you have a test runner (such as maven surefire, or many of the javascript
-runners) the chances are it can output the junit/xml style of test result
-reports. If so, recording them is easy:
+While testing is a critical part of a good continuous delivery pipeline, most
+people don't want to sift through thousands of lines of console output to find
+information about failing tests. To make this easier, Jenkins can record and
+aggregate test results so long as your test runner can output test result
+files. Jenkins typically comes bundled with the `junit` step, but if your test
+runner cannot output JUnit-style XML reports, there are additional plugins
+which process practically any widely-used test report format.
 
-[source,groovy]
-----
-post {
-  always {
-    junit "path/to/xml"
-  }
-}
-----
-
-This will always grab the test results and let Jenkins track them, calculate
-trends and report on them. Jenkins has plugins for pretty much all other types
-of test runners too. A build that has failing tests is marked as `UNSTABLE` (to
-separate it from `FAILED`).
-
-== Storing artifacts
-
-If you want to store an artifact for downloading later (ie keep a record of
-it):
-
-[source,groovy]
-----
-post  {
-   success {
-      archive "target/**/*"
-   }
-}
-----
-
-A more complete example:
+To collect our test results and artifacts, we will use the `post` section.
 
 [pipeline]
 ----
 // Declarative //
 pipeline {
-    agent {
-        docker { image 'maven' }
-    }
+    agent any
     stages {
-        stage("build") {
-            sh 'mvn clean install -Dmaven.test.failure.ignore=true'
+        stage('Test') {
+            sh './gradlew check'
+        }
+    }
+    post {
+        always {
+            junit 'build/reports/**/*.xml'
+        }
+    }
+}
+// Scripted //
+node {
+    try{
+        stage('Test') {
+            sh './gradlew check'
+        }
+    finally {
+        junit 'build/reports/**/*.xml'
+    }
+}
+----
+
+This will _always_ grab the test results and let Jenkins track them, calculate
+trends and report on them. A Pipeline that has failing tests will be marked as
+"UNSTABLE", denoted by yellow in the web UI. That is distinct from the "FAILED"
+state, denoted by red.
+
+When there test failures, it is often useful to grab built artifacts from
+Jenkins to local analysis and investigation. This is made practical by
+Jenkins's built-in support for storing "artifacts", files generated during the
+execution of the Pipeline.
+
+This is easily done with the `archive` step and a file-globbing expression, as
+is demonstrated in the example below:
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            sh './gradle build'
+        }
+        stage('Test') {
+            sh './gradlew check'
         }
     }
 
     post {
         always {
-            archive "target/**/*"
-            junit 'target/surefire-reports/*.xml'
+            archive 'build/libs/**/*.jar'
+            junit 'build/reports/**/*.xml'
         }
     }
 }
+// Scripted //
+node {
+    try{
+        stage('Test') {
+            sh './gradlew check'
+        }
+    finally {
+        archiveArtifacts artifacts: 'build/libs/**/*.jar', fingerprint: true
+        junit 'build/reports/**/*.xml'
+    }
+}
 ----
+
+Recording tests and artifacts is Jenkins is useful for quickly and easily
+surfacing information to various members of the team. In the next section we'll
+talk about how to *tell* those members of the team what's been happening in our
+Pipeline.
+
+**link:../post[Continue to "Cleaning up and notifications"]**

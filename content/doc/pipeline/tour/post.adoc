@@ -3,82 +3,105 @@ layout: documentation
 title: Cleaning up and notifications
 ---
 
-email, hip chat, slack, IRC
-
-The notifications section of a pipeline defines both where to send a notification, and on what event:
+Since the `post` section of a Pipeline is guaranteed to run at the end of a
+Pipeline's execution, we can add some notification or other steps to perform
+finalization, notification, or other end-of-Pipeline tasks.
 
 [pipeline]
 ----
 // Declarative //
-    notifications {
-        always {
-            echo "I HAVE FINISHED"
-        }
-        success {
-            echo "MOST DEFINITELY FINISHED"
-        }
-        failure {
-            echo "I FAILED"
-        }
-        changed {
-            echo "Things were different before..."
+pipeline {
+    agent any
+    stages {
+        stage('No-op') {
+            sh 'ls'
         }
     }
-----
-
-As notifications are 'steps', making use of Jenkins plugins to send them is possible. In this example, using email:
-
-[pipeline]
-----
-// Declarative //
-    notifications {
-        success {
-            mail to:"me@example.com", subject:"SUCCESS: ${currentBuild.fullDisplayName}", body: "Yay, we passed."
+    post {
+        always {
+            echo 'One way or another, I have finished'
+            deleteDir() /* clean up our workspace */
         }
-        failure {
-            mail to:"me@example.com", subject:"FAILURE: ${currentBuild.fullDisplayName}", body: "Boo, we failed."
+        success {
+            echo 'I succeeeded!'
         }
         unstable {
-            mail to:"me@example.com", subject:"UNSTABLE: ${currentBuild.fullDisplayName}", body: "Huh, we're unstable."
+            echo 'I am unstable :/'
+        }
+        failure {
+            echo 'I failed :('
         }
         changed {
-            mail to:"me@example.com", subject:"CHANGED: ${currentBuild.fullDisplayName}", body: "Wow, our status changed!"
+            echo 'Things were different before...'
         }
     }
-----
-
-You can have multiple steps in a notification section, you don't have to pick between email, irc, slack etc, but can use a combination if you like. 
-
-There is also Hipchat, Slack, IRC and more (even Yo has a notifier).
-
-(Seriously: https://github.com/jenkinsci/notify-yo-plugin - it won't work in current form with pipeline, however, and I am not even sure if Yo still exists as an app).
-
-
-To use HipChat, install and configure this this plugin: https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin, and your notications could look like: 
-
-
-[pipeline]
-----
-// Declarative //
-    notifications {
-        failure {
-            hipchatSend message: "Attention @here ${env.JOB_NAME} #${env.BUILD_NUMBER} has failed.", color: 'RED'
+}
+// Scripted //
+try {
+    node {
+        stage('No-op') {
+            sh 'ls'
         }
     }
-----
-
-To use Slack, install and configure the slack plugin (https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin), and then use: 
-
-
-[pipeline]
-----
-// Declarative //
-    notifications {
-        success {
-            slackSend channel: '#ops-room', color: 'good', message: 'The pipeline ${currentBuild.rawBuild.fullDisplayName} completed successfully.'
-        }
+catch (exc) {
+    echo 'I failed'
+}
+finally {
+    if (currentBuild.result == 'UNSTABLE') {
+        echo 'I am unstable :/'
     }
+    else {
+        echo 'One way or another, I have finished'
+    }
+}
+----
+
+THere are plenty of ways to send notifications, below are a few snippets
+demonstrating how to send notifications about a Pipeline to an email, a Hipchat
+room, or a Slack channel.
+
+=== Email
+
+[source, groovy]
+----
+post {
+    failure {
+        mail to: 'team@example.com',
+             subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+             body: "Something is wrong with ${env.BUILD_URL}"
+    }
+}
 ----
 
 
+=== Hipchat
 
+[source,groovy]
+----
+post {
+    failure {
+        hipchatSend message: "Attention @here ${env.JOB_NAME} #${env.BUILD_NUMBER} has failed.",
+                    color: 'RED'
+    }
+}
+----
+
+=== Slack
+
+[source,groovy]
+----
+post {
+    success {
+        slackSend channel: '#ops-room',
+                  color: 'good',
+                  message: "The pipeline ${currentBuild.fullDisplayName} completed successfully."
+    }
+}
+----
+
+
+Now that the team is being notified when things are failing, unstable, or even
+succeeding we can finish our continuous delivery pipeline with the exciting
+part: shipping!
+
+**link:../deployment[Continue to "Deployment"]**
