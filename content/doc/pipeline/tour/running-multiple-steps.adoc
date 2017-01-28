@@ -1,0 +1,217 @@
+---
+layout: documentation
+title: Running multiple steps
+section: doc
+---
+
+:toc:
+
+Pipelines are made up of multiple steps that allow you to build, test and
+deploy applications. Jenkins Pipeline allows you to compose multiple steps in
+an easy way that can help you model any sort of automation process.
+
+Think of a "step" as like a single command that does a single action. When a
+step succeeds it moves onto the next step. When a step fails to execute
+correctly the Pipeline will fail.
+
+When all the steps in the Pipeline have successfully completed the Pipeline is
+considered to have successfully executed.
+
+=== Linux, BSD, and Mac OS
+
+On Linux, bSD, and Mac OS (Unix-like) systems, the `sh` step is used to execute
+a shell command in a Pipeline.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            sh 'echo "Hello World"'
+            sh '''
+                echo "Multiline shell steps works too"
+                ls -lah
+            '''
+        }
+    }
+}
+// Scripted //
+node {
+    stage('Build') {
+        sh 'echo "Hello World"'
+        sh '''
+            echo "Multiline shell steps works too"
+            ls -lah
+        '''
+    }
+}
+----
+
+=== Windows
+
+Windows-based systems should use the `bat` step for executing batch commands.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            bat 'set'
+        }
+    }
+}
+// Scripted //
+node {
+    stage('Build') {
+        bat 'set'
+    }
+}
+----
+
+////
+XXX: (rtyler) I think this section doesn't belong at this point in the Guided Tour
+     may need to figure out a better place to introduce additional steps and
+     wrappers steps
+////
+
+== Timeouts, retries and more
+
+There are some powerful steps that "wrap" other steps which can easily solve
+problems like retrying (`retry`) steps until successful or exiting if a
+step takes too long (`timeout`).
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Deploy') {
+            retry(3) {
+                sh './flakey-deploy.sh'
+            }
+
+            timeout(time: 3, unit: 'MINUTES') {
+                sh './slow-process.sh'
+            }
+        }
+    }
+}
+// Scripted //
+node {
+    stage('Deploy') {
+        retry(3) {
+            sh './flakey-deploy.sh'
+        }
+
+        timeout(time: 3, unit: 'MINUTES') {
+            sh './health-check.sh'
+        }
+    }
+}
+----
+
+The "Deploy" stage retries the `flakey-deploy.sh` script 3 times, and then
+waits for up to 3 minutes for the `health-check.sh` script to execute. If the
+health check script does not complete in 3 minutes, the Pipeline will be marked
+as having failed in the "Deploy" stage.
+
+"Wrapper" steps such as `timeout` and `retry` may contain other steps,
+including `timeout` or `retry`.
+
+We can compose these steps together. For example, if we wanted to retry our
+deployment 5 times, but never want to spend more than 3 minutes before failing
+the stage:
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Deploy') {
+            timeout(time: 3, unit: 'MINUTES') {
+                retry(3) {
+                    sh './flakey-deploy.sh'
+                }
+            }
+        }
+    }
+}
+// Scripted //
+node {
+    stage('Deploy') {
+        timeout(time: 3, unit: 'MINUTES') {
+            retry(3) {
+                sh './flakey-deploy.sh'
+            }
+        }
+    }
+}
+----
+
+== Finishing up
+
+When the Pipeline has finished executing, you may need to run clean-up steps or
+perform some actions based on the outcome of the Pipeline. These actions can be
+performed in the `post` section.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Test') {
+            sh 'echo "Fail!"; exit 1'
+        }
+    }
+    post {
+        always {
+            sh 'This will always run'
+        }
+        success {
+            sh 'This will run only if successful'
+        }
+        failure {
+            sh 'This will run only if failed'
+        }
+        unstable {
+            sh 'This will run only if the run was marked as unstable'
+        }
+        changed {
+            sh 'This will run only if the state of the Pipeline has changed')
+            sh 'For example, the Pipeline was previously failing but is now successful'
+        }
+    }
+}
+// Scripted //
+node {
+    try {
+        stage('Test') {
+            sh 'echo "Fail!"; exit 1'
+        }
+        sh 'echo "This will run only if successful"'
+    }
+    catch (exc) {
+        if (currentBuild.result == 'UNSTABLE') {
+            sh 'echo "This will run only if the run was marked as unstable"'
+        }
+        if (currentBuild.result == 'FAILURE') {
+            sh 'echo "This will run only if failed"'
+        }
+    }
+    finally {
+        sh 'echo "This will always run"'
+    }
+}
+----
+
+---
+
+With the basics of defining multiple steps finished, let's
+**link:../agents[continue to "Defining execution environments"]**

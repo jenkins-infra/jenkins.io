@@ -1,0 +1,116 @@
+---
+layout: documentation
+title: Deployment
+---
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:imagesdir: /doc/book/resources
+:hide-uri-scheme:
+
+The most basic continuous delivery pipeline will have, at minimum, three stages
+which should be defined in a `Jenkinsfile`: Build, Test, and Deploy. For this
+section we will focus primarily on the Deploy stage, but it should be noted
+that stable Build and Test stages are an important precursor to any deployment
+activity.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            echo 'Building'
+        }
+        stage('Test') {
+            echo 'Testing'
+        }
+        stage('Deploy') {
+            echo 'Deploying'
+        }
+    }
+}
+// Scripted //
+node {
+    stage('Build') {
+        echo 'Building'
+    }
+    stage('Test') {
+        echo 'Testing'
+    }
+    stage('Deploy') {
+        echo 'Deploying'
+    }
+}
+----
+
+== Stages as Deployment Environments
+
+One common pattern is to extend the number of stages to capture additional
+deployment environments, like "staging" or "production", as shown in the
+following snippet.
+
+[source,groovy]
+----
+stage('Deploy - Staging') {
+    sh './deploy staging'
+    sh './run-smoke-tests'
+}
+stage('Deploy - Production') {
+    sh './deploy production'
+}
+----
+
+In this example, we're assuming that whatever "smoke tests" are run by our
+`./run-smoke-tests` script are sufficient to qualify or validate a release to
+the production environment. This kind of pipeline that automatically deploys
+code all the way through to production can be considered an implementation of
+"continuous deployment." While this is a noble ideal, for many there are
+good reasons why continuous _deployment_ might not be practical, but those can
+still enjoy the benefits of continuous _delivery_.
+footnote:[https://en.wikipedia.org/wiki/Continuous_delivery]
+Jenkins Pipeline readily supports both.
+
+== Asking for human input to proceed
+
+Often when passing between stages, especially environment stages, you may want
+a human to judge if the application is in a good enough state to "promote" to
+the production environment. This can be accomplished with the `input` step.\In
+the example below, the "Sanity check" stage actually blocks for input and won't
+proceed without a person confirming the progress.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+agent any
+    stages {
+        stage('Build') { }
+        stage('Test') { }
+
+        stage('Deploy - Staging') {
+            sh './deploy staging'
+            sh './run-smoke-tests'
+        }
+
+        stage('Sanity check') {
+            input "Does the staging environment look ok?"
+        }
+
+        stage('Deploy - Production') {
+            sh './deploy production'
+        }
+    }
+}
+----
+
+== Conclusion
+
+This Guided Tour was meant to introduce you to the basics of using Jenkins and
+Jenkins Pipeline. Because it is extremely extensible, Jenkins can be modified
+and configured to handle practically _any_ aspect of automation. To learn more
+about what Jenkins can do, check out the
+link:/doc/book[User Handbook],
+or the
+link:/node[Jenkins blog] for the latest events, tutorials, and updates.
