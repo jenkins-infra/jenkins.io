@@ -141,9 +141,7 @@ image::pipeline/configure-global-pipeline-library.png["Configuring a Global Pipe
 
 The annotation can be anywhere in the script where an annotation is permitted
 by Groovy.  When referring to class libraries (with `src/` directories),
-conventionally the annotation goes on an `import` statement: It is legal,
-though unnecessary, to `import` a global variable (or method) defined in the
-`vars/` directory:
+conventionally the annotation goes on an `import` statement:
 
 [source,groovy]
 ----
@@ -159,6 +157,10 @@ link:http://groovy-lang.org/objectorientation.html#_annotation[annotation]
 pattern `@Library('my-shared-library') _` may be useful for keeping code
 concise. In essence, instead of annotating an unnecessary `import` statement,
 the symbol `_` is annotated.
+
+It is *not* recommended to `import` a global variable/function,
+since this will force the compiler to interpret fields and methods as `static`
+even if they were intended to be instance.
 ====
 
 Libraries are resolved and loaded during _compilation_ of the script,
@@ -324,13 +326,51 @@ single `.groovy` file which interact with each other, for example:
 ----
 // vars/acme.groovy
 def setName(value) {
-    this.name = value;
+    this.name = value
 }
 def getName() {
-    return this.name;
+    return this.name
 }
 def caution(message) {
     echo "Hello, ${this.name}! CAUTION: ${message}"
+}
+----
+
+Note that in the above, `this.name` is not referring to a field, but to an entry in a `Script.binding`, so it is recommended to use a real class definition:
+
+[source,groovy]
+----
+// vars/acme.groovy
+class acme implements Serializable {
+    private String name
+    def setName(value) {
+        this.name = value
+    }
+    def getName() {
+        return this.name
+    }
+    def caution(message) {
+        echo "Hello, ${this.name}! CAUTION: ${message}"
+    }
+}
+----
+
+or more simply:
+
+[source,groovy]
+----
+// vars/acme.groovy
+class acme implements Serializable {
+    private String name
+    def setName(value) {
+        name = value
+    }
+    def getName() {
+        name
+    }
+    def caution(message) {
+        echo "Hello, ${name}! CAUTION: ${message}"
+    }
 }
 ----
 
