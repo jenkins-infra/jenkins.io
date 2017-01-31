@@ -1,0 +1,197 @@
+---
+layout: post
+title: "Best Practices for Scalable Pipeline Code"
+tags:
+- pipeline
+- performance
+- scalability
+author: svanoort
+---
+====
+This by link:https://github.com/svanoort[Sam Van Oort], Software Engineer at
+link:http://cloudbees.com[CloudBees] and contributor to the Jenkins project.
+====
+
+=== Promises
+
+Today I'm going to show you best practices to write scalable and robust Jenkins pipeline. This is drawn from a
+combination of work with the internals of Pipeline and observations with high-scalability users.
+
+Pipeline code works beautifully for its intended role of orchestrating
+build/test/deploy/administer cycles.  As it is pressed into more complex roles and unanticipated uses, some users hit issues.
+In these cases, applying the best practices can make the difference between:
+
+* A single master running
+https://www.cloudbees.com/so-you-want-build-worlds-biggest-jenkins-cluster[hundreds
+of concurrent builds] on low end hardware (4 CPU cores and 4 GB of
+heap)
+* Running a couple dozen builds and bringing a master to its knees or
+crashing it...even with 16+ CPU cores and 20+ GB of heap!
+
+This has been seen in the wild.
+
+[[fundamentals]]
+Fundamentals
+------------
+
+To understand pipeline behavior you must understand a few points about
+how it executes.
+
+1.  All of the pipeline logic except for steps runs on the master (the
+Groovy). Whether simple _or_ complex! Even inside a "node" block!
+2.  _Steps_ may use executors to do work where appropriate, but each
+step has a small on-master overhead too.
+3.  Pipeline code is written as Groovy but the execution model is
+radically transformed at compile-time to Continuation Passing Style
+(CPS).
+4.  This transformation provides valuable safety and durability
+guarantees for pipelines, but it comes with trade-offs:
+    ..  Steps can invoke Java and execute fast and efficiently, but Groovy
+is _much_ slower to run than normal.
+    ..  Groovy logic requires far more memory, because an object-based
+syntax/block tree is kept in memory. +
+5.  Pipelines persist the program and its state frequently to be able to
+survive failure of the master.
+
+From these we arrive at a set of best practices to make pipelines more
+effective.
+
+[[best-practices-for-pipeline-code]]
+Best Practices For Pipeline Code
+--------------------------------
+
+. *Think of pipeline code as glue:* just enough Groovy code to connect
+together the pipeline steps and integrate tools, and no more.
+..   This makes code easier to maintain, more robust against bugs, and
+reduces load on masters.
+.  *Keep it simple:* limit the amount of complex logic embedded in the
+pipeline itself (similarly to a shell script) and avoid treating it as a
+general-purpose programming language.
+..    Pipeline restricts all variables to Serializable types, so keeping
+pipeline logic simple helps avoid a NotSerializableException - see
+appendix at the bottom.
+.  *USE @NonCPS-annotated functions for slightly more complex work.*
+This means more involved processing, logic, and transformations. This
+lets you leverage additional Groovy & functional features for more
+powerful, concise, and performant code.
+..    This still runs on masters so be mindful of complexity, but is much
+faster than native pipeline code because it doesn’t provide durability
+and uses a faster execution model. Still, be mindful of the CPU cost and
+offload to executors for complex work (see below).
+..  NonCPS functions can use a much broader subset of the Groovy
+language, such as iterators and functional features (which makes them
+more terse and fast to write).
+    ..  @NonCPS functions should not use pipeline steps internally, however
+you can store the result of a pipeline step to a variable and use it
+that as the input to a NonCPS function.
+    ... *Gotcha:* It’s not guaranteed that use of a step will generate an
+error (there is an open JIRA to implement that), but you should not rely
+on that behavior. You may see improper handling of exceptions, in
+particular.
+    ..  While normal pipeline is restricted to serializable local variables
+(see appendix at bottom), @NonCPS functions can use more complex,
+nonserializable types internally (ex regex matchers, etc). Parameters
+and return types should still be Serializable, however.
+    ... *Gotcha:* improper usages are not guaranteed to raise an error with
+normal pipeline (optimizations may mask the issue), but it is unsafe to
+rely on this behavior.
+.  *Prefer external scripts/tools for complex or CPU-expensive
+processing* rather than Groovy language features. This offloads work
+from the master to external executors, allowing for easy scale-out of
+hardware resources. It is also generally easier to test because these
+components can be tested in isolation without the full on-master
+execution environment.
+    ..  Many software vendors will provide easy command-line clients for
+their tools in various programming languages. These are often robust,
+performant, and easy to use. Plugins offer another option (see below).
+    ..  Shell or batch steps are often the easiest way to integrate these
+tools, which can be written in any language. For example: sh “java -jar
+client.jar $endPointUrl $inputData” for a Java client, or sh “python
+jiraClient.py $issueId $someParam” for a python client. +
+    ..  Examples of places to use this:
+        ...  XML/JSON parsing and transformation (ex: curl + xmllint for XML
+xpath, or curl + jq for JSON)
+        ...  Templating large files
+        ...  Nontrivial integration with external APIs (for bigger vendors,
+consider a Jenkins plugin if a quality offering exists)
+        ...  Simulations/complex calculations
+        ...  Business logic
+.  *Consider existing plugins for external integrations.* Jenkins has a
+wealth of plugins, especially for source control, artifact management,
+deployment systems, and systems automation. These can greatly reduce the
+amount of pipeline code to maintain. Well-written plugins may be be
+faster and more robust than pipeline equivalents.
+    ..  Consider both plugins and command-line clients (above) -- one may be
+easier than the other.
+    ..  Plugins may be of widely varying quality. Vendor-maintained plugins
+with a large install base are often of good quality. Third-party plugins
+with limited installations may actually be worse than writing a little
+custom pipeline code.
+    ..  As a last resort, if there is a good-quality plugin that is not
+pipeline-enabled, it is fairly easy to write a pipeline wrapper to
+integrate it or write a custom step that will invoke it.
+.  *Assume things will go wrong:* don’t rely on workspaces being clean
+of the remnants from previous executions, clean explicitly where needed.
+Make use of timeouts and retry steps (that’s what they’re there for).
+    ..  Within a git repository, ‘git clean -fdx’ is a good way to
+accomplish this and reduces the amount of SCM cloning
+.  *DO use parameterized pipelines and variables to make your pipeline
+scripts more reusable.* Passing in parameters is especially helpful for
+handling different environments and should be preferred to applying
+conditional lookup logic.
+.  *Try to limit business logic embedded in pipelines.* To some extent
+this is inevitable, but try to focus on tasks to complete instead,
+because this yields more maintainable, reusable, and often more
+performant pipeline code.
+    ..  One code smell that points to a problem is many hard-coded
+constants. Consider taking advantage of the options above to refactor
+code for better composability.
+    ..  For complex cases, consider using Jenkins integration options
+(plugins, Jenkins API calls, invoking input steps externally) to offload
+implementation of more complex business rules to an external system if
+they fit more naturally there.
+
+Please, think of these as guidelines, not strict rules – Jenkins
+pipeline provides a great deal of power and flexibility, and it's there
+to be used.
+
+Breaking enough of these rules at scale can cause masters to fail by
+placing an unsustainable load on them.
+
+For additional guidance, we also recommend the Jenkins World talk on how
+to engineer pipelines for speed and performance:
+https://www.cloudbees.com/need-speed-building-pipelines-be-faster
+
+[[appendix-serializable-vs.-non-serializable-types]]
+Appendix: Serializable vs. Non-Serializable Types:
+--------------------------------------------------
+
+To assist with pipeline development, here are common serializable and
+non-serializable types, to assist with deciding if your logic can be CPS
+or should be in a @NonCPS function to avoid issues.
+
+*Common Serializable Types (safe everywhere):*
+
+.  All primitive types and their object wrappers: byte, boolean, int,
+double, short, char
+.  Strings
+.  enums
+.  Arrays of serializable types
+.  ArrayLists and normal Groovy Lists
+.  Sets: HashSet
+.  Maps: normal Groovy Map, HashMap, TreeMap
+.  Exceptions
+.  URLs
+. Dates
+. Regex Patterns (compiled patterns)
+
+*Common non-Serializable Types (only safe in @NonCPS functions):*
+
+. Iterators: this is a common problem. You need to use C-style loop, i.e.
+`for(int i=0; i<max; i++)\{`
+. Regex Matchers (you can use the
+built-in functions in String, etc, just not the Matcher itself)
+. *Important:* JsonObject, JsonSlurper, etc in Groovy 2+ (used in some 2.x+
+versions of Jenkins).
+..  This is due to an internal implementation change
+-- earlier versions may serialize.
