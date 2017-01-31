@@ -14,8 +14,8 @@ link:http://cloudbees.com[CloudBees] and contributor to the Jenkins project.
 
 === Promises
 
-Today I'm going to show you best practices to write scalable and robust Jenkins pipeline. This is drawn from a
-combination of work with the internals of Pipeline and observations with high-scalability users.
+Today I'm going to show you best practices to write scalable and robust Jenkins pipelines. This is drawn from a
+combination of work with the internals of Pipeline and observations with large-scale users.
 
 Pipeline code works beautifully for its intended role of orchestrating
 build/test/deploy/administer cycles.  As it is pressed into more complex roles and unanticipated uses, some users hit issues.
@@ -38,7 +38,7 @@ To understand pipeline behavior you must understand a few points about
 how it executes.
 
 1.  All of the pipeline logic except for steps runs on the master (the
-Groovy). Whether simple _or_ complex! Even inside a "node" block!
+Groovy). Whether simple _or_ complex! Even inside a `node` block!
 2.  _Steps_ may use executors to do work where appropriate, but each
 step has a small on-master overhead too.
 3.  Pipeline code is written as Groovy but the execution model is
@@ -67,10 +67,10 @@ reduces load on masters.
 .  *Keep it simple:* limit the amount of complex logic embedded in the
 pipeline itself (similarly to a shell script) and avoid treating it as a
 general-purpose programming language.
-..    Pipeline restricts all variables to Serializable types, so keeping
-pipeline logic simple helps avoid a NotSerializableException - see
+..    Pipeline restricts all variables to `Serializable` types, so keeping
+pipeline logic simple helps avoid a `NotSerializableException` - see
 appendix at the bottom.
-.  *USE @NonCPS-annotated functions for slightly more complex work.*
+.  *USE trusted global libraries `@NonCPS`-annotated functions for slightly more complex work.*
 This means more involved processing, logic, and transformations. This
 lets you leverage additional Groovy & functional features for more
 powerful, concise, and performant code.
@@ -85,12 +85,12 @@ more terse and fast to write).
 you can store the result of a pipeline step to a variable and use it
 that as the input to a NonCPS function.
     ... *Gotcha:* It’s not guaranteed that use of a step will generate an
-error (there is an open JIRA to implement that), but you should not rely
+error (there is an open RFE to implement that), but you should not rely
 on that behavior. You may see improper handling of exceptions, in
 particular.
     ..  While normal pipeline is restricted to serializable local variables
 (see appendix at bottom), @NonCPS functions can use more complex,
-nonserializable types internally (ex regex matchers, etc). Parameters
+nonserializable types internally (e.g. regex matchers, etc). Parameters
 and return types should still be Serializable, however.
     ... *Gotcha:* improper usages are not guaranteed to raise an error with
 normal pipeline (optimizations may mask the issue), but it is unsafe to
@@ -105,12 +105,12 @@ execution environment.
 their tools in various programming languages. These are often robust,
 performant, and easy to use. Plugins offer another option (see below).
     ..  Shell or batch steps are often the easiest way to integrate these
-tools, which can be written in any language. For example: sh “java -jar
-client.jar $endPointUrl $inputData” for a Java client, or sh “python
-jiraClient.py $issueId $someParam” for a python client. +
+tools, which can be written in any language. For example: `sh “java -jar
+client.jar $endPointUrl $inputData”` for a Java client, or `sh “python
+jiraClient.py $issueId $someParam”` for a Python client. +
     ..  Examples of places to use this:
-        ...  XML/JSON parsing and transformation (ex: curl + xmllint for XML
-xpath, or curl + jq for JSON)
+        ...  XML/JSON parsing and transformation (ex: xmllint or xmlstarlet for XML
+xpath, jq for JSON) - this can be coupled to curl or wget for HTTP requests
         ...  Templating large files
         ...  Nontrivial integration with external APIs (for bigger vendors,
 consider a Jenkins plugin if a quality offering exists)
@@ -119,7 +119,7 @@ consider a Jenkins plugin if a quality offering exists)
 .  *Consider existing plugins for external integrations.* Jenkins has a
 wealth of plugins, especially for source control, artifact management,
 deployment systems, and systems automation. These can greatly reduce the
-amount of pipeline code to maintain. Well-written plugins may be be
+amount of pipeline code to maintain. Well-written plugins may be
 faster and more robust than pipeline equivalents.
     ..  Consider both plugins and command-line clients (above) -- one may be
 easier than the other.
@@ -188,7 +188,7 @@ double, short, char
 *Common non-Serializable Types (only safe in @NonCPS functions):*
 
 . Iterators: this is a common problem. You need to use C-style loop, i.e.
-`for(int i=0; i<max; i++)\{`
+`for(int i=0; i<max; i++){`
 . Regex Matchers (you can use the
 built-in functions in String, etc, just not the Matcher itself)
 . *Important:* JsonObject, JsonSlurper, etc in Groovy 2+ (used in some 2.x+
