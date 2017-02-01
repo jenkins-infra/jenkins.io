@@ -141,9 +141,7 @@ image::pipeline/configure-global-pipeline-library.png["Configuring a Global Pipe
 
 The annotation can be anywhere in the script where an annotation is permitted
 by Groovy.  When referring to class libraries (with `src/` directories),
-conventionally the annotation goes on an `import` statement: It is legal,
-though unnecessary, to `import` a global variable (or method) defined in the
-`vars/` directory:
+conventionally the annotation goes on an `import` statement:
 
 [source,groovy]
 ----
@@ -159,6 +157,11 @@ link:http://groovy-lang.org/objectorientation.html#_annotation[annotation]
 pattern `@Library('my-shared-library') _` may be useful for keeping code
 concise. In essence, instead of annotating an unnecessary `import` statement,
 the symbol `_` is annotated.
+
+It is not recommended to `import` a global variable/function,
+since this will force the compiler to interpret fields and methods as `static`
+even if they were intended to be instance.
+The Groovy compiler in this case can produce confusing error messages.
 ====
 
 Libraries are resolved and loaded during _compilation_ of the script,
@@ -324,13 +327,36 @@ single `.groovy` file which interact with each other, for example:
 ----
 // vars/acme.groovy
 def setName(value) {
-    this.name = value;
+    name = value
 }
 def getName() {
-    return this.name;
+    name
 }
 def caution(message) {
-    echo "Hello, ${this.name}! CAUTION: ${message}"
+    echo "Hello, ${name}! CAUTION: ${message}"
+}
+----
+
+In the above, `name` is not referring to a field (even if you write it as `this.name`!),
+but to an entry created on demand in a `Script.binding`.
+To be clear about what data you intend to store and of what type,
+you can instead provide an explicit class declaration
+(the class name should match the file basename):
+
+[source,groovy]
+----
+// vars/acme.groovy
+class acme implements Serializable {
+    private String name
+    def setName(value) {
+        name = value
+    }
+    def getName() {
+        name
+    }
+    def caution(message) {
+        echo "Hello, ${name}! CAUTION: ${message}"
+    }
 }
 ----
 
