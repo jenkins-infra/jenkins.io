@@ -762,11 +762,88 @@ pipeline {
 [role=syntax]
 == Scripted Pipeline
 
+Scripted Pipeline, like <<declarative-pipeline>>, is built on top of the
+underlying Pipeline sub-system. Unlike Declarative, Scripted Pipeline is
+effectively a general purpose DSL
+footnoteref:[dsl,Domain-specific Language]
+built with
+link:http://groovy-lang.org/syntax.html[Groovy].
+Most functionality provided by the Groovy language is made available to users
+of Scripted Pipeline, which means it can be a very expressive and flexible tool
+with which one can author continuous delivery pipelines.
+
+
+=== Flow Control
+
+Scripted Pipeline is serially executed from the top of a `Jenkinsfile`
+downwards, like most traditional scripts in Groovy or other languages.
+Providing flow control therefore rests on Groovy expressions, such as the
+`if/else if/else` conditionals, for example:
+
+[pipeline]
+----
+// Scripted //
+node {
+    stage('Example') {
+        if (env.BRANCH_NAME == 'master') {
+            echo 'I only execute on the master branch'
+        }
+    }
+}
+----
+
+Another way Scripted Pipeline flow control can be managed is with Groovy's
+exception handling support. When <<scripted-steps>> fail for whatever reason
+they throw an exception.  Meaning handling on-error behaviors must make use of
+the `try/catch/finally` blocks in Groovy, for example:
+
+[pipeline]
+----
+// Scripted //
+node {
+    stage('Example') {
+        try {
+            sh 'exit 1'
+        }
+        catch (exc) {
+            echo 'Something failed, I should sound the klaxons!'
+            throw
+        }
+    }
+}
+----
+
+
 [[scripted-steps]]
 === Steps
 
-[[scripted-expressions]]
-=== Expressions
+As discussed in <<getting-started#, Getting Started>>, the most fundamental
+part of a Pipeline is the "step." Fundamentally, steps tell Jenkins _what_ to
+do, and serve as the basic building block for both Declarative and Scripted
+Pipeline syntax.
+
+Scripted Pipeline does *not* introduce any steps which are specific to its
+syntax; 
+link:/doc/pipeline/steps[Pipeline Steps reference]
+which contains a comprehensive list of steps built into Pipeline as well as
+steps provided by plugins. 
+
+
+=== Differences from plain Groovy
+
+////
+XXX: TODO https://issues.jenkins-ci.org/browse/WEBSITE-267
+https://issues.jenkins-ci.org/browse/WEBSITE-289
+////
+
+In order to provide durability, meaning running Pipelines can survive a restart
+of the Jenkins master, Scripted Pipeline must serialize data back to the
+master. Due to this design requirement, some Groovy idioms such as `collection.each { item -> /* perform operation */ }`
+are not fully supported. See
+https://issues.jenkins-ci.org/browse/JENKINS-27421[JENKINS-27421]
+and
+https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481]
+for more information.
 
 [[compare]]
 == Syntax Comparison
@@ -775,48 +852,33 @@ pipeline {
 XXX: REWRITE
 ////
 
-When Pipeline was first conceived it was natural to begin with Groovy as the
-foundation. Jenkins already had an embedded Groovy scripting engine with a console
-to interact with all parts of Jenkins and Groovy is a great language for creating
-a custom Domain-Specific Language (DSL). The
-link:https://plugins.jenkins.io/job-dsl[Job-DSL],
-plugin for Jenkins was also written in Groovy. This plugin lets you automate the
-creation and editing of any job in Jenkins, including Pipelines.
+When Jenkins Pipeline was first created, Groovy was selected as the foundation.
+Jenkins has long shipped with an embedded Groovy engine to provide advanced
+scripting capabilities for admins and users alike. Additionally, the
+implementors of Jenkins Pipeline found Groovy to be a solid foundation upon
+which to build what is now referred to as the "Scripted Pipeline" DSL.
+footnoteref:[dsl].
 
-Pipeline initially introduced key pipeline-specific concepts such as `node`,
-`stage`, `parallel`, and extension points to allow plugins to add other steps
-to the DSL but, otherwise didn't restrict the use of Groovy. This original syntax
-for creating Pipelines is now referred to as "Scripted Pipeline" and includes
-full programmatic control to allow scripting continuous delivery pipelines in Groovy.
-This gives Pipeline creators tremendous flexibility in defining a pipeline and allows it to
-be extended via <<shared-libraries#, Shared Libraries>> or plugins.
+As it is a fully featured programming environment, Scripted Pipeline offers a
+tremendous amount of flexibility and extensibility to Jenkins users. The
+Groovy learning-curve isn't typically desirable for all members of a given
+team, so Declarative Pipeline was created to offer a simpler and more
+opinionated syntax for authoring Jenkins Pipeline.
+
+The two are both fundamentally the same Pipeline sub-system underneath. They
+are both durable implementations of "Pipeline as code." They are both able to
+use steps built into Pipeline or provided by plugins. Both are able utilize
+<<shared-libraries#, Shared Libraries>>
 
 
-CAUTION: Due to the need to serialize all variables for durability some Groovy
-idioms are not fully supported yet. See
-https://issues.jenkins-ci.org/browse/JENKINS-27421[JENKINS-27421]
-and
-https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481]
-for more information.
-
-Writing Pipelines with Scripted Pipeline syntax, however, does require at least
-some proficiency with Groovy. Requiring all team members that touch the application's
-Pipeline to understand Groovy limits the ability for full-participation in
-code-review, audits, and editing of the Pipeline as part of the application code.
-Enter "Declarative Pipeline" syntax.
-
-Declarative Pipeline syntax was created to extend Pipeline to users of all experience
-levels and complement Scripted Pipeline syntax. As the name implies, it is intended
-to enable declarative programming
+Where they differ however is in syntax and flexibility. Declarative limits
+what is available to the user with a more strict and pre-defined structure,
+making it an ideal choice for simpler continuous delivery pipelines. Scripted
+provides very few limits, insofar that the only limits on structure and syntax
+tend to be defined by Groovy itself, rather than any Pipeline-specific systems,
+making it an ideal choice for power-users and those with more complex
+requirements. As the name implies, Declarative Pipeline is encourages a
+declarative programming model.
 footnoteref:[declarative, link:https://en.wikipedia.org/wiki/Declarative_programming[Declarative Programming]]
-for defining Pipelines as opposed to the imperative programming
+Whereas Scripted Pipelines follow a more imperative programming model..
 footnoteref:[imperative, link:https://en.wikipedia.org/wiki/Imperative_programming[Imperative Programming]]
-provided by Scripted Pipeline. While it is still a DSL written
-on top of Groovy, Declarative Pipeline is a limited to a pre-defined structure
-that is much more specific to continuous delivery. This allows all stakeholders
-to help create, edit, review, and audit the application's Pipeline.
-
-Scripted Pipeline and Declarative Pipeline both use the same underlying Pipeline
-execution engine and both are fully-supported. You can use whichever you prefer
-in any of your Pipelines and even combine them when needed. All examples in this handbook will show
-both a Declarative Pipeline version and Scripted Pipeline version for your reference.
