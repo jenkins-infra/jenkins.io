@@ -2,23 +2,26 @@
 layout: post
 title: "Best Practices for Scalable Pipeline Code"
 tags:
-- Pipeline
+- pipeline
 - performance
 - scalability
 author: svanoort
 ---
+
 [NOTE]
 ====
-This is by link:https://github.com/svanoort[Sam Van Oort], Software Engineer at
-link:http://cloudbees.com[CloudBees] and contributor to the Jenkins project.
+This is a guest post by link:https://github.com/svanoort[Sam Van Oort],
+Software Engineer at link:http://cloudbees.com[CloudBees] and contributor to
+the Jenkins project.
 ====
 
 Today I'm going to show you best practices to write scalable and robust Jenkins Pipelines. This is drawn from a
 combination of work with the internals of Pipeline and observations with large-scale users.
 
-Pipeline code works beautifully for its intended role of orchestrating
-build/test/deploy/administer cycles.  As it is pressed into more complex roles and unanticipated uses, some users hit issues.
-In these cases, applying the best practices can make the difference between:
+Pipeline code works beautifully for its intended role of automating
+build/test/deploy/administer tasks.  As it is pressed into more complex roles
+and unanticipated uses, some users hit issues.  In these cases, applying the
+best practices can make the difference between:
 
 * A single master running
 https://www.cloudbees.com/so-you-want-build-worlds-biggest-jenkins-cluster[hundreds
@@ -68,7 +71,7 @@ general-purpose programming language.
 ..    Pipeline restricts all variables to `Serializable` types, so keeping
 Pipeline logic simple helps avoid a `NotSerializableException` - see
 appendix at the bottom.
-.  *USE trusted global libraries or `@NonCPS`-annotated functions for slightly more complex work.*
+.  *Use trusted global libraries or `@NonCPS`-annotated functions for slightly more complex work.*
 This means more involved processing, logic, and transformations. This
 lets you leverage additional Groovy & functional features for more
 powerful, concise, and performant code.
@@ -79,7 +82,7 @@ offload to executors for complex work (see below).
 ..  `@NonCPS` functions can use a much broader subset of the Groovy
 language, such as iterators and functional features, which makes them
 more terse and fast to write.
-    ..  @NonCPS functions should not use Pipeline steps internally, however
+    ..  `@NonCPS` functions should not use Pipeline steps internally, however
 you can store the result of a Pipeline step to a variable and use it
 that as the input to a `@NonCPS` function.
     ... *Gotcha:* It’s not guaranteed that use of a step will generate an
@@ -87,7 +90,7 @@ error (there is an open RFE to implement that), but you should not rely
 on that behavior. You may see improper handling of exceptions, in
 particular.
     ..  While normal Pipeline is restricted to serializable local variables
-(see appendix at bottom), @NonCPS functions can use more complex,
+(see appendix at bottom), `@NonCPS` functions can use more complex,
 nonserializable types internally (for example regex matchers, etc). Parameters
 and return types should still be Serializable, however.
     ... *Gotcha:* improper usages are not guaranteed to raise an error with
@@ -129,12 +132,12 @@ easier than the other.
 with limited installations may actually be worse than writing a little
 custom Pipeline code.
     ..  As a last resort, if there is a good-quality plugin that is not
-Pipeline-enabled, it is https://jenkins.io/blog/2016/05/25/update-plugin-for-pipeline/[fairly easy to write a Pipeline wrapper] to
+Pipeline-enabled, it is link:/blog/2016/05/25/update-plugin-for-pipeline/[fairly easy to write a Pipeline wrapper] to
 integrate it or write a custom step that will invoke it.
 .  *Assume things will go wrong:* don’t rely on workspaces being clean
 of the remnants from previous executions, clean explicitly where needed.
 Make use of timeouts and retry steps (that’s what they’re there for).
-    ..  Within a git repository, ‘git clean -fdx’ is a good way to
+    ..  Within a git repository, `git clean -fdx` is a good way to
 accomplish this and reduces the amount of SCM cloning
 .  *DO use parameterized Pipelines and variables to make your Pipeline
 scripts more reusable.* Passing in parameters is especially helpful for
@@ -159,9 +162,10 @@ to be used.
 Breaking enough of these rules at scale can cause masters to fail by
 placing an unsustainable load on them.
 
-For additional guidance, I also recommend the Jenkins World talk on how
-to engineer Pipelines for speed and performance:
-https://www.cloudbees.com/need-speed-building-Pipelines-be-faster
+For additional guidance, I also recommend
+link:https://www.cloudbees.com/need-speed-building-Pipelines-be-faster[this
+Jenkins World talk]
+on how to engineer Pipelines for speed and performance:
 
 [[appendix-serializable-vs.-non-serializable-types]]
 Appendix: Serializable vs. Non-Serializable Types:
@@ -169,7 +173,7 @@ Appendix: Serializable vs. Non-Serializable Types:
 
 To assist with Pipeline development, here are common serializable and
 non-serializable types, to assist with deciding if your logic can be CPS
-or should be in a @NonCPS function to avoid issues.
+or should be in a `@NonCPS` function to avoid issues.
 
 *Common Serializable Types (safe everywhere):*
 
@@ -186,13 +190,13 @@ double, short, char
 . Dates
 . Regex Patterns (compiled patterns)
 
-*Common non-Serializable Types (only safe in @NonCPS functions):*
+*Common non-Serializable Types (only safe in `@NonCPS` functions):*
 
 . Iterators: this is a common problem. You need to use C-style loop, i.e.
 `for(int i=0; i<max; i++){`
 . Regex Matchers (you can use the
 built-in functions in String, etc, just not the Matcher itself)
-. *Important:* JsonObject, JsonSlurper, etc in Groovy 2+ (used in some 2.x+
+. *Important:* `JsonObject`, `JsonSlurper`, etc in Groovy 2+ (used in some 2.x+
 versions of Jenkins).
 ..  This is due to an internal implementation change
 -- earlier versions may serialize.
