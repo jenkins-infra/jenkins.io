@@ -1,0 +1,123 @@
+---
+layout: documentation
+title: Deployment
+section: doc
+---
+:toc:
+
+As your pipeline grows to accomodate deployment, you will have multiple stages. You have likely already seen stages in use in some examples:
+
+== Multiple stages
+
+Adding more stages makes it clear what you pipeline is doing.
+
+```
+pipeline {
+     agent docker:'node'
+     stages {
+         stage('build') {
+             sh 'echo building...'
+         }
+         stage('test') {
+             sh 'echo testing...'
+         }
+         stage('deploy') {
+             retry(3) {
+                sh 'echo deploying...'
+             }
+         }
+     }
+}
+```
+
+This is a pipeline of build->test->deploy. The `deploy` stage, actually retries a script 3 times.
+
+Retrying things, with a timeout, is a pretty common pattern in deployment:
+
+```
+timeout(time: 3, unit: 'MINUTES') {
+   retry(5) {
+       sh 'echo deploying'
+   }
+}
+```
+
+This gives it 5 chances to get it right, but in 3 minutes (if your app isn't deployed in 3 minutes, it's free!).
+
+You can also sleep between steps:
+`+
+    stage('deploy') {
+        sh 'echo deploying...'
+        sleep 30
+        sh 'echo 30 seconds should be long enough'
+    }
++`
+Default is in seconds.
+
+== Stages as deploy environments
+
+One useful way to use stages is to have them represent deployment environments:
+
+----
+pipeline {
+     agent label:''
+     stages {
+         stage('Build') {
+             sh 'echo building...'
+         }
+         stage('Test') {
+             sh 'echo testing...'
+         }
+         stage('Deploy - Staging') {
+             sh 'echo deploying to staging...'
+             sh 'echo smoke tests...'
+         }
+         stage('Deploy - Production') {
+             sh 'echo deploying to production...'
+         }
+     }
+}
+----
+
+The final 2 stages represent staging and production environments. Typically you would want to run some smoke tests before things are promoted to the production environment.
+
+== Asking for human input to proceed
+
+Often when passing between stages, especially environment stages, you may want a human to judge if the application is in a good enough state to promote (you can also ask for input parameters too, but I won't show that here):
+
+----
+pipeline {
+     agent none
+     stages {
+
+         stage('Deploy - Staging') {
+             node('master') {
+                checkout scm
+                sh 'echo deploying $APP_NAME to staging...'
+             }
+         }
+
+         stage('Sanity check') {
+             input "Does the staging environment for ${env.APP_NAME} look ok?"
+         }
+
+         stage('Deploy - Production') {
+             node('master') {
+                 sh 'echo deploying $APP_NAME to production'
+             }
+         }
+     }
+
+     environment {
+        APP_NAME = 'my-app'
+     }
+}
+----
+
+In this example, the "Sanity check" stage actually blocks for input and won't proceed without a person allowing it to. You may want to do this as you don't trust your test suite, but don't tell anyone that, it can be our secret.
+
+There are also a few other things going on in the human input example above: ie. `agent none` means that is is up to each stage to get its own `node` to run steps on. This also means that when it is waiting for input from a person, it isn't keeping an agent running (ie it can wait for hours or days, with no harm done).
+
+== Deployment targets and techniques
+
+*COMING SOON*
