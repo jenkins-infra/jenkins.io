@@ -1,7 +1,7 @@
 ---
 layout: section
+title: Using a Jenkinsfile
 ---
-:notitle:
 :description:
 :author:
 :email: jenkinsci-docs@googlegroups.com
@@ -9,7 +9,7 @@ layout: section
 :toc:
 :hide-uri-scheme:
 
-= The Jenkinsfile
+= Using a Jenkinsfile
 
 This section builds on the information covered in <<getting-started#, Getting Started>>,
 and introduces more useful steps, common patterns, and demonstrates some
@@ -25,10 +25,11 @@ provides a number of immediate benefits:
   footnote:[https://en.wikipedia.org/wiki/Single_Source_of_Truth]
   for the Pipeline, which can be viewed and edited by multiple members of the project.
 
-
-While the syntax for defining a Pipeline, either in the web UI or with a
-`Jenkinsfile`, is the same, it's generally considered best practice to define
-the Pipeline in a `Jenkinsfile` and check that in to source control.
+Pipeline supports <<syntax#, two syntaxes>>, Declarative (introduced in
+Pipeline 2.5) and Scripted Pipeline. Both of which support building continuous
+delivery pipelines. Both may be used to define a Pipeline in either the web UI
+or with a `Jenkinsfile`, though it's generally considered a best practice to
+create a `Jenkinsfile` and check the file into the source control repository.
 
 
 == Creating a Jenkinsfile
@@ -40,27 +41,45 @@ Pipeline which implements a basic three-stage continuous delivery pipeline.
 
 [pipeline]
 ----
-// Script //
-node { // <1>
-    stage('Build') { // <2>
-        /* .. snip .. */
-    }
-    stage('Test') {
-        /* .. snip .. */
-    }
-    stage('Deploy') {
-        /* .. snip .. */
+// Declarative //
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building..'
+            }
+        }
+        stage('Test'){
+            steps {
+                echo 'Testing..'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying....'
+            }
+        }
     }
 }
-// Declarative not yet implemented //
+// Script //
+node {
+    stage('Build') {
+        echo 'Building....'
+    }
+    stage('Test') {
+        echo 'Building....'
+    }
+    stage('Deploy') {
+        echo 'Deploying....'
+    }
+}
 ----
-<1> `node` allocates an executor and workspace in the Jenkins environment.
-<2> `stage` describes distinct parts of the Pipeline for better visualization of progress/status.
 
-Not all Pipelines will have these same three stages, but this is a good
-continuous delivery starting point to define them for most projects. The
-sections below will demonstrate the creation and execution of a simple Pipeline
-in a test installation of Jenkins.
+Not all Pipelines will have these same three stages, but it is a good starting
+point to define them for most projects. The sections below will demonstrate the
+creation and execution of a simple Pipeline in a test installation of Jenkins.
 
 [NOTE]
 ====
@@ -74,13 +93,28 @@ link:http://groovy-lang.org[Groovy]
 syntax highlighting, create a new `Jenkinsfile` in the root directory of the
 project.
 
+[role=declarative-pipeline]
+The Declarative Pipeline example above contains the minimum necessary structure
+to implement a continuous delivery pipeline. The <<syntax#agent, agent
+directive>>, which is required, instructs Jenkins to allocate an executor and
+workspace for the Pipeline. Without an `agent` directive, not only is the
+Declarative Pipeline not valid, it would not be capable of doing any work! By
+default the `agent` directive ensures that the source repository is checked out
+and made available for steps in the subsequent stages`
 
-In the example above, `node` is a crucial first step as it allocates an
-executor and workspace for the Pipeline. In essence, without `node`, a Pipeline
-cannot do any work! From within `node`, the first order of business will be to
-checkout the source code for this project.  Since the `Jenkinsfile` is being
-pulled directly from source control, Pipeline provides a quick and easy way to
-access the right revision of the source code
+The <<syntax#stages, stages directive>>, and <<syntax#steps, steps directives>>
+are also required for a valid Declarative Pipeline as they instruct Jenkins
+what to execute and in which stage it should be executed.
+
+[role=scripted-pipeline]
+====
+For more advanced usage with Scripted Pipeline, the example above `node` is
+a crucial first step as it allocates an executor and workspace for the
+Pipeline. In essence, without `node`, a Pipeline cannot do any work! From
+within `node`, the first order of business will be to checkout the source code
+for this project.  Since the `Jenkinsfile` is being pulled directly from source
+control, Pipeline provides a quick and easy way to access the right
+revision of the source code
 
 [pipeline]
 ----
@@ -94,6 +128,7 @@ node {
 <1> The `checkout` step will checkout code from source control; `scm` is a
 special variable which instructs the `checkout` step to clone the specific
 revision which triggered this Pipeline run.
+====
 
 === Build
 
@@ -111,16 +146,26 @@ Windows-based systems the `bat` could be used instead.
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                sh 'make' /* <1> */
+                archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // <2>
+            }
+        }
+    }
+}
 // Script //
 node {
-    /* .. snip .. */
     stage('Build') {
         sh 'make' // <1>
         archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // <2>
     }
-    /* .. snip .. */
 }
-// Declarative not yet implemented //
 ----
 <1> The `sh` step invokes the `make` command and will only continue if a
 zero exit code is returned by the command. Any non-zero exit code will fail the
@@ -129,7 +174,7 @@ Pipeline.
 (`**/target/*.jar`) and saves them to the Jenkins master for later retrieval.
 
 
-[CAUTION]
+[TIP]
 ====
 Archiving artifacts is not a substitute for using external artifact
 repositories such as Artifactory or Nexus and should be considered only for
@@ -153,6 +198,22 @@ Jenkins can also provide historical trend analysis and visualization.
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+
+    stages {
+        stage('Test') {
+            steps {
+                /* `make check` returns non-zero on test failures,
+                * using `true` to allow the Pipeline to continue nonetheless
+                */
+                sh 'make check || true' // <1>
+                junit '**/target/*.xml' // <2>
+            }
+        }
+    }
+}
 // Script //
 node {
     /* .. snip .. */
@@ -165,7 +226,6 @@ node {
     }
     /* .. snip .. */
 }
-// Declarative not yet implemented //
 ----
 <1> Using an inline shell conditional (`sh 'make || true'`) ensures that the
 `sh` step always sees a zero exit code, giving the `junit` step the opportunity
@@ -187,6 +247,19 @@ have exited early.
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+
+    stages {
+        stage('Deploy') {
+            when { currentBuild.result == 'SUCCESS' } // <1>
+            steps {
+                sh 'make publish'
+            }
+        }
+    }
+}
 // Script //
 node {
     /* .. snip .. */
@@ -197,7 +270,6 @@ node {
     }
     /* .. snip .. */
 }
-// Declarative not yet implemented //
 ----
 <1> Accessing the `currentBuild.result` variable allows the Pipeline to
 determine if there were any test failures. In which case, the value would be
@@ -207,24 +279,22 @@ Assuming everything has executed successfully in the example Jenkins Pipeline,
 each successful Pipeline run will have associated build artifacts archived,
 test results reported upon and the full console output all in Jenkins.
 
+[role=scripted-pipeline]
 A Scripted Pipeline can include conditional tests (shown above), loops,
 try/catch/finally blocks and even functions. The next section will cover this
 advanced Scripted Pipeline syntax in more detail.
 
 
-== Advanced Syntax for Scripted Pipeline
-
-Scripted Pipeline is a domain-specific language
-footnoteref:[dsl, https://en.wikipedia.org/wiki/Domain-specific_language]
-based on Groovy, most
-link:http://groovy-lang.org/semantics.html[Groovy syntax]
-can be used in Scripted Pipeline without modification.
+== Advanced Syntax for Pipeline
 
 === String Interpolation
 
-Groovy's "String" interpolation support can be confusing to many newcomers to
-the language. While Groovy supports declaring a string with either single quotes, or
-double quotes, for example:
+Jenkins Pipeline uses rules identical to
+link:http://groovy-lang.org[Groovy]
+for string interpolation. Groovy's String interpolation support can be
+confusing to many newcomers to the language. While Groovy supports
+declaring a string with either single quotes, or double quotes, for
+example:
 
 [source,groovy]
 ----
@@ -250,8 +320,8 @@ Hello Mr. ${username}
 I said, Hello Mr. Jenkins
 ----
 
-Understanding how to use Groovy's string interpolation is vital for using some
-of Scripted Pipeline 's more advanced features.
+Understanding how to use string interpolation is vital for using some of
+Pipeline's more advanced features.
 
 === Working with the Environment
 
@@ -265,7 +335,6 @@ BUILD_ID:: The current build ID, identical to BUILD_NUMBER for builds created in
 JOB_NAME:: Name of the project of this build, such as "foo" or "foo/bar".
 JENKINS_URL:: Full URL of Jenkins, such as http://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
 
-
 Referencing or using these environment variables can be accomplished like
 accessing any key in a Groovy
 link:http://groovy-lang.org/syntax.html#_maps[Map],
@@ -273,22 +342,50 @@ for example:
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps {
+                echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
+            }
+        }
+    }
+}
 // Script //
 node {
     echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}"
 }
-// Declarative not yet implemented //
 ----
-
 
 ==== Setting environment variables
 
-Setting an environment variable within a Jenkins Pipeline can be done with the
-`withEnv` step, which allows overriding specified environment variables for a
-given block of Scripted Pipeline, for example:
+Setting an environment variable within a Jenkins Pipeline is accomplished
+differently depending on whether Declarative or Scripted Pipeline is used.
+
+Declarative Pipeline supports an <<syntax#environment, environment>>
+directive, whereas users of Scripted Pipeline must use the `withEnv` step.
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+    environment { /* <1> */
+        CC = 'clang'
+    }
+    stages {
+        stage('Example') {
+            environment { /* <2> */
+                DEBUG_FLAGS = '-g'
+            }
+            steps {
+                sh 'printenv'
+            }
+        }
+    }
+}
 // Script //
 node {
     /* .. snip .. */
@@ -296,50 +393,83 @@ node {
         sh 'mvn -B verify'
     }
 }
-// Declarative not yet implemented //
 ----
+<1> An `environment` directive used in the top-level `pipeline` block will
+apply to all steps within the Pipeline.
+<2> An `environment` directive defined within a `stage` will only apply the
+given environment variables to steps within the `stage`.
 
+=== Parameters
 
-=== Build Parameters
+Declarative Pipeline supports parameters out-of-the-box, allowing the Pipeline
+to accept user-specified parameters at runtime via the <<syntax#parameters,
+parameters directive>>. Configuring parameters with Scripted Pipeline is done
+with the `properties` step, which can be found in the Snippet Generator.
 
 If you configured your pipeline to accept parameters using the *Build with
 Parameters* option, those parameters are accessible as Groovy variables of the
 same name.
 
 
-Assuming that a String parameter named "Greeting" has been configured for the
-Pipeline project in the web UI, a `Jenkinsfile` can access that parameter via
+Assuming that a String parameter named "Greeting" has been configuring in the
+`Jenkinsfile`, it  can access that parameter via `$Greeting`:
 `$Greeting`:
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+    parameters {
+        string(name: 'Greeting', defaultValue: 'Hello', description: 'How should I greet the world?')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo "${Greeting} World!"
+            }
+        }
+    }
+1
 // Script //
+properties([parameters([string(defaultValue: 'Hello', description: 'How should I greet the world?', name: 'Greeting')])])
+
 node {
     echo "${Greeting} World!"
 }
-// Declarative not yet implemented //
 ----
 
-/////
-TODO: Expand this section with more examples
-/////
 
 === Handling Failures
 
-Scripted Pipeline relies on Groovy's built-in `try`/`catch`/`finally` semantics
-for handling failures during execution of the Pipeline.
+Declarative Pipeline supports robust failure handling by default via its
+<<syntax#post, post section>> which allows declaring a number of different
+"post conditions" such as: `always`, `unstable`, `success`, `failure`, and
+`changed`. The <<syntax, Pipeline Syntax>> section provides more detail on
+how to use the various post conditions.
 
-In the <<test>> example above, the `sh` step was modified to never return a
-non-zero exit code (`sh 'make check || true'`). This approach, while valid,
-means the following stages need to check `currentBuild.result` to know if
-there has been a test failure or not.
-
-An alternative way of handling this, which preserves the early-exit behavior of
-failures in Pipeline, while still giving `junit` the chance to capture test
-reports, is to use a series of `try`/`finally` blocks:
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Test') {
+            steps {
+                sh 'make check'
+            }
+        }
+    }
+    post {
+        always {
+            junit '**/target/*.xml'
+        }
+        failure {
+            mail to: team@example.com, subject: 'The Pipeline failed :('
+        }
+    }
+}
 // Script //
 node {
     /* .. snip .. */
@@ -353,23 +483,76 @@ node {
     }
     /* .. snip .. */
 }
-// Declarative not yet implemented //
 ----
 
-=== Using multiple nodes
+[role=scripted-pipeline]
+====
+Scripted Pipeline however relies on Groovy's built-in `try`/`catch`/`finally` semantics
+for handling failures during execution of the Pipeline.
 
-In all previous uses of the `node` step, it has been used without any
-arguments. This means Jenkins will allocate an executor wherever one is
-available. The `node` step can take an optional "label" parameter, which is
-helpful for more advanced use-cases such as  executing builds/tests across
-multiple platforms.
+In the <<test>> example above, the `sh` step was modified to never return a
+non-zero exit code (`sh 'make check || true'`). This approach, while valid,
+means the following stages need to check `currentBuild.result` to know if
+there has been a test failure or not.
 
-In the example below, the "Build" stage will be performed on one node and
-the built results will be reused on two different nodes, labelled "linux" and
+An alternative way of handling this, which preserves the early-exit behavior of
+failures in Pipeline, while still giving `junit` the chance to capture test
+reports, is to use a series of `try`/`finally` blocks:
+====
+
+=== Using multiple agents
+
+In all the previous examples, only a single agent has been used.  This means
+Jenkins will allocate an executor wherever one is available, regardless of how
+it is labeled or configured. Not only can this behavior be overridden, but
+Pipeline allows utilizing multiple agents in the Jenkins environment from
+within the _same_ `Jenkinsfile`, which can helpful for more advanced use-cases
+such as  executing builds/tests across multiple platforms.
+
+In the example below, the "Build" stage will be performed on one agent and the
+built results will be reused on two subsequent agents, labelled "linux" and
 "windows" respectively, during the "Test" stage.
 
 [pipeline]
 ----
+// Declarative //
+pipeline {
+    agent none
+    stages {
+        stage('Build') {
+            agent any
+            steps {
+                checkout scm
+                sh 'make'
+                stash includes: '**/target/*.jar', name: 'app' // <1>
+            }
+        }
+        stage('Test on Linux') {
+            agent label 'linux' // <2>
+            steps {
+                unstash 'app' // <3>
+                sh 'make check'
+            }
+            post {
+                always {
+                    junit '**/target/*.xml'
+                }
+            }
+        }
+        stage('Test on Windows') {
+            agent label 'linux'
+            steps {
+                unstash 'app'
+                bat 'make check' // <4>
+            }
+            post {
+                always {
+                    junit '**/target/*.xml'
+                }
+            }
+        }
+    }
+}
 // Script //
 stage('Build') {
     node {
@@ -401,19 +584,57 @@ stage('Test') {
         }
     }
 }
-// Declarative not yet implemented //
 ----
 <1> The `stash` step allows capturing files matching an inclusion pattern
 (`**/target/*.jar`) for reuse within the _same_ Pipeline. Once the Pipeline has
 completed its execution, stashed files are deleted from the Jenkins master.
-<2> The optional parameter to `node` allows for any valid Jenkins label
-expression. Consult the inline help for `node` in the <<getting-started#snippet-generator#, Snippet Generator>> for more details.
+<2> The optional parameter to `agent`/`node` allows for any valid Jenkins label
+expression. Consult the <<syntax#, Pipeline Syntax>> section for more details.
 <3> `unstash` will retrieve the named "stash" from the Jenkins master into the
 Pipeline's current workspace.
 <4> The `bat` script allows for executing batch scripts on Windows-based
 platforms.
 
-=== Executing in parallel
+=== Optional step arguments
+
+Pipeline follows the Groovy language convention of allowing parentheses to be
+omitted around method arguments.
+
+Many Pipeline steps also use the named-parameter syntax as a shorthand for
+creating a Map in Groovy, which uses the syntax `[key1: value1, key2: value2]`.
+Making statements like the following functionally equivalent:
+
+[source, groovy]
+----
+git url: 'git://example.com/amazing-project.git', branch: 'master'
+git([url: 'git://example.com/amazing-project.git', branch: 'master'])
+----
+
+For convenience, when calling steps taking only one parameter (or only one
+mandatory parameter), the parameter name may be omitted, for example:
+
+[source, groovy]
+----
+sh 'echo hello' /* short form  */
+sh([script: 'echo hello'])  /* long form */
+----
+
+=== Advanced Scripted Pipeline
+
+Scripted Pipeline is a domain-specific language
+footnoteref:[dsl, https://en.wikipedia.org/wiki/Domain-specific_language]
+based on Groovy, most
+link:http://groovy-lang.org/semantics.html[Groovy syntax]
+can be used in Scripted Pipeline without modification.
+
+==== Executing in parallel
+
+////
+NOTE: This is only under "Advanced Scripted Pipeline" temporarily until some
+cleaner parallel syntax is supported for Declarative Pipeline. Right now
+(20170201) parallel in Declarative is indistinguishable from script { } based
+stuff.
+////
 
 The example in the <<using-multiple-nodes,section above>> runs tests across two
 different platforms in a linear series. In practice, if the `make check`
@@ -458,26 +679,3 @@ Instead of executing the tests on the "linux" and "windows" labelled nodes in
 series, they will now execute in parallel assuming the requisite capacity
 exists in the Jenkins environment.
 
-
-=== Optional step arguments
-
-Groovy allows parentheses around function arguments to be omitted.
-
-Many Pipeline steps also use the named-parameter syntax as a shorthand for
-creating a Map in Groovy, which uses the syntax `[key1: value1, key2: value2]`.
-Making statements like the following functionally equivalent:
-
-[source, groovy]
-----
-git url: 'git://example.com/amazing-project.git', branch: 'master'
-git([url: 'git://example.com/amazing-project.git', branch: 'master'])
-----
-
-For convenience, when calling steps taking only one parameter (or only one
-mandatory parameter), the parameter name may be omitted, for example:
-
-[source, groovy]
-----
-sh 'echo hello' /* short form  */
-sh([script: 'echo hello'])  /* long form */
-----

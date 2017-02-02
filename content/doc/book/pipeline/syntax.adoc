@@ -1,0 +1,868 @@
+---
+layout: section
+title: Pipeline Syntax
+---
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:imagesdir: /doc/book/resources
+:toc:
+
+= Pipeline Syntax
+
+This section builds on the information introduced in <<getting-started#,
+Getting Started>>, and should be treated solely as a reference. For more
+information on how to use Pipeline syntax in practical examples, refer to
+<<jenkinsfile#, The Jenkinsfile>> section of this chapter. As of version 2.5 of
+the Pipeline plugin, Pipeline supports two discrete syntaxes which are detailed
+below. For the pros and cons of each, see the <<compare>>.
+
+As discussed in <<getting-started#, Getting Started>>, the most fundamental
+part of a Pipeline is the "step." Basically, steps tell Jenkins _what_ to
+do, and serve as the basic building block for both Declarative and Scripted
+Pipeline syntax.
+
+For an overview of available steps, please refer to the
+link:/doc/pipeline/steps[Pipeline Steps reference]
+which contains a comprehensive list of steps built into Pipeline as well as
+steps provided by plugins.
+
+[role=syntax]
+== Declarative Pipeline
+
+Declarative Pipeline is a relatively recent addition to Jenkins Pipeline
+footnoteref:[declarative-version, Version 2.5 of the "Pipeline plugin"
+introduces support for Declarative Pipeline syntax]
+which presents a more simplified and opinionated syntax on top of the Pipeline
+sub-systems.
+
+All valid Declarative Pipelines must be enclosed within a `pipeline` block, for
+example:
+
+[source,groovy]
+----
+pipeline {
+    /* insert Declarative Pipeline here */
+}
+----
+
+The basic statements and expressions which are valid in Declarative Pipeline
+follow the same rules as
+link:https://groovy-lang.org/syntax.html[Groovy's syntax]
+with the following exceptions:
+
+* The top-level of the Pipeline must be a _block_, specifically: `pipeline { }`
+* No semicolons as statement separators. Each statement has to be on its own
+  line
+* Blocks must only consist of <<declarative-sections>>,
+  <<declarative-directives>>, <<declarative-steps>>, or assignment statements.
+* A property reference statement is treated as no-argument method invocation. So for
+  example, input is treated as input()
+
+
+[[declarative-sections]]
+=== Sections
+
+Sections in Declarative Pipeline typically contain one or more
+<<declarative-directives>> or <<declarative-steps>>.
+
+==== post
+
+The `post` section defines actions which will be run at the end of the Pipeline
+run. A number of additional <<post-conditions>> blocks are supported within the `post` section:
+`always`, `changed`, `failure`, `success`, and `unstable`. These
+blocks allow for the execution of steps at the tail-end of the Pipeline run,
+depending on the status of the Pipeline.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| In the top-level `pipeline` block and each `stage` block.
+|===
+
+[[post-conditions]]
+===== Conditions
+
+`always`:: Run regardless of the completion status of the Pipeline run.
+`changed`:: Only run if the current Pipeline run has a different status from
+the previously completed Pipeline.
+`failure`:: Only run if the current Pipeline has a "failed" status, typically
+denoted in the web UI with a red indication.
+`success`::  Only run if the current Pipeline has a "success" status, typically
+denoted in the web UI with a blue or green indication.
+`unstable`:: Only run if the current Pipeline has an "unstable" status,
+usually caused by test failures, code violations, etc. Typically denoted in the
+web UI with a yellow indication.
+
+[[post-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+    post { /* <1> */
+        always { /* <2> */
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+----
+<1> Conventionally, the `post` section should be placed at the end of the
+Pipeline.
+<2> The <<post-conditions>> blocks can use steps.
+
+
+==== stages
+
+A sequence of one or more <<stage>> directives, the `stages` section is where
+the bulk of the "work" described by a Pipeline will be located. At a minimum it
+is recommended that `stages` contain at least one <<stage>> directive for each
+discrete part of the continuous delivery process, such as Build, Test, and
+Deploy.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| Yes
+
+| Parameters
+| _None_
+
+| Allowed
+| Only once, inside the `pipeline` block.
+|===
+
+[[stages-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages { /* <1> */
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+----
+<1> The `stages` section will typically follow the directives such as `agent`,
+`options`, etc.
+
+==== steps
+
+Defines a series of steps to be executed in a given `stage` directive.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| Yes
+
+| Parameters
+| _None_
+
+| Allowed
+| Inside each `stage` block.
+|===
+
+[[steps-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps { /* <1> */
+                echo 'Hello World'
+            }
+        }
+    }
+}
+----
+<1> The `steps` section must contain one or more steps.
+
+[[declarative-directives]]
+=== Directives
+
+==== agent
+
+The `agent` directive specifies where the entire Pipeline, or a specific stage,
+will execute in the Jenkins environment depending on where the `agent`
+directive is placed. The directive must be defined at the top-level inside the
+`pipeline` block, but stage-level usage is optional.
+
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| Yes
+
+| Parameters
+| <<agent-parameters, Described below>>
+
+| Allowed
+| In the top-level `pipeline` block and each `stage` block.
+|===
+
+
+[[agent-parameters]]
+===== Parameters
+
+In order to support the wide variety of use-cases Pipeline authors may have,
+the `agent` directive supports a few different types of parameters. These
+parameters can be applied at the top-level of the `pipeline` block, or within
+each `stage` directive.
+
+any:: Execute the Pipeline, or stage, on any available agent. For example: `agent any`
+
+none:: When applied at the top-level of the `pipeline` block no global agent
+will be allocated for the entire Pipeline run and each `stage` directive will
+need to contain its own `agent` directive. For example: `agent none`
+
+label:: Execute the Pipeline, or stage, on an agent available in the Jenkins
+environment with the provided label. For example: `agent { label 'my-defined-label' }`
+
+docker:: Execute the Pipeline, or stage, with the given container which will be
+dynamically provisioned on a <<../glossary#node, node>> pre-configured to
+accept Docker-based Pipelines, or on a node matching the optionally defined
+`label` parameter.  `docker` also optionally accepts an `args` parameter
+which may contain arguments to pass directly to a `docker run` invocation.
+ For example: `agent { docker: 'maven:3-alpine' }` or
+[source,groovy]
+----
+agent {
+    docker {
+        image: 'maven:3-alpine'
+        label: 'my-defined-label'
+        args:  '-v /tmp:/tmp'
+    }
+}
+----
+
+////
+XXX: https://issues.jenkins-ci.org/browse/JENKINS-41607
+
+dockerfile:: Execute the Pipeline, or stage, with a container built from a
+`Dockerfile` contained in the source repository. Conventionally this can be the
+`Dockerfile` in the root of the source repository: `agent { dockerfile true }`
+
+////
+
+
+
+[[agent-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent { docker 'maven:3-alpine' } /* <1> */
+    stages {
+        stage('Example Build') {
+            steps {
+                sh 'mvn -B clean verify'
+            }
+        }
+    }
+}
+----
+<1> Execute all the steps defined in this Pipeline within a newly created container
+of the given name and tag (`maven:3-alpine`).
+
+====== Stage-level `agent` directive
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none /* <1> */
+    stages {
+        stage('Example Build') {
+            agent { docker: 'maven:3-alpine' } /* <2> */
+            steps {
+                sh 'mvn -B clean verify'
+            }
+        }
+        stage('Example Test') {
+            agent { docker: 'openjdk:8-jre' } /* <3> */
+            steps {
+                echo 'Hello JRE'
+            }
+        }
+    }
+}
+----
+<1> Defining `agent none` at the top-level of the Pipeline ensures that
+<<../glossary#executor, an Executor>> will not be unnecessarily. Using `agent
+none` requires that each `stage` directive contain an `agent` directive.
+<2> Execute the steps contained within this stage using the given container.
+<3> Execute the steps contained within this steps using a different image
+from the previous stage.
+
+
+==== environment
+
+The `environment` directive specifies a sequence of key-value pairs which will
+be defined as environment variables for the all steps, or stage-specific steps,
+depending on where the `environment` directive is located within the Pipeline.
+
+This directive supports a special helper method `credentials()` which can be
+used to access pre-defined Credentials by their identifier in the Jenkins
+environment. For Credentials which are of type "Secret Text", the
+`credentials()` method will ensure that the environment variable specified
+contains the Secret Text contents. For Credentials which are of type "Standard
+username and password", the environment variable specified will be set to
+`username:password` and two additional environment variables will be
+automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respective.
+
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| Inside the `pipeline` block, or within `stage` directives.
+|===
+
+[[environment-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    environment { /* <1> */
+        CC = 'clang'
+    }
+    stages {
+        stage('Example') {
+            environment { /* <2> */
+                AN_ACCESS_KEY = credentials('my-prefined-secret-text') /* <3> */
+            }
+            steps {
+                sh 'printenv'
+            }
+        }
+    }
+}
+----
+<1> An `environment` directive used in the top-level `pipeline` block will
+apply to all steps within the Pipeline.
+<2> An `environment` directive defined within a `stage` will only apply the
+given environment variables to steps within the `stage`.
+<3> The `environment` block has a helper method `credentials()` defined which
+can be used to access pre-defined Credentials by their identifier in the
+Jenkins environment.
+
+==== options
+
+The `options` directive allows configuring Pipeline-specific options from
+within the Pipeline itself. Pipeline provides a number of these options, such
+as `buildDiscarder`, but they may also be provided by plugins, such as
+`timestamps`.
+
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| Only once, inside the `pipeline` block.
+|===
+
+===== Available Options
+
+buildDiscarder:: Persist artifacts and console output for the specific number
+of recent Pipeline runs. For example: `options { buildDiscarder(logRotator(numToKeepStr: '1')) }`
+
+disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
+be useful for preventing simultaneous accesses to shared resources, etc. For
+example: `options { disableConcurrentBuilds() }`
+
+skipDefaultCheckout:: Skip checking out code from source control by default in
+the `agent` directive. For example: `options { skipDefaultCheckout() }`
+
+timeout:: Set a timeout period for the Pipeline run, after which Jenkins should
+abort the Pipeline. For example: `options { timeout(time: 1, unit: 'HOUR') }`
+
+retry:: On failure, retry the entire Pipeline the specified number of times.
+For example: `options { retry(3) }`
+
+timestamps:: Prepend all console output generated by the Pipeline run with the
+time at which the line was emitted. For example: `options { timestamps() }`
+
+[[options-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    options {
+        timeout(time: 1, unit: 'HOUR') /* <1> */
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+----
+<1> Specifying a global execution timeout of one hour, after which Jenkins will
+abort the Pipeline run.
+
+[NOTE]
+====
+A comprehensive list of available options is pending the completion of
+link:https://issues.jenkins-ci.org/browse/INFRA-1053[INFRA-1503].
+====
+
+==== parameters
+
+The `parameters` directive provides a list of parameters which a user should
+provide when triggering the Pipeline. The values for these user-specified
+parameters are made available to Pipeline steps via the `params` object,
+see the <<parameters-example>> for its specific usage.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| Only once, inside the `pipeline` block.
+|===
+
+===== Available Parameters
+
+string:: A parameter of a string type, for example: `parameters { string(name: 'DEPLOY_ENV', defaultValue: 'staging', description: '') }`
+
+booleanParam:: A boolean parameter, for example: `parameters { booleanParam(name: 'DEBUG_BUILD', defaultValue: true, description: '') }`
+
+
+[[parameters-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo "Hello ${params.PERSON}"
+            }
+        }
+    }
+}
+----
+
+[NOTE]
+====
+A comprehensive list of available parameters is pending the completion of
+link:https://issues.jenkins-ci.org/browse/INFRA-1053[INFRA-1503].
+====
+
+==== triggers
+
+The `triggers` directive defines the automated ways in which the Pipeline
+should be re-triggered. For Pipelines which are integrated with a source such
+as GitHub or BitBucket, `triggers` may not be necessary as webhooks-based
+integration will likely already be present. Currently the only two available
+triggers are `cron` and `pollScm`.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| Only once, inside the `pipeline` block.
+|===
+
+
+cron:: Accepts a cron-style string to define a regular interval at which the
+Pipeline should be re-triggered, for example: `triggers { cron('H 4/* 0 0 1-5') }`
+pollScm:: Accepts a cron-style string to define a regular interval at which
+Jenkins should check for new source changes. If new changes exist, the Pipeline
+will be re-triggered. For example: `triggers { pollScm('H 4/* 0 0 1-5') }`
+
+[NOTE]
+====
+The `pollScm` trigger is only available in Jenkins 2.22 or later.
+====
+
+[[triggers-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    triggers {
+        cron('H 4/* 0 0 1-5')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+----
+
+==== stage
+
+The `stage` directive goes in the `stages` section and should contain a
+<<steps>> directive, an optional `agent` directive, or other stage-specific directives.
+Practically speaking, all of the real work done by a Pipeline will be wrapped
+in one or more `stage` directives.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| At least one
+
+| Parameters
+| One mandatory parameter, a string for the name of the stage.
+
+| Allowed
+| Inside the `stages` section.
+|===
+
+[[stage-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+----
+
+==== tools
+////
+XXX: This is intentionally light until
+https://issues.jenkins-ci.org/browse/WEBSITE-193
+////
+
+A section defining tools to auto-install and put on the `PATH`. This is ignored
+if `agent none` is specified.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| Inside the `pipeline` block or a `stage` block.
+|===
+
+===== Supported Tools
+
+maven::
+java::
+gradle::
+
+[[tools-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    tools {
+        maven 'apache-maven-3.0.1' /* <1> */
+    }
+    stages {
+        stage('Example') {
+            steps {
+                sh 'mvn --version'
+            }
+        }
+    }
+}
+----
+<1> The tool name must be pre-configured in Jenkins under *Manage Jenkins* ->
+*Global Tool Configuration*.
+
+==== when
+
+The `when` directive allows the Pipeline to determine whether the stage should
+be executed depending on the given condition.
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| No
+
+| Parameters
+| _None_
+
+| Allowed
+| Inside a `stage` directive
+|===
+
+===== Built-in Conditions
+
+branch:: Execute the stage when the branch being built matches the branch
+pattern given, for example: `when { branch '*/master' }`
+
+environment:: Execute the stage when the specified environment variable is set
+to the given value, for example: `when { environment name: 'DEPLOY_TO', value: 'production' }`
+
+expression:: Execute the stage when the specified Groovy expression evaluates
+to true, for example: `when { return params.DEBUG_BUILD }`
+
+[[when-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                branch '*/production'
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+----
+
+[[declarative-steps]]
+=== Steps
+
+Declarative Pipelines may use all the available steps documented in the
+link:/doc/pipeline/steps[Pipeline Steps reference],
+which contains a comprehensive list of steps, with the addition of the steps
+listed below which are *only supported* in Declarative Pipeline.
+
+==== script
+
+The `script` step takes a block of <<scripted-pipeline>> and executes that in
+the Declarative Pipeline. For most use-cases, the `script` step should be
+unnecessary in Declarative Pipelines, but it can provide a useful "escape
+hatch." `script` blocks of non-trivial size and/or complexity should be moved
+into <<shared-libraries#, Shared Libraries>> instead.
+
+[[script-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+
+                script {
+                    def browsers = ['chrome', 'firefox']
+                    for (int i = 0; i < browsers.size(); ++i) {
+                        echo "Testing the ${browsers[i]} browser"
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+[role=syntax]
+== Scripted Pipeline
+
+Scripted Pipeline, like <<declarative-pipeline>>, is built on top of the
+underlying Pipeline sub-system. Unlike Declarative, Scripted Pipeline is
+effectively a general purpose DSL
+footnoteref:[dsl,Domain-specific Language]
+built with
+link:http://groovy-lang.org/syntax.html[Groovy].
+Most functionality provided by the Groovy language is made available to users
+of Scripted Pipeline, which means it can be a very expressive and flexible tool
+with which one can author continuous delivery pipelines.
+
+
+=== Flow Control
+
+Scripted Pipeline is serially executed from the top of a `Jenkinsfile`
+downwards, like most traditional scripts in Groovy or other languages.
+Providing flow control therefore rests on Groovy expressions, such as the
+`if/else` conditionals, for example:
+
+[pipeline]
+----
+// Scripted //
+node {
+    stage('Example') {
+        if (env.BRANCH_NAME == 'master') {
+            echo 'I only execute on the master branch'
+        } else {
+            echo 'I execute elsewhere'
+        }
+    }
+}
+----
+
+Another way Scripted Pipeline flow control can be managed is with Groovy's
+exception handling support. When <<scripted-steps>> fail for whatever reason
+they throw an exception.  Handling behaviors on-error must make use of
+the `try/catch/finally` blocks in Groovy, for example:
+
+[pipeline]
+----
+// Scripted //
+node {
+    stage('Example') {
+        try {
+            sh 'exit 1'
+        }
+        catch (exc) {
+            echo 'Something failed, I should sound the klaxons!'
+            throw
+        }
+    }
+}
+----
+
+
+[[scripted-steps]]
+=== Steps
+
+As discussed in <<getting-started#, Getting Started>>, the most fundamental
+part of a Pipeline is the "step." Fundamentally, steps tell Jenkins _what_ to
+do, and serve as the basic building block for both Declarative and Scripted
+Pipeline syntax.
+
+Scripted Pipeline does *not* introduce any steps which are specific to its
+syntax;
+link:/doc/pipeline/steps[Pipeline Steps reference]
+which contains a comprehensive list of steps provided by Pipeline and plugins.
+
+
+=== Differences from plain Groovy
+
+////
+XXX: TODO https://issues.jenkins-ci.org/browse/WEBSITE-267
+https://issues.jenkins-ci.org/browse/WEBSITE-289
+////
+
+In order to provide _durability_, which means that running Pipelines can
+survive a restart of the Jenkins <<../glossary#master, master>>, Scripted
+Pipeline must serialize data back to the master. Due to this design
+requirement, some Groovy idioms such as `collection.each { item -> /* perform
+operation */ }` are not fully supported.  See
+https://issues.jenkins-ci.org/browse/JENKINS-27421[JENKINS-27421]
+and
+https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481]
+for more information.
+
+[[compare]]
+== Syntax Comparison
+
+////
+XXX: REWRITE
+////
+
+When Jenkins Pipeline was first created, Groovy was selected as the foundation.
+Jenkins has long shipped with an embedded Groovy engine to provide advanced
+scripting capabilities for admins and users alike. Additionally, the
+implementors of Jenkins Pipeline found Groovy to be a solid foundation upon
+which to build what is now referred to as the "Scripted Pipeline" DSL.
+footnoteref:[dsl].
+
+As it is a fully featured programming environment, Scripted Pipeline offers a
+tremendous amount of flexibility and extensibility to Jenkins users. The
+Groovy learning-curve isn't typically desirable for all members of a given
+team, so Declarative Pipeline was created to offer a simpler and more
+opinionated syntax for authoring Jenkins Pipeline.
+
+The two are both fundamentally the same Pipeline sub-system underneath. They
+are both durable implementations of "Pipeline as code." They are both able to
+use steps built into Pipeline or provided by plugins. Both are able utilize
+<<shared-libraries#, Shared Libraries>>
+
+
+Where they differ however is in syntax and flexibility. Declarative limits
+what is available to the user with a more strict and pre-defined structure,
+making it an ideal choice for simpler continuous delivery pipelines. Scripted
+provides very few limits, insofar that the only limits on structure and syntax
+tend to be defined by Groovy itself, rather than any Pipeline-specific systems,
+making it an ideal choice for power-users and those with more complex
+requirements. As the name implies, Declarative Pipeline is encourages a
+declarative programming model.
+footnoteref:[declarative, link:https://en.wikipedia.org/wiki/Declarative_programming[Declarative Programming]]
+Whereas Scripted Pipelines follow a more imperative programming model..
+footnoteref:[imperative, link:https://en.wikipedia.org/wiki/Imperative_programming[Imperative Programming]]
