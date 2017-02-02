@@ -57,9 +57,12 @@ The warning will disappear on the next restart after the unreadable data has bee
 == Analysis of the issues
 
 link:https://issues.jenkins-ci.org/browse/JENKINS-41121[JENKINS-41121]::
-Migration of GitHub branches from 1.x to 2.x resulted in a change of branch identity which, now that other bugs in Branch API had been fixed, resulted in a rebuild of all GitHub Branches (not PRs) after an upgrade to GitHub Branch Source Plugin 2.0.0.
+Migration of GitHub branches from 1.x to 2.x resulted in a change of the implementation class used to identify branches.
+Some other other bugs in Branch API had been fixed and the combined effect resulted in a rebuild of all GitHub Branches (not PRs) after an upgrade to GitHub Branch Source Plugin 2.0.0.
+This rebuild was referred to as a "build storm".
 +
 *Resolution:* The SCM API plugin was enhanced to add an extension point that allows for a second round of data migration when upgrading.
+The second round of data migration allows plugins implementing the SCM API contract to fix implementation class issues in context.
 The Branch API plugin was enhanced to use this new extension point.
 The GitHub Branch Source plugin was enhanced to provide an implementation of this extension point.
 
@@ -67,12 +70,13 @@ link:https://issues.jenkins-ci.org/browse/JENKINS-41255[JENKINS-41255]::
 The GitHub Branch Source and BitBucket Branch Source plugins in 1.x were not assigning consistent IDs to multi-branch projects discovered in an Organization Folder.
 Both plugins were fixed in 2.0.0 to assign consistent IDs as a change of ID would result in a rebuild of all projects.
 What was missed is that the very first scan of an Organization Folder after an upgrade will change the randomly assigned ID assigned by the 1.x plugins into the consistent ID assigned by the 2.0.0 plugins and consequently trigger a rebuild of all branches.
+This rebuild was referred to as a "build storm".
 +
 *Resolution:* The Branch API plugin was enhanced to detect the case where a branch source has been changed but the change is only changing the ID.
 When such changes are identified, the downstream references of the ID are all updated which will prevent a build storm.
 
 link:https://issues.jenkins-ci.org/browse/JENKINS-41313[JENKINS-41313]::
-The BitBucket Branch Source 1.x did not store all the information about PRs that is required by the SCM API 2.0.0 model.
+The BitBucket Branch Source 1.x did not store all the information about PRs that is required by the SCM API 2.0.x model.
 This could well have resulted in subtle effects when manually triggering a rebuild of a merge PR if the PR's target branch has been modified after the PR branch was first detected by Jenkins.
 Consequently, as the information is required, BitBucket Branch Source plugin 2.0.0 populated the information with dummy values which would force the correct information to be retrieved.
 The side-effect is that all PR branches would be rebuilt.
@@ -85,20 +89,20 @@ During initial testing of the Branch API 2.0.0 release an issue was identified w
 None of the existing implementations of the `SCMNavigator` API could generate such unusual names due to form validation on GitHub / BitBucket replacing unusual characters with `-` when creating a repository.
 +
 It would be irresponsible to rely on external services sanitizing their input data for the correct operation of Organization Folders.
-Consequently, in Branch API 2.0.0 the names were all mangled into URL safe names, with the original URLs still resolving to the original projects so that any existing saved links would remain functional.
+Consequently, in Branch API 2.0.0 the names were all transformed into URL safe names, with the original URLs still resolving to the original projects so that any existing saved links would remain functional.
 +
-Quite a number of people objected to the change of URL scheme.
+Quite a number of people objected to this change of URL scheme.
 +
 *Resolution:* There has been a convention in Jenkins that the on-disk storage structure for jobs mirrors the URL structure.
 This is only a convention and there is nothing specific in the code that mandates following the convention.
 +
 The Folders Plugin was enhanced to allow for computed folders (where the item names are provided by an external source) to provide a strategy to use when generating the on-disk storage names as well as the URL component names for the folder's child items.
 +
-The Branch API plugin was enhanced to use this new strategy for name mangling.
+The Branch API plugin was enhanced to use this new strategy for name transformation.
 +
-The net effect of this change is that the URLs remain the same as for 1.x but the on-disk storage uses mangled names that are future proofed against any new SCMNavigator implementations where the backing service allows names that are problematic to use as filesystem directory names.
+The net effect of this change is that the URLs remain the same as for 1.x but the on-disk storage uses transformed names that are future proofed against any new SCMNavigator implementations where the backing service allows names that are problematic to use as filesystem directory names.
 +
-*Side-effect:* The Branch API 2.0.0 approach handled the mangling of names by renaming the items using the Jenkins Item rename API.
+*Side-effect:* The Branch API 2.0.0 approach handled the transformation of names by renaming the items using the Jenkins Item rename API.
 The Branch API 2.0.2 approach does not rename the child items as it is only the on-disk storage location that is moved.
 This means that the Jenkins Item rename API cannot be used.
 +
@@ -109,10 +113,10 @@ Because the Jenkins Item rename API cannot be used to flag the configuration fil
 
 The above issues are all resolved by the following plugin releases:
 
-Folders Plugin:: *5.17*
-SCM API Plugin:: *2.0.2*
-Branch API Plugin:: *2.0.2*
-Git Plugin:: *Either* *2.6.4* *or* *3.0.4*
-GitHub Branch Source Plugin:: *2.0.1*
-BitBucket Branch Source Plugin:: *2.0.2*
-Pipeline Multibranch Plugin:: *2.12*
+* Folders Plugin: *5.17*
+* SCM API Plugin: *2.0.2*
+* Branch API Plugin: *2.0.2*
+* Git Plugin: *Either* *2.6.4* *or* *3.0.4*
+* GitHub Branch Source Plugin: *2.0.1*
+* BitBucket Branch Source Plugin: *2.0.2*
+* Pipeline Multibranch Plugin: *2.12*
