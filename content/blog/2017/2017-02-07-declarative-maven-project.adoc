@@ -211,6 +211,9 @@ would be nice if I could split the build and the tests into separate stages,
 but Maven is famous for not liking when people do that, so I'll leave it alone
 for now.
 
+Instead, let's load up the results of the build using the JUnit plugin,
+however the version that was just built, sorry.
+
 [pipeline]
 ----
 // Declarative //
@@ -235,17 +238,55 @@ pipeline {
                 sh 'mvn -Dmaven.test.failure.ignore=true install' // <1>
             }
             post {
-                always {
+                success {
                     junit 'target/surefire-reports/**/*.xml' // <2>
                 }
             }
         }
     }
 }
-// Scripted Not Defined //
+// Scripted
+node {
+    checkout scm
+
+    String jdktool = tool name: "jdk8", type: 'hudson.model.JDK'
+    def mvnHome = tool name: 'mvn'
+
+    /* Set JAVA_HOME, and special PATH variables. */
+    List javaEnv = [
+        "PATH+MVN=${jdktool}/bin:${mvnHome}/bin",
+        "M2_HOME=${mvnHome}",
+        "JAVA_HOME=${jdktool}"
+    ]
+
+    withEnv(javaEnv) {
+    stage ('Initialize') {
+        sh '''
+            echo "PATH = ${PATH}"
+            echo "M2_HOME = ${M2_HOME}"
+        '''
+    }
+    stage ('Build') {
+        try {
+            sh 'mvn -Dmaven.test.failure.ignore=true install'
+        } catch (e) {
+            currentBuild.result = 'FAILURE'
+        }
+    }
+    stage ('Post') {
+        if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+            junit 'target/surefire-reports/**/*.xml'  // <2>
+        }
+    }
+}
 ----
 <1> Call `mvn`, the version configured by the `tools` section will be first on the path.
-<2> Archive the JUnit test reports for display in the Jenkins web UI
+<2> If the maven build succeeded, archive the JUnit test reports for display in the Jenkins web UI.
+We'll discuss the
+link:/doc/book/pipeline/syntax/#declarative-post[`post` section] in detail in the next blog post.
+
+NOTE: If you are familiar with Scripted Pipeline, you can toggle the above
+Declarative code sample to show the Scripted equivalent.
 
 Below is the console output for this last revision:
 
