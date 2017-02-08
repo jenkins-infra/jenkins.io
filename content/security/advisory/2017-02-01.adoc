@@ -1,0 +1,189 @@
+---
+layout: simplepage
+title: Jenkins Security Advisory 2017-02-01
+section: security
+kind: core
+---
+
+This advisory announces multiple vulnerabilities in Jenkins.
+
+== Description
+
+=== Use of AES ECB block cipher mode without IV for encrypting secrets
+*SECURITY-304 / CVE-2017-2598*
+
+Secrets such as passwords are typically stored on disk and sent to users as part of some pages in encrypted form. These were encrypted using AES-128 ECB without IV, which exposes Jenkins and the stored secrets to unnecessary risks. Jenkins now encrypts secrets using AES-128 CBC with random IV.
+
+
+=== Items could be created with same name as existing item
+*SECURITY-321 / CVE-2017-2599*
+
+An insufficient permission check allowed users with the permission to create new items (e.g. jobs) to overwrite existing items they don't have access to. After a Jenkins restart, children of the original item, such as builds, were then accessible in some circumstances.
+
+
+=== Node monitor data could be viewed by low privilege users
+*SECURITY-343 / CVE-2017-2600*
+
+Overall/Read permission was sufficient to access node monitor data via the remote API. These included system configuration and runtime information of these nodes.
+
+
+=== Possible cross-site scripting vulnerability in jQuery bundled with timeline widget
+*SECURITY-349 / CVE-2011-4969*
+
+The Simile timeline widget used on build history pages bundles an outdated jQuery vulnerable to CVE-2011-4969. We were unable to confirm that Jenkins is vulnerable, but updated the jQuery version bundled with the Simile timeline widget anyway.
+
+
+=== Persisted cross-site scripting vulnerability in parameter names and descriptions
+*SECURITY-353 / CVE-2017-2601*
+
+Users with the permission to configure jobs were able to inject JavaScript into parameter names and descriptions.
+
+
+=== Outdated jbcrypt version bundled with Jenkins
+*SECURITY-354 / CVE-2015-0886*
+
+Jenkins bundled an outdated version of jbcrypt that was affected by CVE-2015-0886.
+
+
+=== Pipeline metadata files not blacklisted in agent-to-master security subsystem
+*SECURITY-358 / CVE-2017-2602*
+
+The Pipeline suite of plugins stored build metadata in the file +program.dat+ and the directory +workflow/+. These were not blacklisted in the link:https://jenkins-ci.org/security-144[agent-to-master security subsystem] and could therefore be written to by malicious agents.
+
+
+=== User data leak in disconnected agents' config.xml API
+*SECURITY-362 / CVE-2017-2603*
+
+Agents that were disconnected by users contained the disconnecting user's +User+ object in serialized form in the +config.xml+ remote API output. This could leak sensitive data such as API tokens.
+
+
+=== Low privilege users were able to act on administrative monitors
+*SECURITY-371 / CVE-2017-2604*
+
+Administrative monitors are warnings about the system state shown to Jenkins admins. They sometimes provide actions to e.g. automatically address the reported problem, or disable the warning. These actions were not consistently protected by permission checks, thereby allowing low privilege users to act on them.
+
+All administrative monitors now require the user accessing them to be an administrator.
+
+
+=== Re-key admin monitor leaves behind unencrypted credentials in upgraded installations
+*SECURITY-376 / CVE-2017-2605*
+
+The re-key admin monitor was introduced in Jenkins 1.498 and re-encrypted all secrets in JENKINS_HOME with a new key. It also created a backup directory with all old secrets, and the key used to encrypt them. These backups were world-readable and not removed afterwards.
+
+Jenkins now deletes the backup directory, if present. Upgrading from before 1.498 will no longer create a backup directory. *Administrators relying on file access permissions in their manually created backups are advised to check them for the directory +$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/backups+, and delete it if present.*
+
+
+=== Internal API allowed access to item names that should not be visible
+*SECURITY-380 / CVE-2017-2606*
+
+The method +Jenkins#getItems()+ included a performance optimization that resulted in all items being returned if the _Logged in users can do anything_ authorization strategy was used, and no access was granted to anonymous users (an option added in Jenkins 2.0). This only affects anonymous users (other users legitimately have access) that were able to get a list of items via an +UnprotectedRootAction+.
+
+
+=== Persisted cross-site scripting vulnerability in console notes
+*SECURITY-382 / CVE-2017-2607*
+
+Jenkins allows plugins to annotate build logs, adding new content or changing the presentation of existing content while the build is running. Popular examples include the highlighting of sections by plugin:ant[Ant Plugin], or the timestamp metadata from plugin:timestamper[Timestamper]. Malicious Jenkins users, or users with SCM access, could configure jobs or modify build scripts such that they print serialized console notes that perform cross-site scripting attacks on Jenkins users viewing the build logs.
+
+To prevent this, console notes are now signed by Jenkins when created, and Jenkins will only deserialize correctly signed console notes. *As a side effect, console notes created before updating to a release containing this fix will no longer be deserialized.* To restore the previous (unsafe) behavior, set the system property +hudson.console.ConsoleNote.INSECURE+ to +true+ as described on link:https://wiki.jenkins-ci.org/display/JENKINS/Features+controlled+by+system+properties[Features controlled by system properties].
+
+
+=== XStream remote code execution vulnerability
+*SECURITY-383 / CVE-2017-2608*
+
+XStream-based APIs in Jenkins (e.g. +/createItem+ URLs, or +POST config.xml+ remote API) were vulnerable to a remote code execution vulnerability involving the deserialization of various types in +javax.imageio+.
+
+In case this extension of the blacklist results in regressions, the blacklist can be customized as described link:https://jenkins.io/doc/upgrade-guide/2.19/#upgrading-to-jenkins-lts-2-19-3[in the Jenkins LTS upgrade guide for Jenkins 2.19.3].
+
+
+=== Information disclosure vulnerability in search suggestions
+*SECURITY-385 / CVE-2017-2609*
+
+The autocompletion for the search box provided the names of views the current user does not have access to in its suggestions. These suggestions were removed.
+
+
+=== Persisted cross-site scripting vulnerability in search suggestions
+*SECURITY-388 / CVE-2017-2610*
+
+Jenkins allows the creation of users with less-than and greater-than characters in their names. These user names were not escaped when displaying search suggestions, resulting in a cross-site scripting vulnerability.
+
+
+=== Insufficient permission check for periodic processes
+*SECURITY-389 / CVE-2017-2611*
+
+The URLs +/workspaceCleanup+ and +/fingerprintCleanup+ did not perform permission checks, allowing users with read access to Jenkins to trigger these background processes (that are otherwise performed daily), possibly causing additional load on Jenkins master and agents.
+
+
+=== Low privilege users were able to override JDK download credentials
+*SECURITY-392 / CVE-2017-2612*
+
+Jenkins allows administrators to enter their username and password to the Oracle download site which provides JDKs for download. Users with read access to Jenkins were able to override these credentials, resulting in future builds possibly failing to download a JDK. A permission check has been added.
+
+
+=== User creation CSRF using GET by admins
+*SECURITY-406 / CVE-2017-2613*
+
+When administrators accessed a URL like +/user/example+ via HTTP GET, a user with the ID +example+ was created if it did not exist. While this user record was only retained until restart in most cases, administrators' web browsers could be manipulated to create a large number of user records.
+
+Accessing these URLs now no longer results in a user record getting created, Jenkins will respond with 404 Not Found if no such user exists. When using the internal Jenkins user database, new users can be created via _Manage Jenkins » Manage Users_. To restore the previous (unsafe) behavior, set the system property +hudson.model.User.allowUserCreationViaUrl+ to +true+ as described on link:https://wiki.jenkins-ci.org/display/JENKINS/Features+controlled+by+system+properties[Features controlled by system properties].
+
+
+
+== Severity
+
+* SECURITY-304: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-321: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N[medium]*
+* SECURITY-343: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-349: *link:https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2015-0886[medium]*
+* SECURITY-353: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N[medium]*
+* SECURITY-354: *link:https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2011-4969[medium]*
+* SECURITY-358: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:L/A:N[low]*
+* SECURITY-362: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:N/A:N[low]*
+* SECURITY-371: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N[medium]*
+* SECURITY-376: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-380: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-382: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N[medium]*
+* SECURITY-383: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]*
+* SECURITY-385: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-388: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N[medium]*
+* SECURITY-389: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L[medium]*
+* SECURITY-392: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:L[medium]*
+* SECURITY-406: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:L[medium]*
+
+
+
+== Affected versions
+
+* All Jenkins main line releases up to and including 2.43
+* All Jenkins LTS releases up to and including 2.32.1
+
+
+
+== Fix
+
+* Jenkins main line users should update to 2.44
+* Jenkins LTS users should update to 2.32.2
+
+These versions include fixes to all the vulnerabilities described above. All prior versions are affected by these vulnerabilities unless otherwise indicated.
+
+
+
+== Credit
+
+The Jenkins project would like to thank the reporters for discovering and link:https://jenkins.io/security/#reporting-vulnerabilities[reporting] these vulnerabilities:
+
+* *Ben Walding, CloudBees, Inc.* for SECURITY-304
+* *Daniel Beck, CloudBees, Inc.* for SECURITY-343, SECURITY-371, SECURITY-385, and SECURITY-392
+* *James Dumay, CloudBees, Inc.* for SECURITY-380
+* *Jean Marsault, Wavestone* for SECURITY-388 and SECURITY-406
+* *Jesse Glick, CloudBees, Inc.* for SECURITY-358 and SECURITY-382
+* *Mayuri Gaikwad and Suhas Gaikwad* for SECURITY-353
+* *Moritz Bechler of AgNO3* for SECURITY-383
+* *Robert Picard, Addepar* for SECURITY-389
+* *Robert Pitt, Electronic Arts Inc.* for SECURITY-362
+* *Steve Marlowe <smarlowe@cisco.com> of Cisco ASIG* for SECURITY-376
+* *Taneli Vallo* for SECURITY-321
+
+== Other Resources
+
+* https://jenkins.io/blog/2017/02/01/security-updates/[Announcement blog post]
+* https://www.cloudbees.com/cloudbees-security-advisory-2017-02-01[Corresponding advisory from CloudBees for CloudBees Jenkins Platform]
