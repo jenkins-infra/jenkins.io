@@ -412,57 +412,52 @@ node {
 === Defining global variables
 
 Internally, scripts in the `vars` directory are instantiated on-demand  as
-singletons. This allows multiple methods or properties to be defined in a
-single `.groovy` file which interact with each other, for example:
+singletons. This allows multiple methods to be defined in a
+single `.groovy` file for convenience.  For example:
 
+.var/log.groovy
 [source,groovy]
 ----
-// vars/acme.groovy
-def setName(value) {
-    name = value
+def info(message) {
+    echo "INFO: ${message}"
 }
-def getName() {
-    name
-}
-def caution(message) {
-    echo "Hello, ${name}! CAUTION: ${message}"
+
+def warning(message) {
+    echo "WARNING: ${message}"
 }
 ----
 
-In the above, `name` is not referring to a field (even if you write it as `this.name`!),
-but to an entry created on demand in a `Script.binding`.
-To be clear about what data you intend to store and of what type,
-you can instead provide an explicit class declaration
-(the class name should match the file basename, and Pipeline steps can
-only be invoked if `steps` or `this` is passed to the class or method,
-as with classes in `src` described above):
-
+.Jenkinsfile
 [source,groovy]
 ----
-// vars/acme.groovy
-class acme implements Serializable {
-    private String name
-    def setName(value) {
-        name = value
-    }
-    def getName() {
-        name
-    }
-    def caution(message) {
-        echo "Hello, ${name}! CAUTION: ${message}"
+@Library('utils') _
+
+log.info 'Starting'
+log.warning 'Nothing to do!'
+----
+
+Declarative Pipeline does not allow global variable usage outside of a `script`
+directive
+(link:https://issues.jenkins-ci.org/browse/JENKINS-42360[JENKINS-42360]).
+
+.Jenkinsfile
+[source,groovy]
+----
+@Library('utils') _
+
+pipeline {
+    agent none
+    stage ('Example') {
+        steps {
+             script { // <1>
+                 log.info 'Starting'
+                 log.warning 'Nothing to do!'
+             }
+        }
     }
 }
 ----
-
-The Pipeline can then invoke these methods which will be defined on the
-`acme` object:
-
-[source,groovy]
-----
-acme.name = 'Alice'
-echo acme.name /* prints: 'Alice' */
-acme.caution 'The queen is angry!' /* prints: 'Hello, Alice. CAUTION: The queen is angry!' */
-----
+<1> `script` directive required to access global variables in Declarative Pipeline.
 
 [NOTE]
 ====
@@ -471,7 +466,30 @@ Reference_ (under _Pipeline Syntax_) after Jenkins loads and uses that library
 as part of a successful Pipeline run.
 ====
 
-=== Defining steps
+.Avoid preserving state in global variables
+[WARNING]
+====
+Avoid defining global variables with methods that interact or preserve state.
+Use a static class or instantiate a local variable of a class instead.
+
+The example below shows a global variable `customer` which stores a `name` value.
+It also outputs a message when name is set.
+
+.var/customer.groovy
+[source,groovy]
+----
+def setName(value) {
+    privateName = value
+    echo "Setting name to ${privateName}"
+}
+def getName() {
+    privateName
+}
+----
+
+====
+
+=== Defining custom steps
 
 Shared Libraries can also define global variables which behave similarly to
 built-in steps, such as `sh` or `git`. Global variables defined in Shared
