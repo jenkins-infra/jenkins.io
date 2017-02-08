@@ -1,0 +1,111 @@
+---
+layout: simplepage
+title: Jenkins Security Advisory 2016-05-11
+section: security
+kind: core
+---
+
+*Revised 2016-05-12*: Added note on plugins impacted by SECURITY-170, mentioned system property disabling part of the SECURITY-243 fix.
+
+---
+
+This advisory announces multiple vulnerabilities in Jenkins.
+
+== Description
+
+
+=== Arbitrary build parameters are passed to build scripts as environment variables
+*SECURITY-170 / CVE-2016-3721*
+
+Build parameters in Jenkins typically are passed to build scripts as environment variables. Some plugins allow passing arbitrary (undeclared) parameters. Depending on access permissions and installed plugins, malicious users were able to trigger builds, passing arbitrary environment variables (e.g. PATH) to modify the behavior of those builds. Rather than expect all plugin authors to be aware of this potential problem, Jenkins now filters the build parameters based on what is defined on the job.
+
+As this change is known to affect a number of plugins, it's possible to restore the previous behavior by setting the system property +hudson.model.ParametersAction.keepUndefinedParameters+ to +true+. *This is potentially very unsafe* and intended as a short-term workaround only.
+
+To allow specific, known safe parameter names to be passed to builds, set the system property +hudson.model.ParametersAction.safeParameters+ to a comma-separated list of safe parameter names. Example:
+
+----
+java -Dhudson.model.ParametersAction.safeParameters=FOO,BAR_BAZ,qux -jar jenkins.war
+----
+
+NOTE: For an overview of impacted plugins and the current status of their fixes, see: link:https://wiki.jenkins-ci.org/display/JENKINS/Plugins+affected+by+fix+for+SECURITY-170[Plugins affected by fix for SECURITY-170]
+
+
+=== Malicious users with multiple user accounts can prevent other users from logging in
+*SECURITY-243 / CVE-2016-3722*
+
+By changing the freely editable 'full name', malicious users with multiple user accounts could prevent other users from logging in, as 'full name' was resolved before actual user name to determine which account is currently trying to log in.
+
+Part of this fix can be disabled by setting the system property +hudson.model.User.SECURITY_243_FULL_DEFENSE+ to +false+. This is not generally encouraged, but may be necessary in rare circumstances.
+
+
+=== Information on installed plugins exposed via API
+*SECURITY-250 / CVE-2016-3723*
+
+The XML/JSON API endpoints providing information about installed plugins were missing permissions checks, allowing any user with read access to Jenkins to determine which plugins and versions were installed.
+
+
+=== Encrypted secrets (e.g. passwords) were leaked to users with permission to read configuration
+*SECURITY-266 / CVE-2016-3724*
+
+Users with extended read access could access encrypted secrets stored directly in the configuration of those items.
+
+As a side-effect of this change, copying a job that contains secrets in its configuration now requires the Configure permission on that job.
+
+
+=== Regular users can trigger download of update site metadata
+*SECURITY-273 / CVE-2016-3725*
+
+A missing permissions check allowed any user with access to Jenkins to trigger an update of update site metadata. This could be combined with DNS cache poisoning to disrupt Jenkins service.
+
+
+=== Open redirect to scheme-relative URLs
+*SECURITY-276 / CVE-2016-3726*
+
+Some Jenkins URLs did not properly validate the redirect URLs, which allowed malicious users to create URLs that redirect users to arbitrary scheme-relative URLs.
+
+
+=== Granting the permission to read node configurations allows access to overall system configuration
+*SECURITY-281 / CVE-2016-3727*
+
+The API URL +/computer/(master)/api/xml+ allowed users with the 'extended read' permission for the master node to see some global Jenkins configuration, including the configuration of the security realm.
+
+This URL now unconditionally sends HTTP 400 Bad Request when accessed. There is no workaround.
+
+
+== Severity
+
+* SECURITY-170 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N[medium]*.
+* SECURITY-243 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:L[low]*.
+* SECURITY-250 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*.
+* SECURITY-266 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*.
+* SECURITY-273 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:L[low]*.
+* SECURITY-276 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:C/C:N/I:H/A:N[medium]*.
+* SECURITY-281 is considered *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N[medium]*.
+
+== Affected versions
+
+* All Jenkins main line releases up to and including 2.2
+* All Jenkins LTS releases up to and including 1.651.1
+
+== Fix
+
+* Jenkins main line users should update to 2.3
+* Jenkins LTS users should update to 1.651.2
+
+These versions include fixes to all the vulnerabilities described above. All prior versions are affected by these vulnerabilities.
+
+== Credit
+
+The Jenkins project would like to thank the following people for discovering and link:https://jenkins.io/security/#reporting-vulnerabilities[reporting] these vulnerabilities:
+
+* *Adam Cazzolla and Ben Bleiberg, Sonatype Inc.* for SECURITY-276
+* *Charles Nelson* for SECURITY-250
+* *James Nord, CloudBees, Inc.* for SECURITY-273
+* *Jesse Glick, CloudBees, Inc.* for SECURITY-281
+* *Stephen Connolly, CloudBees, Inc.* for SECURITY-170
+* *Steve Marlowe <smarlowe@cisco.com> of Cisco ASIG* for SECURITY-243 and SECURITY-266
+
+== Other Resources
+
+* link:https://jenkins.io/blog/2016/05/11/security-update/[Announcement blog post]
+* link:https://www.cloudbees.com/jenkins-security-advisory-2016-05-11[Corresponding security advisory for CloudBees Jenkins Enterprise and CloudBees Jenkins Operations Center]
