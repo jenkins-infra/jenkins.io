@@ -75,6 +75,7 @@ try {
                         'HOME=.',
                         ]) {
                         sh '''
+                            #!/usr/bin/env bash
                             set -o pipefail
                             ./gradlew --quiet --console=plain --no-daemon --info --stacktrace | tee build.log
                             if [[ -n "$( grep --fixed-strings WARNING build.log | grep --invert-match --fixed-strings "no callouts refer to list item" | grep --invert-match --fixed-strings "skipping reference to missing attribute" )" ]] ; then
