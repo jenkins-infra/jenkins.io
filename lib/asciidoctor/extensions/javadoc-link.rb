@@ -25,10 +25,10 @@ Asciidoctor::Extensions.register do
 
         classfrag = (target.include? "#") ? '#' + target.gsub(/.*#/, '') : ''
         label = (attrs.has_key? 'label') ? attrs['label'] : classname
-        target = %(http://javadoc.jenkins-ci.org/#{classurl}#{classfrag})
+        target = %(http://javadoc.jenkins.io/#{classurl}#{classfrag})
       else
         label = (attrs.has_key? 'label') ? attrs['label'] : classname
-        target = %(http://javadoc.jenkins-ci.org/byShortName/#{classname}) 
+        target = %(http://javadoc.jenkins.io/byShortName/#{classname}) 
       end
 
       title = %(Javadoc for #{classname})
