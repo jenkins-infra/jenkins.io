@@ -44,6 +44,12 @@ Asciidoctor::Extensions.register do
           declarative = nil
         else
           declarative = CodeRay::Duo[:groovy, :html, {:css => :style}].highlight(declarative)
+          declarative = declarative.gsub(/\/\/ +&lt;(\d+)&gt;/) {
+            m = $~
+            parent.document.callouts.register(m[1])
+            create_inline(parent, :callout, m[1], :id => parent.document.callouts.read_next_id).convert
+          }
+
           snippet << <<-EOF
   <div class="listingblock pipeline-declarative">
     <div class="title">Jenkinsfile (Declarative Pipeline)</div>
@@ -84,6 +90,12 @@ Asciidoctor::Extensions.register do
           end
 
           script = CodeRay::Duo[:groovy, :html, {:css => :style}].highlight(script)
+          script = script.gsub(/\/\/ +&lt;(\d+)&gt;/) {
+            m = $~
+            parent.document.callouts.register(m[1])
+            create_inline(parent, :callout, m[1], :id => parent.document.callouts.read_next_id).convert
+          }
+
           snippet << <<-EOF
   <div class="listingblock pipeline-script"
         style="display: #{(declarative.nil? or 'none') or 'inherit'}">
