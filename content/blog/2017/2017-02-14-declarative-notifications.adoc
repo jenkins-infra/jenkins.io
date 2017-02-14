@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Sending Notifications in Pipeline"
+title: "Declarative Pipeline: Notifications and Shared Libraries"
 tags:
 - tutorial
 - pipeline
@@ -16,257 +16,283 @@ author: lnewman
 NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
 Technical Evangelist at link:https://cloudbees.com[CloudBees].
 
+**Declare Your Pipelines!**
+link:/blog/2017/02/03/declarative-pipeline-ga/[Declarative Pipeline 1.0 is here]!
+This is the third post in a series showing some of the cool features of
+link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline].
 
 
+In the
+link:/blog/2017/02/10/declarative-html-publisher/[previous blog post],
+we converted Scripted Pipeline to a Declarative Pipeline with descriptive stages
+and `post` blocks.  In one of those `post&#123; }`  blocks, we included a placeholder for
+sending notifications.
 
-////
-Declarat
-Rather than sitting and watching Jenkins for job status, I want Jenkins to send
-notifications when events occur.  There are Jenkins plugins for
-link:https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin[Slack],
-link:https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin[HipChat],
-or even link:https://wiki.jenkins-ci.org/display/JENKINS/Email-ext+plugin[email]
-among others.
+In this blog post, we'll pull in the notification method we created for
+link:/blog/2016/07/18/pipline-notifications/[Sending Notifications in Pipeline].
+We'll show how the structure of
+Then we'll move that notification sending method into shared library, letting
+use call it from other projects and keeping our `Jenkinsfile` concise and
+understandable.
+
+== Setup
+
+The setup for this post is a continuation of the previous.
+I've used a new branch
+link:https://github.com/bitwiseman/hermann[my same fork] of the
+link:https://github.com/reiseburo/hermann[hermann project]:
+link:https://github.com/bitwiseman/hermann/tree/blog/declarative/notifications[`blog/add-declarative/notifications`].
+I've set up a Multibranch Pipeline and pointed it at my repository
+the same as did it previous post.
+Also the same as before, I've set this Pipeline's Git configuration to
+automatically "Clean after checkout".
+
+In addition, I still have my targets setup from the
+"link:/blog/2016/07/18/pipline-notifications/[Sending Notifications in Pipeline]" blog post.
+Take a look there for help setting up the
+plugin:slack[Slack],
+plugin:hipchat[HipChat],
+and plugin:email-ext[Email-ext]
+plugins.
 
 
-=== Note: Something is happening!
+Here's the final form of the Declarative Pipeline from the previous post:
 
-I think we can all agree getting notified when events occur is preferable to
-having to constantly monitor them just in case.  I'm going to continue from
-where I left off in my
-link:/blog/2016/07/01/html-publisher-plugin/[previous post] with the
-link:https://github.com/reiseburo/hermann[hermann] project.  I added a Jenkins
-Pipeline with an HTML publisher for code coverage. This week, I'd like to make
-Jenkins to notify me when builds start and when they succeed or fail.
-
-=== Setup and Configuration
-
-First, I select targets for my notifications. For this blog post, I'll use sample
-targets that I control.  I've created Slack and HipChat organizations called
-"bitwiseman", each with one member - me.  And for email I'm running a Ruby SMTP server called
-link:https://mailcatcher.me/[mailcatcher], that is perfect for local testing
-such as this.  Aside for these concessions, configuration would be much the
-same in a non-demo situation.
-
-Next, I install and add server-wide configuration for the
-link:https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin[Slack],
-link:https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin[HipChat],
-and link:https://wiki.jenkins-ci.org/display/JENKINS/Email-ext+plugin[Email-ext]
-plugins.  Slack and HipChat use API tokens - both products have integration
-points on their side that generate tokens which I copy into my Jenkins
-configuration. Mailcatcher SMTP runs locally. I just point Jenkins
-at it.
-
-Here's what the Jenkins configuration section for each of these looks like:
-
-image::/images/post-images/2016-07-15/slack-config.png[Slack Configuration, role="center"]
-
-image::/images/post-images/2016-07-15/hipchat-config.png[HipChat Configuration, role="center"]
-
-image::/images/post-images/2016-07-15/email-config.png[Email Configuration, role="center"]
-
-=== Original Pipeline
-
-Now I can start adding notification steps. The same as
-link:blog/2016/07/01/html-publisher-plugin/[last week], I'll use the
-link:blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]
-to explore the step syntax for the notification plugins.
-
-Here's the base pipeline before I start making changes:
-
-[source,groovy]
+[pipeline]
 ----
-stage 'Build'
+// Declarative //
+pipeline {
+  agent {
+    // Use docker container
+    docker {
+      image 'ruby:2.3'
+    }
+  }
+  options {
+    // Only keep the 10 most recent builds
+    buildDiscarder(logRotator(numToKeepStr:'10'))
+  }
+  stages {
+    stage ('Install') {
+      steps {
+        // install required gems
+        sh 'bundle install'
+      }
+    }
+    stage ('Build') {
+      steps {
+        // build
+        sh 'bundle exec rake build'
+      }
 
-node {
-  // Checkout
-  checkout scm
+      post {
+        success {
+          // Archive the built artifacts
+          archive includes: 'pkg/*.gem'
+        }
+      }
+    }
+    stage ('Test') {
+      steps {
+        // run tests with coverage
+        sh 'bundle exec rake spec'
+      }
 
-  // install required bundles
-  sh 'bundle install'
-
-  // build and run tests with coverage
-  sh 'bundle exec rake build spec'
-
-  // Archive the built artifacts
-  archive (includes: 'pkg/*.gem')
-
-  // publish html
-  // snippet generator doesn't include "target:"
-  // https://issues.jenkins-ci.org/browse/JENKINS-29711.
-  publishHTML (target: [
-      allowMissing: false,
-      alwaysLinkToLastBuild: false,
-      keepAll: true,
-      reportDir: 'coverage',
-      reportFiles: 'index.html',
-      reportName: "RCov Report"
-    ])
+      post {
+        success {
+          // publish html
+          publishHTML target: [
+              allowMissing: false,
+              alwaysLinkToLastBuild: false,
+              keepAll: true,
+              reportDir: 'coverage',
+              reportFiles: 'index.html',
+              reportName: 'RCov Report'
+            ]
+        }
+      }
+    }
+  }
+  post {
+    always {
+      echo "Send notifications for result: ${currentBuild.result}"
+    }
+  }
 }
+// Scripted //
 ----
 
-[NOTE]
-====
-This pipeline expects to be run from a `Jenkinsfile` in SCM.
-To copy and paste it directly into a Jenkins Pipeline job, replace the `checkout scm` step with
-`git 'https://github.com/reiseburo/hermann.git'`.
-====
 
-=== Job Started Notification
+== Preparing for Notifications
 
-For the first change, I decide to add a "Job Started" notification.  The
-snippet generator and then reformatting makes this straightforward:
+The Pipeline above has a final `always` block that prints a message to the status log,
+but doesn't print anything at the start of the run.
+The final form of the Pipeline in the original blog post called the same method twice,
+once at the start and once at the end of the run.
+Let's start by doing that here as well.
 
-[source,groovy]
+[source, groovy]
 ----
-node {
-
-  notifyStarted()
-
-  /* ... existing build steps ... */
-}
-
-def notifyStarted() {
-  // send to Slack
-  slackSend (color: '#FFFF00', message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
-
-  // send to HipChat
-  hipchatSend (color: 'YELLOW', notify: true,
-      message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-    )
-
-  // send to email
-  emailext (
-      subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-    )
-}
-----
-
-Since Pipeline is a Groovy-based DSL, I can use
-link:http://docs.groovy-lang.org/latest/html/documentation/index.html#_string_interpolation[string interpolation]
-and variables to add exactly the details I want in my notification messages. When
-I run this I get the following notifications:
-
-image::/images/post-images/2016-07-15/notify-started.png[Started Notifications, role="center"]
-
-image::/images/post-images/2016-07-15/notify-started-email.png[Started Email Notification, role="center"]
-
-=== Job Successful Notification
-
-The next logical choice is to get notifications when a job succeeds.  I'll
-copy and paste based on the `notifyStarted` method for now and do some refactoring
-later.
-
-[source,groovy]
-----
-node {
-
-  notifyStarted()
-
-  /* ... existing build steps ... */
-
-  notifySuccessful()
-}
-
-def notifyStarted() { /* .. */ }
-
-def notifySuccessful() {
-  slackSend (color: '#00FF00', message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
-
-  hipchatSend (color: 'GREEN', notify: true,
-      message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-    )
-
-  emailext (
-      subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-    )
-}
-----
-
-Again, I get notifications, as expected.  This build is fast enough,
-some of them are even on the screen at the same time:
-
-image::/images/post-images/2016-07-15/notify-successful.png[Multiple Notifications, role="center"]
-
-=== Job Failed Notification
-
-Next I want to add failure notification.  Here's where we really start to see the power
-and expressiveness of Jenkins pipeline.  A Pipeline is a Groovy script, so as we'd
-expect in any Groovy script, we can handle errors using `try-catch` blocks.
-
-[source,groovy]
-----
-node {
-  try {
-    notifyStarted()
-
-    /* ... existing build steps ... */
-
-    notifySuccessful()
-  } catch (e) {
-    currentBuild.result = "FAILED"
-    notifyFailed()
-    throw e
+pipeline {
+  /* ... unchanged ... */
+  stages {
+    stage ('Start') {
+      steps {
+        // send build started notifications
+        sendNotifications 'STARTED'
+      }
+    }
+    /* ... unchanged ... */
+  }
+  post {
+    always {
+      sendNotifications currentBuild.result
+    }
   }
 }
 
-def notifyStarted() { /* .. */ }
+def sendNotifications(String buildStatus = 'STARTED') {
+  echo "Send notifications for run: ${buildStatus}"
+}
+----
 
-def notifySuccessful() { /* .. */ }
+// TODO clean this vvvvvvvvv up.  Don't spend so much space on it.
 
-def notifyFailed() {
-  slackSend (color: '#FF0000', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+== Declarative is still Jenkins Pipeline
 
-  hipchatSend (color: 'RED', notify: true,
-      message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-    )
+At this point, some of you will be saying,
+"Wait minute, wasn't Declarative Pipeline was supposed to get me away from
+Grooy, function definitions, and conditional logic?"
+When I first saw this, that's certainly what I said, only with a few more expletives.
+
+Let me start by stating the obvious - Jenkins Declarative Pipeline is
+still *Jenkins* and still *Pipeline*.  That means that underneath Declarative
+you will still find Java, Groovy, and all the Pipeline facilities.
+That is a good thing.  That is what ensures Steps that work in Scripted Pipeline
+will work the same way Declarative.
+
+Declarative Pipeline is intended to work with Pipeline, enhance it.
+Declarative, as it name suggests provides a way of *declaring* the overall
+flow of your pipeline.
+
+Declarative encourages clarity by guiding you towards separating your pipeline into
+two levels: an overall flow and individual steps.
+
+This is similar to Jenkins plugins.
+We declare the overall flow, but the complex logic and technology-specific work is handled by Steps.
+
+Here we've essentially created a Step called `sendNotifications` that takes a parameter
+and does some work based on that.  When reviewing the overall structure of the pipeline,
+we don't have to dig through the details of each step.  Like classic Jenkins plugins.
+// TODO clean this ^^^^^^^ up.  Don't spend so much space on it.
+
+== Adding Notifications
+
+Next I'll pull in the code for the `sendNotification` method from the original blog post.
+I wrote the method to only depend on the one parameter and the Steps from the
+three notification plugins.
+Like I said, Declarative is still Pipeline -
+we'll just copy and paste this code in and,
+since I'm running on the same master with the same configuration,
+it should just work.
+
+[source, groovy]
+----
+pipeline {
+  /* ... unchanged ... */
+}
+
+def sendNotifications(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+  def details = """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+    <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>"""
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend color: colorCode, message: summary
+
+  hipchatSend color: color, notify: true, message: summary
 
   emailext (
-      subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+      to: 'bitwiseman@bitwiseman.com',
+      subject: subject,
+      body: details,
       recipientProviders: [[$class: 'DevelopersRecipientProvider']]
     )
 }
-
 ----
 
-image::/images/post-images/2016-07-15/notify-failed.png[Failed Notifications, role="center"]
+image::/images/post-images/2017-02-14/blueocean-notifications.png[Global Pipeline Library, role="center"]
+
+== Move Notifications to Shared Library
+
+Our current pipeline is pretty good, we have our Declarative Pipeline sending notifications.
+However, the notification method taking up about a third of our `Jenkinsfile` is a bit of a distraction.
+Also, as Jenkins admin, I'd rather share that notification method among all my projects
+without copying it to each new project and then having maintain all the copies.
+I want to move that method to a Shared Library.
+
+Shared Libraries are not specific to Declarative. They were released in their
+current form several months ago and were functional and useful in Scripted Pipeline.
+Not every method like this one should go into a Shared Library,
+but Declarative's focus on overall pipeline flow makes it much clearer what
+parts of a pipeline are candidates for moving to a shared library.
 
 
-=== Code Cleanup
+=== Setup a Shared Library
 
-Lastly, now that I have it all working, I'll do some refactoring. I'll unify
-all the notifications in one method and move the final success/failure notification
-into a `finally` block.
+I've created a simple shared library repository for this series of posts, called
+link:https://github.com/bitwiseman/jenkins-pipeline-shared[bitwiseman/jenkins-pipeline-shared].
+The Shared Library functionality has too many configuration options to cover in one post.
+I've chosen to set mine up a "Global" Library, accessible from any project on my Jenkin master.
+Under "Manage Jenkins" -> "Configure System" -> "Global Pipeline Libraries",
+I've chosen the name `bitwiseman-shared` and pointed it at my repository.
+I've set the default branch to for the library to `master`, but I'll override that in my pipeline.
 
-[source,groovy]
+image::/images/post-images/2017-02-14/shared-library.png[Global Pipeline Library, role="center"]
+
+=== Move the code to the Library
+
+Moving a method to a Shared Library involves creating a file with the name of our
+method, adding our method to that file as a `call()` method, adding an optional
+help text file to match, and seeing if we need to add a `@Library` directive to
+our `Jenkinsfile`.
+
+There are few limitation for methods in Shared Libraries, but they don't apply here.
+The minimal set of dependencies for `sendNotifications` means I can once again
+basically copy and paste the code across and add short bit of help text for completeness.
+I'll check this change into a branch name in the library,
+`blog/declarative/notifications` the same as my branch in the other repository.
+This will let me make changes on the master branch later without breaking this example.
+I'll use use the `@Library` directive to tell Jenkins to use that version with this Pipeline.
+
+.vars/sendNotifications.groovy
+[source, groovy]
 ----
-stage 'Build'
+#!/usr/bin/env groovy
 
-node {
-  try {
-    notifyBuild('STARTED')
-
-    /* ... existing build steps ... */
-
-  } catch (e) {
-    // If there was an exception thrown, the build failed
-    currentBuild.result = "FAILED"
-    throw e
-  } finally {
-    // Success or failure, always send notifications
-    notifyBuild(currentBuild.result)
-  }
-}
-
-def notifyBuild(String buildStatus = 'STARTED') {
+/**
+ * Send notifications based on build status string
+ */
+def call(String buildStatus = 'STARTED') {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESSFUL'
 
@@ -296,6 +322,7 @@ def notifyBuild(String buildStatus = 'STARTED') {
   hipchatSend (color: color, notify: true, message: summary)
 
   emailext (
+      to: 'bitwiseman@bitwiseman.com',
       subject: subject,
       body: details,
       recipientProviders: [[$class: 'DevelopersRecipientProvider']]
@@ -303,21 +330,108 @@ def notifyBuild(String buildStatus = 'STARTED') {
 }
 ----
 
+.vars/sendNotifications.txt
+[source]
+----
+<strong>sendNotifications(buildStatus='STARTED')</strong>
 
-=== You have been notified!
-I now get notified twice per build on three different channels.  I'm not sure I
-need to get notified this much for such a short build.  However, for a longer
-or complex CD pipeline, I might want exactly that.  If needed, I could even
-improve this to handle other status strings and call it as needed throughout
-my pipeline.
+<p>
+    Sends notifications via HipChat, Slack, and email.
+    Defaults the sending "Started" notification.
+    Pass the build status string and it customize the notifications based on status.
+</p>
+----
 
-image::/images/post-images/2016-07-15/final.png[Final View of Notifications, role="center"]
+.Jenkinsfile
+[pipeline]
+----
+// Declarative //
+#!groovy
+@Library('bitwiseman-shared@blog/declarative/notifications') _
+
+pipeline {
+  agent {
+    // Use docker container
+    docker {
+      image 'ruby:2.3'
+    }
+  }
+  options {
+    // Only keep the 10 most recent builds
+    buildDiscarder(logRotator(numToKeepStr:'10'))
+  }
+  stages {
+    stage ('Start') {
+      steps {
+        // send build started notifications
+        sendNotifications 'STARTED'
+      }
+    }
+    stage ('Install') {
+      steps {
+        // install required bundles
+        sh 'bundle install'
+      }
+    }
+    stage ('Build') {
+      steps {
+        // build
+        sh 'bundle exec rake build'
+      }
+
+      post {
+        success {
+          // Archive the built artifacts
+          archive includes: 'pkg/*.gem'
+        }
+      }
+    }
+    stage ('Test') {
+      steps {
+        // run tests with coverage
+        sh 'bundle exec rake spec'
+      }
+
+      post {
+        success {
+          // publish html
+          publishHTML target: [
+              allowMissing: false,
+              alwaysLinkToLastBuild: false,
+              keepAll: true,
+              reportDir: 'coverage',
+              reportFiles: 'index.html',
+              reportName: 'RCov Report'
+            ]
+        }
+      }
+    }
+  }
+  post {
+    always {
+      sendNotifications currentBuild.result
+    }
+  }
+}
+// Scripted //
+----
 
 
-=== Links
+== Conclusion
+In this post we added notifications to our Declarative Pipeline.
+I was pleased to see how little we had to disrupt the existing
+flow of our pipeline to do so. The changes were the start and
+end of the file with no reformatting elsewhere.
+Then with the help of the Shared Library feature,
+we've moved the implementation of `sendNotifications` out of
+`Jenkinsfile`.  This will let easily reuse that code in other
+projects and maintains the clarity of our Pipeline.
+In the next post, we'll look at running Sauce OnDemand with
+xUnit Reporting in Declarative Pipeline.
 
-* link:https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin[Slack Plugin]
-* link:https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin[HipChat Plugin]
-* link:https://wiki.jenkins-ci.org/display/JENKINS/Email-ext+plugin[Email-ext Plugin]
-* link:/blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]
-////
+== Links
+
+* plugin:pipeline-model-definition[Declarative Pipeline plugin]
+* link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline Syntax Reference]
+* link:https://github.com/bitwiseman/hermann/tree/blog/declarative/notifications[Pipeline source for this post]
+* link:https://github.com/bitwiseman/jenkins-pipeline-shared/tree/blog/declarative/notifications[Pipeline Shared Library source for this post]
