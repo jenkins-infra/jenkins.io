@@ -80,7 +80,7 @@ try {
                             set -o pipefail
                             set -o xtrace
                             ./gradlew --quiet --console=plain --no-daemon --info --stacktrace | tee build.log
-                            if [[ -n "$( grep --fixed-strings WARNING build.log | grep --invert-match --fixed-strings "skipping reference to missing attribute" )" ]] ; then
+                            if [[ -n "$( grep --fixed-strings WARNING build.log )" ]] ; then
                                 echo "Failing build due to warnings in log output" >&2
                                 exit 1
                             fi
