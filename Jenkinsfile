@@ -1,8 +1,8 @@
 #!/usr/bin/env groovy
 
-/* Only keep the 10 most recent builds. */
+/* Keep 50 builds but only 5 artifacts. */
 def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
+    buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '50')),
 ]
 
 if (!env.CHANGE_ID) {
