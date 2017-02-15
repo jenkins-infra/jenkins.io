@@ -1,0 +1,397 @@
+---
+layout: post
+title: "Declarative Pipeline: Notifications and Shared Libraries"
+tags:
+- tutorial
+- pipeline
+- declarative
+- plugins
+- notifications
+- slack
+- hipchat
+- emailext
+author: lnewman
+---
+
+NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
+Technical Evangelist at link:https://cloudbees.com[CloudBees].
+
+**Declare Your Pipelines!**
+link:/blog/2017/02/03/declarative-pipeline-ga/[Declarative Pipeline 1.0 is here]!
+This is the third post in a series showing some of the cool features of
+link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline].
+
+
+In the
+link:/blog/2017/02/10/declarative-html-publisher/[previous post],
+we converted a Scripted Pipeline to a Declarative Pipeline, adding descriptive stages
+and `post` sections.  In one of those `post` blocks, we included a placeholder for
+sending notifications.
+
+In this blog post, we'll repeat what I did in
+"link:/blog/2016/07/18/pipline-notifications/[Sending Notifications in Pipeline]
+but this time in Declarative Pipeline.
+First we'll integrate calls to notification services Slack, HipChat, and Email into our Pipeline.
+Then we'll refactor those calls into a single Step in a Shared Library, which
+we'll reuse as needed, keeping our `Jenkinsfile` concise and understandable.
+
+== Setup
+
+The setup for this post is almost the same as
+link:/blog/2017/02/10/declarative-html-publisher/[my previous Declarative Pipeline post].
+I've used a new branch in
+link:https://github.com/bitwiseman/hermann[my fork] of the
+link:https://github.com/reiseburo/hermann[Hermann project]:
+link:https://github.com/bitwiseman/hermann/tree/blog/declarative/notifications[`blog/declarative/notifications`].
+I'd already set up a Multibranch Pipeline and pointed it at my repository,
+so the new branch will be picked up and built automatically.
+
+I still have my notification targets (where we'll send notifications) that I created for the
+"link:/blog/2016/07/18/pipline-notifications/[Sending Notifications in Pipeline]" blog post.
+Take a look at that post to review how I setup the
+plugin:slack[Slack],
+plugin:hipchat[HipChat],
+and plugin:email-ext[Email-ext]
+plugins to use those channels.
+
+
+== Adding Notifications
+
+We'll start from the same Pipeline we had at the end of the previous post.
+
+This Pipeline works quiet well, except it doesn't print anything at the start of
+the run, and that final `always` directive only prints a message to the console log.
+Let's start by getting the notifications working like we did in the original post.
+We'll just copy-and-paste the three notification steps (with different parameters)
+to get the notifications working for started, success, and failure.
+
+[source, groovy]
+----
+pipeline {
+  /* ... unchanged ... */
+  stages {
+    stage ('Start') {
+      steps {
+        // send build started notifications
+        slackSend (color: '#FFFF00', message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+
+        // send to HipChat
+        hipchatSend (color: 'YELLOW', notify: true,
+            message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+          )
+
+        // send to email
+        emailext (
+            subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+            body: """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+              <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+            recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+          )
+      }
+    }
+    /* ... unchanged ... */
+  }
+  post {
+    success {
+      slackSend (color: '#00FF00', message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+
+      hipchatSend (color: 'GREEN', notify: true,
+          message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+        )
+
+      emailext (
+          subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+          body: """<p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+            <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+          recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+        )
+    }
+
+    failure {
+      slackSend (color: '#FF0000', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+
+      hipchatSend (color: 'RED', notify: true,
+          message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+        )
+
+      emailext (
+          subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+          body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+            <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+          recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+        )
+    }
+  }
+}
+----
+
+image::/images/post-images/2017-02-14/blueocean-notifications.png[Blue Ocean Run with Notifications, role="center", width=800]
+
+== Moving Notifications to Shared Library
+
+This new Pipeline works and our Declarative Pipeline sends notifications; however,
+it is extremely ugly. In the original post using Scripted Pipeline,
+I defined a single method that I called at both the start and end of the pipeline.
+I'd like to do that here as well, but Declarative doesn't support creating methods
+that are accessible to multiple stages.
+
+.Declarative is still Jenkins Pipeline
+****
+While it is true that Declarative doesn't *support* defining methods that are
+accessible to multiple stages, this doesn't mean that it can't be done.
+At the time of this writing, the limitations of Declarative Pipeline only apply
+inside the `pipeline {}` section of our `Jekinsfile`.
+Outside the `pipeline {}` section we can still access all the facilities of Scripted Pipeline,
+including defining methods.  Those methods would then be accessible inside the
+Declarative section of our `Jenkinsfile`.
+``
+For this series, I chose to stick to using features that are supported
+*inside* Declarative Pipeline at this time.
+The internet has plenty of hacked together solutions that *happen to work today*, but
+I want to highlight current best practices and dependable solutions.
+
+There are also at least two JIRA tickets for this area:
+link:https://issues.jenkins-ci.org/browse/JENKINS-41335[JENKINS-41335] and
+link:https://issues.jenkins-ci.org/browse/JENKINS-41396[JENKINS-41396].
+****
+
+For this, we'll need to turn to
+link:/doc/book/pipeline/shared-libraries/[Shared Libraries].
+
+Shared Libraries, as the name suggests,
+let Jenkins Pipelines share code instead of copying it to each new project.
+Shared Libraries are not specific to Declarative; they were released in their
+current form several months ago and were useful in Scripted Pipeline.
+Due to Declarative Pipeline's lack of support for defining methods,
+Shared Libraries take on a vital role.  They are the only supported way within
+Declarative Pipeline to define methods or classes that we want to use in more than one stage.
+
+=== Setting up a Shared Library
+
+I've created a simple shared library repository for this series of posts, called
+link:https://github.com/bitwiseman/jenkins-pipeline-shared[jenkins-pipeline-shared].
+The shared library functionality has too many configuration options to cover in one post.
+I've chosen to configure this library as a "Global Pipeline Library,"
+accessible from any project on my Jenkins master.
+To setup a "Global Pipeline Library," I navigated to "Manage Jenkins" -> "Configure System"
+in the Jenkins web UI.
+Once there, under "Global Pipeline Libraries", I added a new library.
+I then set the name to `bitwiseman-shared`, pointed it at my repository,
+and set the default branch for the library to `master`,
+but I'll override that in my `Jenkinsfile`.
+
+image::/images/post-images/2017-02-15/shared-library.png[Global Pipeline Library, role="center", width=800]
+
+=== Moving the Code to the Library
+
+Adding a Step to a library involves creating a file with the name of our Step,
+adding our code to a `call()` method inside that file,
+and replacing the appropriate code in our `Jenkinsfile` with the new Step calls.
+Libraries can be set to load "implicitly,"
+making their default branch automatically available to all Pipelines,
+or they can be loaded manually using a `@Library` annotation.
+The branch for implicitly loaded libraries can also be overridden using the `@Library` annotation.
+
+The minimal set of dependencies for `sendNotifications` means we can
+basically copy-and-paste the code from the original blog post.
+We'll check this change into a branch in the library named
+`blog/declarative/notifications`, the same as my branch in the `hermann` repository.
+This will let us make changes on the master branch later without breaking this example.
+We'll then use the `@Library` directive to tell Jenkins to use that branch's version
+of the library with this Pipeline.
+
+.Jenkinsfile
+[pipeline]
+----
+// Declarative //
+#!groovy
+@Library('bitwiseman-shared@blog/declarative/notifications') _ // <1>
+
+pipeline {
+  agent {
+    // Use docker container
+    docker {
+      image 'ruby:2.3'
+    }
+  }
+  options {
+    // Only keep the 10 most recent builds
+    buildDiscarder(logRotator(numToKeepStr:'10'))
+  }
+  stages {
+    stage ('Start') {
+      steps {
+        // send build started notifications
+        sendNotifications 'STARTED'
+      }
+    }
+    stage ('Install') {
+      steps {
+        // install required bundles
+        sh 'bundle install'
+      }
+    }
+    stage ('Build') {
+      steps {
+        // build
+        sh 'bundle exec rake build'
+      }
+
+      post {
+        success {
+          // Archive the built artifacts
+          archive includes: 'pkg/*.gem'
+        }
+      }
+    }
+    stage ('Test') {
+      steps {
+        // run tests with coverage
+        sh 'bundle exec rake spec'
+      }
+
+      post {
+        success {
+          // publish html
+          publishHTML target: [
+              allowMissing: false,
+              alwaysLinkToLastBuild: false,
+              keepAll: true,
+              reportDir: 'coverage',
+              reportFiles: 'index.html',
+              reportName: 'RCov Report'
+            ]
+        }
+      }
+    }
+  }
+  post {
+    always {
+      sendNotifications currentBuild.result
+    }
+  }
+}
+// Scripted //
+----
+<1> The `_` here is intentional.
+link:https://en.wikipedia.org/wiki/Java_annotation[Java/Groovy Annotations]
+such `@Library` must be applied to an element.
+That is often a `using` statement, but that isn't needed here so by convention we use an `_`.
+
+.vars/sendNotifications.groovy
+[source, groovy]
+----
+#!/usr/bin/env groovy
+
+/**
+ * Send notifications based on build status string
+ */
+def call(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+  def details = """<p>${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+    <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>"""
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend (color: colorCode, message: summary)
+
+  hipchatSend (color: color, notify: true, message: summary)
+
+  emailext (
+      to: 'bitwiseman@bitwiseman.com',
+      subject: subject,
+      body: details,
+      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    )
+}
+----
+
+image::/images/post-images/2017-02-15/blueocean-notifications-finished.png[Global Pipeline Library, role="center", width=800]
+
+image::/images/post-images/2017-02-15/popups.png[HipChat and Slack Popups, role="center"]
+
+image::/images/post-images/2017-02-15/mailcatcher.png[MailCatcher List, role="center"]
+
+
+== Conclusion
+In this post, we added notifications to our Declarative Pipeline.
+However, Declarative Pipeline prevented us from defining a method in our `Jenkinsfile` to send notifications.
+Instead, with the help of the Shared Library feature,
+we were able to define a `sendNotifications` method that we could call from our `Jenkinsfile`.
+This maintained the clarity of our Pipeline and will let us easily reuse that code in other projects.
+I was pleased to see how little the resulting Pipeline differed from where we started.
+The changes were restricted to the start and end of the file with no reformatting elsewhere.
+
+This is a great example of how Declarative Pipeline
+can help us write clearer, more maintainable Pipelines.
+The limitations of Declarative guided us naturally to separate our
+Pipeline into two levels: an overall flow and individual steps.
+Declarative Pipeline provides a structured way of *declaring* the overall flow of Steps in our Pipeline.
+The complex logic and technology-specific work is handled by Steps.
+While many Steps come from plugins, Declarative isn't concerned about how Steps are implemented.
+Here we've created a Step using a groovy method called
+`sendNotifications` that takes a parameter and does some work based on that.
+This lets us manage the overall structure of our Pipeline without
+getting caught up in how individual Steps are implemented.
+
+In the next post, we'll cover more about shared libraries and how to
+run Sauce OnDemand with xUnit Reporting in Declarative Pipeline.
+
+== Links
+
+* plugin:pipeline-model-definition[Declarative Pipeline plugin]
+* link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline Syntax Reference]
+* link:/doc/book/pipeline/shared-libraries/[Shared Library reference]
+* link:https://github.com/bitwiseman/hermann/tree/blog/declarative/notifications[Pipeline source for this post]
+* link:https://github.com/bitwiseman/jenkins-pipeline-shared/tree/blog/declarative/notifications[Pipeline Shared Library source for this post]
+
+
+////
+// TODO: still re-editing this section.
+.Declarative is still Jenkins Pipeline
+****
+Looking at the method definition above, some of you will be saying,
+"Wait a minute, wasn't Declarative Pipeline supposed to get me away from
+Groovy, function definitions, and conditional logic?"
+When I first saw this, that's certainly what I said, only with a few more expletives.
+
+Once I got past the original shock and started working with it,
+I found that Declarative still being Groovy was actually a huge advantage.
+Declarative Pipeline - everything inside the `pipeline {}` section -
+is a
+link:https://en.wikipedia.org/wiki/Domain-specific_language[domain specific language]
+that uses Groovy syntax,
+and outside the `pipeline {}` section
+we can still access all the facilities of Groovy and Scripted Pipeline.
+
+Jenkins Declarative Pipeline is still *Jenkins Pipeline*.
+
+This meant, as an expert in Scripted Pipeline, I was already familiar with the
+basic syntax of Declarative Pipeline.
+For users entirely new to Jenkins Pipeline, I think this the same will be true in the other direction -
+the basic syntax of Declarative Pipeline is good introduction to the Groovy syntax that is
+used throughout Pipeline.
+As we'll see in the remainder of this post, Declarative and Scripted Pipeline both being Groovy
+makes building up from simple to more complex Pipelines much smoother.
+
+****
+
+////
