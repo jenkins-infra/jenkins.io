@@ -79,8 +79,8 @@ try {
                             set -o nounset
                             set -o pipefail
                             set -o xtrace
-                            ./gradlew --quiet --console=plain --no-daemon --info --stacktrace | tee build.log
-                            if [[ -n "$( grep --fixed-strings WARNING build.log )" ]] ; then
+                            ./gradlew --quiet --console=plain --no-daemon --info --stacktrace 2>&1 | tee build.log
+                            if [[ -n "$( grep --fixed-strings WARNING build.log | grep --fixed-strings --invert-match user-handbook.adoc )" ]] ; then
                                 echo "Failing build due to warnings in log output" >&2
                                 exit 1
                             fi
