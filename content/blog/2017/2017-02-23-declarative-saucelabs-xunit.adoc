@@ -1,0 +1,400 @@
+---
+layout: post
+title: "Browser testing and conditional logic in Declarative Pipeline"
+tags:
+- pipeline
+- plugins
+- xunit
+- nightwatch
+- saucelabs
+- selenium
+- declarative
+author: lnewman
+---
+
+NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
+Technical Evangelist at link:http://cloudbees.com[CloudBees].
+
+**Declare Your Pipelines!**
+link:/blog/2017/02/03/declarative-pipeline-ga/[Declarative Pipeline 1.0 is here]!
+This is the fourth post in a series showing some of the cool features of
+link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline].
+
+In the
+link:/blog/2017/02/15/declarative-notifications/[previous post],
+we integrated several notification services into a Declarative Pipeline.
+We kept our Pipeline clean and easy to understand
+by using a shared library to make a custom step called `sendNotifications`
+that we called at the start and end of our Pipeline.
+
+In this blog post, we'll start by translating the Scripted Pipeline in the sample project I worked with
+in
+"link:/blog/2016/2016/08/29/sauce-pipeline/[Browser-testing with Sauce OnDemand and Pipeline]"
+and
+"link:/blog/2016/2016/10/31/xunit-reporting/[xUnit and Pipeline]"
+to Declarative.
+We'll make our Pipeline clearer by adding an `environment` directive
+to define some environment variables, and then moving some code to a shared library.
+Finally, we'll look at using the `when` directive to add simple conditional behavior to our Pipeline.
+
+
+== Setup
+
+The setup for this post uses the same repository as the two posts above,
+link:https://github.com/bitwiseman/JS-Nightwatch.js[my fork]
+of the
+link:https://github.com/saucelabs-sample-test-frameworks/JS-Nightwatch.js[JS-Nightwatch.js sample project].
+I've once again created a branch specifically for this blog post,
+this time called
+link:https://github.com/bitwiseman/JS-Nightwatch.js/tree/blog/declarative/sauce[`blog/declarative/sauce`].
+
+Like the two posts above, this Pipeline will use the
+plugin:xunit[xUnit] and
+plugin:sauce-ondemand[Sauce OnDemand] plugins.
+The xUnit plugin only needs to be installed, the Sauce OnDemand needs additional configuration.
+Follow
+link:https://wiki.saucelabs.com/display/DOCS/Installing+and+Configuring+the+Sauce+OnDemand+Plugin+for+Jenkins[Sauce Labs' configuration instructions]
+to create an account with Sauce Labs and add your Sauce Labs credentials to Jenkins.
+The Sauce OnDemand plugin will automatically install
+link:https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy[Sauce Connect]
+for us when we call it from our Pipeline.
+
+IMPORTANT: Be sure to you have the latest version of the
+plugin:sauce-ondemand[Sauce OnDemand] plugin (1.160 or newer).
+It has several fixes required for this post.
+
+For a shared library, I've still got the one from the
+link:/blog/2017/02/15/declarative-notifications/[previous post].
+To set up this "Global Pipeline Library," navigate to "Manage Jenkins" -> "Configure System"
+in the Jenkins web UI.
+Once there, under "Global Pipeline Libraries", add a new library.
+Then set the name to `bitwiseman-shared`, point it at my repository,
+and set the default branch for the library to `master`.
+
+image::/images/post-images/2017-02-15/shared-library.png[Global Pipeline Library, role="center", width=800]
+
+
+== Reducing Complexity with Declarative
+
+If you've been following along through this series,
+this first step will be quite familiar by now.
+We'll start from the Pipeline we had at the end of the xUnit post
+and translate it to Declarative.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    options {
+        // Nightwatch.js supports color ouput, so wrap add his option
+        ansiColor colorMapName: 'XTerm'
+    }
+    stages {
+        stage ("Build") {
+            steps {
+                // Install dependencies
+                sh 'npm install'
+            }
+        }
+        stage ("Test") {
+            steps {
+                // Add sauce credentials
+                sauce('f0a6b8ad-ce30-4cba-bf9a-95afbc470a8a') {
+                    // Start sauce connect
+                    sauceconnect() {
+                        // Run selenium tests using Nightwatch.js
+                        // Ignore error codes. The junit publisher will cover setting build status.
+                        sh "./node_modules/.bin/nightwatch -e chrome,firefox,ie,edge --test tests/guineaPig.js || true"
+                    }
+                }
+            }
+            post {
+                always {
+                    step([$class: 'XUnitBuilder',
+                        thresholds: [
+                            [$class: 'SkippedThreshold', failureThreshold: '0'],
+                            // Allow for a significant number of failures
+                            // Keeping this threshold so that overwhelming failures are guaranteed
+                            //     to still fail the build
+                            [$class: 'FailedThreshold', failureThreshold: '10']],
+                        tools: [[$class: 'JUnitType', pattern: 'reports/**']]])
+
+                    saucePublisher()
+                }
+            }
+        }
+    }
+// Scripted //
+node {
+    stage "Build"
+    checkout scm
+
+    // Install dependencies
+    sh 'npm install'
+
+    stage "Test"
+    // Add sauce credentials
+    sauce('f0a6b8ad-ce30-4cba-bf9a-95afbc470a8a') {
+        // Start sauce connect
+        sauceconnect() {
+
+            // List of browser configs we'll be testing against.
+            def platform_configs = [
+                'chrome',
+                'firefox',
+                'ie',
+                'edge'
+            ].join(',')
+
+            // Nightwatch.js supports color ouput, so wrap this step for ansi color
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'XTerm']) {
+                // Run selenium tests using Nightwatch.js
+                // Ignore error codes. The junit publisher will cover setting build status.
+                sh "./node_modules/.bin/nightwatch -e ${platform_configs} --test tests/guineaPig.js || true"
+            }
+
+            step([$class: 'XUnitBuilder',
+                thresholds: [
+                    [$class: 'SkippedThreshold', failureThreshold: '0'],
+                    // Allow for a significant number of failures
+                    // Keeping this threshold so that overwhelming failures are guaranteed
+                    //     to still fail the build
+                    [$class: 'FailedThreshold', failureThreshold: '10']],
+                tools: [[$class: 'JUnitType', pattern: 'reports/**']]])
+
+            saucePublisher()
+        }
+    }
+}
+----
+
+image::/images/post-images/2017-02-23/blue-ocean.png[Blue Ocean Run, role="center", width=800]
+
+image::/images/post-images/2017-02-23/sauce-report.png[SauceLabs Test Report, role="center", width=800]
+
+NOTE: Blue Ocean doesn't support displaying SauceLabs test reports yet
+(see link:https://issues.jenkins-ci.org/browse/JENKINS-42242[JENKINS-42242]).
+To view the report above, I had to switch back to the stage view of this run.
+
+== Elevating Settings using `environment`
+
+Each time we've moved a project from Scripted Pipeline to Declarative,
+we've found the cleaner format of Declarative Pipeline highlights the less
+clear parts of the existing Pipeline.
+In this case, the first thing that jumps out at me is that the parameters of the
+Saucelabs and Nightwatch execution are hardcoded and buried down in the middle of our Pipeline.
+This is a relatively short Pipeline, so it isn't terribly hard to find them,
+but as this pipeline grows and changes it would be better if those values were kept separate.
+In Scripted, we'd have defined some variables,
+but Declarative doesn't allow us to define variables in the usual Groovy sense.
+
+The `environment` directive let's us set some environment variables
+and use them later in our pipeline.
+As you'd expect, the `environment` directive is just a set of name-value pairs.
+Environment variables are accessible in Pipeline via `env.variableName` (or just `variableName`)
+and in shell scripts as standard environment variables, typically `$variableName`.
+
+Let's move the list of browsers, the test filter, and the sauce credential string to environment variables.
+
+.Jenkinsfile
+[source, groovy]
+----
+    environment {
+        saucelabsCredentialId = 'f0a6b8ad-ce30-4cba-bf9a-95afbc470a8a'
+        sauceTestFilter = 'tests/guineaPig.js'
+        platformConfigs = 'chrome,firefox,ie,edge'
+    }
+    stages {
+        /* ... unchanged ... */
+        stage ("Test") {
+            steps {
+                // Add sauce credentials
+                sauce(saucelabsCredentialId) {
+                    // Start sauce connect
+                    sauceconnect() {
+                        // Run selenium tests using Nightwatch.js
+                        // Ignore error codes. The junit publisher will cover setting build status.
+                        sh "./node_modules/.bin/nightwatch -e ${env.platformConfigs} --test ${env.sauceTestFilter} || true" // <1>
+                    }
+                }
+            }
+            post { /* ... unchanged ... */ }
+        }
+    }
+}
+----
+<1>  This double-quoted string causes Groovy to replace the variables with their
+literal values before passing to `sh`.
+This could also be written using singe-quotes:
+`sh './node_modules/.bin/nightwatch -e $platformConfigs --test $sauceTestFilter || true'`.
+With a single quoted string, the string is passed as written to the shell,
+and then *the shell* does the variable substitution.
+
+== Moving Complex Code to Shared Libraries
+
+Now that we have settings separated from the code, we can do some code clean up.
+Unlike the previous post, we don't have any repeating code,
+but we do have some distractions.
+The nesting of `sauce`, `sauceconnect`, and `sh nightwatch` seems excessive,
+and that xUnit `step` is a bit ugly as well.
+Let's move those into our shared library as custom steps with parameters.
+We'll change the `Jenkinsfile` in our main project,
+and add the custom steps to a branch named
+`blog/declarative/sauce` in our library repository.
+
+.Jenkinsfile
+[source, groovy]
+----
+@Library('bitwiseman-shared@blog/declarative/sauce') _
+
+/* ... unchanged ... */
+
+stage ("Test") {
+    steps {
+        sauceNightwatch saucelabsCredentialId,
+            platformConfigs,
+            sauceTestFilter
+    }
+    post {
+        always {
+            xUnitPublishResults 'reports/**',
+                /* failWhenSkippedExceeds */ 0,
+                /* failWhenFailedExceeds */ 10
+
+            saucePublisher()
+        }
+    }
+}
+----
+
+.vars/sauceNightwatch.groovy
+[source, groovy]
+----
+def call(String sauceCredential, String platforms = null, String testFilter = null) {
+    platforms = platforms ? "-e '" + platforms + "'" : ''
+    testFilter = testFilter ? "--test '" + testFilter + "'" : ''
+
+    // Add sauce credentials
+    sauce(sauceCredential) {
+        // Start sauce connect
+        sauceconnect() {
+            // Run selenium tests using Nightwatch.js
+            // Ignore error codes. The junit publisher will cover setting build status.
+            sh "./node_modules/.bin/nightwatch ${platforms} ${testFilter} || true" // <1>
+        }
+    }
+}
+----
+<1> In this form, this could not be written using a literal single-quoted string.
+Here, `platforms` and `testFilter` are groovy variables, not environment variables.
+
+.vars/xUnitPublishResults.groovy
+[source, groovy]
+----
+def call(String pattern, Integer failWhenSkippedExceeds,
+        Integer failWhenFailedExceeds) {
+    step([$class: 'XUnitBuilder',
+        thresholds: [
+            [$class: 'SkippedThreshold', failureThreshold: failWhenSkippedExceeds.toString()],
+            // Allow for a significant number of failures
+            // Keeping this threshold so that overwhelming failures are guaranteed
+            //     to still fail the build
+            [$class: 'FailedThreshold', failureThreshold: failWhenFailedExceeds.toString()]],
+        tools: [[$class: 'JUnitType', pattern: pattern]]])
+}
+----
+
+
+== Running Conditional Stages using `when`
+
+This is a sample web testing project.
+We probably wouldn't deploy it like we would production code,
+but we might still want to deploy somewhere,
+by publishing it to an artifact repository, for example.
+This project is hosted on GitHub and uses feature branches and pull requests to make changes.
+I'd like to use the same Pipeline for feature branches, pull requests, and the master branch,
+but I only want to deploy from master.
+
+In Scripted, we'd wrap a `stage` in an `if-then` and check if the branch for
+the current run is named "master".
+Declarative doesn't support that kind of general conditional behavior.
+Instead, it provides a
+link:/doc/book/pipeline/syntax/#when[`when` directive]
+that can be added to `stage` sections.
+The `when` directive supports several types of conditions, including a `branch` condition,
+where the stage will run when the branch name matches the specified pattern.
+That is exactly what we need here.
+
+.Jenkinsfile
+[source, groovy]
+----
+stages {
+    /* ... unchanged ... */
+    stage ('Deploy') {
+        when {
+            branch 'master'
+        }
+        steps {
+             echo 'Placeholder for deploy steps.'
+        }
+    }
+}
+----
+
+When we run our Pipeline with this new stage, we get the following outputs:
+
+.Log output for 'feature/test' branch
+[source]
+----
+...
+Finished Sauce Labs test publisher
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy)
+Stage 'Deploy' skipped due to when conditional
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+...
+----
+
+.Log output for 'master' branch
+[source]
+----
+...
+Finished Sauce Labs test publisher
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy)
+[Pipeline] echo
+Placeholder for deploy steps.
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+...
+----
+
+== Conclusion
+
+I have to say, our latest Declarative Pipeline turned out extremely well.
+I think someone coming from Freestyle jobs, with little to no experience with Pipeline or Groovy,
+would still be able to look at this Declarative Pipeline and make sense of what it is doing.
+We've added new functionality to our Pipeline while making it easier to understand
+and maintain.
+
+I hope you've learned as much as I have during this blog series.
+I'm excited to see that even in the the short time since Declarative 1.0 was released,
+teams are already using it in make improvements similar to what those we've covered in this series.
+Thanks for reading!
+
+== Links
+
+* plugin:xunit[xUnit]
+* plugin:sauce-ondemand[Sauce OnDemand]
+* plugin:pipeline-model-definition[Declarative Pipeline plugin]
+* link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline Syntax Reference]
+* link:https://github.com/bitwiseman/JS-Nightwatch.js/tree/blog/declarative/sauce[Pipeline source for this post]
+* link:https://github.com/bitwiseman/jenkins-pipeline-shared/tree/blog/declarative/sauce[Pipeline Shared Library source for this post]
