@@ -49,28 +49,27 @@ this time called
 link:https://github.com/bitwiseman/JS-Nightwatch.js/tree/blog/declarative/sauce[`blog/declarative/sauce`].
 
 Like the two posts above, this Pipeline will use the
-plugin:xunit[XUnit] and
+plugin:xunit[xUnit] and
 plugin:sauce-ondemand[Sauce OnDemand] plugins.
-The XUnit plugin only needs to be installed, the Sauce OnDemand needs additional configuration.
+The xUnit plugin only needs to be installed, the Sauce OnDemand needs additional configuration.
 Follow
-link:https://wiki.saucelabs.com/display/DOCS/Installing+and+Configuring+the+Sauce+OnDemand+Plugin+for+Jenkins[Sauce Labs' instructions]
-for creating an account with Sauce Labs and adding your Sauce Labs credentials to Jenkins.
+link:https://wiki.saucelabs.com/display/DOCS/Installing+and+Configuring+the+Sauce+OnDemand+Plugin+for+Jenkins[Sauce Labs' configuration instructions]
+to create an account with Sauce Labs and add your Sauce Labs credentials to Jenkins.
 The Sauce OnDemand plugin will automatically install
 link:https://wiki.saucelabs.com/display/DOCS/Sauce+Connect+Proxy[Sauce Connect]
 for us when we call it from our Pipeline.
 
 IMPORTANT: Be sure to you have the latest version of the
-plugin:sauce-ondemand[Sauce OnDemand] plugin ( >= 1.160).
+plugin:sauce-ondemand[Sauce OnDemand] plugin (1.160 or newer).
 It has several fixes required for this post.
 
 For a shared library, I've still got the one from the
 link:/blog/2017/02/15/declarative-notifications/[previous post].
-To set up this "Global Pipeline Library," I navigated to "Manage Jenkins" -> "Configure System"
+To set up this "Global Pipeline Library," navigate to "Manage Jenkins" -> "Configure System"
 in the Jenkins web UI.
-Once there, under "Global Pipeline Libraries", I added a new library.
-I then set the name to `bitwiseman-shared`, pointed it at my repository,
-and set the default branch for the library to `master`,
-but I'll override that in my `Jenkinsfile`.
+Once there, under "Global Pipeline Libraries", add a new library.
+Then set the name to `bitwiseman-shared`, point it at my repository,
+and set the default branch for the library to `master`.
 
 image::/images/post-images/2017-02-15/shared-library.png[Global Pipeline Library, role="center", width=800]
 
@@ -176,7 +175,7 @@ image::/images/post-images/2017-02-23/sauce-report.png[SauceLabs Test Report, ro
 
 NOTE: Blue Ocean doesn't support displaying SauceLabs test reports yet
 (see link:https://issues.jenkins-ci.org/browse/JENKINS-42242[JENKINS-42242]).
-To get view the report above, I navigated back down to the stage view of this run.
+To view the report above, I had to switch back to the stage view of this run.
 
 == Elevating Settings using `environment`
 
@@ -194,7 +193,7 @@ The `environment` directive let's us set some environment variables
 and use them later in our pipeline.
 As you'd expect, the `environment` directive is just a set of name-value pairs.
 Environment variables are accessible in Pipeline via `env.variableName` (or just `variableName`)
-and in shell scripts as standard environment variables, `$variableName`.
+and in shell scripts as standard environment variables, typically `$variableName`.
 
 Let's move the list of browsers, the test filter, and the sauce credential string to environment variables.
 
@@ -225,18 +224,19 @@ Let's move the list of browsers, the test filter, and the sauce credential strin
     }
 }
 ----
-<1> This uses a GString to replace the variables with literals.
+<1>  This double-quoted string causes Groovy to replace the variables with their
+literal values before passing to `sh`.
 This could also be written using singe-quotes:
-`sh './node_modules/.bin/nightwatch -e ${platformConfigs} --test ${sauceTestFilter} || true'`.
-This would run the literal command string shown and the values would be substituted by the shell.
-
+`sh './node_modules/.bin/nightwatch -e $platformConfigs --test $sauceTestFilter || true'`.
+With a single quoted string, the string is passed as written to the shell,
+and then *the shell* does the variable substitution.
 
 == Moving Complex Code to Shared Libraries
 
 Now that we have settings separated from the code, we can do some code clean up.
 Unlike the previous post, we don't have any repeating code,
 but we do have some distractions.
-The `sauce`, `sauceconnect`, and `nightwatch` steps are only used in unison in this project,
+The nesting of `sauce`, `sauceconnect`, and `sh nightwatch` seems excessive,
 and that xUnit `step` is a bit ugly as well.
 Let's move those into our shared library as custom steps with parameters.
 We'll change the `Jenkinsfile` in our main project,
@@ -253,9 +253,8 @@ and add the custom steps to a branch named
 stage ("Test") {
     steps {
         sauceNightwatch sauceCredential: saucelabsCredentialId,
-            platforms: ${platformConfigs},
-            testFilter: ${sauceTestFilter}
-        }
+            platforms: platformConfigs,
+            testFilter: sauceTestFilter
     }
     post {
         always {
@@ -307,16 +306,17 @@ def call(String pattern, Integer failWhenSkippedExceeds,
 ----
 
 
-== Running Conditional Stages with `when`
+== Running Conditional Stages using `when`
 
 This is a sample web testing project.
 We probably wouldn't deploy it like we would production code,
-but we might still want to deploy or publish it, to a artifact repository for example.
-This project is hosted on GitHub and uses feature branches and Pull Requests to make changes.
-I'd like to use this same Pipeline for feature branches, pull requests, and the master branch,
+but we might still want to deploy or publish it, to an artifact repository for example.
+This project is hosted on GitHub and uses feature branches and pull requests to make changes.
+I'd like to use the same Pipeline for feature branches, pull requests, and the master branch,
 but I only want to deploy from master.
 
-In Scripted, we'd wrap a `stage` in an `if-then` and check the git branch string.
+In Scripted, we'd wrap a `stage` in an `if-then` and check if the branch for
+the current run is named "master".
 Declarative doesn't support that kind of general conditional behavior.
 Instead, it provides a
 link:/doc/book/pipeline/syntax/#when[`when` directive]
@@ -391,7 +391,7 @@ Thanks for reading!
 
 == Links
 
-* plugin:xunit[XUnit]
+* plugin:xunit[xUnit]
 * plugin:sauce-ondemand[Sauce OnDemand]
 * plugin:pipeline-model-definition[Declarative Pipeline plugin]
 * link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline Syntax Reference]
