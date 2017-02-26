@@ -1,0 +1,199 @@
+---
+layout: post
+title: "Run Your API Tests Continuously with Jenkins and DHC"
+tags:
+- development
+- web apis
+- testing
+author: glaforge
+---
+
+NOTE: This is a guest post by link:https://twitter.com/glaforge[Guillaume Laforge].
+Well known for his contribution to the link:http://www.groovy-lang.org/[Apache Groovy] project,
+Guillaume is also the "Product Ninja and Advocate" of link:https://restlet.com/[Restlet],
+a company focusing on Web APIs:
+with link:https://restlet.com/products/dhc/[DHC] (an API testing client),
+link:https://restlet.com/products/restlet-studio/[Restlet Studio] (an API designer),
+link:https://restlet.com/products/apispark/[APISpark] (an API platform in the cloud),
+and the link:https://restlet.com/projects/restlet-framework/[Restlet Framework]
+open source project for developing APIs.
+
+Modern mobile apps, single-page web sites and applications, are more and more relying on Web APIs,
+as the nexus of the interaction between the frontend and the backend services.
+Web APIs are also central to third-party integration, when you want to share your services with others,
+or when you need to consume existing APIs to build your own solution on top of their shoulders.
+
+With APIs being a key element of your architecture and big picture,
+it's obviously important to assess that this API is functioning the way it should, thanks to proper testing.
+Your framework of choice, regardless of the technology stack or programming language used,
+will hopefully offer some facilities for testing your code,
+whether in the form of unit tests, or ideally with integration tests.
+
+== Coding Web API tests
+
+From a code perspective, as I said, most languages and frameworks provide approaches to testing APIs built with them.
+There's one I wanted to highlight in particular, which is one developed with a DSL approach (Domain-Specific Language),
+using the link:htt://groovy-lang.org[Apache Groovy] programming language, it's
+link:https://github.com/Codearte/accurest/wiki/3.-Contract-DSL[AccuREST].
+
+To get started, you can have a look at the link:https://github.com/Codearte/accurest/wiki/1.-Introduction[introduction],
+and the link:https://github.com/Codearte/accurest/wiki/2.-Usage[usage] guide.
+If you use the link:https://github.com/Codearte/accurest/wiki/3.-Contract-DSL[contract DSL],
+you'll be able to write highly readable examples of requests you want to issue against your API,
+and the assertions that you expect to be true when getting the response from that call.
+Here's a concrete example from the documentation:
+
+```groovy
+GroovyDsl.make {
+    request {
+        method 'POST'
+        urlPath('/users') {
+            queryParameters {
+                parameter 'limit': 100
+                parameter 'offset': containing("1")
+                parameter 'filter': "email"
+            }
+        }
+        headers {
+            header 'Content-Type': 'application/json'
+        }
+        body '''{ "login" : "john", "name": "John The Contract" }'''
+    }
+    response {
+        status 200
+        headers {
+            header 'Location': '/users/john'
+        }
+    }
+}
+```
+
+Notice that the response is expected to return a status code 200 OK, and a Location header pointing at `/users/john`.
+Indeed, a very readable way to express the requests and responses!
+
+== Tooling to test your APIs
+
+From a tooling perspective, there are some interesting tools that can be used to test Web APIs,
+like link:https://luckymarmot.com/paw[Paw] (on Macs),
+link:https://chrome.google.com/webstore/detail/advanced-rest-client/hgmloofddffdnphfgcellkdfbfbjeloo?hl=en-US[Advanced REST client],
+link:https://www.getpostman.com/[Postman] or
+link:http://insomnia.rest/[Insomnia].
+
+But in this article, I'll offer a quick look at link:https://restlet.com/products/dhc/[DHC],
+a handy visual tool, that you can use both manually to craft your tests and assertions,
+and whose test scenarios you can export and integrate in your build and continuous integration pipeline,
+thanks to link:http://maven.apache.org/[Maven] and link:https://jenkins.io/[Jenkins].
+
+At the end of this post, you should be able to see the following reporting in your Jenkins dashboard,
+when visualising the resulting API test execution:
+
+image:/images/blog/dhc/dhc-5-jenkins-report.png[Export a scenario,link="/images/blog/dhc/dhc-5-jenkins-report-big.png"]
+
+== Introducing DHC
+
+DHC is a Chrome extension, that you can
+link:https://chrome.google.com/webstore/detail/dhc-resthttp-api-client/aejoelaoggembcahagimdiliamlcdmfm[install from the Chrome Web Store],
+in your Chrome browser. There's also an link:https://dhc.restlet.com/[online service] available, with some limitations.
+For the purpose of this article, we'll use the Chrome extension.
+
+image:/images/blog/dhc/dhc-1-interface.png[DHC interface,link="/images/blog/dhc/dhc-1-interface-big.png"]
+
+In the main area, you can create your request, define the URL to call, specify the various request headers or params,
+chose the method you want to use, and then, you can click the send button to issue the request.
+
+In the left pane, that's where you'll be able to see your request history, create and save your project in the cloud,
+or also set context variables.
+
+The latter is important when testing your Web API, as you'll be able to insert variables like for example
+`{localhost}` for testing locally on your machine or `{staging}` and `{prod}` to run your tests in different environments.
+
+In the bottom pane, you have access to actual raw HTTP exchange, as well as the assertions pane.
+
+Again, a very important pane to look at! With assertions, you'll be able to ensure that your Web API works as expected.
+For instance, you can check the status code of the call, check the payload contains a certain element,
+by using JSON Path or XPath to go through the JSON or XML payload respectively.
+
+image:/images/blog/dhc/dhc-2-assertions.png[DHC interface,link="/images/blog/dhc/dhc-2-assertions-big.png"]
+
+Beyond assertions, what's also interesting is that you can chain requests together.
+A call request can depend on the outcome of a previous request!
+For example, in a new request, you could pass a query parameter whose value would be the value of some element
+of the JSON payload of a previously executed request.
+And by combining assertions, linked requests and context variables together, you can create full-blown test scenarios,
+that you can then save in the cloud, but also export as a JSON file.
+
+image:/images/blog/dhc/dhc-4-scenario.png[Running a test scenario,link="/images/blog/dhc/dhc-4-scenario-big.png"]
+
+To export that test scenario, you can click on the little export icon in the bottom left hand corner,
+and you'll be able to select exactly what you want to export:
+
+image:/images/blog/dhc/dhc-3-export.png[Export a scenario,link="/images/blog/dhc/dhc-3-export-big.png"]
+
+== Running your Web API tests with Maven
+
+Now things become even more interesting, as we'll proceed to using Maven and Jenkins!
+As the saying goes, there's a Maven plugin for that! For running those Web API tests in your build!
+Even if your Web API is developed in another technology than Java, you can still create a small Maven build
+just for your Web API tests.
+And the icing on the cake, when you configure Jenkins to run this build, as the plugin outputs JUnit-friendly test reports,
+you'll be able to see the details of your successful and failed tests, just like you would see JUnit's!
+
+Let's sketch your Maven POM:
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                        http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>my-first-api-test</artifactId>
+  <version>1.2.3</version>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.restlet.dhc</groupId>
+        <artifactId>dhc-maven-plugin</artifactId>
+        <version>1.1</version>
+        <executions>
+         <execution>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <file>companies-scenario.json</file>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>restlet-maven</id>
+      <name>Restlet public Maven repository Release Repository</name>
+      <url>http://maven.restlet.com</url>
+    </pluginRepository>
+  </pluginRepositories>
+</project>
+```
+
+== Visualizing Web API test executions in Jenkins
+
+Once you've configured your Jenkins server to launch the `test` goal of this Maven project,
+you'll be able to see nice test reports for your Web API scenarios, like in the screenshot in introduction of this article!
+
+Next, you can easily run your Web API tests when developers commit changes to the API,
+or schedule regular builds with Jenkins to monitor an online Web API.
+
+For more information, be sure to read the tutorial on
+link:http://restlet.com/blog/2016/02/03/testing-web-apis-using-dhc-by-restlet/[testing Web APIs with DHC].
+There are also some more resources like a
+link:http://restlet.com/blog/2016/02/19/screencast-testing-apis-with-dhc-by-restlet/[screencast],
+as well as the
+link:https://restlet.com/technical-resources/dhc/guide[user guide], if you want to learn more.
+And above all, happy testing!
