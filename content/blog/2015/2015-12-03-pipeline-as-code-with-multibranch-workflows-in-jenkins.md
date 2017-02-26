@@ -32,7 +32,7 @@ Jenkins pipeline-as-code (concept) enables you to maintain your CI/CD workflow l
 
 The Workflow script to build/test/deploy your code is always synchronized with the rest of the source code you are working on.
 
-**To demonstrate the concept here** - Let’s use a basic Java Web application project with a Maven pom.xml as shown in the structure below (this is using GitHub as the SCM but you can do this on SVN or Mercurial too).
+**To demonstrate the concept here** - Let’s use a basic Java Web application project with a Maven pom.xml as shown in the structure below (this is using GitHub as the SCM but you can do this on Bitbucket too).
 
 [This project](https://github.com/kishorebhatia/pipeline-as-code-demo) has a marker file for Jenkins in the repo - `Jenkinsfile`.
 
@@ -80,7 +80,7 @@ Make sure you’ve the latest [Workflow](https://github.com/jenkinsci/workflow-p
 
 Also, ensure that other dependencies, like SCM plugins and build tools, are met:
 
-* Either SVN/Git/Mercurial (depending on your SCM)
+* Either Git/GitHub/Mercurial (depending on your SCM)
 * GitHub Branch Source Plugin (optimized to use the GitHub API and improve performance)
 * Maven build tool
 
@@ -90,9 +90,9 @@ Here's how to do that:
 * [Setting up GitHub Webhooks in Jenkins](https://thepracticalsysadmin.com/setting-up-a-github-webhook-in-jenkins/)
 * [Step-by-step guide to setting up Jenkins for GitHub projects](https://gist.github.com/misterbrownlee/3708738)
 
-Then create a new *Multibranch Workflow* Job with configuration as shown below - mainly selecting the Branch Sources (Git, in this example) and providing the branch/repo URL with credentials.
+Then create a new *Multibranch Workflow* Job with configuration as shown below - mainly selecting the Branch Sources (GitHub, in this example) and providing the branch/repo URL with credentials.
 
-*Branch sources* (Git) - `https://github.com/kishorebhatia/pipeline-as-code-demo` (or a repo where you’ve cloned this source code with Jenkinsfile)
+*Branch sources* (GitHub) - `https://github.com/kishorebhatia/pipeline-as-code-demo` (or a repo where you’ve cloned this source code with Jenkinsfile)
 
 Leave all other properties default and *Save*.
 
