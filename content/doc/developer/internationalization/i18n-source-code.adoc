@@ -1,0 +1,77 @@
+---
+title: Internationalizing Messages in Java Source Code
+layout: developersection
+references:
+- url: https://github.com/kohsuke/localizer
+  title: Localizer project on GitHub
+---
+
+== Introduction
+
+Jenkins uses the https://github.com/kohsuke/localizer[Localizer] library and Maven plugin to implement internationalization.
+
+Its purpose is to generate classes corresponding to groups of Java `.properties` files during the build process that make the localized texts available in code.
+
+In Jenkins, Localizer is configured to operate on resource files named `Messages.properties` (and `Messages_XX.properties` for the localized variants).
+During the build process of Jenkins core and plugins, it generates `Messages` classes from each group of `Messages.properties` files.
+
+== Example
+
+As an example, consider the following resource files:
+
+`src/main/resources/org/example/package/Messages.properties`:
+[source]
+Example.Description = A simple example for localization
+
+`src/main/resources/org/example/package/Messages_de.properties`:
+[source]
+Example.Description = Ein einfaches Beispiel für Lokalisierung
+
+The first file is the default localization for the _key_ `description` (used unless a more specific localization is available), while the second file provides the German localization.
+
+Localizer will generate a class that looks similar to the following from these resource files:
+
+[source, java]
+----
+package org.example.package
+
+public class Messages {
+    private final static ResourceBundleHolder holder = ResourceBundleHolder.get(Messages.class); // <1>
+
+    public static String Example_Description() { // <2>
+        return holder.format("Example.Description");
+    }
+
+    public static Localizable _Example_Description() { // <3>
+        return new Localizable(holder, "Example.Description");
+    }
+}
+----
+<1> `ResourceBundleHolder` is an internal utility class wrapping access to the localized `.properties` files
+<2> Generated method returning the localized string for the +Example.Description+ property files entry
+<3> Generated method returning the +Localizable+ instance for the +Example.Description+ property files entry
+
+The generated methods names  correspond to the key in the properties files (but don't match exactly due to Java identifier constraints).
+Each key in the resource files will result in the generation of a pair of methods: One returning `String`, the other returning `Localizable`.
+`Localizable` is a type provided by the Localizer library that allows localizing a message to a specific locale.
+This is rarely needed however, as a call to `Messages.Example_Description()` will return the localized message for the current locale.
+
+== Localized Messages with Parameters
+
+If the values in `Messages.properties` reference placeholders, then the static methods will be generated with arguments.
+See the following example for a `Messages.properties` excerpt and one static method generated from that.
+
+`Messages.properties` content:
+
+[source]
+ItemGroupMixIn.may_not_copy_as_it_contains_secrets_and_=May not copy {0} as it contains secrets and {1} has {2}/{3} but not /{4}
+
+Generated source code:
+[source, java]
+----
+public static String ItemGroupMixIn_may_not_copy_as_it_contains_secrets_and_(Object arg0, Object arg1, Object arg2, Object arg3, Object arg4) {
+    return holder.format("ItemGroupMixIn.may_not_copy_as_it_contains_secrets_and_", arg0, arg1, arg2, arg3, arg4);
+}
+----
+
+For more advanced usage of parameters in localized messages, see link:/doc/developer/internationalization/advanced-localization/[Advanced Localization].

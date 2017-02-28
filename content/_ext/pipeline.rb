@@ -42,6 +42,9 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
 
+  extension Awestruct::IBeams::HandbookExtension.new(:devbook,
+                                                     File.expand_path(File.dirname(__FILE__) + '/../doc/developer'))
+
   transformer VersionSwitcher.new
 
   helper ActiveNav
