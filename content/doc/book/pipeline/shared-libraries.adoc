@@ -185,6 +185,50 @@ echo useSomeLib(new Helper('some text'))
 
 Global Variables however, are resolved at runtime.
 
+=== Loading libraries dynamically
+
+As of version 2.7 of the _Pipeline: Shared Groovy Libraries_ plugin,
+there is a new option for loading (non-implicit) libraries in a script:
+a `library` step that loads a library _dynamically_, at any time during the build.
+
+If you are only interested in using global variables/functions (from the `vars/` directory),
+the syntax is quite simple:
+
+[source,groovy]
+----
+library 'my-shared-library'
+----
+
+Thereafter, any global variables from that library will be accessible to the script.
+
+Using classes from the `src/` directory is also possible, but trickier.
+Whereas the `@Library` annotation prepares the “classpath” of the script prior to compilation,
+by the time a `library` step is encountered the script has already been compiled.
+Therefore you cannot `import` or otherwise “statically” refer to types from the library.
+
+However you may use library classes dynamically (without type checking),
+accessing them by fully-qualified name from the return value of the `library` step.
+`static` methods can be invoked using a Java-like syntax:
+
+[source,groovy]
+----
+library('my-shared-library').com.mycorp.pipeline.Utils.someStaticMethod()
+----
+
+You can also access `static` fields, and call constructors as if they were `static` methods named `new`:
+
+[source,groovy]
+----
+def useSomeLib(helper) { // dynamic: cannot declare as Helper
+    helper.prepare()
+    return helper.count()
+}
+
+def lib = library('my-shared-library').com.mycorp.pipeline // preselect the package
+
+echo useSomeLib(lib.Helper.new(lib.Constants.SOME_TEXT))
+----
+
 === Library versions
 
 The "Default version" for a configured Shared Library is used when "Load
@@ -197,6 +241,33 @@ If "Allow default version to be overridden" is enabled in the Shared Library's
 configuration, a `@Library` annotation may also override a default version
 defined for the library. This also allows a library with "Load implicitly" to
 be loaded from a different version if necessary.
+
+When using the `library` step you may also specify a version:
+
+[source,groovy]
+----
+library 'my-shared-library@master'
+----
+
+Since this is a regular step, that version could be _computed_
+rather than a constant as with the annotation; for example:
+
+[source,groovy]
+----
+library "my-shared-library@$BRANCH_NAME"
+----
+
+would load a library using the same SCM branch as the multibranch `Jenkinsfile`.
+As another example, you could pick a library by parameter:
+
+[source,groovy]
+----
+properties([parameters([string(name: 'LIB_VERSION', defaultValue: 'master')])])
+library "my-shared-library@${params.LIB_VERSION}"
+----
+
+Note that the `library` step may not be used to override the version of an implicitly loaded library.
+It is already loaded by the time the script starts, and a library of a given name may not be loaded twice.
 
 === Retrieval Method
 
