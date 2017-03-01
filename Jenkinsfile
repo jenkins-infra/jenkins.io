@@ -57,7 +57,7 @@ try {
                 /* Invoke Gradle which has the actual task graph defined inside of it
                 * for the building of the site
                 */
-                docker.image('java:8').inside {
+                docker.image('openjdk:8').inside {
                     /* One Weird Trick(tm) to allow git(1) to clone inside of a
                     * container
                     */
