@@ -11,16 +11,21 @@ wip: true
 
 == Security Architecture of Jenkins
 
-Jenkins has a security mechanism in place so that the administrator of Jenkins can control who gets access to what part of Jenkins. The key components of this mechanism are the followings:
+Jenkins has a security mechanism in place so that the administrator of Jenkins can control who gets access to what part of Jenkins.
+The key components of this mechanism are the followings:
 
-* jenkinsdoc:Permission[], which represents an activity that requires a security privilege. This is usually a verb, like "configure", "administer", "tag", etc.
-* +Authentication+, which represents the current user and roles (AKA groups) he/she has. When a thread runs in Jenkins, it always carry an +Authentication+ object implicitly, which represents the user that the thread is serving. (If a thread is a part of Jenkins and not serving any user request, like +Executor{+}s, then it carries an almighty "system" +Authentication+ object.)
+* jenkinsdoc:Permission[], which represents an activity that requires a security privilege.
+  This is usually a verb, like "configure", "administer", "tag", etc.
+* +Authentication+, which represents the current user and roles (AKA groups) he/she has.
+  When a thread runs in Jenkins, it always carry an +Authentication+ object implicitly, which represents the user that the thread is serving. (If a thread is a part of Jenkins and not serving any user request, like +Executor{+}s, then it carries an almighty "system" +Authentication+ object.)
 * jenkinsdoc:ACL[], which decides whether the +Authentication+ object carried by the current thread has the given permission or not.
 * jenkinsdoc:AccessControlled[], which is implemented by an object who owns ACL.
 
-So the overall picture is this; various objects in Jenkins (such as jenkinsdoc:Job[], jenkinsdoc:Jenkins[], jenkinsdoc:User[], jenkinsdoc:View[], etc.) are jenkinsdoc:AccessControlled[] objects, and therefore they own ACLs. The code is then written in such a way that before a security-sensitive operation is performed, it checks ACL.
+So the overall picture is this; various objects in Jenkins (such as jenkinsdoc:Job[], jenkinsdoc:Jenkins[], jenkinsdoc:User[], jenkinsdoc:View[], etc.) are jenkinsdoc:AccessControlled[] objects, and therefore they own ACLs.
+The code is then written in such a way that before a security-sensitive operation is performed, it checks ACL.
 
-For example, the following code is taken from the Jenkins class, which lets you shut down the JVM by requesting +/exit+. You can easily imagine that in a security sensitive environment you don't want random users to invoke this, so it makes sure that the caller has the "ADMINISTER" permission of the system before proceeding to do the work:
+For example, the following code is taken from the Jenkins class, which lets you shut down the JVM by requesting +/exit+.
+You can easily imagine that in a security sensitive environment you don't want random users to invoke this, so it makes sure that the caller has the "ADMINISTER" permission of the system before proceeding to do the work:
 
 ----
     public void doExit( StaplerRequest req, StaplerResponse rsp ) throws IOException {
@@ -40,13 +45,22 @@ For example, the following code is taken from the Jenkins class, which lets you 
 ----
 <1> This throws an exception if the user accessing this URL doesn't have +Administer+ permission.
 
-If the administrator configured no security mechanism, the checkPermission method simply becomes no-op. The administrator could configure matrix-based ACL, in which case every +AccessControlled+ object will share the single ACL (whose contents is controlled by the configuration done by the administrator.) In more elaborate case, each +AccessControlled+ object might have different ACLs. In all cases, this is the code you need to write.
+If the administrator configured no security mechanism, the checkPermission method simply becomes no-op.
+The administrator could configure matrix-based ACL, in which case every +AccessControlled+ object will share the single ACL (whose contents is controlled by the configuration done by the administrator.) In more elaborate case, each +AccessControlled+ object might have different ACLs.
+In all cases, this is the code you need to write.
 
 == What do plugins need to do?
 
-* Identify the operations in code that can be potentially security sensitive. This includes anything that can change state in the server. These methods should perform +checkPermission+.
-* Identify the nearest +AccessControlled+ objects to check permissions with. If your 'this' object is already access-controlled, then that's obviously it. Otherwise, try to look for the nearest logical ancestor. If all else fails, use the +Jenkins+ singleton.
-* Identify the +Permission+ object to use. If you extend from one of the +ExtensionPoint+s, they might already define some permission objects as public static final fields in them. If you are defining a sub-system of a substantial size, you might want to create new +Permission+ objects (see the end of the +View+ class for this example.) If you don't know, you can use +Jenkins.ADMINISTER+ as a starting point.
+* Identify the operations in code that can be potentially security sensitive.
+  This includes anything that can change state in the server.
+  These methods should perform +checkPermission+.
+* Identify the nearest +AccessControlled+ objects to check permissions with.
+  If your 'this' object is already access-controlled, then that's obviously it.
+  Otherwise, try to look for the nearest logical ancestor.
+  If all else fails, use the +Jenkins+ singleton.
+* Identify the +Permission+ object to use.
+  If you extend from one of the +ExtensionPoint+s, they might already define some permission objects as public static final fields in them.
+  If you are defining a sub-system of a substantial size, you might want to create new +Permission+ objects (see the end of the +View+ class for this example.) If you don't know, you can use +Jenkins.ADMINISTER+ as a starting point.
 
 With these three information, you can now insert:
 
@@ -67,14 +81,17 @@ The permission is always checked against the "it" object, so that needs to be an
 
 === Disabling a part of page rendering if the user doesn't have a permission
 
-Sometimes you'd like to change the page rendering, based on the user's permissions. For example, if the user cannot delete a project, it doesn't make sense to show a link to do that. To do this, write Jelly like this:
+Sometimes you'd like to change the page rendering, based on the user's permissions.
+For example, if the user cannot delete a project, it doesn't make sense to show a link to do that.
+To do this, write Jelly like this:
 ----
 <j:if test="${h.hasPermission(app.ADMINISTER)}">
   ...
 </j:if>
 ----
 
-NOTE: This is not to be confused with the +checkPermission+ invocation in your operation. Users can still hit the URL directly, so you still need to protect the operation itself, in addition to disabling the UI rendering
+NOTE: This is not to be confused with the +checkPermission+ invocation in your operation.
+Users can still hit the URL directly, so you still need to protect the operation itself, in addition to disabling the UI rendering
 
 ////
 https://wiki.jenkins-ci.org/display/JENKINS/Making+your+plugin+behave+in+secured+Jenkins
