@@ -5,24 +5,31 @@ module Awestruct
   module IBeams
 
     class Section
-      attr_accessor :title, :file, :asciidoc, :key, :summary
+      attr_accessor :title, :file, :asciidoc, :key, :summary, :page
     end
 
     class Chapter
-      attr_accessor :sections, :title,
-                    :file, :asciidoc, :key, :summary
+      # TODO replace half of these with usages of :page
+      attr_accessor :sections, :guides, :title,
+                    :file, :asciidoc, :key, :summary, :page
 
       def initialize
         @sections = []
+        @guides = []
       end
     end
 
+    class Guide
+      attr_accessor :file, :key, :chapter, :page
+    end
+
     class Handbook
-      attr_accessor :book_dir, :chapters
+      attr_accessor :book_dir, :chapters, :guides
 
       def initialize(book_dir)
         @book_dir = book_dir
         @chapters = []
+        @guides = []
       end
 
     end
@@ -62,6 +69,7 @@ module Awestruct
 
           chapter = Chapter.new
           chapter.key = c
+          chapter.page = pagemap[overview]
           chapter.title = pagemap[overview].title
           chapter.summary = pagemap[overview].summary
 
@@ -70,9 +78,22 @@ module Awestruct
               section = Section.new
               section.key = s
               full_path = File.join(dir, "#{s}.adoc")
+              section.page = pagemap[full_path]
               section.title = pagemap[full_path].title
               section.summary = pagemap[full_path].summary
               chapter.sections << section
+            end
+          end
+
+          if guides = yaml['guides']
+            guides.each do |g|
+              guide = Guide.new
+              guide.key = g
+              full_path = File.join(dir, "#{g}.adoc")
+              guide.page = pagemap[full_path]
+              chapter.guides << guide
+              guide.chapter = chapter
+              site[@name].guides << guide
             end
           end
 
