@@ -1,7 +1,7 @@
 // @author Alan Harder
 var crumb = { wrap: function() { } };
 
-function loaddata(link) {
+function loaddata() {
   var script = document.createElement('SCRIPT');
   script.type = 'text/javascript';
   script.src = 'https://rating.jenkins.io/rate/result.php';
@@ -10,13 +10,12 @@ function loaddata(link) {
     if (this.readyState=='loaded' || this.readyState=='complete') do_loaddata();
   }
   document.getElementById('head').appendChild(script);
-  link.style.display = 'none';
   document.getElementById('ratings').style.display = 'block';
   return false;
 }
 
-function health(nm,cls,ver,rate) {
-  return '<img src="/images/rate/' + nm + '.png" onclick="rate(\'' + ver + '\',' + rate + ')" class="rate ' + cls + '" alt="' + nm + '"/>';
+function health(nm,cls,ver,rate,desc) {
+  return '<img src="/images/rate/' + nm + '.png" onclick="rate(\'' + ver + '\',' + rate + ')" class="rate ' + cls + '" alt="' + nm + '" title="' + desc + '"/>';
 }
 
 function do_loaddata() {
@@ -28,11 +27,11 @@ function do_loaddata() {
     div1.className = 'rate-outer';
     div2 = document.createElement('DIV');
     div2.className = 'rate-offset';
-    txt = (r && r[0] ? r[0] + ' ' : '0 ') + health('sunny',(r && r[0] ? '' : 'light'),v,1)
-        + (r && r[1] ? r[1] + ' ' : '0 ') + health('cloudy',(r && r[1] ? '' : 'light'),v,0)
-        + (r && r[2] ? r[2] + ' ' : '0 ') + health('storm',(r && r[2] ? '' : 'light'),v,-1);
+    txt = (r && r[0] ? r[0] + ' ' : '0 ') + health('sunny',(r && r[0] ? '' : 'light'),v,1, 'I use this version without problems')
+        + (r && r[1] ? r[1] + ' ' : '0 ') + health('cloudy',(r && r[1] ? '' : 'light'),v,0, 'I experience minor issues with this release')
+        + (r && r[2] ? r[2] + ' ' : '0 ') + health('storm',(r && r[2] ? '' : 'light'),v,-1, 'I experience major issues with this release');
     if (r && r.length > 3) {
-      txt += '<span class="related-issues">Related issues: ';
+      txt += '<span class="related-issues">Reported issues: ';
       for (j = 3; j < r.length; j+=2)
         txt += r[j+1] + '&times;<a href="https://issues.jenkins-ci.org/browse/JENKINS-' + r[j] + '">JENKINS-' + r[j] + '</a> ';
       txt += '</span>';
