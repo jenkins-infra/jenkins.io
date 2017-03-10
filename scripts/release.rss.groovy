@@ -34,7 +34,7 @@ json.releaseHistory.reverse().each { i ->
 def xml = new MarkupBuilder(new OutputStreamWriter(System.out))
 xml.feed(xmlns:"http://www.w3.org/2005/Atom") {
   title("Jenkins plugin releases")
-  link(href:"http://jenkins-ci.org/")
+  link(href:"https://jenkins.io/")
   link(href:"http://kohsuke.org/test.atom",rel:"self",type:"application/atom+xml")
   updated(xsd(new Date()))
   author { name("Jenkins History Bot") }
