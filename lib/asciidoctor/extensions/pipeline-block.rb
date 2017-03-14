@@ -115,11 +115,11 @@ Asciidoctor::Extensions.register do
       # useful warning
       docfile = parent.document.attributes['docfile']
 
-      if script_index < 0
+      if script_index < 0 && format != 'declarative'
         puts "WARNING: [pipeline] block lacks `// Script //` section in #{docfile}".red
       end
 
-      if decl_index < 0
+      if decl_index < 0 && format != 'scripted'
         puts "WARNING: [pipeline] block lacks `// Declarative //` section in #{docfile}".red
       end
 
