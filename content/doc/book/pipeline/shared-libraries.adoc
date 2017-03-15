@@ -59,8 +59,8 @@ The directory structure of a Shared Library repository is as follows:
 |       +- foo
 |           +- Bar.groovy  # for org.foo.Bar class
 +- vars
-|   +- foo.groovy          # for global 'foo' variable
-|   +- foo.txt             # help for 'foo' variable
+|   +- foo.groovy          # for global or custom step 'foo' variable
+|   +- foo.txt             # help for 'foo'
 +- resources               # resource files (external libraries only)
 |   +- org
 |       +- foo
@@ -79,7 +79,8 @@ The matching `*.txt`, if present, can contain documentation, processed through t
 The Groovy source files in these directories get the same “CPS transformation”
 as in Scripted Pipeline.
 
-A `resources` directory allows the `libraryResource` step to be used from an external library to load associated non-Groovy files.
+A `resources` directory allows the `libraryResource` step to be used from an
+external library to load associated non-Groovy files.
 Currently this feature is not supported for internal libraries.
 
 Other directories under the root are reserved for future enhancements.
@@ -126,7 +127,8 @@ branch, using an anonymous checkout.
 
 Shared Libraries marked _Load implicitly_ allows Pipelines to immediately use
 classes or global variables defined by any such libraries. To access other
-shared libraries, the `Jenkinsfile` needs to use the `@Library` annotation,
+shared libraries, the `Jenkinsfile` needs to use the `@Library`
+link:http://groovy-lang.org/objectorientation.html#_annotation[annotation],
 specifying the library's name:
 
 image::pipeline/configure-global-pipeline-library.png["Configuring a Global Pipeline Library", role=center]
@@ -140,8 +142,8 @@ image::pipeline/configure-global-pipeline-library.png["Configuring a Global Pipe
 @Library(['my-shared-library', 'otherlib@abc1234']) _
 ----
 
-The annotation can be anywhere in the script where an annotation is permitted
-by Groovy.  When referring to class libraries (with `src/` directories),
+The annotation can be placed anywhere in the script where an annotation is permitted
+by Groovy.  When referring to classes inside libraries (in `src/` directories),
 conventionally the annotation goes on an `import` statement:
 
 [source,groovy]
@@ -153,19 +155,17 @@ import com.mycorp.pipeline.somelib.UsefulClass
 [TIP]
 ====
 For Shared Libraries which only define Global Variables (`vars/`), or a
-`Jenkinsfile` which only needs a Global Variable, the
+`Jenkinsfile` which only uses the Global Variables of a library, the
 link:http://groovy-lang.org/objectorientation.html#_annotation[annotation]
 pattern `@Library('my-shared-library') _` may be useful for keeping code
 concise. In essence, instead of annotating an unnecessary `import` statement,
 the symbol `_` is annotated.
 
-It is not recommended to `import` a global variable/function,
-since this will force the compiler to interpret fields and methods as `static`
-even if they were intended to be instance.
-The Groovy compiler in this case can produce confusing error messages.
+Do not `import` Global Variables (they are loaded automatically).
+Doing so can cause the Groovy compiler to produce confusing error messages.
 ====
 
-Libraries are resolved and loaded during _compilation_ of the script,
+Libraries are resolved and loaded during _compilation_ of the Pipeline script,
 before it starts executing.  This allows the Groovy compiler to understand the
 meaning of symbols used in static type checking, and permits them to be used
 in type declarations in the script, for example:
@@ -183,7 +183,7 @@ int useSomeLib(Helper helper) {
 echo useSomeLib(new Helper('some text'))
 ----
 
-Global Variables however, are resolved at runtime.
+Global Variables and custom steps, on the other hand, are resolved at runtime.
 
 === Library versions
 
@@ -218,204 +218,173 @@ this variable to checkout the appropriate version of the library.
 
 image::pipeline/global-pipeline-library-legacy-scm.png["Configuring a 'Legacy SCM' for a Pipeline Library", role=center]
 
+=== Pretesting library changes
 
-== Writing libraries
+If you notice a mistake in a build using an untrusted library,
+simply click the _Replay_ link to try editing one or more of its source files,
+and see if the resulting build behaves as expected.
+Once you are satisfied with the result, follow the diff link from the build’s status page,
+and apply the diff to the library repository and commit.
 
-At the base level, any valid
-link:http://groovy-lang.org/syntax.html[Groovy code]
-is okay for use. Different data structures, utility methods, etc, such as:
+(Even if the version requested for the library was a branch, rather than a fixed version like a tag,
+replayed builds will use the exact same revision as the original build:
+library sources will not be checked out again.)
 
-[source,groovy]
-----
-// src/org/foo/Point.groovy
-package org.foo;
+_Replay_ is not currently supported for trusted libraries.
+Modifying resource files is also not currently supported during _Replay_.
 
-// point in 3D space
-class Point {
-  float x,y,z;
-}
-----
+== Writing and using library contents
 
-=== Accessing steps
+Now let's look at how to add items to Shared Libraries and how to use those items.
 
-Library classes cannot directly call steps such as `sh` or `git`.
-They can however implement methods, outside of the scope of an enclosing
-class, which in turn invoke Pipeline steps, for example:
-
-[source,groovy]
-----
-// src/org/foo/Zot.groovy
-package org.foo;
-
-def checkOutFrom(repo) {
-  git url: "git@github.com:jenkinsci/${repo}"
-}
-----
-
-Which can then be called from a Scripted Pipeline:
+=== Resources
+Shared libraries can contain general resource files, such as properties files.
+To add resources, simply add files to the `resources/` directory tree.
+External libraries may then load these files using the `libraryResource` step,
+which accepts a relative pathname, akin to Java resource loading:
 
 [source,groovy]
 ----
-def z = new org.foo.Zot()
-z.checkOutFrom(repo)
+def request = libraryResource 'com/mycorp/pipeline/somelib/request.json'
 ----
 
-This approach has limitations; for example, it prevents the declaration of a
-superclass.
+The file is loaded as a string, suitable for passing to APIs or saving
+to a workspace using `writeFile`.
 
-Alternately, a set of `steps` can be passed explicitly to a library class, in a
-constructor, or just one method:
+Avoid adding resources directly under the `resources/` directory.
+Multiple libraries maybe be loaded by one pipeline, but resources are referenced using
+only a relative path.
+Use a deeper, unique directory structure to avoid resource name conflicts with other libraries.
 
+=== Global variables
+
+If a file in the `vars` directory contains one or more methods (other than `call`),
+a global variable of that name is created, and the methods are added to that global.
+This is a convenient way to create a group of related methods in a
+single `.groovy` file and access as members of an object.
+
+For example:
+
+.var/log.groovy
 [source,groovy]
 ----
-package org.foo
-class Utilities implements Serializable {
-  def steps
-  Utilities(steps) {this.steps = steps}
-  def mvn(args) {
-    steps.sh "${steps.tool 'Maven'}/bin/mvn -o ${args}"
-  }
+def info(message) {
+    echo "INFO: ${message}"
+}
+
+def warning(message) {
+    echo "WARNING: ${message}"
 }
 ----
 
-When saving state on classes, such as above, the class *must* implement the
-`Serializable` interface. This ensures that a Pipeline using the class, as seen
-in the example below, can properly suspend and resume in Jenkins.
-
+.Jenkinsfile
 [source,groovy]
 ----
-@Library('utils') import org.foo.Utilities
-def utils = new Utilities(steps)
-node {
-  utils.mvn 'clean package'
-}
+@Library('utils') _
+
+log.info 'Starting'
+log.warning 'Nothing to do!'
 ----
 
-If the library needs to access global variables, such as `env`, those should be
-explicitly passed into the library classes, or methods, in a similar manner.
+Declarative Pipeline does not allow usage of this kind of global variable
+outside of a `script` directive
+(link:https://issues.jenkins-ci.org/browse/JENKINS-42360[JENKINS-42360]).
 
-Instead of passing numerous variables from the Scripted Pipeline into a library,
-
+.Jenkinsfile
 [source,groovy]
 ----
-package org.foo
-class Utilities {
-  static def mvn(script, args) {
-    script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
-  }
-}
-----
+@Library('utils') _
 
-The above example shows the script being passed in to one `static` method,
-invoked from a Scripted Pipeline as follows:
-
-[source,groovy]
-----
-@Library('utils') import static org.foo.Utilities.*
-node {
-  mvn this, 'clean package'
-}
-----
-
-
-=== Defining global variables
-
-Internally, scripts in the `vars` directory are instantiated on-demand  as
-singletons. This allows multiple methods or properties to be defined in a
-single `.groovy` file which interact with each other, for example:
-
-[source,groovy]
-----
-// vars/acme.groovy
-def setName(value) {
-    name = value
-}
-def getName() {
-    name
-}
-def caution(message) {
-    echo "Hello, ${name}! CAUTION: ${message}"
-}
-----
-
-In the above, `name` is not referring to a field (even if you write it as `this.name`!),
-but to an entry created on demand in a `Script.binding`.
-To be clear about what data you intend to store and of what type,
-you can instead provide an explicit class declaration
-(the class name should match the file basename):
-
-[source,groovy]
-----
-// vars/acme.groovy
-class acme implements Serializable {
-    private String name
-    def setName(value) {
-        name = value
-    }
-    def getName() {
-        name
-    }
-    def caution(message) {
-        echo "Hello, ${name}! CAUTION: ${message}"
+pipeline {
+    agent none
+    stage ('Example') {
+        steps {
+             script { // <1>
+                 log.info 'Starting'
+                 log.warning 'Nothing to do!'
+             }
+        }
     }
 }
 ----
-
-The Pipeline can then invoke these methods which will be defined on the
-`acme` object:
-
-[source,groovy]
-----
-acme.name = 'Alice'
-echo acme.name /* prints: 'Alice' */
-acme.caution 'The queen is angry!' /* prints: 'Hello, Alice. CAUTION: The queen is angry!' */
-----
+<1> `script` directive required to access global variables in Declarative Pipeline.
 
 [NOTE]
 ====
-A variable defined in a shared library will only show up in _Global Variables
+A global variable defined in a shared library will only show up in _Global Variables
 Reference_ (under _Pipeline Syntax_) after Jenkins loads and uses that library
 as part of a successful Pipeline run.
 ====
 
-=== Defining steps
+.Avoid preserving state in global variables
+[WARNING]
+====
+Avoid defining global variables with methods that interact or preserve state.
+Use a static class or instantiate a local variable of a class instead.
 
-Shared Libraries can also define global variables which behave similarly to
-built-in steps, such as `sh` or `git`. Global variables defined in Shared
-Libraries *must* be named with all lower-case or "camelCased" in order to be
-loaded properly by Pipeline.
-footnote:[https://gist.github.com/rtyler/e5e57f075af381fce4ed3ae57aa1f0c2]
+The example below shows a global variable `customer` which stores a `name` value.
+It also outputs a message when name is set.
 
-For example, to define `sayHello`, the file `vars/sayHello.groovy`
-should be created and should implement a `call` method. The `call` method
-allows the global variable to be invoked in a manner similar to a step:
-
+.var/customer.groovy
 [source,groovy]
 ----
-// vars/sayHello.groovy
-def call(String name = 'human') {
-    // Any valid steps can be called from this code, just like in other
-    // Scripted Pipeline
-    echo "Hello, ${name}."
+def setName(value) {
+    privateName = value
+    echo "Setting name to ${privateName}"
+}
+def getName() {
+    privateName
 }
 ----
 
-The Pipeline would then be able to reference and invoke this variable:
+====
 
+=== Custom steps
+
+Custom steps are a special form of Global Variable,
+which create a method with the same name as their containing file
+(instead of an object with one or more methods attached).  They behave similar to
+built-in steps, such as `sh` or `git`, and can also call built-in steps, other
+other custom steps, or other valid Pipeline
+link:http://groovy-lang.org/syntax.html[Groovy code].
+
+To define a custom step create a file in the `vars` directory containing only a `call` method.
+
+For example, the file below would create a custom step named `sayHello`:
+
+.vars/sayHello.groovy
 [source,groovy]
 ----
+def call(String name = 'human') {
+    // Any valid Scripted Pipeline and steps can be used here
+    echo "Hello, ${name}."
+    echo "I'm Jenkins!"
+}
+----
+
+The Pipeline would then be able to call this step:
+
+.Jenkinsfile
+[source,groovy]
+----
+@Library('utils') _
+
 sayHello 'Joe'
 sayHello() /* invoke with default arguments */
 ----
 
-If called with a block, the `call` method will receive a
-link:http://groovy-lang.org/closures.html[`Closure`].
-The type should be defined explicitly to clarify the intent of the step, for
+==== Extending the DSL
+
+Custom steps can also take curly-brace blocks (known in Groovy as
+link:http://groovy-lang.org/closures.html[`Closures`]),
+just like built-in steps. The Closure can then be executed as part of the
+custom step.
+When this isDefine explicitly to clarify the intent of the step, for
 example:
 
+.vars/windows.groovy
 [source,groovy]
 ----
-// vars/windows.groovy
 def call(Closure body) {
     node('windows') {
         body()
@@ -426,6 +395,7 @@ def call(Closure body) {
 The Pipeline can then use this variable like any built-in step which
 accepts a block:
 
+.Jenkinsfile
 [source,groovy]
 ----
 windows {
@@ -433,7 +403,7 @@ windows {
 }
 ----
 
-=== Defining a more structured DSL
+==== Defining a more structured DSL
 
 If you have a lot of Pipelines that are mostly similar, the global
 variable mechanism provides a handy tool to build a higher-level DSL
@@ -441,9 +411,9 @@ that captures the similarity. For example, all Jenkins plugins are built and
 tested in the same way, so we might write a step named
 `buildPlugin`:
 
+.vars/buildPlugin.groovy
 [source,groovy]
 ----
-// vars/buildPlugin.groovy
 def call(body) {
     // evaluate the body block, and collect configuration into the object
     def config = [:]
@@ -474,7 +444,169 @@ buildPlugin {
 // Declarative not yet implemented //
 ----
 
-=== Using third-party libraries
+=== Groovy classes
+
+Shared libraries can also hold normal
+link:http://groovy-lang.org/syntax.html[Groovy code] stored under the `src` directory.
+The `src` directory behaves exactly like any regular groovy source tree -
+files are laid out in directories matching their package name and contain
+classes matching their file names:
+
+.src/org/acme/Calculator.groovy
+[source,groovy]
+----
+package org.acme;
+
+class Calculator {
+  def add(int a, int b) {
+    a + b
+  }
+}
+----
+
+.Jenkinsfile
+[source, groovy]
+----
+@Library('acme') import org.acme.Calculator
+def calc = new Calculator()
+echo calc.add(2, 3)
+----
+
+We can also use `import static` to allow us to call static methods from a class
+without specifying the class.  Use this with caution as classes may have method
+names that conflict.
+
+.src/org/acme/Calculator.groovy
+[source,groovy]
+----
+package org.acme;
+
+class Calculator {
+  static def add(int a, int b) {
+    a + b
+  }
+}
+----
+
+.Jenkinsfile
+[source, groovy]
+----
+@Library('acme') import static org.acme.Calculator.*
+
+echo add(2, 3)
+----
+
+==== Saving state
+
+Any class used in Pipeline that saves state inside it
+*must* implement the `Serializable` interface.
+Without this interface, instances of the class will not be able to
+properly suspend and resume in Jenkins.
+
+
+.src/org/acme/Point.groovy
+[source,groovy]
+----
+package org.acme;
+
+// point in 3D space
+class Point implements Serializable {
+  float x,y,z; // <1>
+}
+----
+<1> Fields save state, so this class must implement `Serializable`.
+
+==== Accessing steps
+
+Unlike Global Variables (and custom steps),
+Library classes cannot directly call Pipeline steps such as `sh` or `git`.
+
+The best way to allow Groovy classes to access Pipeline steps is to explicitly
+pass the Pipeline script object to the library class as part of the constructor.
+If the library needs to access global variables, such as `env`,
+those can be accessed via the explicitly passed scrip object as well.
+
+Here's an example of passing the script as part of the constructor:
+
+.src/org/acme/Utilities.groovy
+[source,groovy]
+----
+package org.acme
+class Utilities implements Serializable { // <1>
+  Script script
+  Utilities(Script pipeline) {this.script = script}
+  def mvn(args) {
+    script.sh "${script.tool 'Maven'}/bin/mvn -o ${args}"
+  }
+}
+----
+<1> This class saves state, so it *must* implement the `Serializable` interface.
+
+.Jenkinsfile
+[source,groovy]
+----
+@Library('utils') import org.acme.Utilities
+def utils = new Utilities(this)
+node {
+  utils.mvn 'clean package'
+}
+----
+
+Here's an example showing the script being passed directly to a `static` method:
+
+.src/org/acme/Utilities.groovy
+[source,groovy]
+----
+package org.foo
+class Utilities {
+  static def mvn(script, args) {
+    script.sh "${script.tool 'Maven'}/bin/mvn -s ${script.env.HOME}/jenkins.xml -o ${args}"
+  }
+}
+----
+
+.Jenkinsfile
+[source,groovy]
+----
+@Library('utils') import static org.foo.Utilities.*
+node {
+  mvn this, 'clean package' // <1>
+}
+----
+<1> `mvn` method called directy due to `import static`.
+
+.Bare methods (not recommended)
+[NOTE]
+====
+
+Groovy classes can also use a process similar to Global Variables,
+defining methods outside of the scope of a `class` to gain access Pipeline steps.
+For example:
+
+.src/org/acme/Zot.groovy
+[source,groovy]
+----
+package org.acme;
+
+def Zing(name) {
+  echo "Zing: ${name}"
+}
+----
+
+Which can then be called from a Scripted Pipeline:
+
+.Jenkinsfile
+[source,groovy]
+----
+def z = new org.acme.Zot()
+z.Zing(name)
+----
+
+This approach has limitations, such as not being able to use inheritance,
+and the behavior is not very well defined.
+====
+
+==== Using third-party libraries
 
 It is possible to use third-party Java libraries, typically found in
 link:http://search.maven.org/[Maven Central],
@@ -490,41 +622,9 @@ void parallelize(int count) {
   if (!Primes.isPrime(count)) {
     error "${count} was not prime"
   }
-  // …
+  // ...
 }
 ----
 
 Third-party libraries are cached by default in `~/.groovy/grapes/` on the
 Jenkins master.
-
-=== Loading resources
-
-External libraries may load adjunct files from a `resources/` directory using
-the `libraryResource` step.  The argument is a relative pathname, akin to Java
-resource loading:
-
-[source,groovy]
-----
-def request = libraryResource 'com/mycorp/pipeline/somelib/request.json'
-----
-
-The file is loaded as a string, suitable for passing to certain APIs or saving
-to a workspace using `writeFile`.
-
-It is advisable to use an unique package structure so you do not accidentally
-conflict with another library.
-
-=== Pretesting library changes
-
-If you notice a mistake in a build using an untrusted library,
-simply click the _Replay_ link to try editing one or more of its source files,
-and see if the resulting build behaves as expected.
-Once you are satisfied with the result, follow the diff link from the build’s status page,
-and apply the diff to the library repository and commit.
-
-(Even if the version requested for the library was a branch, rather than a fixed version like a tag,
-replayed builds will use the exact same revision as the original build:
-library sources will not be checked out again.)
-
-_Replay_ is not currently supported for trusted libraries.
-Modifying resource files is also not currently supported during _Replay_.
