@@ -182,20 +182,20 @@ pipeline {
     }
     post {
         always {
-            sh 'This will always run'
+            echo 'This will always run'
         }
         success {
-            sh 'This will run only if successful'
+            echo 'This will run only if successful'
         }
         failure {
-            sh 'This will run only if failed'
+            echo 'This will run only if failed'
         }
         unstable {
-            sh 'This will run only if the run was marked as unstable'
+            echo 'This will run only if the run was marked as unstable'
         }
         changed {
-            sh 'This will run only if the state of the Pipeline has changed')
-            sh 'For example, the Pipeline was previously failing but is now successful'
+            echo 'This will run only if the state of the Pipeline has changed'
+            echo 'For example, if the Pipeline was previously failing but is now successful'
         }
     }
 }
@@ -205,18 +205,26 @@ node {
         stage('Test') {
             sh 'echo "Fail!"; exit 1'
         }
-        sh 'echo "This will run only if successful"'
-    }
-    catch (exc) {
-        if (currentBuild.result == 'UNSTABLE') {
-            sh 'echo "This will run only if the run was marked as unstable"'
+        echo 'This will run only if successful'
+    } catch (e) {
+        echo 'This will run only if failed'
+
+        // Since we're catching the exception in order to report on it,
+        // we need to re-throw it, to ensure that the build is marked as failed
+        throw e
+    } finally {
+        def currentResult = currentBuild.result ?: 'SUCCESS'
+        if (currentResult == 'UNSTABLE') {
+            echo 'This will run only if the run was marked as unstable'
         }
-        if (currentBuild.result == 'FAILURE') {
-            sh 'echo "This will run only if failed"'
+
+        def previousResult = currentBuild.previousBuild?.result
+        if (previousResult != null && previousResult != currentResult) {
+            echo 'This will run only if the state of the Pipeline has changed'
+            echo 'For example, if the Pipeline was previously failing but is now successful'
         }
-    }
-    finally {
-        sh 'echo "This will always run"'
+
+        echo 'This will always run'
     }
 }
 ----
