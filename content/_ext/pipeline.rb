@@ -1,16 +1,12 @@
 require 'awestruct/ibeams/debuggable_partial'
 require 'awestruct/ibeams/asciidoc_sections'
 require 'awestruct/ibeams/datadir'
+require 'asciidoctor/jenkins/extensions'
 
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
   next if extension == __FILE__
   require extension
 end
-
-Dir[File.join(File.dirname(__FILE__), '/../../lib/**/*.rb')].each do |extension|
-  require extension
-end
-
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
