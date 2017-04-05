@@ -1,0 +1,118 @@
+---
+layout: post
+title: "Serverless CI with the new Hyper.sh plugin for Jenkins"
+tags:
+- jenkins
+- docker
+- containers
+- serverless
+- immutable servers
+- CI
+- CD
+author: jmknyc06
+---
+
+= Serverless CI
+
+== What is Hyper.sh?
+
+https://hyper.sh/docker-hosting[Hyper.sh] is a container-native cloud service. Different from traditional IaaS and CaaS providers, Hyper_ does not employ a VM cluster. Instead containers are the only object the users work with.
+
+Hyper.sh’s secret sauce is its container runtime technology, which combines VM-level isolation with the speed and immutability of a container, making using and deploying containers to production as simple as using Docker on your laptop.
+
+== Why run Jenkins on Hyper.sh?
+
+Jenkins is the market leader for CI/CD workloads. The two most popular plugins are currently for AWS and DigitalOcean. The Jenkins Amazon EC2 Plugin allows users to provision EC2 instances as Jenkins Slave Nodes, while DigitalOcean Plugin allows the user to provision Droplets as Jenkins Slave Nodes. Both are VM focused solutions. +
+
+The Hyper.sh plugin allows users to launch containerized on-demand Jenkins build slaves. This presents a number of benefits:
+
+ * Lower Cost: per second billing vs. hourly pricing with AWS and Digital Ocean
+ * Faster start times: 3~10 seconds vs. 55s on Digital Ocean
+ * Compatibility: no changes to your existing workflow
+ * Easy to use: Seamless integration with Jenkins
+
+== Getting Started
+
+=== Sign Up
+
+First follow the steps below to create a Hyper.sh account:
+
+ * https://console.hyper.sh/register[Create an account]
+ * https://docs.hyper.sh/GettingStarted/install.html[Install CLI on your laptop]
+ * https://docs.hyper.sh/GettingStarted/generate_api_credential.html[Generate a credential and configure the CLI]
+
+=== Deploy Jenkins Server
+
+Now we need to deploy the Jenkins server, which requires only two commands in Hyper.sh:
+
+----
+// launch a jenkins server container
+$ hyper run --name hykins -d -P \
+  --size=m1 \
+  -e ADMIN_USERNAME=xxxxx \
+  -e ADMIN_PASSWORD=xxxxx \
+  -e ACCESS_KEY=<YOUR HYPER ACCESS KEY> \
+  -e SECRET_KEY=<YOUR HYPER SECRET KEY> \
+  hyperhq/hykins
+
+// attach a public ip to the container
+$ hyper fip allocate 1
+<YOUR FIP APPEARS HERE>
+$ hyper fip attach <YOUR FIP> hykins
+----
+
+You can now connect to the Jenkins master on `<YOUR FIP>:8080`
+
+=== Create helloworld Job
+
+Now we’re ready to submit per second billed jobs!
+
+If you already have a Jenkins job, all you need to do is check “Run the build inside Hyper.sh container” in the general configuration of the build job.
+
+The following demo will show you how to run a new Jenkins Job with Hyper.sh.
+
+==== Create a new build job
+
+* Create a "Freestyle project" called helloworld
+
+* Check "Run the build inside Hyper.sh container"
+** Docker Image: jenkinsci/slave
+** Container Size: S4
+
+image::/images/post-images/General_Hello_World.png[General Build Settings, width="550"]
+
+* Add build step "Execute shell"
+** Command:
+
+image::/images/post-images/Build_Command.png[Build Command, width="500"]
+
+Here is the sample shell script from the above screenshot:
+```
+set +x
+echo ------------------------------------------------
+cat /etc/os-release
+echo ------------------------------------------------
+cat /proc/cpuinfo | grep -E '(processor|model name|cpu cores)'
+echo ------------------------------------------------
+cat /proc/meminfo | grep ^Mem
+echo ------------------------------------------------
+```
+==== Trigger build
+
+In this tutorial we’ll trigger the build manually, but normally you’d configure an SCM.
+
+image::/images/post-images/Build_Now.png[Trigger Build, width="150"]
+
+==== View results
+
+image::/images/post-images/Console_Output.png[Console Output, width="450"]
+
+****
+*Final note on build workspaces*
+
+It’s common when using long running Jenkins slaves to use the ‘Workspace’ tab in the GUI to debug the results of a build. With Serverless CI this is not possible because the build container is destroyed after each build.
+
+Therefore if you would like inspect the output of a build (or keep actual build artifacts of course) we recommend that you use the ‘Archive the artifacts’ options in the ‘Post-build Actions’ section of the build page.
+****
+
+That’s all. For more info, please visit https://github.com/hyperhq/hykins[https://github.com/hyperhq/hykins] or https://twitter.com/hyper_sh[follow Hyper.sh on Twitter].
