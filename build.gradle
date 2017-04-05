@@ -100,22 +100,12 @@ dependencies {
  * versions of the site
  */
 bower {
-    /* weird syntax is weird */
-
-    /* jQuery and jQuery UI are both used by the "legacy" download picker and
-     * can likely go away once the legacy site is sunsetted
-     */
-    'jquery' ('1.11.3') {
+    'jquery' ('3.1.1') {
         source 'dist/**'
-    }
-    'jquery-ui' ('1.11.4') {
-        source '**/*.js'
-        source 'themes/base/**' >> 'themes/base/'
     }
 
     /* needed for jenkins.io */
-
-    'bootstrap' ('4.0.0-alpha.2') {
+    'bootstrap' ('4.0.0-alpha.6') {
         source 'dist/**'
     }
 
@@ -123,12 +113,17 @@ bower {
         source 'dist/**'
     }
 
-    'tether' ('1.1.1') {
+    'tether' ('1.4.0') {
         source 'dist/**'
     }
 
     'anchor-js' ('3.2.2') {
         source '**/*.js'
+    }
+
+    /* Introduced by the Blue Ocean landing page */
+    'ionicons' ('2.0.1') {
+        source '*'
     }
 }
 
@@ -195,6 +190,29 @@ task prepareJavaScripts {
         }
     }
 }
+task prepareFonts {
+    group 'Site'
+    description 'Shuffle fonts around as necessary for CSS dependencies'
+    dependsOn prepareJavaScripts
+
+    doLast {
+        def fontsDir = file("${contentDir}/assets/bower/fonts")
+        fontsDir.mkdirs()
+
+        copy {
+            from "${projectDir}/src/assets"
+            include '**/*.eot', '**/*.woff', '**/*.svg', '**/*.ttf'
+            eachFile { FileCopyDetails copyDetails ->
+                /* Prune the relative path off so the files are just dumped at
+                 * the top-level of fontsDir
+                */
+                copyDetails.relativePath = new RelativePath(true, copyDetails.name)
+            }
+
+            into fontsDir
+        }
+    }
+}
 task prepareUserHandbook(type: JRubyExec) {
     group 'Handbook'
     description 'Generate the raw .adoc file for PDF generation'
@@ -209,7 +227,8 @@ task printHandbook(type: JRubyExec) {
     description 'Take the computed .adof file and generate a PDF'
     dependsOn prepareUserHandbook
     script 'asciidoctor-pdf'
-    scriptArgs '--base-dir', 'content', '--out-file',
+    scriptArgs '-a', 'allow-uri-read',
+                    '--base-dir', 'content', '--out-file',
                     "${project.ext.userHandbook}.pdf",
                     "${project.ext.userHandbook}.adoc"
     configuration 'asciidoctor'
@@ -237,6 +256,7 @@ task assemble {
                 fetchExamples,
                 fetchReleaseHistory,
                 prepareJavaScripts,
+                prepareFonts,
                 compileContent,
                 printBooks
 }
