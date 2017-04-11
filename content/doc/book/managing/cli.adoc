@@ -27,24 +27,28 @@ be convenient for scripting of routine tasks, bulk updates, troubleshooting,
 and more.
 
 The command line interface can be accessed over SSH or with the Jenkins CLI
-client, a `.jar` file distributed with Jenkins. The SSH approach is preferred
-over the CLI client as it is considered more secure.
+client, a `.jar` file distributed with Jenkins.
 
-////
-Background:
-23:19 <@rtyler> danielbeck: I'm writing CLI documentation, should I just encourage people to use SSH or stick with the default of jenkins-clir.jar?
-23:20 <@rtyler> we've told enough people to turn off the CLI over the past year...
-23:20 <@rtyler> :/
-23:21 <@danielbeck> it's probably better in general, but e.g. firewalls rules may require regular CLI use
-23:21 <@danielbeck> in any case, auth needs to use SSH keys
-////
+[WARNING]
+====
+Use of the CLI client distributed with Jenkins 2.53 and older
+is **not recommended** for security reasons:
+while there are no currently known vulnerabilities,
+several have been reported and patched in the past,
+and the Jenkins Remoting protocol it uses is inherently vulnerable to remote code execution bugs,
+even “preauthentication” exploits (by anonymous users able to physically access the Jenkins network).
 
+The client distributed with Jenkins 2.54 and newer
+is considered secure in its default (`-http`) or `-ssh` modes,
+as is using the standard `ssh` command.
+====
 
-== Using the CLI
+== Using the CLI over SSH
 
-By default Jenkins will boot with a randomly assigned SSH port, which
-administrators may choose to override in the <<system-configuration#ssh-server,
-Configure System>> page. In order to determine the randomly assigned SSH port,
+In a new Jenkins installation, the SSH service is disabled by default.
+Administrators may choose to set a specific port or ask Jenkins to pick a random port
+in the <<security#ssh-server, Configure Global Security>> page.
+In order to determine the randomly assigned SSH port,
 inspect the headers returned on a Jenkins URL, for example:
 
 [source]
@@ -63,7 +67,7 @@ Whichever user used for authentication with the Jenkins master must have the
 `Overall/Read` permission in order to _access_ the CLI. The user may require
 additional permissions depending on the commands executed.
 
-Whether using the CLI via SSH, or with the CLI client, both rely primarily on
+Authentication relies on
 SSH-based public/private key authentication. In order to add an SSH public key
 for the appropriate user, navigate to
 `https://JENKINS_URL/user/USERNAME/configure` and paste an SSH public key
@@ -182,12 +186,10 @@ Authorities:
 
 == Using the CLI client
 
-
-While the SSH-based CLI is preferred, there may be situations where the CLI
-client is a better fit. For example, the default transport for the CLI client
+While the SSH-based CLI is fast and covers most needs, there may be situations where the CLI
+client distributed with Jenkins is a better fit. For example, the default transport for the CLI client
 is HTTP which means no additional ports need to be opened in a firewall for its
 use.
-
 
 === Downloading the client
 
@@ -204,27 +206,81 @@ The general syntax for invoking the client is as follows:
 
 [source]
 ----
-java -jar jenkins-cli.jar [-s JENKINS_URL] command [options...] [arguments...]
+java -jar jenkins-cli.jar [-s JENKINS_URL] [global options...] command [command options...] [arguments...]
 ----
 
 The `JENKINS_URL` can be specified via the environment variable `$JENKINS_URL`.
+Summaries of other general options can be displayed by running the client with no arguments at all.
 
-[TIP]
-====
-The `JENKINS_URL` environment variable is automatically set when Jenkins forks a process
-during builds or Pipelines, allowing the use of the Jenkins CLI from inside a
-project without explicit configuration of the Jenkins URL.
-====
+=== Client connection modes
 
+There are three basic modes in which the 2.54+ client may be used, selectable by global option:
+`-http`; `-ssh`; and `-remoting`.
 
-=== Common Problems
+==== HTTP connection mode
+
+This is the default mode as of 2.54, though you may pass the `-http` option explicitly for clarity.
+
+Authentication is preferably with an `-auth` option, which takes a `username:apitoken` argument.
+Get your API token from `/me/configure`:
+
+[source]
+----
+java -jar jenkins-cli.jar [-s JENKINS_URL] -auth kohsuke:abc1234ffe4a command ...
+----
+
+(Actual passwords are also accepted, but this is discouraged.)
+
+You can also precede the argument with `@` to load the same content from a file:
+
+[source]
+----
+java -jar jenkins-cli.jar [-s JENKINS_URL] -auth @/home/kohsuke/.jenkins-cli command ...
+----
+
+==== SSH connection mode
+
+Authentication is via SSH keypair.
+You must select the Jenkins user ID as well:
+
+[source]
+----
+java -jar jenkins-cli.jar [-s JENKINS_URL] -ssh -user kohsuke command ...
+----
+
+In this mode, the client acts essentially like a native `ssh` command.
+
+==== Remoting connection mode
+
+This was the only mode supported by clients downloaded from a pre-2.54 Jenkins server
+(prior to the introduction of the `-remoting` option).
+Its use is deprecated for security and performance reasons.
+That said, certain commands or command modes can _only_ run in Remoting mode,
+typically because the command functionality involves running server-supplied code on the client machine.
+
+This mode is disabled on the server side for new installations of 2.54+.
+If you must use it, and accept the risks, it may be enabled in <<security, Configure Global Security>>.
+
+Authentication is preferably via SSH keypair.
+A `login` command and `--username` / `--password` command (note: *not global*) options are also available;
+these are discouraged since they cannot work with a non-password-based security realm,
+certain command arguments will not be properly parsed if anonymous users lack overall or job read access,
+and saving human-chosen passwords for use in scripts is considered insecure.
+
+Note that there are two transports available for this mode: over HTTP, or over a dedicated TCP socket.
+If the <<security#jnlp-tcp-port, TCP port is enabled>> and seems to work, the client will use this transport.
+If the TCP port is disabled, or such a port is advertised but does not accept connections
+(for example because you are using an HTTP reverse proxy with a firewall),
+the client will automatically fall back to the less efficient HTTP transport.
+
+===== Common Problems with the Remoting-based client
 
 There are a number of common problems that may be experienced when running the
 CLI client.
 
-==== Operation timed out
+====== Operation timed out
 
-Check that the HTTP or JNLP port is opened if you are using a firewall on your
+Check that the HTTP or TCP port is opened if you are using a firewall on your
 server.  You can configure its value in Jenkins configuration. By default it is
 set to use a random port.
 
@@ -247,7 +303,7 @@ Exception in thread "main" java.net.ConnectException: Operation timed out
     at hudson.cli.CLI.main(CLI.java:199)
 ----
 
-==== No X-Jenkins-CLI2-Port
+====== No X-Jenkins-CLI2-Port
 
 Go to *Manage Jenkins* > *Configure Global Security* and choose "Fixed" or
 "Random" under *TCP port for JNLP agents*.
