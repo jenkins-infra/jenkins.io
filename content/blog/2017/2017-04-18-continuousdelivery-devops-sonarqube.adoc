@@ -25,7 +25,7 @@ be uploaded after the quality gate was met. DevOps enabler tools covered are Jen
 
 === The Use Case
 You already know that quality cannot be injected after the fact, rather it should be part of the process and product from the very beginning. 
-As a commonly used good practice though it is strongly recommended to inspect the code and make findings visible, as soon as possible.
+As a commonly used good practice, it is strongly recommended to inspect the code and make findings visible, as soon as possible.
 For that link:http://www.sonarqube.com[SonarQube] is a great choice. But SonarQube is not just running on any isolated 
 island, it is integrated in a Delivery Pipeline. As part of the pipeline, the code is inspected, and only if the code is fine according to defined 
 requirements, in other words: it meets the quality gates, the built artifacts are uploaded to the binary repository manager. 
@@ -52,23 +52,23 @@ Yes, SonarQube is right, there is the issue with the following code snippet.
 image:/images/post-images/sonarqube-jenkins/03_FindingVisualizedInCode.png[role=center] 
 
 We do not want to discuss in detail all used tools, and also covering the complete Jenkins build job would be out of scope. 
-But the interesting extract here in regard of the inspection is the following:
+But the interesting extract here in regard of the inspection is the following _stage_ defined in Jenkins pipeline DSL:
 
 .config.xml: SonarQube inspection
 [[app-listing]]
 ----
     stage('SonarQube analysis') { // <1>
         withSonarQubeEnv('Sonar') { // <2>
-          sh 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.3.0.603:sonar  // <3>
-          -f all/pom.xml 
-          -Dsonar.projectKey=com.huettermann:all:master 
-          -Dsonar.login=$SONAR_UN 
-          -Dsonar.password=$SONAR_PW 
-          -Dsonar.language=java 
-          -Dsonar.sources=.
-          -Dsonar.tests=. 
-          -Dsonar.test.inclusions=**/*Test*/** 
-          -Dsonar.exclusions=**/*Test*/**'
+          sh 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.3.0.603:sonar ' + // <3>
+          '-f all/pom.xml ' + 
+          '-Dsonar.projectKey=com.huettermann:all:master ' + 
+          '-Dsonar.login=$SONAR_UN ' + 
+          '-Dsonar.password=$SONAR_PW ' + 
+          '-Dsonar.language=java ' + 
+          '-Dsonar.sources=. ' +
+          '-Dsonar.tests=. ' + 
+          '-Dsonar.test.inclusions=**/*Test*/** ' + 
+          '-Dsonar.exclusions=**/*Test*/**'
         }
     }
 ----   
@@ -78,7 +78,7 @@ But the interesting extract here in regard of the inspection is the following:
 
 [TIP]
 ====
-Many options are available to integrate and configure SonarQube. Please consult the documentation for alternatives.
+Many options are available to integrate and configure SonarQube. Please consult the documentation for alternatives. Same applies to the other covered tools.
 ====
 
 === SonarQube Quality Gate
@@ -90,26 +90,27 @@ pipeline until SonarQube analysis is completed and returns the quality gate stat
 .config.xml: SonarQube Quality Gate
 [[app-listing]]
 ----
-    stage("SonarQube Quality Gate"){ // <1>
+    stage("SonarQube Quality Gate") { // <1>
         timeout(time: 1, unit: 'HOURS') { // <2>  
-        def qg = waitForQualityGate() // <3>  
-        if (qg.status != 'OK') {
-           error "Pipeline aborted due to quality gate failure: ${qg.status}"
+           def qg = waitForQualityGate() // <3>  
+           if (qg.status != 'OK') {
+             error "Pipeline aborted due to quality gate failure: ${qg.status}"
+           }
         }
-      }
     }
 ---- 
 <1> The defined quality gate stage.
 <2> A timeout to define when to proceed without waiting for any results for ever.
-<3> Here we wait for the OK.
+<3> Here we wait for the OK. Underlying implementation is done with SonarQube's _webhooks_ feature.
 
 [NOTE]
 ====
-This blog post is an appetizer. For more information, please consult the respective documentation, or a good book, or the great community, or ask your local expert.
+This blog post is an appetizer, and scripts are excerpts. For more information, please consult the respective documentation, or a good book, or the great community, or ask your local expert.
 ====
 
 Since they all work in a wonderful Agile team, the next available colleague just promptly fixes the issue. After checking in 
 the fixed code, the build pipeline runs again. 
+
 image:/images/post-images/sonarqube-jenkins/04_PipelineFixedBlueOcean.png[role=center]
 
 
@@ -124,7 +125,8 @@ Also meta information are published to Artifactory, since it is the context whic
 stage ('Distribute binaries') { // <1>  
     def SERVER_ID = '4711' // <2> 
     def server = Artifactory.server SERVER_ID
-    def uploadSpec = """ // <3> 
+    def uploadSpec = // <3>
+    """  
     {
     "files": [
         {
@@ -142,7 +144,7 @@ stage ('Distribute binaries') { // <1>
 ---- 
 <1> The stage responsible for uploading the binary.
 <2> The server can be defined Jenkins wide, or as part of the build step, as done here.
-<3> In the upload spec, we define what to deploy to which target, in a fine-grained way.
+<3> In the upload spec, in JSON format, we define what to deploy to which target, in a fine-grained way.
 <4> The build info contains meta information attached to the artifact.
 <5> We want to capture environmental data.
 <6> Upload of artifact, according to upload spec.
