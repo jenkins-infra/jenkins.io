@@ -2,9 +2,16 @@ var didScroll;
 var lastScrollTop = 0;
 var delta = 50;
 
-$(window).scroll(function(event){
-    didScroll = true;
-});
+$(function () {
+  initToolTips();
+  $(window).scroll(function(event){
+      didScroll = true;
+  });
+})
+
+function initToolTips() {
+  $('[data-toggle="tooltip"]').tooltip();
+}
 
 setInterval(function() {
     if (didScroll) {
