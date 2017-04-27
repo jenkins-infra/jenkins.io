@@ -1,0 +1,113 @@
+---
+layout: section
+title: Pipeline Development Tools
+---
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:imagesdir: /doc/book/resources
+:hide-uri-scheme:
+
+= Pipeline Development Tools
+
+In this section, we'll discuss  a number of tools and resources
+that help speed development of Jenkins Pipelines.
+
+== Creating
+
+The
+<<getting-started#built-in-documentation, built-in documentation>> and the
+<<getting-started#snippet-generator, Snippet Generator>>
+are good place to start when developing Jenkins Pipeline.
+
+=== Blue Ocean Editor (Declarative only)
+
+The
+<<../blueocean/pipeline-editor#, Blue Ocean Pipeline Editor>> provides a WYSIWYG
+way to create Delcarative Pipelines.
+
+=== Pipeline Unit Testing Framework
+
+The link:https://github.com/lesfurets/JenkinsPipelineUnit[Pipeline Unit Testing Framework]
+allows you to
+link:https://en.wikipedia.org/wiki/Unit_testing[unit test]
+Pipelines and <<shared-libraries, global shared libraries>>
+before running them like.   It provides a mock execution environment where real
+Pipeline steps are replaced with mock objects that you can use to check for expected
+behavior.
+
+New and rough around the edges, but promising.
+
+
+== Debugging
+
+Debugging failures in Pipelines can be difficult and time consuming.
+
+=== Replay Modified Pipline Runs
+
+The "Replay" feature lets you quick test small modifications to a Pipeline
+without creating a new commit or following regular code creation.
+
+[WARNING]
+====
+When using this feature for larger modifications save your changes
+to a file or editor outside of Jenkins before running them.
+Syntax errors may cause a pipeline run to not allow that run to be replayed,
+preventing you from replaying that failed run, meaning your changes will be lost.
+====
+
+=== Command-line Pipeline Linter (Declarative only)
+
+Jenkins can validate, or
+"link:https://en.wikipedia.org/wiki/Lint_(software)[lint]",
+a Declarative Pipleline from the command line before running actually running it.
+This can be done using a Jenkins CLI command or using `curl` to post the Jenkinsfile directly.
+We recommended using the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+SSH[SSH interface]
+for running the linter.
+
+NOTE: See the Jenkins CLI documentation for details on how to properly configure
+Jenkins for secure command-line access.
+
+// link:https://www.owasp.org/index.php/Cross-Site_Request_Forgery_(CSRF)[CRSF] protection
+
+[source,bash]
+----
+# ssh (Jenkins CLI)
+# JENKINS_SSHD_PORT=[sshd port on master]
+# JENKINS_HOSTNAME=[Jenkins master hostname]
+ssh -p $JENKINS_SSHD_PORT $JENKINS_HOSTNAME declarative-linter < Jenkinsfile
+
+# curl (REST API)
+# Assuming "anonymous read access" has been enabled on your Jenkins instance.
+# JENKINS_URL=[root URL of Jenkins master]
+# JENKINS_CRUMB is needed if your Jenkins master has CRSF protection enabled as it should
+JENKINS_CRUMB=`curl "$JENKINS_URL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)"`
+curl -X POST -H $JENKINS_CRUMB -F "jenkinsfile=<Jenkinsfile" $JENKINS_URL/pipeline-model-converter/validate
+----
+
+==== Examples
+
+.Invalid Jenkinsfile
+[source,bash]
+----
+# pass a Jenkinsfile that does not contain an "agent" section
+ssh -p 8675 localhost declarative-linter < ./Jenkinsfile
+Errors encountered validating Jenkinsfile:
+WorkflowScript: 25: Not a valid section definition: 'agent'. Some extra configuration is required. @ line 25, column 1.
+   pipeline {
+   ^
+
+WorkflowScript: 25: Missing required section 'agent' @ line 25, column 1.
+   pipeline {
+   ^
+----
+
+.Valid Jenkinsfile
+[source,bash]
+----
+ssh -p 8675 localhost declarative-linter < ./Jenkinsfile
+Jenkinsfile successfully validated.
+----
