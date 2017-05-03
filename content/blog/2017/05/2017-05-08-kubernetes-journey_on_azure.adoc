@@ -1,0 +1,347 @@
+---
+layout: post
+title: "Kubernetes journey on Azure"
+tags:
+- automation
+- jenkins
+- puppet
+- kubernetes
+- docker
+author: olblak
+---
+
+= A kubernetes journey on Azure
+
+With the ongoing migration to an Azure ecosystem, I would like to share my thoughts about one of the biggest concern we faced about orchestrating container infrastructure.
+
+What would the workflow from dev to prod look like?
+
+Before going deeper in the workflow's challenges, we knew, from the start, that following subjects were very important.
+
+Git:: 
+  We found it mandatory to keep track of all the infrastructure changes in a Git repository (including secrets)
+  in order to facilitate reviewing, validation, rollback,... 
+
+Tests::
+  Jenkins infra contributors are geographicaly distributed and on different timezone.
+  Getting feedback can take time. So we relied a lot on tests before any changes +
+ 
+Automation::
+  The change submitter is not necessarly the person who will deploy it.
+  Repetitive tasks are error prone and a waste of time. +
+  For these reasons, all steps must be automated and stay as simple as possible.
+
+A generic workflow should like look this 
+
+----
+  __________       _________       ______________               
+  |         |      |        |      |             |
+  | Changes | ---->|  Test  |----->| Deployment  |
+  |_________|      |________|  ^   |_____________|                           
+                               | 
+                        ______________
+                       |             |
+                       | Validation  |
+                       |_____________|
+----
+
+
+We identified two main approaches:
+
+* The Jenkins Way: Jenkins is triggered by a git commit, runs the tests and after validation, Jenkins deploys changes into production.
+
+* The Puppet way: Jenkins is triggered by a git commit, runs the tests and after validation, it triggers puppet to deploys into production.
+
+Let's discuss these two approaches in details.
+
+== Jenkins way
+
+.Workflow 
+----
+  _________________       __________________       ______________               
+  |                |      |                 |      |             |
+  |    Github:     |      |   Jenkins:      |      | Jenkins:    |
+  | Commit trigger | ---->| Test&Validation | ---->| Deployment  |
+  |________________|      |_________________|      |_____________|                           
+----
+
+In this approach, Jenkins is used to test, validate and deploy our Kubernetes configuration files.  +
+Kubectl can be run on a directory and is idempotent. This means that we can run it as often as we want: the result will not change. +
+Theoretically, it's the simplest way. The only thing needed is to run 'kubectl' command each time Jenkins detects changes.
+
+The following Jenkinsfile gives an example of this workflow.
+
+.Jenkinsfile
+----
+  pipeline {
+    agent any
+    stages {
+      stage('Init'){
+        steps { 
+          sh 'curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl'
+        }
+      }
+      stage('Test'){
+        steps { 
+          sh 'Run tests'
+        }
+      }
+      stage('Deploy'){
+        steps { 
+          sh './kubectl apply -R true -f my_project'
+        }
+      }
+    }
+  }
+----
+
+As the devil is in the details, it was not as easy as it looked at first sight.
+We quickly faced several issues.
+
+===== Order matters
+
+Some resources needed to be deployed before others. +
+A workaround was to use numbers as file names. But this adds extra logic
+at file name level.
+  
+  Ex:
+    my_project/00-nginx-ingress
+    my_project/09-www.jenkins.io
+
+===== Portability
+
+The deployment environments needed to be the same across development machines and Jenkins host. +
+
+Even if it's a well known challenge, it was not easy to achieve. +
+The more the project grew, the more our scripts needed additional tools (Make, Bats, jq, gpg, ...). +
+The more tools we used, the more issues appeared because of the different versions used.
+
+Another challenge that emerged when dealing with different environments was, how to manage environment's specific configurations (dev, prod, ...)
+
+Is it better to define different configuration files per environment? But this means code duplications or using file templates that require more tools (sed, jinja2, erb). And more work.
+But less code to write and maintain.
+
+There isn't a golden rule and the answer is probably in between.
+
+In any case, the good news is that Jenkinsfile provides an easy way to execute tasks from a docker image. +
+Which image can contain all our environment. We can even use different docker images for each step. +
+
+In the following example, I use the `my_env` docker image. It contains all the tools needed to test, validate and deploy changes.
+
+.Jenkinsfile
+----
+pipeline{
+  agent {
+    docker{
+      image 'my_env:1.0'
+    }
+  }
+  options{
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    disableConcurrentBuilds()
+    timeout(time: 1, unit: 'HOURS')
+  }
+  triggers{
+    pollSCM('* * * * *')
+  }
+  stages{
+    stage('Init'){
+      steps{
+        // Init everything required to deploy our infra  
+        sh 'make init'
+      }
+    }
+    stage('Test'){
+      steps{
+       // Run tests to validate changes
+       sh 'make test'
+      }
+    }
+    stage('Deploy'){
+      steps{
+       // Deploy changes in production
+       sh 'make deploy'
+      }
+    }
+  }
+  post{
+    always {
+      sh 'make notify'
+    }
+  }
+}
+----
+
+===== Secret credentials
+
+Big subject that covers many concerns and is very hard to fulfill +
+For obvious reasons, we couldn't publish the credentials used within the infra project. +
+On the order side, we needed to keep track and share them. Particulary for the jenkins node that deploys our cluster. +
+This means that we needed a way to encrypt or decrypt those credentials depending on permissions, environments,... +
+We analyzed two different approaches to handle this
+
+  1. Storing secrets in a key management tool like https://azure.microsoft.com/en-us/services/key-vault/[Key Vault] or https://www.vaultproject.io/[Vault] and use them like a kubernetes "secret" type of resource. +
+    -> Unfortunately, these tools are not yet integrated in Kubernetes. But we may come back to this option later.
+    https://github.com/kubernetes/kubernetes/issues/10439[Kubernetes issue: 10439]
+
+  2. Publishing and encrypting using a public gpg key. +
+     This means that everybody can encrypt credentials for the infrastructure project but only the owner of the private key can decrypt credentials. +
+     This solution imply
+      * Scripting, as secrets need to be decrypted at deployment time.
+      * Templates, as secrets value will change depending on the environment. +
+     -> Each Jenkins node should only have the private key to decrypt secrets associated to its environment.
+
+===== Scripting
+
+Finally, it was hard to work without it. +
+Our initial Jenkinsfile, with only one `kubectl` command to run, became a bunch of scripts. +
+There were so many situations requiring additional steps.
+
+* Resources needed to be updated only in some situations
+* Secrets needed to be encrypted/decrypted
+* Tests needed to be run.
+* ...
+
+At the end, the amount of scripts used to deploy the kubernetes resources started to grow a lot. +
+And we started questioning ourself: "Aren't we reinventing the wheel?"
+
+== The Puppet way
+
+.Workflow 
+----
+  _________________       __________________       _____________               
+  |                |      |                 |      |            |
+  |    Github:     |      |   Jenkins:      |      | Puppet:    | 
+  | Commit trigger | ---->| Test&Validation | ---->| Deployment |
+  |________________|      |_________________|      |____________|
+----
+
+Puppet is used to template and deploy all kubernetes configurations files needed to orchestrate our cluster in a controlled workspace. +
+It is also used to automate basic operations like 'apply' or 'remove' resources based on file changed.
+
+.Puppet workflow
+----
+______________________
+|                     |
+|  Puppet Code:       | 
+|    .                |
+|    ├── apply.pp     |
+|    ├── kubectl.pp   |
+|    ├── params.pp    |
+|    └── resources    |
+|        ├── lego.pp  | 
+|        └── nginx.pp | 
+|_____________________|
+          |                                        _________________________________ 
+          |                                       |                                |
+          |                                       |  Host: Prod orchestrator       | 
+          |                                       |    /home/k8s/                  | 
+          |                                       |    .                           | 
+          |                                       |    └── resources               |  
+          | Puppet generate workspace             |        ├── lego                | 
+          └-------------------------------------->|        │   ├── configmap.yaml  | 
+            Puppet apply workspaces' resources on |        │   ├── deployment.yaml | 
+          ----------------------------------------|        │   └── namespace.yaml  |
+          |                                       |        └── nginx               | 
+          v                                       |            ├── deployment.yaml |  
+ ______________                                   |            ├── namespace.yaml  |
+ |     Azure:  |                                  |            └── service.yaml    |
+ | K8s Cluster |                                  |________________________________|  
+ |_____________|                                       
+    
+----
+
+The main benefit of this approach, is to let puppet manage the environment and run common tasks. +
+And if needed, we still have a place where we can go to run uncommon operations.
+
+In following example, we define one puppet class for Datadog. + 
+
+.Puppet class for resource Datadog
+----
+  1 # Deploy datadog resources on kubernetes cluster
+  2 #   Class: profile::kubernetes::resources::datadog
+  3 #
+  4 #   This class deploy a datadog agent on each kubernetes node
+  5 #
+  6 #   Parameters:
+  7 #     $apiKey:
+  8 #       Contain datadog api key.
+  9 #       Used in secret template
+ 10 class profile::kubernetes::resources::datadog (
+ 11     $apiKey = base64('encode', $::datadog_agent::api_key, 'strict')
+ 12   ){
+ 13   include ::stdlib
+ 14   include profile::kubernetes::params
+ 15   require profile::kubernetes::kubectl
+ 16
+ 17   file { "${profile::kubernetes::params::resources}/datadog":
+ 18     ensure => 'directory',
+ 19     owner  => $profile::kubernetes::params::user,
+ 20   }
+ 21
+ 22   profile::kubernetes::apply { 'datadog/secret.yaml':
+ 23     parameters => {
+ 24         'apiKey' => $apiKey
+ 25     },
+ 26   }
+ 27   profile::kubernetes::apply { 'datadog/daemonset.yaml':}
+ 28   profile::kubernetes::apply { 'datadog/deployment.yaml':}
+ 29
+ 30   # As secret's changes do not trigger pods update,
+ 31   # we must reload pods 'manually' in order to use updated secrets.
+ 32   # If we delete a pod defined by a daemonset,
+ 33   # this daemonset will recreate pods automatically.
+ 34   exec { 'Reload datadog pods':
+ 35     path        => ["${profile::kubernetes::params::bin}/"],
+ 36     command     => 'kubectl delete pods -l app=datadog',
+ 37     refreshonly => true,
+ 38     environment => ["KUBECONFIG=${profile::kubernetes::params::home}/.kube/config"] ,
+ 39     logoutput   => true,
+ 40     subscribe   => [
+ 41       Exec['apply datadog/secret.yaml'],
+ 42       Exec['apply datadog/daemonset.yaml'],
+ 43     ],
+ 44   }
+ 45 }
+----
+-> https://github.com/jenkins-infra/jenkins-infra/tree/staging/dist/profile/manifests/kubernetes/resources[More resources examples],
+
+Let's compare the puppet approach with a full jenkins approach.
+
+===== Order matter
+With the puppet approach, it becomes easier to define priorities as
+puppet provides relationship meta parameters and the function 'require' +
+-> https://docs.puppet.com/puppet/4.9/lang_relationships.html[Puppet-relationships]
+
+In our Datadog example, we are sure that deployment will respect following order: +
+  datadog/secret.yaml -> datadog/daemonset.yaml -> datadog/deployment.yaml
+
+Remark: Currently, Jenkins puppet code only applies configuration when it detects files’ changes. +
+But it would be better to compare local files with the cluster configurations in order to trigger required updates. +
+We didn't find a good way to do it yet.
+
+===== Portability
+As puppet is used to configure working environments, it becomes easier to be sure that all tools are present and correctly configured.
+It's also easier to replicate environments and run tests on them with tools like http://rspec-puppet.com/[Rpec-puppet], http://serverspec.org/[Serverspec] or https://www.vagrantup.com/[Vagrant]
+
+In our Datadog example, we can easily change the datadog api key depending the environment.
+
+===== Secret credentials
+As we were already using encrypted Hiera with puppet, we decided to continue to use it.
+
+===== Scripting
+Of course puppet DSL is used. +
+And even if it seems harder at the beginning, 
+Puppet simplifies a lot the management of kubernetes configurations files.
+
+== Conclusion
+It was much easier to bootstrap the project with a full CI workflow as long as the kubernetes project stays basic. +
+
+But as soon as the project grew and we started deploying different applications per environment, with different configurations,... +
+It became easier to delegate kubernetes configuration files management to puppet.
+
+Remarks: If you have any comments feel free to send a message on mailto:jenkins-infra@lists.jenkins-ci.org[Jenkins Infra mailing list]
+
+
+== Thanks
+Thanks Lindsay Vanheyste, Jean Marc Meessen and Damien Duportal for their feedbacks.
