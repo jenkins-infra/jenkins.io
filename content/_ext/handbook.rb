@@ -49,7 +49,7 @@ module Awestruct
         # We need a map of source files to their Awestruct::Page to avoid
         # re-rendering things too much in the process of generating this page
         pagemap = site.pages.map { |p| [p.source_path, p] }.to_h
-        book_file = File.join(@book_dir, "book.yml")
+        book_file = File.join(@book_dir, "_book.yml")
 
         book_yaml = YAML.load(File.read(book_file))
 
@@ -57,7 +57,7 @@ module Awestruct
 
         chapters.each do |c|
           dir = File.join(@book_dir, c)
-          file = File.join(dir, 'chapter.yml')
+          file = File.join(dir, '_chapter.yml')
           overview = File.join(dir, 'index.adoc')
 
           # Without an chapter file and overview page, there's no point in attempting to add
