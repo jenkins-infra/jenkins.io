@@ -54,7 +54,7 @@ We identified two main approaches:
 
 Let's discuss these two approaches in details.
 
-== Jenkins way
+== The Jenkins way
 
 .Workflow 
 ----
@@ -174,11 +174,11 @@ pipeline{
 
 ===== Secret credentials
 
-Big subject that covers many concerns and is very hard to fulfill +
+Big subject that covers many concerns and is very hard to fulfill. +
 For obvious reasons, we couldn't publish the credentials used within the infra project. +
-On the order side, we needed to keep track and share them. Particulary for the jenkins node that deploys our cluster. +
+On the other side, we needed to keep track and share them. Particulary for the jenkins node that deploys our cluster. +
 This means that we needed a way to encrypt or decrypt those credentials depending on permissions, environments,... +
-We analyzed two different approaches to handle this
+We analyzed two different approaches to handle this:
 
   1. Storing secrets in a key management tool like https://azure.microsoft.com/en-us/services/key-vault/[Key Vault] or https://www.vaultproject.io/[Vault] and use them like a kubernetes "secret" type of resource. +
     -> Unfortunately, these tools are not yet integrated in Kubernetes. But we may come back to this option later.
@@ -186,7 +186,7 @@ We analyzed two different approaches to handle this
 
   2. Publishing and encrypting using a public gpg key. +
      This means that everybody can encrypt credentials for the infrastructure project but only the owner of the private key can decrypt credentials. +
-     This solution imply
+     This solution implies
       * Scripting, as secrets need to be decrypted at deployment time.
       * Templates, as secrets value will change depending on the environment. +
      -> Each Jenkins node should only have the private key to decrypt secrets associated to its environment.
@@ -258,57 +258,57 @@ In following example, we define one puppet class for Datadog. +
 
 .Puppet class for resource Datadog
 ----
-  1 # Deploy datadog resources on kubernetes cluster
-  2 #   Class: profile::kubernetes::resources::datadog
-  3 #
-  4 #   This class deploy a datadog agent on each kubernetes node
-  5 #
-  6 #   Parameters:
-  7 #     $apiKey:
-  8 #       Contain datadog api key.
-  9 #       Used in secret template
- 10 class profile::kubernetes::resources::datadog (
- 11     $apiKey = base64('encode', $::datadog_agent::api_key, 'strict')
- 12   ){
- 13   include ::stdlib
- 14   include profile::kubernetes::params
- 15   require profile::kubernetes::kubectl
- 16
- 17   file { "${profile::kubernetes::params::resources}/datadog":
- 18     ensure => 'directory',
- 19     owner  => $profile::kubernetes::params::user,
- 20   }
- 21
- 22   profile::kubernetes::apply { 'datadog/secret.yaml':
- 23     parameters => {
- 24         'apiKey' => $apiKey
- 25     },
- 26   }
- 27   profile::kubernetes::apply { 'datadog/daemonset.yaml':}
- 28   profile::kubernetes::apply { 'datadog/deployment.yaml':}
- 29
- 30   # As secret's changes do not trigger pods update,
- 31   # we must reload pods 'manually' in order to use updated secrets.
- 32   # If we delete a pod defined by a daemonset,
- 33   # this daemonset will recreate pods automatically.
- 34   exec { 'Reload datadog pods':
- 35     path        => ["${profile::kubernetes::params::bin}/"],
- 36     command     => 'kubectl delete pods -l app=datadog',
- 37     refreshonly => true,
- 38     environment => ["KUBECONFIG=${profile::kubernetes::params::home}/.kube/config"] ,
- 39     logoutput   => true,
- 40     subscribe   => [
- 41       Exec['apply datadog/secret.yaml'],
- 42       Exec['apply datadog/daemonset.yaml'],
- 43     ],
- 44   }
- 45 }
+# Deploy datadog resources on kubernetes cluster
+#   Class: profile::kubernetes::resources::datadog
+#
+#   This class deploy a datadog agent on each kubernetes node
+#
+#   Parameters:
+#     $apiKey:
+#       Contain datadog api key.
+#       Used in secret template
+class profile::kubernetes::resources::datadog (
+    $apiKey = base64('encode', $::datadog_agent::api_key, 'strict')
+  ){
+  include ::stdlib
+  include profile::kubernetes::params
+  require profile::kubernetes::kubectl
+
+  file { "${profile::kubernetes::params::resources}/datadog":
+    ensure => 'directory',
+    owner  => $profile::kubernetes::params::user,
+  }
+
+  profile::kubernetes::apply { 'datadog/secret.yaml':
+    parameters => {
+        'apiKey' => $apiKey
+    },
+  }
+  profile::kubernetes::apply { 'datadog/daemonset.yaml':}
+  profile::kubernetes::apply { 'datadog/deployment.yaml':}
+
+  # As secret's changes do not trigger pods update,
+  # we must reload pods 'manually' in order to use updated secrets.
+  # If we delete a pod defined by a daemonset,
+  # this daemonset will recreate pods automatically.
+  exec { 'Reload datadog pods':
+    path        => ["${profile::kubernetes::params::bin}/"],
+    command     => 'kubectl delete pods -l app=datadog',
+    refreshonly => true,
+    environment => ["KUBECONFIG=${profile::kubernetes::params::home}/.kube/config"] ,
+    logoutput   => true,
+    subscribe   => [
+      Exec['apply datadog/secret.yaml'],
+      Exec['apply datadog/daemonset.yaml'],
+    ],
+  }
+}
 ----
--> https://github.com/jenkins-infra/jenkins-infra/tree/staging/dist/profile/manifests/kubernetes/resources[More resources examples],
+-> https://github.com/jenkins-infra/jenkins-infra/tree/staging/dist/profile/manifests/kubernetes/resources[More resources examples]
 
-Let's compare the puppet approach with a full jenkins approach.
+Let's compare the Puppet approach with a full Jenkins approach.
 
-===== Order matter
+===== Order matters
 With the puppet approach, it becomes easier to define priorities as
 puppet provides relationship meta parameters and the function 'require' +
 -> https://docs.puppet.com/puppet/4.9/lang_relationships.html[Puppet-relationships]
