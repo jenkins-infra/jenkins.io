@@ -78,6 +78,9 @@ module Awestruct
               section = Section.new
               section.key = s
               full_path = File.join(dir, "#{s}.adoc")
+              unless File.exist?(full_path)
+                raise "Could not find section file #{s}.adoc in #{dir}."
+              end
               section.page = pagemap[full_path]
               section.title = pagemap[full_path].title
               section.summary = pagemap[full_path].summary
@@ -90,6 +93,9 @@ module Awestruct
               guide = Guide.new
               guide.key = g
               full_path = File.join(dir, "#{g}.adoc")
+              unless File.exist?(full_path)
+                raise "Could not find guide file #{g}.adoc in #{dir}."
+              end
               guide.page = pagemap[full_path]
               chapter.guides << guide
               guide.chapter = chapter
