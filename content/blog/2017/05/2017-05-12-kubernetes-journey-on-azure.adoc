@@ -18,27 +18,27 @@ What would the workflow from dev to prod look like?
 
 Before going deeper in the workflow's challenges, we knew, from the start, that following subjects were very important.
 
-Git:: 
+Git::
   We found it mandatory to keep track of all the infrastructure changes in a Git repository (including secrets)
-  in order to facilitate reviewing, validation, rollback,... 
+  in order to facilitate reviewing, validation, rollback,...
 
 Tests::
   Jenkins infra contributors are geographicaly distributed and on different timezone.
   Getting feedback can take time. So we relied a lot on tests before any changes +
- 
+
 Automation::
   The change submitter is not necessarly the person who will deploy it.
   Repetitive tasks are error prone and a waste of time. +
   For these reasons, all steps must be automated and stay as simple as possible.
 
-A generic workflow should like look this 
+A generic workflow should like look this
 
 ----
-  __________       _________       ______________               
+  __________       _________       ______________
   |         |      |        |      |             |
   | Changes | ---->|  Test  |----->| Deployment  |
-  |_________|      |________|  ^   |_____________|                           
-                               | 
+  |_________|      |________|  ^   |_____________|
+                               |
                         ______________
                        |             |
                        | Validation  |
@@ -56,13 +56,13 @@ Let's discuss these two approaches in details.
 
 == The Jenkins way
 
-.Workflow 
+.Workflow
 ----
-  _________________       __________________       ______________               
+  _________________       __________________       ______________
   |                |      |                 |      |             |
   |    Github:     |      |   Jenkins:      |      | Jenkins:    |
   | Commit trigger | ---->| Test&Validation | ---->| Deployment  |
-  |________________|      |_________________|      |_____________|                           
+  |________________|      |_________________|      |_____________|
 ----
 
 In this approach, Jenkins is used to test, validate and deploy our Kubernetes configuration files.  +
@@ -77,17 +77,17 @@ The following Jenkinsfile gives an example of this workflow.
     agent any
     stages {
       stage('Init'){
-        steps { 
+        steps {
           sh 'curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl'
         }
       }
       stage('Test'){
-        steps { 
+        steps {
           sh 'Run tests'
         }
       }
       stage('Deploy'){
-        steps { 
+        steps {
           sh './kubectl apply -R true -f my_project'
         }
       }
@@ -103,7 +103,7 @@ We quickly faced several issues.
 Some resources needed to be deployed before others. +
 A workaround was to use numbers as file names. But this adds extra logic
 at file name level.
-  
+
   Ex:
     my_project/00-nginx-ingress
     my_project/09-www.jenkins.io
@@ -147,7 +147,7 @@ pipeline{
   stages{
     stage('Init'){
       steps{
-        // Init everything required to deploy our infra  
+        // Init everything required to deploy our infra
         sh 'make init'
       }
     }
@@ -207,11 +207,11 @@ And we started questioning ourself: "Aren't we reinventing the wheel?"
 
 == The Puppet way
 
-.Workflow 
+.Workflow
 ----
-  _________________       __________________       _____________               
+  _________________       __________________       _____________
   |                |      |                 |      |            |
-  |    Github:     |      |   Jenkins:      |      | Puppet:    | 
+  |    Github:     |      |   Jenkins:      |      | Puppet:    |
   | Commit trigger | ---->| Test&Validation | ---->| Deployment |
   |________________|      |_________________|      |____________|
 ----
@@ -223,38 +223,38 @@ It is also used to automate basic operations like 'apply' or 'remove' resources 
 ----
 ______________________
 |                     |
-|  Puppet Code:       | 
+|  Puppet Code:       |
 |    .                |
 |    ├── apply.pp     |
 |    ├── kubectl.pp   |
 |    ├── params.pp    |
 |    └── resources    |
-|        ├── lego.pp  | 
-|        └── nginx.pp | 
+|        ├── lego.pp  |
+|        └── nginx.pp |
 |_____________________|
-          |                                        _________________________________ 
+          |                                        _________________________________
           |                                       |                                |
-          |                                       |  Host: Prod orchestrator       | 
-          |                                       |    /home/k8s/                  | 
-          |                                       |    .                           | 
-          |                                       |    └── resources               |  
-          | Puppet generate workspace             |        ├── lego                | 
-          └-------------------------------------->|        │   ├── configmap.yaml  | 
-            Puppet apply workspaces' resources on |        │   ├── deployment.yaml | 
+          |                                       |  Host: Prod orchestrator       |
+          |                                       |    /home/k8s/                  |
+          |                                       |    .                           |
+          |                                       |    └── resources               |
+          | Puppet generate workspace             |        ├── lego                |
+          └-------------------------------------->|        │   ├── configmap.yaml  |
+            Puppet apply workspaces' resources on |        │   ├── deployment.yaml |
           ----------------------------------------|        │   └── namespace.yaml  |
-          |                                       |        └── nginx               | 
-          v                                       |            ├── deployment.yaml |  
+          |                                       |        └── nginx               |
+          v                                       |            ├── deployment.yaml |
  ______________                                   |            ├── namespace.yaml  |
  |     Azure:  |                                  |            └── service.yaml    |
- | K8s Cluster |                                  |________________________________|  
- |_____________|                                       
-    
+ | K8s Cluster |                                  |________________________________|
+ |_____________|
+
 ----
 
 The main benefit of this approach, is to let puppet manage the environment and run common tasks. +
 And if needed, we still have a place where we can go to run uncommon operations.
 
-In following example, we define one puppet class for Datadog. + 
+In following example, we define one puppet class for Datadog. +
 
 .Puppet class for resource Datadog
 ----
@@ -331,7 +331,7 @@ As we were already using encrypted Hiera with puppet, we decided to continue to 
 
 ===== Scripting
 Of course puppet DSL is used. +
-And even if it seems harder at the beginning, 
+And even if it seems harder at the beginning,
 Puppet simplifies a lot the management of kubernetes configurations files.
 
 == Conclusion
