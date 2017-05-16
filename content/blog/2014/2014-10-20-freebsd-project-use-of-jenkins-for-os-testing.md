@@ -22,7 +22,7 @@ and [Bhyve](http://bhyve.org/).
 [Kyua](https://github.com/jmmv/kyua#readme) is a testing framework for infrastructure software.
 [Bhyve](http://bhyve.org/) is the native hypervisor that comes with FreeBSD (similar to KVM on Linux).
 
-We use the [Build Flow plugin](https://wiki.jenkins-ci.org/display/JENKINS/Build+Flow+Plugin) in this [example Build flow](https://jenkins.freebsd.org/jenkins/view/FreeBSD_src_stable/job/FreeBSD_stable_10/848/BuildGraph/)	 to do the following:
+We use the [Build Flow plugin](https://wiki.jenkins-ci.org/display/JENKINS/Build+Flow+Plugin) in this [example Build flow](https://ci.freebsd.org/job/FreeBSD-head-amd64-build/)	 to do the following:
 
 1. Build the FreeBSD kernel and userland on amd64 whenever someone checks in new code to http://svn.freebsd.org
 2. Create a bootable FreeBSD disk image with [makefs](https://www.freebsd.org/cgi/man.cgi?query=makefs)
@@ -35,7 +35,7 @@ We use the [Build Flow plugin](https://wiki.jenkins-ci.org/display/JENKINS/Build
 
 5. Shut down the bhyve VM
 6. Imports test-output.xml into Jenkins.
-7. Produces a [full native test report in Jenkins](https://jenkins.freebsd.org/jenkins/job/FreeBSD_stable_10-tests/4/testReport/)
+7. Produces a [full native test report in Jenkins](https://ci.freebsd.org/job/FreeBSD-head-amd64-test/3069/testReport/)
 
 The results of this work were presented at the [Bay Area FreeBSD Users Group](http://bafug.org)
 in [this presentation](http://www.slideshare.net/CraigRodrigues1/kyua-jenkins) in October 2014.
