@@ -12,11 +12,9 @@ author: lnewman
 NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
 Technical Evangelist at link:https://cloudbees.com[CloudBees].
 
-== Pipeline as code, made easier
-
 I've only been working with Pipeline for about a year.
-Pipeline in and of itself is a huge improvement over old style Jenkins projects.
-As a developer, it has been so great be able work with Jenkins projects
+Pipeline in and of itself has been a huge improvement over old-style Jenkins projects.
+As a developer, it has been so great be able work with Jenkins Pipelines
 using the same tools I use for writing any other kind of code.
 
 I've also found a number of tools that are super helpful specifically
@@ -44,11 +42,135 @@ video::5Nct-jrZBbM[youtube]
 One of the neat features of the Blue Ocean Pipeline Editor is that it does basic
 validation on our Declarative Pipelines before they are even committed or Run.
 This feature is based on the
-"link:https://en.wikipedia.org/wiki/Lint_(software)[Declarative Pipeline Linter]",
+<</doc/book/pipeline/development#linter, Declarative Pipeline Linter>>
 which can be accessed from the command-line even if you don't have Blue Ocean
 installed.
 
-// TODO: Show two examples using the linter
+When I was working on the
+<</blog/2017/02/10/declarative-html-publisher, Declarative Pipeline: Publishing HTML Reports>>
+blog post, I was still learning the declarative syntax and I made a lot lot of mistakes.
+Getting quick feedback about the whether my Pipeline was in a sane state made writing that blog much easier.
+I wrote a simple shell script that would run my Jenkinsfile through the Declarative Pipeline Linter.
+
+.pipelint.sh - Linting via HTTP POST using `curl`
+[source,bash]
+----
+# curl (REST API)
+# User
+JENKINS_USER=bitwisenote-jenkins1
+
+# Api key from "/me/configure" on my Jenkins instance
+JENKINS_USER_KEY=--my secret, get your own--
+
+# Url for my local Jenkins instance.
+JENKINS_URL=http://$JENKINS_USER:$JENKINS_USER_KEY@localhost:32769 # <1>
+
+# JENKINS_CRUMB is needed if your Jenkins master has CRSF protection enabled (which it should)
+JENKINS_CRUMB=`curl "$JENKINS_URL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)"`
+curl -X POST -H $JENKINS_CRUMB -F "jenkinsfile=<Jenkinsfile" $JENKINS_URL/pipeline-model-converter/validate
+----
+<1> This is not secure.  I'm running this locally only.
+See <</doc/book/managing/cli, Jenkins CLI>> for details on how to do this securely.
+
+With this script, I was able to find the error in this this Pipeline without
+having to take the time to run it in Jenkins: (Can you spot the mistake?)
+
+[source, groovy, linenums]
+----
+#!groovy
+
+pipeline {
+  agent {
+    // Use docker container
+    docker {
+      image 'ruby:2.3'
+    }
+  }
+  options {
+    // Only keep the 10 most recent builds
+    buildDiscarder(logRotator(numToKeepStr:'10'))
+  }
+  stages {
+    stage ('Install') {
+      steps {
+        // install required bundles
+        sh 'bundle install'
+      }
+    }
+    stage ('Build') {
+      steps {
+        // build
+        sh 'bundle exec rake build'
+      }
+
+      post {
+        success {
+          // Archive the built artifacts
+          archive includes: 'pkg/*.gem'
+        }
+      }
+    }
+    stage ('Test') {
+      step {
+        // run tests with coverage
+        sh 'bundle exec rake spec'
+      }
+
+      post {
+        success {
+          // publish html
+          publishHTML target: [
+              allowMissing: false,
+              alwaysLinkToLastBuild: false,
+              keepAll: true,
+              reportDir: 'coverage',
+              reportFiles: 'index.html',
+              reportName: 'RCov Report'
+            ]
+        }
+      }
+    }
+  }
+  post {
+    always {
+      echo "Send notifications for result: ${currentBuild.result}"
+    }
+  }
+}
+----
+
+When I ran my `pipelint.sh` script on this pipeline it reported this error:
+
+[source]
+----
+$ pipelint.sh
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    46  100    46    0     0   3831      0 --:--:-- --:--:-- --:--:--  4181
+Errors encountered validating Jenkinsfile:
+WorkflowScript: 34: Unknown stage section "step". Starting with version 0.5, steps in a stage must be in a steps block. @ line 34, column 5.
+       stage ('Test') {
+       ^
+
+WorkflowScript: 34: Nothing to execute within stage "Test" @ line 34, column 5.
+       stage ('Test') {
+       ^
+----
+
+Doh. I forgot the "s" on `steps` on line 35. Once I added the "s" and ran
+`pipelint.sh` again, I got an all clear.
+
+
+[source]
+----
+$ pipelint.sh
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    46  100    46    0     0   5610      0 --:--:-- --:--:-- --:--:--  5750
+Jenkinsfile successfully validated.
+----
+
+This didn't mean there weren't other errors, but for a two second smoke test I'll take it.
 
 == Replay
 
@@ -59,13 +181,13 @@ of possible Pipeline changes.
 The Replay feature let's me do that and see the results,
 without committing those changes to source control.
 
-// TODO: Example where I used Replay to debug an issue in a Pipeline
+
+
 
 
 Now that I've worked all the bugs out of my Pipeline,
 I'll use Replay to view the Pipeline for the last run and copy it back to my
 `Jenkinsfile` and create a commit for that change.
-
 
 == Conclusion
 
@@ -79,7 +201,10 @@ It's been a fun year and I can't wait to see what the next year holds for Pipeli
 
 
 ====
+How do you work with Pipeline?
 Do you have a tool that you feel has greatly improved your development experience
 with Pipeline?  I'm interested in hear about others Jenkins user's favorite ways
-of working with Pipeline.  Drop me a email or join the discussion on IRC.
+of working with Pipeline.  Drop me a line via
+link:mail:bitwiseman@gmail.com[email] or on the
+link:http://webchat.freenode.net/?channels=jenkins[#jenkins] IRC channel.
 ====
