@@ -16,7 +16,7 @@ The repository has four directories:
 
 *  `docs/` - documentation, guides, and more. Including a [Best Practices document](https://github.com/jenkinsci/workflow-examples/blob/master/docs/BEST_PRACTICES.md). We'd love to see more contributions to that doc, as well as any new ones that would be helpful to Workflow users!
 *  `workflow-examples/` - general Workflow examples, showing how to use a given plugin with Workflow, quirks of the Workflow DSL syntax, and more.
-*  `global-library-examples/` - examples of how to write code for [the Workflow global library](https://github.com/jenkinsci/workflow-plugin/blob/master/cps-global-lib/README.md).
+*  `global-library-examples/` - examples of how to write code for [the Workflow global library](https://github.com/jenkinsci/workflow-cps-global-lib-plugin).
 *  `jenkinsfile-examples/` - Sample [Jenkinsfiles](https://github.com/jenkinsci/workflow-plugin/blob/master/TUTORIAL.md#creating-multibranch-projects) or other Workflow scripts from SCM .
 
 During [Hacksgiving](/content/hacksgiving-left-overs) some initial content was added, but not everything is covered yet, which is why I'm posting this - more is needed. We'd love to see your tips, examples, gotchas and more. If you've got Workflow scripts you'd like to contribute, please read the [README](https://github.com/jenkinsci/workflow-examples#introduction) and send a [pull request](https://github.com/jenkinsci/workflow-examples/pulls). Thanks!

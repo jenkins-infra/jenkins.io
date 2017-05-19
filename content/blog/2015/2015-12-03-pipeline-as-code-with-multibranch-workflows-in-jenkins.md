@@ -68,7 +68,7 @@ Just having this file in the source code repo root would mean that -
 * Every time a new change is pushed to this branch, the branch is built and the commit status gets updated.
 * When the branch is destroyed in the repository, or if Jenkinsfile is removed, the corresponding job gets destroyed from Jenkins automatically (_You can retain these jobs and/or archive the builds for audit/compliance requirements using the retention property - Orphan Item strategy_)
 
-*Note:* there are various mechanisms to promote reuse of Workflow scripts, such as the [Workflow Global Library](https://github.com/jenkinsci/workflow-plugin/blob/master/cps-global-lib/README.md).
+*Note:* there are various mechanisms to promote reuse of Workflow scripts, such as the [Workflow Global Library](https://github.com/jenkinsci/workflow-cps-global-lib-plugin).
 
 
 ### Required Jenkins configuration
@@ -153,4 +153,4 @@ The demo container has a local git repo so you can clone: `git://localhost/repo`
 * [Developer blog by jglick introducing multibranch support](http://developer-blog.cloudbees.com/2015/08/workflow-19-and-multibranch-beta.html)
 * [workflow plugin tutorial](https://github.com/jenkinsci/workflow-plugin/blob/master/TUTORIAL.md)
 * [workflow plugin presentations](https://github.com/jenkinsci/workflow-plugin#presentations)
-* [workflow plugin readme](https://github.com/jenkinsci/workflow-plugin/blob/master/demo/README.md)
+* [workflow plugin demo readme](https://github.com/jenkinsci/workflow-aggregator-plugin/tree/master/demo)
