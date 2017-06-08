@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# This script is meant to be added to the PATH so the latest azure-cli is
+# always ready to use
+
+set +x
+
+CONTAINER_NAME=azuresdk/azure-cli-python:0.1.5
+
+pull_container() {
+    docker pull ${CONTAINER_NAME}
+}
+
+# Pull down the container if we don't already have it
+docker inspect ${CONTAINER_NAME} > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    pull_container
+fi;
+
+# http://blog.dscpl.com.au/2015/12/unknown-user-when-running-docker.html
+# Passing LOGNAME and USER because the acs component in the azure-cli does some
+# user lookup
+
+exec docker run --rm  -u "$(id -u):$(id -u)" \
+    -v "${HOME}/.azure:/.azure" \
+    -e LOGNAME="$LOGNAME" \
+    -e USER="$USER" \
+    -v "$PWD:/data" \
+    -t \
+    --workdir=/data \
+    "${CONTAINER_NAME}" /usr/local/bin/az "$@"

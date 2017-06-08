@@ -5,6 +5,8 @@ def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
 ]
 
+def azure_storageaccount_name = 'prodjenkinsio'
+
 if (!env.CHANGE_ID) {
     if (env.BRANCH_NAME == null) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
@@ -97,6 +99,12 @@ try {
                     sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
                 }
             }
+        }
+    }
+
+    if (infra.isTrusted()) {
+        stage('Publish on Azure file') {
+            sh './scripts/az storage file upload-batch --account-name ${azure_storageaccount_name} -d jenkinsio -s /data/build/_site'
         }
     }
 }
