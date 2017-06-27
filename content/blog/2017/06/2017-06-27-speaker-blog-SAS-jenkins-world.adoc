@@ -11,19 +11,18 @@ NOTE: This is a guest post by Brent Laster, Senior Manager, Research and Develop
 link:https://www.sas.com/en_us/home.html[SAS].
 
 Jenkins pipelines have fundamentally changed how users can orchestrate their pipelines and workflows.
-Essentially, anything that you can do in a script or program can now be done in a Jenkinsfile or in a pipeline script created within the application.
+Essentially, anything that you can do in a script or program can now be done in a `Jenkinsfile` or in a pipeline script created within the application.
 But just because you can do nearly anything directly in those mechanisms doesn’t mean you necessarily should.
-
 
 In some cases, it’s better to abstract the functionality out separately from your main pipeline.
 Previously, the main way to do this with functionality targeted for Jenkins itself was through creating plugins.
 With Jenkins 2 and the tight incorporation of pipelines, we now have another approach that can be easily used – shared libraries.
 
-[IMPORTANT]
+[WARNING]
 --
 Brent will be
-link:link:https://jenkinsworld20162017.sched.com/event/ALMq/extending-your-pipeline-with-shared-libraries-global-functions-and-external-code[presenting] more
-of this topic at link:https://www.cloudbees.com/jenkinsworld/home[Jenkins World] in
+link:https://jenkinsworld20162017.sched.com/event/ALMq/extending-your-pipeline-with-shared-libraries-global-functions-and-external-code[presenting]
+more of this topic at link:https://www.cloudbees.com/jenkinsworld/home[Jenkins World] in
 August, register with the code `JWFOSS` for a 20% discount off your pass.
 --
 
@@ -60,26 +59,26 @@ Let’s look at a simple function that we can create for a shared library.
 In this case, we’ll just wrap picking up the location of the Gradle installation from Jenkins and calling the corresponding executable with whatever tasks are passed in as arguments.
 The code is below:
 
-```
+[source, groovy]
+----
 def call(args) {
       sh "${tool 'gradle3'}/bin/gradle ${args}"
 }
-```
+----
 
 Notice that we are using a structured form here with the def call syntax.
 This allows us to simply invoke the routine in our pipeline (assuming we have loaded the shared library) based on the name of the file in the vars area.
 For example, if we named this file *gbuild.groovy*, then we could invoke it in our pipeline via a step like
 
-```
+[source, groovy]
+----
 gbuild ‘clean compileJava’
-```
+----
 
 So how do we get our shared library loaded to use with our pipeline? The shared library itself is just the code in the structure outlined above committed/pushed into a source code repository that Jenkins can access.
 In our example, we’ll assume we’ve staged, committed, and pushed this code into a local Git repository on the system at _/opt/git/shared-library.git_.
 
-
 Like most other things in Jenkins, we need to first tell Jenkins where this shared library can be found and how to reference it “globally” so that pipelines can reference it specifically.
-
 
 First, though, you need to decide at what scope you want this shared library to be available.
 The most common case is making it a “global shared library” so that all pipelines can access it.
@@ -107,7 +106,8 @@ So our basic step to load the library in a pipeline would be:
 Based on this step, when Jenkins runs the pipeline, it will first go out to the repository that holds the shared-library and clone down a copy to use.
 The relevant section from the *console log* during that part of the pipeline execution would look something like this:
 
-```
+[source]
+----
 Loading library Utilities2@master
  > git rev-parse --is-inside-work-tree # timeout=10
 Setting origin to /opt/git/shared-libraries
@@ -121,11 +121,12 @@ using GIT_SSH to set credentials Jenkins2 SSH
  > git rev-parse origin/master^{commit} # timeout=10
 Cloning the remote Git repository
 Cloning repository /opt/git/shared-libraries
-```
+----
 
 At this point then, the pipeline can call our shared library function *gbuild* and translate it to the desired Gradle build commands.
 
-```
+[source]
+----
 First time build.
 Skipping changelog.
 [Pipeline] }
@@ -138,7 +139,7 @@ Skipping changelog.
 Running shell script
 + /usr/share/gradle/bin/gradle clean compileJava -x test
 Starting a Gradle Daemon (subsequent builds will be faster)
-```
+----
 
 This is a very basic illustration of how using shared libraries work.
 There is much more detail and functionality surrounding shared libraries, and extending your pipeline in general, than we can cover here.
