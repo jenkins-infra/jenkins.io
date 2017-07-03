@@ -1,0 +1,142 @@
+---
+layout: section
+---
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:hide-uri-scheme:
+:imagesdir: /doc/book/resources
+
+= In-process Script Approval
+
+Jenkins, and a number of plugins, allow users to execute
+Groovy scripts _in_ Jenkins. These scripting capabilities are provided by:
+
+* <<script-console#, Script Console>>.
+* <<../pipeline#, Jenkins Pipeline>>.
+* The plugin:email-ext[Extended Email plugin].
+* The plugin:groovy[Groovy plugin] - when using the "Execute system Groovy
+  script" step.
+* The plugin:job-dsl[JobDSL plugin] as of version 1.60 and later.
+
+To protect Jenkins from execution of malicious scripts, these plugins execute
+user-provided scripts in a <<groovy-sandbox>> that limits what internal APIs
+are accessible.  Administrators can then use the "In-process Script Approval"
+page, provided by the plugin:script-security[Script Security plugin], to manage
+which unsafe methods, if any, should be allowed in the Jenkins environment.
+
+image::managing/manage-inprocess-script-approval.png["Entering the In-process Script Approval configuration", role=center]
+
+== Getting Started
+
+The plugin:script-security[Script Security plugin] is installed automatically
+by the
+link:../../getting-started/installing#post-install-setup-wizard[Post-install Setup Wizard],
+although initially no additional scripts or operations are approved for use.
+
+[IMPORTANT]
+====
+Older versions of this plugin may not be safe to use. Please review the
+following advisory:
+link:/security/advisory/2016-04-11/[Groovy sandbox protection incomplete],
+and any subsequent
+link:/security/advisories/[security advisories],
+in order to ensure that the plugin:script-security[Script Security plugin] is
+up to date.
+====
+
+Security for in-process scripting is provided by two different mechanisms: the
+<<groovy-sandbox>> and <<script-approval>>. The first, the Groovy Sandbox, is
+enabled by default for link:/doc/book/pipeline[Jenkins Pipeline] allowing
+user-supplied Scripted and Declarative Pipeline to execute without prior
+Administrator intervention. The second, Script
+Approval, allows Administrators to approve or deny unsandboxed scripts, or
+allow sandboxed scripts to execute additional methods.
+
+For most instances, the combination of the Groovy Sandbox and the
+link:https://github.com/jenkinsci/script-security-plugin/tree/master/src/main/resources/org/jenkinsci/plugins/scriptsecurity/sandbox/whitelists[Script Security's built-in list]
+of approved method signatures, will be sufficient. It is strongly recommended
+that Administrators only deviate from these defaults if absolutely necessary.
+
+[[groovy-sandbox]]
+== Groovy Sandbox
+
+To reduce manual interventions by Administrators, most scripts will run in a
+Groovy Sandbox by default, including all
+link:/doc/book/pipeline[Jenkins Pipelines].
+The sandbox only allows a subset of Groovy's methods deemed sufficiently safe
+for "untrusted" access to be executed without prior approval. Scripts using
+the Groovy Sandbox are *all* subject to the same restrictions, therefore a
+Pipeline authored by an Administrator is subject to the
+restrictions as one authorized by a non-administrative user.
+
+When a script attempts to use features or methods unauthorized by the sandbox,
+a script is halted immediately, as shown below with Jenkins Pipeline
+
+.Unauthorized method signature rejected at runtime via Blue Ocean
+image::managing/script-sandbox-rejection.png["Sandbox method rejection", role=center]
+
+The Pipeline above will not execute until an Administrator
+<<approving-method-signature, approves the method signature>> via the
+*In-process Script Approval* page.
+
+In addition to adding approved method signatures, users may also disable the
+Groovy Sandbox entirely as shown below. Disabling the Groovy Sandbox requires
+that the **entire** script must be reviewed and
+<<approving-unsandboxed-pipeline, manually approved>> by an administrator.
+
+.Disabling the Groovy Sandbox for a Pipeline
+image::managing/unchecked-groovy-sandbox-on-pipeline.png["Creating a Scripted Pipeline and unchecking 'Use Groovy Sandbox'", role=center]
+
+[[script-approval]]
+== Script Approval
+
+Manual approval of entire scripts, or method signatures, by an administrator
+provides Administrators with additional flexibility to support more advanced
+usages of in-process scripting. When the <<groovy-sandbox>> is disabled, or a
+method outside of the built-in list is invoked, the Script Security plugin will
+check the Administrator-managed list of approved scripts and methods.
+
+For scripts which wish to execute outside of the <<groovy-sandbox>>, the
+Administrator must approve the *entire* script in the *In-process Script
+Approval* page:
+
+[[approving-unsandboxed-pipeline]]
+.Approving an unsandboxed Scripted Pipeline
+image::managing/inprocess-script-approval-pipeline.png["Approving an unsandboxed Scripted Pipeline", role=center]
+
+
+For scripts which use the <<groovy-sandbox>>, but wish to execute an currently
+unapproved method signature will also be halted by Jenkins, and require an
+Administrator to approve the specific method signature before the script is
+allowed to execute:
+
+[[approving-method-signature]]
+.Approving a new method signature
+image::managing/inprocess-script-approval-method.png["Approving a new method signature", role=center]
+
+=== Approve assuming permissions check
+
+
+Script approval provides three options: Approve, Deny, and "Approve assuming
+permissions check." While the purpose of the first two are self-evident, the
+third requires some additional understanding of what internal data scripts are
+able to access and how permissions checks inside of Jenkins function.
+
+Consider a script which accesses the method
+`hudson.model.AbstractItem.getParent()`, which by itself is harmless and will
+return an object containing either the folder or root item which contains the
+currently executing Pipeline or Job. Following that method invocation,
+executing `hudson.model.ItemGroup.getItems()`, which will list items in the
+folder or root item, requires the `Job/Read` permission.
+
+This could mean that approving the `hudson.model.ItemGroup.getItems()` method
+signature would allow a script to bypass built-in permissions checks.
+
+Instead, it is usually more desirable to click *Approve assuming permissions
+check* which will cause the Script Approval engine to allow the method
+signature assuming the user running the script has the permissions to execute
+the method, such as the `Job/Read` permission in this example.
