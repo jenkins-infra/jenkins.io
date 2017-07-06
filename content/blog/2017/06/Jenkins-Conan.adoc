@@ -1,0 +1,221 @@
+---
+layout: post
+title: "Continuous Integration for C/C++ Projects with Jenkins and Conan"
+tags:
+- event
+- Jenkins User Conference
+- Jenkins Community Day Paris
+author: alyssat
+---
+
+NOTE: This is a guest post by Luis Martínez de Bartolomé, Conan Co-Founder
+
+C and C++ are present in very important industries today, including Operating Systems, embedded systems, finances, research, automotive, robotics, gaming, and many more. The main reason for this is performance, which is critical to many of these industries, and cannot be compared to any other technology.
+As a counterpart, the C/C++ ecosystem has a few important challenges to face:
+
+* *Huge projects.* With millions of lines of code, it’s very hard to manage your projects without using modern tools.
+* *Application Binary Interface (ABI) incompatibility.* To guarantee the compatibility of a library with other libraries and your application,  different configurations (such as the operating system, architecture, and compiler) need to be under control.
+* *Slow compilation times.* Due to header inclusion and pre-processor bloat, together with the challenges mentioned above, it requires special attention to optimize the process and rebuild only the libraries that need to be rebuilt.
+* *Code linkage and inlining.* A static C/C++ library can embed headers from a dependent library. Also, a shared library can embed a static library. In both cases, you need to manage the rebuild of your library when any of its dependencies change.
+* *Varied ecosystem.* There are many different compilers and build systems, for different platforms, targets and purposes.
+
+This post will show how to implement DevOps best practices for C/C++ development, using *Jenkins* CI, *Conan* C/C++ package manager, and *JFrog Artifactory* the universal artifact repository.
+
+### Conan, The C/C++ Package Manager
+link:http://conan.io[Conan] was born to mitigate these pains. 
+
+Conan uses python recipes, describing how to build a library by explicitly calling any build system, and also describing the needed information for the consumers (include directories, library names etc.).
+To manage the different configurations and the ABI compatibility, Conan uses “settings” (os, architecture, compiler…). When a setting is changed, Conan generates a different binary version for the same library:
+
+image:/images/post-images/diagram1.png[role=center]
+
+The built binaries can be uploaded to link:https://www.jfrog.com/artifactory/[JFrog Artifactory] or link:https://www.jfrog.com/bintray/[Bintray], to be shared with your team or the whole community. The developers in your team won’t need to rebuild the libraries again, Conan will fetch only the needed Binary packages matching the user’s configuration from the configured remotes (distributed model).
+But there are still some more challenges to solve:
+
+* How to manage the development and release process of your C/C++ projects?
+* How to distribute your C/C++ libraries?
+* How to test your C/C++ project?
+* How to generate multiple packages for different configurations?
+*How to manage the rebuild of the libraries when one of them changes? 
+
+### Conan Ecosystem
+
+The Conan ecosystem is growing fast, and DevOps with C/C++ is now a reality:
+ 
+* *JFrog Artifactory* manages the full development and releasing cycles.
+* *JFrog Bintray* is the universal distribution hub.
+* *Jenkins* automates the project testing, generates different binary configurations of your Conan packages, and automates the rebuilt libraries.
+
+image:/images/post-images/diagram2.png[role=center]
+
+### Jenkins Artifactory plugin
+
+* Provides a Conan DSL, a very generic but powerful way to call Conan from a Jenkins Pipeline script.
+* Manages the remote configuration with your Artifactory instance, hiding the authentication details.
+* Collects from any Conan operation (installing/uploading packages) all the involved artifacts to generate and publish the buildInfo to Artifactory. The link:https://www.jfrog.com/confluence/display/RTF/Build+Integration#BuildIntegration-Build-levelInformation[buildInfo] object is very useful, for example, to promote the created Conan packages to a different repository and to have full traceability of the Jenkins build:
+
+image:/images/post-images/JFrogArtifactoryBuildBrowser.png[role=center]
+
+Here’s an example of the Conan DSL with the Artifactory plugin.  First we configure the Artifactory repository, then retrieve the dependencies and finally build it:
+
+ def artifactory_name = "artifactory"
+ def artifactory_repo = "conan-local"
+ def repo_url = 'https://github.com/memsharded/example-boost-poco.git'
+ def repo_branch = 'master'
+ 
+ node {
+    def server
+    def client
+    def serverName
+    
+    stage("Get project"){
+        git branch: repo_branch, url: repo_url
+    }
+ 
+    stage("Configure Artifactory/Conan"){
+        server = Artifactory.server artifactory_name
+        client = Artifactory.newConanClient()
+        serverName = client.remote.add server: server, repo: artifactory_repo
+    }
+ 
+    stage("Get dependencies and publish build info"){
+        sh "mkdir -p build"
+        dir ('build') {
+          def b = client.run(command: "install ..")
+          server.publishBuildInfo b
+        }
+    }
+ 
+    stage("Build/Test project"){
+        dir ('build') {
+          sh "cmake ../ && cmake --build ."
+        }
+    }
+}
+
+ 
+You can see in the above example that the Conan DSL is very explicit. It helps a lot with common operations, but also allows powerful and custom integrations. This is very important for C/C++ projects, because every company has a very specific project structure, custom integrations etc.
+
+### Complex Jenkins Pipeline operations: Managed and parallelized libraries building
+
+As we saw at the beginning of this blog post, it’s crucial to save time when building a C/C++ project. Here are several ways to optimize the process:
+ 
+* Only re-build the libraries that need to be rebuilt. These are the libraries that  have been affected by a dependant library that has changed.
+* Build in parallel, if possible. When there is no relation between two or more libraries in the project graph, you can build them in parallel.
+* Build different configurations (os, compiler, etc) in parallel. Use different slaves if needed.
+ 
+Let’s see an example using Jenkins Pipeline feature
+
+image:/images/post-images/diagram3.png[role=center]
+
+The above graph represents our project P and its dependencies (A-G). We want to distribute the project for two different architectures, x86 and x86_64.
+
+*What happens if we change library A?*
+
+If we bump the version to A(v1) there is no problem, we can update the B requirement and also bump its version to B(v1) and so on. The complete flow would be as follows:
+
+  * Push A(v1) version to Git, Jenkins will build the x86 and x86_64 binaries. Jenkins will upload all the packages to Artifactory.
+  * Manually change B to v1, now depending on A1, push to Git, Jenkins will build the B(v1) for x86 and x86_64 using the retrieved new A1 from Artifactory.
+  * Repeat the same process for C, D, F, G and finally our project.
+  
+But if we are developing our libraries in a development repository, we probably depend on the latest A version or will override A (v0) packages on every git push, and we want to automatically rebuild the affected libraries in this case B, D, F, G and P.
+
+*How we can do this with Jenkins Pipelines?*
+ 
+First we need to know which libraries need to be rebuilt. The “conan info --build_order” command identifies the libraries that were changed in our project, and also tells us which can be rebuilt in parallel.
+ 
+So, we created two Jenkins pipelines tasks:
+ 
+* The link:https://github.com/lasote/skynet_example/blob/master/single_build.groovy[“SimpleBuild”] task which builds every single library. Similar to the first example using Conan DSL with the Jenkins Artifactory plugin. It’s a parameterized task that receives the libraries that need to built.
+* The link:https://github.com/lasote/skynet_example/blob/master/multi_build.groovy[“MultiBuild”] task which coordinates and launches the “*SimpleBuild*” tasks, in parallel when possible. 
+ 
+We also have a repository with a configuration yml. The Jenkins tasks will use it to know where the recipe of each library is, and the different profiles to be used. In this case they are *x86* and *x86_64*.
+
+ leaves:
+   PROJECT:
+     profiles:
+        - ./profiles/osx_64
+        - ./profiles/osx_32
+   
+ artifactory:
+   name: artifactory
+   repo: conan-local
+   
+  repos:
+   LIB_A/1.0:
+     url: https://github.com/lasote/skynet_example.git
+     branch: master
+     dir: ./recipes/A
+     
+    LIB_B/1.0:
+     url: https://github.com/lasote/skynet_example.git
+     branch: master
+     dir: ./recipes/b
+
+    …
+
+    PROJECT:
+     url: https://github.com/lasote/skynet_example.git
+     branch: master
+     dir: ./recipes/PROJECT    
+     
+If we change and push library A to the repository, the “*MultiBuild*” task will be triggered. It will start by checking which libraries need to be rebuilt, using the “conan info” command.
+Conan will return something like this:
+*[B, [D, F], G]*
+ 
+This means that we need to start building B, then we can build D and F in parallel, and finally build G. Note that library C does not need to be rebuilt, because it’s not affected by a change in library A.
+ 
+The “*MultiBuild*” Jenkins pipeline script will create closures with the parallelized calls to the “*SimpleBuild*” task, and finally launch the groups in parallel.
+ 
+  //for each group
+        tasks = [:]
+        // for each dep in group       
+           tasks[label] = { -> build(job: "SimpleBuild",
+                              parameters: [
+                                 string(name: "build_label", value: label),
+                                 string(name: "channel", value: a_build["channel"]),
+                                 string(name: "name_version", value: a_build["name_version"]),
+                                 string(name: "conf_repo_url", value: conf_repo_url),
+                                 string(name: "conf_repo_branch", value: conf_repo_branch),
+                                 string(name: "profile", value: a_build["profile"])
+                              ]
+                       )
+            }
+       parallel(tasks)
+
+ 
+Eventually, this is what will happen:
+ 
+* Two *SimpleBuild* tasks will be  triggered, both for building library B, one for x86 and another for x86_64 architectures     
+
+image:/images/post-images/diagram4.png[role=center]
+
+* Once “A” and “B” are built, “F” and “D” will be triggered, 4 workers will run the “SimpleBuild” task in parallel, (x86, x86_64)
+
+image:/images/post-images/diagram5.png[role=center]
+
+* Finally “G” will be built. So 2 workers will run in parallel.
+
+The Jenkins Stage View will be similar to this:
+ 
+*MultiBuild*
+
+image:/images/post-images/MultiBuild.png[role=center]
+
+*SingleBuild*
+
+image:/images/post-images/SingleBuild.png[role=center]
+
+We can configure the “*SingleBuild*” task within different nodes (Windows, OSX, Linux…), and control the number of executors available in our Jenkins configuration.
+
+### Conclusions
+
+Embracing DevOps for C/C++ is still marked as a to-do for many companies. It requires a big investment of time but can save huge amounts of time in the development and releasing life cycle for the long run. Moreover it increases the quality and the reliability of the C/C++ products. Very soon, adoption of DevOps for C/C++ companies will be a must!
+ 
+The Jenkins example shown above that demonstrating how to control the library building in parallel is just Groovy code and a custom convenient yml file. The great thing about it is not the example or the code itself. The great thing is the possibility of defining your own pipeline scripts to adapt to your specific workflows, thanks to Jenkins Pipeline, Conan and JFrog Artifactory.  
+
+[WARNING]
+--
+More on this topic will be presented at link:https://jcd-paris.jfrog.com[Jenkins Community Day Paris] on
+July 11, and link:https://www.eventbrite.com/e/jenkins-user-conference-2017-israel-tlv-intercontinental-david-tickets-32226522396[Jenkins User Conference Israel] on July 13.
+--
