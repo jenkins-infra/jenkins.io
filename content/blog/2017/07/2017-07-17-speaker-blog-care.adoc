@@ -1,0 +1,187 @@
+---
+layout: post
+title: "Indispensable, Disposable Jenkins"
+tags:
+- event
+- JenkinsWorld
+author: hinman
+---
+
+NOTE: This is a guest post by Mandy Hubbard, Software Engineer/QA Architect at
+link:https://www.care.com[Care.com].
+
+Imagine this: It’s 4:30pm on a Friday,
+you have a major release on Monday, and your Jenkins server goes down.
+It doesn't matter if it experienced a hardware failure,
+fell victim to a catastrophic
+link:https://en.wikipedia.org/wiki/Fat-finger_error[fat-finger error],
+or just got hit by a meteor - your Jenkins server is toast.
+How long did it take to perfect your Pipeline,
+all your Continuous Delivery jobs, plugins, and credentials?
+Hopefully you at least have a recent backup of your Jenkins home directory,
+but you’re still going have to work over the weekend with IT to procure a new server,
+install it, and do full regression testing to be up and running by Monday morning.
+Go ahead and take a moment, go to your car and just scream.
+It will help ... a little.
+
+But what if you could have a Jenkins environment that is completely disposable,
+one that could be easily rebuilt at any time?
+Using link:https://www.docker.com/[Docker] and Joyent’s
+link:https://www.joyent.com/containerpilot[ContainerPilot], the team at
+link:https://www.care.com/homepay[Care.com HomePay]
+has created a production Jenkins environment that is completely software-defined.
+Everything required to set up a new Jenkins environment is stored in source control,
+versioned, and released just like any other software.
+At Jenkins World, I’ll do a developer deep-dive into this approach during my technical session,
+link:https://jenkinsworld20162017.sched.com/event/ALPr/disposable-jenkins[Indispensable, Disposable Jenkins],
+including a demo of bringing up a fully configured Jenkins server in a Docker container.
+For now, let me give you a basic outline of what we've done.
+
+[WARNING]
+--
+Mandy will be
+link:https://jenkinsworld20162017.sched.com/event/ALPr/disposable-jenkins[presenting]
+more on this topic at
+link:https://www.cloudbees.com/jenkinsworld/home[Jenkins World] in August,
+register with the code `JWFOSS` for a 30% discount off your pass.
+--
+
+First, we add ContainerPilot to our Jenkins image by including it in the `Dockerfile`.
+
+.Dockerfile
+[source]
+----
+## ContainerPilot
+
+ENV CONTAINERPILOT_VERSION 2.7.0
+ENV CONTAINERPILOT_SHA256 3cf91aabd3d3651613942d65359be9af0f6a25a1df9ec9bd9ea94d980724ee13
+ENV CONTAINERPILOT file:///etc/containerpilot/containerpilot.json
+
+RUN curl -Lso /tmp/containerpilot.tar.gz https://github.com/joyent/containerpilot/releases/download/${CONTAINERPILOT_VERSION}/containerpilot-${CONTAINERPILOT_VERSION}.tar.gz && \
+    echo "${CONTAINERPILOT_SHA256}  /tmp/containerpilot.tar.gz" | sha256sum -c && \
+    tar zxf /tmp/containerpilot.tar.gz -C /bin && \
+rm /tmp/containerpilot.tar.gz
+----
+
+Then we specify `containerpilot` as the Docker command in the `docker-compose.yml`
+and pass the Jenkins startup script as an argument.
+This allows ContainerPilot to perform our preStart business before starting the Jenkins server.
+
+.docker-compose.yml
+[source, yaml]
+----
+jenkins:
+    image: devmandy/auto-jenkins:latest
+    restart: always
+    mem_limit: 8g
+    ports:
+      - 80
+      - 22
+    dns:
+      - 8.8.8.8
+      - 127.0.0.1
+    env_file: _env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - CONSUL=consul
+    links:
+      - consul:consul
+    ports:
+      - "8080:80"
+      - "2222:22"
+    command: >
+      containerpilot
+      /usr/local/bin/jenkins.sh
+----
+
+Configuration data is read from a Docker Compose `_env` file,
+as specified in the `docker-compose.yml` file,
+and stored in environment variables inside the container.
+This is an example of our _env file:
+
+._env
+[source]
+----
+GITHUB_TOKEN=<my Github user token>
+GITHUB_USERNAME=DevMandy
+GITHUB_ORGANIZATION=DevMandy
+DOCKERHUB_ORGANIZATION=DevMandy
+DOCKERHUB_USERNAME=DevMandy
+DOCKERHUB_PASSWORD=<my Dockerhub password>
+DOCKER_HOST=<my Docker host, or localhost>
+SLACK_TEAM_DOMAIN=DevMandy
+SLACK_CHANNEL=jenkinsbuilds
+SLACK_TOKEN=<my Slack token>
+BASIC_AUTH=<my basic auth token>
+AD_NAME=<my AD domain>
+AD_SERVER=<my AD server>
+PRIVATE_KEY=<my ssh private key, munged by a setup script>
+----
+
+Jenkins stores its credentials and plugin information in various xml files.
+The `preStart` script modifies the relevant files,
+substituting the environment variables as appropriate,
+using a set of command line utilities called ``xmlstarlet``.
+Here is an example method from our `preStart` script that configures Github credentials:
+
+[source, bash]
+----
+github_credentials_setup() {
+    ## Setting Up Github username in credentials.xml file
+    echo
+    echo -e "Adding Github username to credentials.xml file for SSH key"
+    xmlstarlet \
+        ed \
+        --inplace \
+        -u '//com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey[id="github"]/username' \
+        -v ${GITHUB_USERNAME} \
+        ${JENKINS_HOME}/credentials.xml
+
+    echo -e "Adding Github username to credentials.xml file for Github token"
+    xmlstarlet \
+        ed \
+         --inplace \
+        -u '//com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl[id="github_token"]/username' \
+        -v ${GITHUB_USERNAME} \
+        ${JENKINS_HOME}/credentials.xml
+
+    PASSWORD=${GITHUB_TOKEN}
+    echo -e "Adding Github token to credentials.xml"
+    xmlstarlet \
+        ed \
+        --inplace \
+        -u '//com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl[id="github_token"]/password' \
+        -v ${PASSWORD} \
+        ${JENKINS_HOME}/credentials.xml
+}
+----
+
+This approach can be used to automate all things Jenkins.
+These are just a few of the things I’ll show you in my Jenkins World session,
+which you can build on to automate anything else your Jenkins environment needs.
+
+*	Creation of credentials sets for interacting with third party services
+like Github, Docker Hub and Slack
+*	Configuration of the plugin:active-directory[Active Directory plugin]
+and setup of matrix-based security
+* Configuration of the plugin:github-organization-folder[Github Organization plugin],
+which results in the automatic creation of all Jenkins pipeline jobs
+by scanning the organization for all repositories containing a `Jenkinsfile`
+*	Configuration of the
+plugin:docker-workflow[Docker Pipeline plugin], including creating templates for all custom build agents
+*	Configuration of the plugin:workflow-cps-global-lib[Global Pipeline Libraries plugin]
+*	Configuration of the plugin:slack[Slack Notifier plugin]
+
+With software-defined Jenkins, pipeline infrastructure
+gains the same flexibility and resiliency as the rest of the development pipeline.
+If we decide to change our Jenkins configuration in any way –
+for example installing a new plugin or upgrading an existing one,
+adding a new global library, or adding new Docker images for build slaves –
+we simply edit our `preStart` script to include these changes, build a new Docker image,
+and the Jenkins environment is automatically reconfigured when we start a new container.
+Because the entire configuration specification lives in a Github repository,
+changes are merged to the "master" branch using pull requests,
+and our Jenkins Docker image is tagged using
+link:http://semver.org/[semantic versioning] just like any other component.
+Jenkins can be both indispensable and completely disposable at the same time.
