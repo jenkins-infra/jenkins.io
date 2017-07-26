@@ -1,0 +1,235 @@
+---
+layout: post
+title: "Microsoft PowerShell Support for Pipeline"
+tags:
+- durable-task
+- powershell
+author: gabloe
+---
+
+I am pleased to announce Microsoft PowerShell support for Jenkins Pipeline!
+As of plugin:durable-task[Durable Task 1.14] and
+plugin:workflow-durable-task-step[Pipeline Nodes and Processes Plugin 2.12], you will now be able to run Microsoft PowerShell scripts
+directly in your Jenkins Pipeline projects.  This blog post covers the basics
+of getting started with Microsoft PowerShell in Pipeline and provides some
+basic examples.
+
+== Introduction to Microsoft PowerShell
+
+PowerShell is Microsoft's open source and cross platform command line shell, as
+well as an automation and configuration tool/framework which has a broad user
+base. PowerShell can be used to perform common system administration tasks in
+Windows, macOS, and Linux environments. It can also be used as a general
+purpose scripting language. Now that Jenkins Pipeline supports PowerShell, you
+can enjoy the rich set of features in PowerShell for your daily DevOps work.
+
+Before diving into using PowerShell in your Pipeline, I recommend reading the
+link:https://msdn.microsoft.com/en-us/library/ms714469(v=vs.85).aspx[Windows
+PowerShell Reference] as well as the
+link:https://blogs.msdn.microsoft.com/powershell/[PowerShell Team Blog] for an
+introduction to PowerShell features, utilities, and as a quick look into the
+PowerShell language.  Microsoft also has an active
+link:https://github.com/powershell/powershell[PowerShell community] on GitHub,
+which I highly recommend visiting to submitting feature requests and bug
+reports as you see fit. Jenkins Pipeline currently supports Microsoft
+PowerShell 3.0 or higher, so also be sure to check which version of PowerShell
+is installed on your system in order to take advantage of PowerShell in your
+Pipeline.  Please note that we recommend that you upgrade to the latest stable
+version of PowerShell available, which as of this writing is version 5.1.14393.
+
+=== The `powershell` step
+
+[source,groovy]
+----
+node {
+    powershell 'Write-Output "Hello, World!"'
+}
+----
+
+== Using Microsoft PowerShell in Pipeline
+
+Writing PowerShell code as part of your pipeline is incredibly simple. The step that you will use is
+simply `powershell`, and it includes the same optional parameters as the
+Windows Batch (`bat`) step, including:
+
+* returnStdout: Returns the standard output stream with a default encoding of UTF-8 (alternative encoding is optional)
+* returnStatus: Returns the exit status (integer) of the PowerShell script
+
+=== Examples
+
+==== Capture exit status of a PowerShell script
+
+[source,groovy]
+----
+node {
+    def status = powershell(returnStatus: true, script: 'ipconfig')
+    if (status == 0) {
+        // Success!
+    }
+}
+----
+
+==== Capture and print the output of a PowerShell script
+
+[source,groovy]
+----
+node {
+    def msg = powershell(returnStdout: true, script: 'Write-Output "PowerShell is mighty!"')
+    println msg
+}
+----
+
+=== Which streams get returned when I use `returnStdout`?
+
+Until the release of PowerShell 5, there were five distinct output streams. PowerShell 5 introduced a sixth stream for pushing "informational" content,
+with the added benefit of being able to capture messages sent to Write-Host. Each row of the following table describes a PowerShell stream along with
+the corresponding Cmdlet used for writing to the stream for that particular row. Please keep in mind that stream 6 and associated cmdlets either
+do not exist or exhibit alternate behavior in versions of PowerShell earlier than version 5.
+
+[width="40%",frame="topbot",options="header"]
+|======================================================================================
+|Stream |Description                   |Cmdlet
+|1      |Output stream (e.g. stdOut)   |Write-Output
+|2      |Error stream (e.g. stdErr)    |Write-Error
+|3      |Warning stream                |Write-Warning
+|4      |Verbose stream                |Write-Verbose
+|5      |Debug stream                  |Write-Debug
+|6      |Information stream            |Write-Information (or Write-Host with link:https://blogs.technet.microsoft.com/heyscriptingguy/2015/07/04/weekend-scripter-welcome-to-the-powershell-information-stream/[caveats])
+|======================================================================================
+
+If you are using the `returnStdout` option of the `powershell` Pipeline step
+then *only* stream 1 will be returned, while streams 2-6 will be redirected to
+the console output. For example:
+
+==== Write to all available streams and return the standard output
+
+[source,groovy]
+----
+node {
+    def stdout = powershell(returnStdout: true, script: '''
+        # Enable streams 3-6
+        $WarningPreference = 'Continue'
+        $VerbosePreference = 'Continue'
+        $DebugPreference = 'Continue'
+        $InformationPreference = 'Continue'
+
+        Write-Output 'Hello, World!'
+        Write-Error 'Something terrible has happened!'
+        Write-Warning 'Warning! There is nothing wrong with your television set'
+        Write-Verbose 'Do not attempt to adjust the picture'
+        Write-Debug 'We will control the horizontal.  We will control the vertical'
+        Write-Information 'We can change the focus to a soft blur or sharpen it to crystal clarity.'
+    ''')
+    println stdout
+}
+----
+
+===== Console output:
+
+[source]
+----
+[Pipeline] {
+[Pipeline] powershell
+[TestStreams] Running PowerShell script
+﻿<Jenkins Home>\workspace\TestStreams@tmp\durable-4d924c2d\powershellScript.ps1 : Something terrible has
+happened!
+At ﻿<Jenkins Home>\workspace\TestStreams@tmp\durable-4d924c2d\powershellMain.ps1:2 char:1
++ & '﻿<Jenkins Home>\workspace\TestStreams@tmp\durable-4d924c ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,powershellScript.ps1
+
+Warning! There is nothing wrong with your television set
+Do not attempt to adjust the picture
+We will control the horizontal.  We will control the vertical
+We can change the focus to a soft blur or sharpen it to crystal clarity.
+Hello, World!
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE
+----
+
+Note that "Hello, World!" gets printed last even though it is the first output
+statement in my script.  Another interesting aspect of this example is that the
+`powershell` step failed, which ultimately caused the job to fail. The failure
+in this example is due to the PowerShell error stream being non-empty, which
+therefore caused the step to result in a non-zero exit status. However, as you
+will soon discover, there are a variety of causes for a failing `powershell`
+step.
+
+=== What causes a failing exit status?
+
+When you execute a `powershell` step, it may produce a non-zero exit code and
+fail your pipeline build.  This is very similar to other shell steps with some
+interesting caveats. Your `powershell` step may produce a failing exit status
+in the following instances:
+
+1. Something in your PowerShell script has thrown an exception
+2. Your PowerShell script explicitly calls `exit` with a non-zero exit code
+3. Your PowerShell script calls a native application that produces a non-zero `$LastExitCode`
+* $LastExitCode is an link:https://msdn.microsoft.com/en-us/powershell/reference/5.1/microsoft.powershell.core/about/about_automatic_variables[automatic variable] that is set after executing a native application
+4. Your PowerShell script results in a non-empty error stream (with or without throwing an exception)
+
+Overriding the exit status behavior of your `powershell` step can be achieved
+by explicitly exiting from your script as long as the failure was not caused by
+an unhandled exception. For example:
+
+==== Unavoidable failure caused by an unhandled exception
+
+[source,groovy]
+----
+node {
+    powershell '''
+        throw 'Error! Problem Exists Between Keyboard And Chair'
+        exit 0  # Unreachable code
+    '''
+}
+----
+
+==== Failed step caused by a non-empty error stream
+
+[source,groovy]
+----
+node {
+    powershell '''
+        Write-Error 'Error! Problem Exists Between Keyboard And Chair'
+    '''
+}
+----
+
+==== Failure prevented by an explicit exit
+
+[source,groovy]
+----
+node {
+    powershell '''
+        Write-Error 'Error! Problem Exists Between Keyboard And Chair'
+        exit 0
+    '''
+}
+----
+
+=== Scripts vs. Cmdlets
+
+A Cmdlet is a small lightweight utility written in either C#, and compiled, or
+written in PowerShell directly. Depending on what your goal is in your pipeline
+you can make use of Cmdlets directly in your pipeline code, call a self
+contained PowerShell script, or some mixture of the two. If your strategy is to
+keep each `powershell` step as short and succinct as possible then it may make
+sense for you to write a library of Cmdlets, but if you have monolithic scripts
+then it may make sense for you to call those scripts directly from your
+pipeline. The choice is entirely up to you, as both scenarios are supported.
+
+== Thanks for reading, and have fun!
+
+I sincerely hope that this post has encouraged you to try using PowerShell in
+your Jenkins Pipeline. Please do not hesitate to file an issue against the
+link:https://wiki.jenkins.io/display/JENKINS/Durable+Task+Plugin[durable-task]
+plugin on
+link:http://issues.jenkins-ci.org/secure/IssueNavigator.jspa?mode=hide&reset=true&jqlQuery=project+%3D+JENKINS+AND+status+in+%28Open%2C+%22In+Progress%22%2C+Reopened%29+AND+component+%3D+%27durable-task-plugin%27[JIRA]
+if you have discovered any problem that you suspect is related to the
+`powershell` step.  For general PowerShell related issues or inquiries
+please route your questions to the
+link:https://github.com/powershell/powershell[PowerShell community].
