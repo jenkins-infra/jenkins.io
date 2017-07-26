@@ -81,27 +81,18 @@ try {
             * that artifact so we can pick it up later
             */
             archiveArtifacts artifacts: 'build/**/*.zip,build/_site/*.pdf', fingerprint: true
-            /* stash the archived site so we can pull it back out when we deploy */
-            stash includes: 'build/**/*.zip', name: 'built-site'
         }
-    }
 
-    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
-     */
-    if (env.BRANCH_NAME == null) {
-        stage('Deploy sitesite') {
-            node {
+        /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
+        */
+        if (env.BRANCH_NAME == null) {
+            stage('Deploy site') {
                 /* This Credentials ID is from the `site-deployer` account on
                 * ci.jenkins-ci.org
                 *
                 * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
                 */
                 sshagent(credentials: ['site-deployer']) {
-                    /* Make sure we delete our current directory on this node to make sure
-                    * we're only uploading what we unstash
-                    */
-                    deleteDir()
-                    unstash 'built-site'
                     sh 'ls build/archives'
                     sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
                 }
