@@ -3,9 +3,10 @@ BUILD_DIR=build
 OUTPUT_DIR=$(BUILD_DIR)/_site
 AWESTRUCT_CONFIG=--source-dir=content --output-dir=$(OUTPUT_DIR)
 ASSETS_DIR=$(OUTPUT_DIR)/assets/bower
+VERSION=$(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
 
 # Generate everything
-all: fetch generate pdfs
+all: fetch generate pdfs archive
 prepare: fetch depends assets
 
 # Run a local dev server on localhost:4242
@@ -62,8 +63,17 @@ assets: depends-node
 	cp node_modules/anchor-js/*.js $(ASSETS_DIR)/anchor-js/
 	mkdir -p $(ASSETS_DIR)/ionicons
 	cp -R node_modules/ionicons/css $(ASSETS_DIR)/ionicons
-
 #######################################################
+
+
+# Archive tasks
+#######################################################
+archive: $(OUTPUT_DIR)
+	mkdir -p $(BUILD_DIR)/archives
+	(cd $(OUTPUT_DIR) && \
+		zip --quiet -r ../archives/jenkins.io-$(VERSION).zip .)
+#######################################################
+
 
 # Miscellaneous tasks
 #######################################################
@@ -82,4 +92,4 @@ clean:
 #######################################################
 
 .PHONY: all clean depends depends-node depends-ruby generate run \
-		fetch warning pdfs assets prepare
+		fetch warning pdfs assets prepare archive
