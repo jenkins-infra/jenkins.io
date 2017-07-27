@@ -70,8 +70,9 @@ assets: depends-node
 #######################################################
 archive: $(OUTPUT_DIR)
 	mkdir -p $(BUILD_DIR)/archives
-	(cd $(OUTPUT_DIR) && \
-		zip --quiet -r ../archives/jenkins.io-$(VERSION).zip .)
+	(cd $(BUILD_DIR) && \
+		ln -s _site jenkins.io-$(VERSION) && \
+		zip --quiet -r archives/jenkins.io-$(VERSION).zip jenkins.io-$(VERSION))
 #######################################################
 
 
