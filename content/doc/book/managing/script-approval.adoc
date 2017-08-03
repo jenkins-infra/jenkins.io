@@ -1,0 +1,94 @@
+---
+layout: section
+---
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:hide-uri-scheme:
+
+= In-process Script Approval for Pipeline and Groovy
+
+Jenkins and a number of plugins provide ways for users to run Groovy script in-process with Jenkins.
+Examples include:
+
+* <<../pipeline#, Jenkins Pipeline>>
+* <<script-console#, Script Console>>
+* plugin:groovy[Groovy plugin] - when using "Execute system Groovy script"
+* plugin:job-dsl[JobDSL plugin] (v1.60 and later)
+* plugin:email-ext[Extended Email plugin]
+
+To protect Jenkins from execution of malicious script, these plugins run
+in-process scripts in a "sandbox" that limits what can be executed.
+Administrators can then use the "In-process Script Approval" page provided by the
+plugin:script-security[Script Security plugin] to manage
+which unsafe methods (if any) they would like to allow in scripts on their Jenkins instance.
+
+// TODO: image of script approval pages
+
+== Installation and Setup
+
+The plugin:script-security[Script Security plugin] is installed automatically with Jenkins.
+
+IMPORTANT: Older versions of this plugin may not be safe to use. Please review the following warnings before using an older version:
+link:https://jenkins.io/security/advisory/2016-04-11/[Groovy sandbox protection incomplete]
+
+Initially, no additional scripts or operations are approved for use.
+
+
+==
+
+In-process Script Approval is available in two different forms: script approval, and Groovy sandboxing.
+"<<script-approval, Script Approval>>" is simpler system, allowing any kind of Groovy script to run, but
+requiring an administrator to approve any change to a script.
+"<<groovy-sandboxing, Groovy Sandboxing>>" lets Groovy scripts run without administrator approval
+so long as they limit themselves to operations which have been previous approved
+or which are considered inherently safe.
+The type of approval used depends on the plugin, configuration,
+and permissions of the user making changes to the script.
+
+// Various Jenkins plugins require that users define custom scripts,
+// most commonly in the Groovy language, to customize Jenkins’s behavior.
+// If everyone who writes these scripts is a Jenkins administrator
+// (specifically if they have the Overall/RunScripts permission,
+// used for example by the Script Console link)
+// then they can write whatever scripts they like.
+// These scripts may directly refer to internal Jenkins objects using the same API offered to plugins.
+// Such users must be completely trusted, as they can do anything to Jenkins
+// (even changing its security settings or running shell commands on the server).
+//
+// However, if some script authors are “regular users” with only more limited permissions,
+// such as Job/Configure, it is inappropriate to let them run arbitrary scripts.
+// To support such a division of roles, the Script Security plugin can be integrated into various feature plugins.
+// It supports two related systems: script approval, and Groovy sandboxing.
+
+== Script Approval
+
+The first, and simpler, security system is to allow any kind of script to be run,
+but only with an administrator’s approval.
+There is a globally maintained list of approved scripts which are judged to not perform any malicious actions.
+When an administrator saves some kind of configuration (for example, a job), any scripts it contains are automatically added to the approved list. They are ready to run with no further intervention. (“Saving” usually means from the web UI, but could also mean uploading a new XML configuration via REST or CLI.)
+When a non-administrator saves a template configuration, a check is done whether any contained scripts have been edited from an approved text. (More precisely, whether the requested content has ever been approved before.) If it has not been approved, a request for approval of this script is added to a queue. (A warning is also displayed in the configuration screen UI when the current text of a script is not currently approved.)
+An administrator may now go to Manage Jenkins » In-process Script Approval where a list of scripts pending approval will be shown. Assuming nothing dangerous-looking is being requested, just click Approve to let the script be run henceforth.
+If you try to run an unapproved script, it will simply fail, typically with a message explaining that it is pending approval. You may retry once the script has been approved. The details of this behavior may vary according to the feature plugin integrating this library.
+
+== Groovy Sandboxing
+
+Waiting for an administrator to approve every change to a script, no matter how seemingly trivial, could be unacceptable in a team spread across timezones or during tight deadlines.
+As an alternative option, the Script Security system lets Groovy scripts be run without approval so long as they limit themselves to operations considered inherently safe.
+This limited execution environment is called a sandbox. (Currently no sandbox implementations are available for other languages, so all such scripts must be approved if configured by non-administrators.)
+To switch to this mode, simply check the box Use Groovy Sandbox below the Groovy script’s entry field. Sandboxed scripts can be run immediately by anyone. (Even administrators, though the script is subject to the same restrictions regardless of who wrote it.) When the script is run, every method call, object construction, and field access is checked against a whitelist of approved operations. If an unapproved operation is attempted, the script is killed and the corresponding Jenkins feature cannot be used yet.
+
+The Script Security plugin ships with a whitelist, and integrating plugins may add operations to that list (typically methods specific to that plugin).
+But you are not limited to the default whitelist: every time a script fails before running an operation that is not yet whitelisted, that operation is automatically added to another approval queue. An administrator can go to the same page described above for approval of entire scripts, and see a list of pending operation approvals. If Approve is clicked next to the signature of an operation, it is immediately added to the whitelist and available for sandboxed scripts.
+Most signatures be of the form method class.Name methodName arg1Type arg2Type…, indicating a Java method call with a specific “receiver” class (this), method name, and list of argument (or parameter) types. (The most general signature of an attempted method call will be offered for approval, even when the actual object it was to be called on was of a more specific type overriding that method.) You may also see staticMethod for static (class) methods, new for constructors, and field for field accesses (get or set).
+Administrators in security-sensitive environments should carefully consider which operations to whitelist. Operations which change state of persisted objects (such as Jenkins jobs) should generally be denied. Most getSomething methods are harmless.
+
+== Special Cases
+
+=== ACL-aware methods
+Be aware however that even some “getter” methods are designed to check specific permissions (using an ACL: access control list), whereas scripts are often run by a system pseudo-user to whom all permissions are granted. So for example method hudson.model.AbstractItem getParent (which obtains the folder or Jenkins root containing a job) is in and of itself harmless, but the possible follow-up call method hudson.model.ItemGroup getItems (which lists jobs by name within a folder) checks Job/Read. This second call would be dangerous to whitelist unconditionally, since it would mean that a user who is granted Job/Create in a folder would be able to read at least some information from any jobs in that folder, even those which are supposed to be hidden according to a project-based authorization strategy; it would suffice to create a job in the folder which includes a Groovy script like this (details would vary according to the integrating plugin):
+println("I sniffed ${thisjob.getParent().getItems()}!");
+When run, the script output would display at least the names of supposedly secret projects. An administrator may instead click Approve assuming permission check for getItems; this will permit the call when run as an actual user (if the integrating plugin ever does so), while forbidding it when run as the system user (which is more typical). In this case, getItems is actually implemented to return only those jobs which the current user has access to, so if run in the former case (as a specific user), the description will show just those jobs they could see anyway. This more advanced button is shown only for method calls (and constructors), and should be used only where you know that Jenkins is doing a permission check.
