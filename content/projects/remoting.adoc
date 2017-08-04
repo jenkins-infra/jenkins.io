@@ -1,6 +1,6 @@
 ---
 layout: project
-title: "Remoting and Agent support"
+title: "Jenkins Remoting"
 section: projects
 tags:
 - remoting
@@ -12,42 +12,60 @@ tags:
 
 Jenkins Remoting is a library and executable JAR, which implements communication layer in Jenkins: 
 TCP-based communication protocols, Remote procedure calls, classloading, data streaming, etc.
-It's being used in _master <=> agent_ communications and also in several other cases (Remoting CLI, Maven Project Plugin).
-Effectively, `slave.jar` in agents is a renamed Remoting JAR file.
-
-Remoting subproject includes the Remoting library itself, packaging for agents, and also specific Jenkins plugins and core modules.
+It's being used for _master <=> agent_ communication and in several other cases (see below).
 
 :toc:
 
-== Project Scope
+== Remoting Usage in Jenkins
+
+* Agent executables (`slave.jar` is a renamed `remoting.jar`)
+* Master to Agent communication protocols being used in various Agent types, including Java Web Start (aka JNLP) and link:https://plugins.jenkins.io/ssh-slaves[SSH] agents 
+* link:/doc/book/managing/cli/[Jenkins CLI], Remoting mode is **deprecated since 2.54** (link:/blog/2017/04/11/new-cli/[announcement])
+* Communication with Maven instance in the link:https://plugins.jenkins.io/maven-plugin[Maven Integration plugin]
+
+== Project Components
 
 === Remoting Library
 
-link:https://github.com/jenkinsci/remoting[Remoting Library] is a main component of the Remoting subproject.
+Remoting Library is a main component of the Remoting subproject.
+The code base is located in the link:https://github.com/jenkinsci/remoting[separate repository],
+which also contains Remoting developer and user documentation.
+This library also has an independent release cycle and LTS release lines.
+
+Links:
 
 * link:https://github.com/jenkinsci/remoting/blob/master/README.md[Documentation]
-* link:https://github.com/jenkinsci/remoting/blob/master/CHANGELOG.md[Changelog]
+* link:https://github.com/jenkinsci/remoting/blob/master/CHANGELOG.md[Release Notes]
 
 === Jenkins Core and Modules
 
 Although Remoting library is a standalone component, 
-Jenkins needs additional components to make agents and CLI to connect
+Jenkins core includes some extension and modules for working with Remoting.
+It allows implementing custom protocols on-demand (e.g. for Jenkins CLI).
+There is ongoing activity on decoupling these components to plugins 
+(see link:https://issues.jenkins-ci.org/browse/JENKINS-44099[JENKINS-44099]),
+but in the meantime upgrading of Jenkins core may be required to fix Remoting issues.
 
-Jenkins core contains the following components:
+Jenkins core extensions:
+
+* link:/doc/developer/extensions/jenkins-core/#agentprotocol[AgentProtocol] - Protocol Implementations
+* link:/doc/developer/extensions/jenkins-core/#jnlpagentreceiver[JNLP Agent Receiver] - Receives Incoming connections
+
+Modules:
+
+* link:https://github.com/jenkinsci/slave-installer-module[Agent Installer Module] - Generic API for Remoting Agent installations
+* link:https://github.com/jenkinsci/windows-slave-installer-module[Windows Agent Installer Module] - Provides logic for installing Jenkins agents as Windows services, powered by link:https://github.com/kohsuke/winsw/[WinSW project]
+* etc.
 
 === Packaging
 
-There are several packages, which bundle Remoting library and allow connecting Jenkins agents
+There are several packages, which bundle the Remoting library and allow connecting Jenkins agents
 via one of remoting protocols.
 
-* Docker Agent: Base image, which bundles Remoting
-* Docker JNLP Agent: 
+* link:https://hub.docker.com/r/jenkinsci/slave/[Docker Agent]: Base image, which bundles Remoting
+* link:https://hub.docker.com/r/jenkinsci/jnlp-slave/[Docker JNLP Agent]: Image, which can be used to connect JNLP
+* Jenkins CLI executable (Requires Remoting CLI to be enabled on the master side)
+* Swarm Agent Connector executable in link:https://plugins.jenkins.io/swarm[Swarm Plugin]
 
-There are also components, which implicitly bundle Remoting:
-
-* Jenkins CLI JAR file
-* Client Library of the Swarm Plugin
-
-== Roadmap
-
-There are 
+WARNING: Docker Agent Images will be moved to the `jenkins` organization instead soon
+(link:https://issues.jenkins-ci.org/browse/JENKINS-42846[JENKINS-42846]).
