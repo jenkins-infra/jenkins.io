@@ -54,46 +54,24 @@ try {
             * something is very wrong
             */
             timeout(60) {
-                /* Invoke Gradle which has the actual task graph defined inside of it
-                * for the building of the site
-                */
-                docker.image('openjdk:8').inside {
-                    /* One Weird Trick(tm) to allow git(1) to clone inside of a
-                    * container
-                    */
-                    withEnv([
-                        'GIT_COMMITTER_EMAIL=me@hatescake.com',
-                        'GIT_COMMITTER_NAME=Hates',
-                        'GIT_AUTHOR_NAME=Cake',
-                        'GIT_AUTHOR_EMAIL=hates@cake.com',
-                        /* Override the npm cache directory to avoid: EACCES: permission denied, mkdir '/.npm' */
-                        'npm_config_cache=npm-cache',
-                        /* set home to our current directory because other bower
-                        * nonsense breaks with HOME=/, e.g.:
-                        * EACCES: permission denied, mkdir '/.config'
-                        */
-                        'HOME=.',
-                        ]) {
-                        sh '''#!/usr/bin/env bash
-                            set -o errexit
-                            set -o nounset
-                            set -o pipefail
-                            set -o xtrace
-                            ./gradlew --quiet --console=plain --no-daemon --info --stacktrace 2>&1 | tee build.log
-                            if [[ -n "$( grep --fixed-strings WARNING build.log | grep --fixed-strings --invert-match user-handbook.adoc )" ]] ; then
-                                echo "Failing build due to warnings in log output" >&2
-                                exit 1
-                            fi
+                sh '''#!/usr/bin/env bash
+                    set -o errexit
+                    set -o nounset
+                    set -o pipefail
+                    set -o xtrace
+                    make all | tee build.log
+                    if [[ -n "$( grep --fixed-strings WARNING build.log | grep --fixed-strings --invert-match user-handbook.adoc )" ]] ; then
+                        echo "Failing build due to warnings in log output" >&2
+                        exit 1
+                    fi
 
-                            illegal_htaccess_content="$( find content -name '.htaccess' -type f -exec grep --extended-regexp --invert-match '^(#|ErrorDocument)' {} \\; )"                            
-                            if [[ -n "$illegal_htaccess_content" ]] ; then
-                                echo "Failing build due to illegal content in .htaccess files, only ErrorDocument is allowed:" >&2
-                                echo "$illegal_htaccess_content" >&2
-                                exit 1
-                            fi
-                           '''
-                    }
-                }
+                    illegal_htaccess_content="$( find content -name '.htaccess' -type f -exec grep --extended-regexp --invert-match '^(#|ErrorDocument)' {} \\; )"
+                    if [[ -n "$illegal_htaccess_content" ]] ; then
+                        echo "Failing build due to illegal content in .htaccess files, only ErrorDocument is allowed:" >&2
+                        echo "$illegal_htaccess_content" >&2
+                        exit 1
+                    fi
+                    '''
             }
         }
 
@@ -103,29 +81,20 @@ try {
             * that artifact so we can pick it up later
             */
             archiveArtifacts artifacts: 'build/**/*.zip,build/_site/*.pdf', fingerprint: true
-            /* stash the archived site so we can pull it back out when we deploy */
-            stash includes: 'build/**/*.zip', name: 'built-site'
         }
-    }
 
-    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
-     */
-    if (env.BRANCH_NAME == null) {
-        stage('Deploy sitesite') {
-            node {
+        /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
+        */
+        if (env.BRANCH_NAME == null) {
+            stage('Deploy site') {
                 /* This Credentials ID is from the `site-deployer` account on
                 * ci.jenkins-ci.org
                 *
                 * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
                 */
                 sshagent(credentials: ['site-deployer']) {
-                    /* Make sure we delete our current directory on this node to make sure
-                    * we're only uploading what we unstash
-                    */
-                    deleteDir()
-                    unstash 'built-site'
                     sh 'ls build/archives'
-                    sh 'echo "put build/archives/*.zip archives/" | sftp  site-deployer@eggplant.jenkins.io'
+                    sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
                 }
             }
         }

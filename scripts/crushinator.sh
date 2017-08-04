@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 FILENAME=$1
 OUTPUTFILE="${FILENAME}_pngcrush_`date '+%Y%m%d%H%M'`"
