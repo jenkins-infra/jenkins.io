@@ -1,0 +1,252 @@
+---
+layout: simplepage
+title: Jenkins Security Advisory 2017-08-07
+section: security
+kind: plugins
+---
+
+This advisory announces vulnerabilities in these Jenkins plugins:
+
+* plugin:blueocean[Blue Ocean]
+* plugin:config-file-provider[Config File Provider Plugin]
+* plugin:datadog[Datadog Plugin]
+* plugin:deploy[Deploy to container Plugin]
+* plugin:dry[DRY Plugin]
+* plugin:dependency-check-jenkins-plugin[OWASP Dependency-Check Plugin]
+* plugin:workflow-cps[Pipeline: Groovy Plugin]
+* plugin:pipeline-input-step[Pipeline: Input Step Plugin]
+* plugin:script-security[Script Security Plugin]
+* plugin:analysis-core[Static Analysis Utilities Plugin]
+
+== Description
+
+
+=== Persistent XSS vulnerability in Static Analysis Utilities and DRY Plugins
+*SECURITY-467 / CVE-2017-1000102 (Static Analysis Utilities Plugin) / CVE-2017-1000103 (DRY Plugin)*
+
+The "Details" view of Static Analysis Utilities based plugins, as well as the custom "Details" view of the DRY Plugin, was vulnerable to a persisted cross-site scripting vulnerability:
+Malicious users could insert arbitrary HTML into this view if they were able to influence the input to these plugins, for example the console output which is parsed to extract build warnings (Warnings Plugin).
+
+These plugins now sanitize HTML to a safe subset in all messages on the Details view.
+
+=== Users with Overall/Read access were able to view configuration files managed by Config File Provider Plugin
+*SECURITY-513 / CVE-2017-1000104*
+
+The Config File Provider Plugin is used to centrally manage configuration files that may include secrets, such as passwords.
+
+Users with only Overall/Read access to Jenkins were able to access URLs directly that allowed viewing these files.
+
+Access to view these files now requires sufficient permissions to configure the provided files, view the configuration of the folder in which the configuration files are defined, or have Job/Configure permissions to a job able to use these files.
+
+
+=== Deploy to container Plugin stored plain text passwords in job configuration
+*SECURITY-559 / CVE-2017-1000113*
+
+The Deploy to container Plugin stored passwords unencrypted as part of its configuration.
+This allowed users with Jenkins master local file system access, or users with Extended Read access to the jobs it is used in to retrieve the password, e.g. through the +config.xml+ URL.
+
+The Deploy to container Plugin now integrates with plugin:credentials[Credentials Plugin] to store passwords, and automatically migrates existing passwords.
+
+
+=== Blue Ocean Plugin did not check the optional Run/Artifacts permission before granting access to archived artifacts
+*SECURITY-564 / CVE-2017-1000105*
+
+The optional Run/Artifacts permission can be enabled by setting link:https://wiki.jenkins-ci.org/display/JENKINS/Features+controlled+by+system+properties[a Java system property].
+
+Blue Ocean did not check this permission before providing access to archived artifacts, Item/Read permission was sufficient.
+
+Blue Ocean now correctly checks the Run/Artifacts permission if it's enabled before providing access to artifacts.
+
+
+=== Blue Ocean Plugin allowed read/write access to GitHub repositories in organization folders using the permissions of the user who created the pipeline
+*SECURITY-565 / CVE-2017-1000106*
+
+IMPORTANT: Pipelines created in Blue Ocean for Bitbucket Cloud and Server are affected by this issue as well.
+As of publication of this advisory, no official release of Blue Ocean contains this feature, it was only released to the experimental update site as Blue Ocean 1.2.0-beta-3.
+For this reason, the description below focuses on the issue with GitHub-based pipelines.
+
+Blue Ocean allows the creation of GitHub organization folders that are set up to scan a GitHub organization for repositories and branches containing a Jenkinsfile, and create corresponding pipelines in Jenkins.
+Its SCM content REST API supports the pipeline creation and editing feature in Blue Ocean.
+
+The SCM content REST API did not check the current user's authentication or credentials.
+If the GitHub organization folder was created via Blue Ocean, it retained a reference to its creator's GitHub credentials.
+
+This allowed users with read access to the GitHub organization folder to create arbitrary commits in the repositories inside the GitHub organization corresponding to the GitHub organization folder with the GitHub credentials of the creator of the organization folder.
+
+Additionally, users with read access to the GitHub organization folder could read arbitrary file contents from the repositories inside the GitHub organization corresponding to the GitHub organization folder if the branch contained a Jenkinsfile (which could be created using the other part of this vulnerability), and they could provide the organization folder name, repository name, branch name, and file name.
+
+Blue Ocean now limits SCM content REST API access to authenticated users, and always uses the authenticated user's credentials for editing and creation.
+
+=== Multiple Groovy language features allowed Script Security Plugin sandbox bypass
+*CVE-2017-1000107*
+
+Script Security Plugin did not apply sandbox restrictions to various types of expressions.
+This could be used to invoke arbitrary constructors and methods, bypassing sandbox protection.
+
+NOTE: This may result in existing sandboxed scripts, such as pipelines, starting to fail if they use this Groovy language feature.
+See below for examples of these expressions, and how they are handled now.
+
+==== Type coercion
+*SECURITY-566*
+
+Example:
+
+[source,groovy]
+----
+import jenkins.model.Jenkins
+
+interface I {
+  Object getInstance()
+}
+(Jenkins as I).getInstance()
+----
+
+Casts like this are now prohibited unless all interface methods are already whitelisted on the actual receiver.
+
+==== Method references
+*SECURITY-567*
+
+Example:
+
+[source,groovy]
+----
+import jenkins.model.Jenkins
+(Jenkins.&getInstance)()
+----
+
+Method reference invocations are now subject to sandbox protection.
+
+==== Positional constructor arguments lists
+*SECURITY-580*
+
+Example:
+
+[source,groovy]
+----
+def f = ['/tmp'] as File
+File f = ['/tmp']
+----
+
+Constructor invocations via positional argument list are now subject to sandbox protection.
+
+==== Super constructor calls
+*SECURITY-582*
+
+Example:
+
+[source,groovy]
+----
+class Foo extends File {
+    public Foo(String f) {
+        super(f)
+    }
+}
+
+new Foo('/tmp')
+----
+
+Invocations of the +super+ constructor are now subject to sandbox protection.
+
+
+=== Pipeline: Input Step Plugin allows users with read access to interact with the step by default
+*SECURITY-576 / CVE-2017-1000108*
+
+The Pipeline: Input Step Plugin by default allowed users with Item/Read access to a pipeline to interact with the step to provide input.
+
+This has been changed, and now users are required to have the Item/Build permission by default.
+
+
+=== Persistent XSS vulnerability in OWASP Dependency-Check Plugin
+*SECURITY-577 / CVE-2017-1000109*
+
+The "Details" view of the OWASP Dependency-Check Plugin, which is based on Static Analysis Utilities, was vulnerable to a persisted cross-site scripting vulnerability:
+The plugin showed issue descriptions verbatim without sanitizing or escaping, so that "sample" cross-site scripting exploits as part of an identified issue's description were actually being executed.
+
+The plugin now escapes HTML in all messages on the Details view.
+
+
+=== Datadog Plugin showed plain text API key in configuration form field
+*SECURITY-579 / CVE-2017-1000114*
+
+The Datadog Plugin stores an API key to access the Datadog service in the global Jenkins configuration.
+
+While the API key is stored encrypted on disk, it was transmitted in plain text as part of the configuration form.
+This could result in exposure of the API key through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+The Datadog Plugin now encrypts the API key transmitted to administrators viewing the global configuration form.
+
+
+=== Blue Ocean allows unauthorized users to reconfigure existing pipelines and obtain GitHub access tokens
+*SECURITY-587 / CVE-2017-1000110*
+
+Blue Ocean allows the creation of GitHub organization folders that are set up to scan a GitHub organization for repositories and branches containing a Jenkinsfile, and create corresponding pipelines in Jenkins.
+
+It did not properly check the current user's authentication and authorization when configuring existing GitHub organization folders.
+
+This allowed users with read access to the GitHub organization folder to reconfigure it, including changing the GitHub API endpoint for the organization folder to an attacker-controlled server to obtain the GitHub access token, if the organization folder was initially created using Blue Ocean.
+
+Blue Ocean now limits configuration of GitHub organization folders to users with the Item/Create permission.
+
+
+
+== Severity
+
+* SECURITY-467: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N[medium]
+* SECURITY-513: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]
+* SECURITY-559: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N[medium]
+* SECURITY-564: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:N/A:N[low]
+* SECURITY-565: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:C/C:L/I:H/A:N[high]
+* SECURITY-566: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]
+* SECURITY-567: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]
+* SECURITY-576: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N[medium]
+* SECURITY-577: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:N/A:N[low]
+* SECURITY-579: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N[low]
+* SECURITY-580: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]
+* SECURITY-582: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]
+* SECURITY-587: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N[medium]
+
+
+== Affected versions
+* Blue Ocean:
+** GitHub Pipeline for Blue Ocean up to and including 1.1.5, 1.2.0 beta releases up to and including 1.2.0-beta-3
+** REST Implementation for Blue Ocean up to and including 1.1.5, 1.2.0 beta releases and up to and including 1.2.0-beta-3
+** Bitbucket Pipeline for Blue Ocean 1.2.0-beta-3
+* Config File Provider Plugin up to and including 2.16.1
+* Datadog Plugin up to and including 0.5.6
+* Deploy to container Plugin up to and including 1.12
+* DRY Plugin up to and including 2.48
+* OWASP Dependency-Check Plugin up to and including 2.0.1.1
+* Pipeline: Groovy Plugin up to and including 2.38
+* Pipeline: Input Step Plugin up to and including 2.7
+* Script Security Plugin up to and including 1.30
+* Static Analysis Utilities Plugin up to and including 1.91
+
+== Fix
+* Blue Ocean should be updated to version 1.1.6
+* Config File Provider Plugin should be updated to version 2.16.2
+* Datadog Plugin should be updated to version 0.5.7
+* Deploy to container Plugin should be updated to version 1.13
+* DRY Plugin should be updated to version 2.49
+* OWASP Dependency-Check Plugin should be updated to version 2.0.1.2
+* Pipeline: Groovy Plugin should be updated to version 2.39
+* Pipeline: Input Step Plugin should be updated to version 2.8
+* Script Security Plugin should be updated to version 1.31
+* Static Analysis Utilities Plugin should be updated to version 1.92
+
+These versions include fixes to the vulnerabilities described above.
+All prior versions are considered to be affected by these vulnerabilities unless otherwise indicated.
+
+== Credit
+
+The Jenkins project would like to thank the reporters for discovering and link:/security/#reporting-vulnerabilities[reporting] these vulnerabilities:
+
+* *Alvin Huang, FireEye Inc.* for SECURITY-579
+* *Cliff Meyers, CloudBees, Inc.* for SECURITY-565, SECURITY-587
+* *Daniel Beck, CloudBees, Inc.* for SECURITY-582
+* *Dheeraj Joshi* for SECURITY-577
+* *James Nord, CloudBees, Inc.* for SECURITY-564
+* *Jesse Glick, CloudBees, Inc.* for SECURITY-559, SECURITY-580
+* *Oleg Nenashev, CloudBees, Inc.* for SECURITY-467
+* *Simon St John-Green* for SECURITY-566, SECURITY-567
+* *R. Tyler Croy, CloudBees, Inc.* for SECURITY-576
+* *Thanh Ha* for SECURITY-513
