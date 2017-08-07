@@ -1,0 +1,129 @@
+---
+layout: post
+title: "Remoting Update. Protocols deprecation, Java 8 requirement and plans"
+tags:
+- remoting
+- agents
+author: oleg_nenashev
+---
+
+[NOTE]
+====
+This is a post by link:https://github.com/oleg-nenashev[Oleg Nenashev],
+who is an active Jenkins core contributor.
+He is also responsible for Jenkins Remoting maintenance at link:http://cloudbees.com[CloudBees, Inc].
+You can follow him on Twitter: link:http://twitter.com/oleg_nenashev[@oleg_nenashev].
+====
+
+You may have noticed that there is some ongoing work on 
+link:https://github.com/jenkinsci/remoting/blob/master/README.md[Jenkins Remoting] in the project.
+On the other hand you may wonder where is the documentation and roadmaps.
+And I have to admit I was not that good on this front, but I want to make the activities more public.
+
+In order to achieve it, I have started the 
+link:https://jenkins.io//projects/remoting/[Remoting sub-project] on Jenkins website. 
+I will also do my best to make regular updates about the Remoting status in blogposts and the link:/mailing-lists[developer mailing list].
+Below you can find updates about incoming changes.
+
+## Remoting Protocols Deprecation
+
+It is almost one year since the release of JNLP4-connect protocol in Remoting 3.0. 
+This protocol has been enabled by default since 2.46.x, and so far it demonstrates good stability being compared to JNLP2 and especially to JNLP3.
+
+At the governance meeting 
+link:http://meetings.jenkins-ci.org/jenkins-meeting/2017/jenkins-meeting.2017-08-02-18.00.html[we decided] to disable old Remoting protocols (JNLP/JNLP2 + CLI1) in new installations by default. 
+There are 3 reasons for it:
+
+* Maintenance of multiple protocols takes much extra efforts.
+The JNL2 NIO engine is complex and barely diagnosable.
+* There are known issues in JNLP2 connection management (see link:/projects/remoting/[the protocol's Errata]). In many cases update to JNLP4 was a resolution
+* JNLP1/JNLP2/CLI1 are unencrypted, and it is not something Jenkins users may expect in 2017
+
+The change will take place in one of the next Weekly releases.
+It is tracked as link:https://issues.jenkins-ci.org/browse/JENKINS-45841[JENKINS-45841] in Jenkins JIRA.
+
+### How?
+
+*  When installation wizard is enabled && it runs in the new installation mode, old protocols will be disabled
+* Jenkins shows an administrative warning when obsolete protocols are enabled
+
+### Compatibility notes
+
+Old instances won't be affected, protocols will be still enabled for them. 
+Newly installed instances launched with the  `-Djenkins.install.runSetupWizard=false` flag (e.g. configuration-as-code) won't be affected as well, 
+the initial configuration is being managed by admins there.
+
+"New" Jenkins instances installed via setup wizard **may be affected** in edge cases. Examples:
+
+* Agents with Remoting older than 3.0 will be unable to connect.
+** **Mitigation:** Before updating make sure Remoting is not bundled custom Docker images, AMIs, etc.
+* Swarm Plugin: old versions of Swarm Client (before 3.3) will be unable to connect to Jenkins, because Remoting 2.x is bundled
+** **Mitigation**: Update Swarm Client
+* **Very** old jenkins-cli.jar without CLI2 support will be unable to connect. 
+** **Mitigation**: Do not use Remoting-based CLI on new instances (see link:/blog/2017/04/11/new-cli/[this blogpost])
+
+## Upgrade to Java 8
+
+Starting from 2.54 Jenkins requires Java 8 to run 
+(link:https://jenkins.io/blog/2017/04/10/jenkins-has-upgraded-to-java-8/[announcement blog post]).
+This version is also required for Jenkins LTS 2.60.1.
+
+Remoting was staying on Java 7 for a while for backporting purposes, 
+but it will be also upgraded to Java 8 in the Remoting 3.11 release.
+This change is tracked as link:https://issues.jenkins-ci.org/browse/JENKINS-43985[JENKINS-43985] in Jenkins JIRA.
+
+### Compatibility notes
+
+The update does not cause compatibility issues in common use-cases.
+However, there may be issues in custom Jenkins core builds and packaging.
+There are several examples below.
+
+* Jenkins instances with built-in Remoting versions will **NOT** be affected, Java 8 is already required there
+* Users of community-provided Docker packages (link:https://github.com/jenkinsci/docker-slave[docker-slave], 
+  link:https://github.com/jenkinsci/docker-jnlp-slave[docker-jnlp-slave]) will **NOT** be affected, 
+Java 8 is already required there
+* **Custom** Jenkins WAR file builds targeting Java 7 may fail to build/run if they bundle Remoting 3.11 or later
+* **Custom** Jenkins agent instances (manually installed hosts, VM snapshots, Docker packages, AMIs, etc.) may fail if they download the latest Remoting version and use Java 7 
+
+### Java 9 support
+
+One may ask if Java 9 is supported in Remoting.
+As Jenkins core, right now in Remoting this Java version is **not supported** and **not tested**.
+It may work in some configurations, but itis not guaranteed.
+
+As a consequence, it is not recommended to run Remoting with Java 9 right now. 
+It is also not recommended to use link:https://plugins.jenkins.io/maven-plugin[Maven Integration Plugin] to run builds on Java 9.
+
+## What's next?
+
+There are some ongoing activities on Remoting fronts. 
+They are grouped to several EPICs:
+
+1. Stability and Diagnosability improvements
+(link:https://issues.jenkins-ci.org/browse/JENKINS-38833[JENKINS-38833])
+** **Why?** When it comes to Remoting issues, it is really hard to diagnose them
+** Recently I have published link:https://speakerdeck.com/onenashev/day-of-jenkins-2017-dealing-with-agent-connectivity-issues[some slides] about preventing and diagnosing issues, but I want the behavior to be more stable by default
+** This EPIC lists my plans about Remoting issues and papercuts I would like to fix this year
+2. Remoting Work Directories 
+(link:https://issues.jenkins-ci.org/browse/JENKINS-44108[JENKINS-44108])
+** For long time logging was disabled by default in Java Web Start (JNLP) and SSH agents, because Remoting had no option to determine where to store such data before connecting to the master
+** The new link:https://github.com/jenkinsci/remoting/blob/master/docs/workDir.md[Remoting Work Directory] feature (since Remoting 3.8) offers such storage, which is also used for storing JAR caches and for checking workspace writeability before accepting builds.
+** This EPIC is about enabling Remoting work directories by default in common Agent launcher types.
+3. Remoting Upgradeability
+(link:https://issues.jenkins-ci.org/browse/JENKINS-44099[JENKINS-44099])
+** Right now Remoting is not being upgraded automatically on JNLP agents, it is supported only for Windows service agents starting from Jenkins 2.50
+** On the Jenkins master side it is required to upgrade the Jenkins core in order to pick Remoting fixes.
+** This EPIC aims simplifying the upgrade procedure for most common cases.
+
+If you are interested to contribute to these or other activities, 
+please feel free to reach out to me in the bugtracker or in the link:https://jenkins.io/chat/[#jenkins IRC channel].
+
+If you are coming to Jenkins World, you can also find me at the "Ask the Experts" booth there.
+See more info about Ask the Experts link:/blog/2017/08/03/jenkinsworld-ask-the-experts/[here].
+
+## Useful links
+
+* link:https://jenkins.io//projects/remoting/[Remoting Sub-Project] on Jenkins website
+* link:https://github.com/jenkinsci/remoting/blob/master/CHANGELOG.md[Remoting Release Notes]
+* link:https://github.com/jenkinsci/remoting/blob/master/README.md[Remoting documentation] on GitHub
+* link:https://speakerdeck.com/onenashev/day-of-jenkins-2017-dealing-with-agent-connectivity-issues[My slides] about Remoting issues troubleshooting
