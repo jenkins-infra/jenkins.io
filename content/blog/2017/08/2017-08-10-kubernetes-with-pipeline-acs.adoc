@@ -1,0 +1,156 @@
+---
+layout: post
+title: "CI/CD with Jenkins Pipeline and Azure"
+tags:
+- plugins
+- kubernetes
+- pipeline
+author: rtyler
+---
+
+[NOTE]
+====
+This is a guest post by link:https://github.com/puicchan[Pui Chee Chen],
+Product Manager at Microsoft working on
+link:https://jenkinsworld20162017.sched.com/event/AK4K/azure-devops-open-source-integrations[Azure
+DevOps open source integrations].
+====
+
+Recently, we improved the plugin:azure-credentials[Azure Credential plugin] by
+adding a custom binding for Azure Credentials which allows you to use an
+link:https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli?toc=%2fazure%2fazure-resource-manager%2ftoc.json[Azure
+service principal] (the analog to a service or system account) via  the
+Credentials Binding plugin. This means it's now trivial to run Azure CLI
+commands from a Jenkins Pipeline. We also recently published the first version
+of the plugin:azure-app-service[Azure App Service plugin] which makes it _very_
+easy to deploy
+link:https://azure.microsoft.com/en-us/services/app-service/web/[Azure Web
+Apps] directly from Jenkins Pipeline. While we'll have
+much more to discuss in our Jenkins World presentation on
+link:https://jenkinsworld20162017.sched.com/event/AK4K/azure-devops-open-source-integrations[Azure
+DevOps open source integrations], in this blog post I wanted to share some good
+snippets of what is possible today with Jenkins Pipeline and Azure.
+
+First, a simple example using the Azure CLI to list resources in the
+subscription:
+
+[pipeline]
+----
+// Scripted //
+node {
+    /* .. snip .. */
+    stage('Deploy') {
+        withCredentials([azureServicePrincipal('principal-credentials-id')]) {
+            sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+            sh 'az account set -s $AZURE_SUBSCRIPTION_ID'
+            sh 'az resource list'
+        }
+    }
+}
+----
+
+[WARNING]
+====
+`azureServicePrincipal()` cannot be used in Declarative Pipeline until
+link:https://issues.jenkins-ci.org/browse/JENKINS-46103[JENKINS-46103] is
+resolved.
+====
+
+Once a Pipeline can interact with Azure, there are countless ways one could
+implement continuous delivery with Jenkins and Azure. From a deploying a simple
+webapp with the
+link:https://azure.microsoft.com/en-us/blog/annoucing-jenkins-deploy-to-azure-app-service-plugin-and-new-managed-disk-support-for-azure-storage-plugin/[Azure
+App Service plugin] and the `azureWebAppPublish` step, or a more advanced
+container-based delivery pipeline to deliver new containers to
+link:https://docs.microsoft.com/en-us/azure/container-service/kubernetes/container-service-tutorial-kubernetes-deploy-cluster[Kubernetes
+via Azure Container Service].
+
+With the plugin:docker-workflow[Docker Pipeline plugin] and a little bit of
+extra scripting, a Jenkins Pipeline can also build and publish a Docker
+container to an
+link:https://azure.microsoft.com/en-us/services/container-registry/[Azure
+Container Registry]:
+
+[pipeline]
+----
+// Scripted //
+import groovy.json.JsonSlurper
+
+node {
+    def container
+    def acrSettings
+
+    withCredentials([azureServicePrincipal('principal-credentials-id')]) {
+        stage('Prepare Environment') {
+            sh 'az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID'
+            sh 'az account set -s $AZURE_SUBSCRIPTION_ID'
+            acrSettings = new JsonSlurper().parseText(
+                                            sh(script: "az acs show -o json -n my-acr", returnStdout: true))
+        }
+
+        stage('Build') {
+            container = docker.build("${acrSettings.loginServer}/my-app:${env.BUILD_ID}")
+        }
+
+        stage('Publish') {
+            /* https://issues.jenkins-ci.org/browse/JENKINS-46108 */
+            sh "docker login -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} ${acrSettings.loginServer}"
+            container.push()
+        }
+
+        stage('Deploy') {
+            echo 'Orchestrating a new deployment with kubectl is a simple exercise left to the reader ;)'
+        }
+    }
+}
+----
+
+---
+
+
+If you have been following our
+link:https://azure.microsoft.com/en-us/blog/tag/jenkins/[Azure Blog], you may
+have noticed we have shipped a **lot** of updates to provide better support for
+Azure on Jenkins, and vice versa, such as:
+
+* **Hosted Jenkins**. New
+link:https://azuremarketplace.microsoft.com/en-us/marketplace/apps/azure-oss.jenkins[Solution
+Template] in Azure Marketplace lets you spin up a
+Jenkins Master on Azure in minutes. Not only is it easy and fast, the solution
+template gives you option to scale up by selecting the VM disk type and size.
+And guess what? You can even select the Jenkins release type you want to use -
+LTS, weekly build or Azure verified - all under your control.
+
+* **Continuous integration experience**. In the latest version of our
+  plugin:azure-vm-agents[Azure VM Agents plugin], we improved the user
+  experience and added the option to let you to select Managed Disk for disk
+  type (which is currently used extensively on
+  link:https://ci.jenkins.io[ci.jenknis.io]. You no longer need to worry about
+  exceeding the number of VMs on your subscription.
+
+* **Continuous deployment experience**. Now, if
+Azure CLI is not your cup of tea, we released our first plugin to provide
+continuous deployment support to Azure App Service. The plugin supports all
+languages Azure App Service supports. We even have a walkthrough
+link:https://docs.microsoft.com/en-us/azure/jenkins/deploy-jenkins-app-service-plugin[here] in the
+brand new Jenkins Hub where you can find all Jenkins on Azure resources.
+
+* **Pipeline readiness**. Also, all Azure plugins are and will be pipeline ready.
+Have you been leveraging our
+plugin:windows-azure-storage[Azure Storage plugin] in your Pipeline?
+
+So, what’s next? We have a big surprise in store at Jenkins World! :)
+
+We are serious about supporting open source and the open source community.
+Be sure to catch our talk on
+link:https://jenkinsworld20162017.sched.com/event/AK4K/azure-devops-open-source-integrations[Azure
+DevOps open source integrations].
+See you at
+link:https://www.cloudbees.com/jenkinsworld[Jenkins World 2017]!
+
+[WARNING]
+====
+Join the Azure DevOps team at
+link:https://www.cloudbees.com/jenkinsworld/home[Jenkins World] in August,
+register with the code `JWFOSS` for a 30% discount off your pass.
+====
