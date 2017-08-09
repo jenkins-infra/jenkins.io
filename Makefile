@@ -13,7 +13,7 @@ prepare: fetch depends assets
 run: warning depends-ruby assets
 	LISTEN=true ./scripts/ruby bundle exec awestruct --bind 0.0.0.0 --dev $(AWESTRUCT_CONFIG)
 
-generate: warning $(OUTPUT_DIR) depends-ruby assets $(OUTPUT_DIR)/releases.rss
+generate: warning $(OUTPUT_DIR) depends-ruby assets $(OUTPUT_DIR)/releases.rss pdfs
 	./scripts/ruby bundle exec awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
 pdfs: $(OUTPUT_DIR)/user-handbook.pdf
@@ -22,7 +22,7 @@ $(OUTPUT_DIR)/user-handbook.pdf: $(OUTPUT_DIR) depends-ruby scripts/generate-han
 	./scripts/ruby scripts/generate-handbook-pdf $(BUILD_DIR)/user-handbook.adoc
 	./scripts/ruby bundle exec asciidoctor-pdf -a allow-uri-read \
 		--base-dir content \
-		--out-file $(OUTPUT_DIR)/user-handbook.pdf \
+		--out-file user-handbook.pdf \
 		$(BUILD_DIR)/user-handbook.adoc
 
 
