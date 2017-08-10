@@ -4,56 +4,63 @@ title: "Remoting Update. Protocols deprecation, Java 8 requirement and plans"
 tags:
 - remoting
 - agents
+- announcement
+- upgrade
+- core 
 author: oleg_nenashev
 ---
 
 [NOTE]
 ====
-This is a post by link:https://github.com/oleg-nenashev[Oleg Nenashev],
-who is an active Jenkins core contributor.
-He is also responsible for Jenkins Remoting maintenance at link:http://cloudbees.com[CloudBees, Inc].
-You can follow him on Twitter: link:http://twitter.com/oleg_nenashev[@oleg_nenashev].
+This is an announcement about incoming changes in the Jenkins core, 
+which **may** require extra actions during the upgrade.
+If you use configuration-as-code or other configuration management for Jenkins agents, 
+please read this announcement carefully.
 ====
 
-You may have noticed that there is some ongoing work on 
-link:https://github.com/jenkinsci/remoting/blob/master/README.md[Jenkins Remoting] in the project.
-On the other hand you may wonder where is the documentation and roadmaps.
-And I have to admit I was not that good on this front, but I want to make the activities more public.
+If you have ever seen messages like "Channel is already closed" or "Remote call failed" in your build logs, 
+you have already met link:/projects/remoting[Jenkins Remoting].
 
-In order to achieve it, I have started the 
-link:https://jenkins.io//projects/remoting/[Remoting sub-project] on Jenkins website. 
-I will also do my best to make regular updates about the Remoting status in blogposts and the link:/mailing-lists[developer mailing list].
-Below you can find updates about incoming changes.
+Remoting is an agent executable (aka `slave.jar`) and a library implementing the communication layer between Jenkins masters and their agents (including communication protocols, distributed calls and classloading).
+It is also used in several other cases: link:https://plugins.jenkins.io/maven-plugin[Maven Integration Plugin], Remoting-based CLI, etc.
 
-## Remoting Protocols Deprecation
+In order to make it clear what's changing in Jenkins Remoting, I have documented the various components on
+link:/projects/remoting[the Remoting's sub-project page], and will try to publish regular updates about the status of
+Remoting to this site and the link:/mailing-lists[developer mailing list].
 
-It is almost one year since the release of JNLP4-connect protocol in Remoting 3.0. 
-This protocol has been enabled by default since 2.46.x, and so far it demonstrates good stability being compared to JNLP2 and especially to JNLP3.
+In this blogpost I would like to provide an update on the Remoting roadmap and to announce two major incoming changes: deprecation of old protocols and upgrade to Java 8. 
+Both changes will take place in one of the next Weekly releases. 
+ETA is Jenkins 2.75 on Aug 20, 2017.
+
+Below are details on the incoming changes and compatibility notes.
+
+## Old Remoting Protocols Deprecation
+
+It has been almost one year since the release of JNLP4-connect protocol in Remoting 3.0. 
+This protocol has been enabled by default since 2.46.x, and so far it demonstrates good stability being compared to JNLP2 and JNLP3 protocols.
 
 At the governance meeting 
 link:http://meetings.jenkins-ci.org/jenkins-meeting/2017/jenkins-meeting.2017-08-02-18.00.html[we decided] to disable old Remoting protocols (JNLP/JNLP2 + CLI1) in new installations by default. 
 There are 3 reasons for it:
 
-* Maintenance of multiple protocols takes much extra efforts.
+1. Maintenance of multiple protocols takes a lot of extra effort.
 The JNL2 NIO engine is complex and barely diagnosable.
-* There are known issues in JNLP2 connection management (see link:/projects/remoting/[the protocol's Errata]). In many cases update to JNLP4 was a resolution
-* JNLP1/JNLP2/CLI1 are unencrypted, and it is not something Jenkins users may expect in 2017
+2. There are known issues in JNLP2 connection management (see link:/projects/remoting/[the protocol's Errata]). In many cases update to JNLP4 was a resolution
+3. JNLP1/JNLP2/CLI1 are unencrypted, and it is not something Jenkins users may expect in 2017
 
-The change will take place in one of the next Weekly releases.
 It is tracked as link:https://issues.jenkins-ci.org/browse/JENKINS-45841[JENKINS-45841] in Jenkins JIRA.
 
 ### How?
 
-*  When installation wizard is enabled && it runs in the new installation mode, old protocols will be disabled
+*  When Jenkins is started in the new installation mode with enabled Installation Wizard, old protocols will be disabled
 * Jenkins shows an administrative warning when obsolete protocols are enabled
 
 ### Compatibility notes
 
-Old instances won't be affected, protocols will be still enabled for them. 
-Newly installed instances launched with the  `-Djenkins.install.runSetupWizard=false` flag (e.g. configuration-as-code) won't be affected as well, 
-the initial configuration is being managed by admins there.
+Older instances won't be affected by the disabling of the older JNLP1/JNLP2 protocols, which will still be enabled for them. 
+Newly created instances which skip, or disable, the Setup Wizard will not be affected either.
 
-"New" Jenkins instances installed via setup wizard **may be affected** in edge cases. Examples:
+"New" Jenkins instances installed via setup wizard **may be affected** in edge cases. For example:
 
 * Agents with Remoting older than 3.0 will be unable to connect.
 ** **Mitigation:** Before updating make sure Remoting is not bundled custom Docker images, AMIs, etc.
@@ -64,13 +71,14 @@ the initial configuration is being managed by admins there.
 
 ## Upgrade to Java 8
 
-Starting from 2.54 Jenkins requires Java 8 to run 
-(link:https://jenkins.io/blog/2017/04/10/jenkins-has-upgraded-to-java-8/[announcement blog post]).
+Starting with version 2.54, Jenkins requires Java 8 to run 
+(link:/blog/2017/04/10/jenkins-has-upgraded-to-java-8/[announcement blog post]).
 This version is also required for Jenkins LTS 2.60.1.
 
-Remoting was staying on Java 7 for a while for backporting purposes, 
+Remoting continued to support Java 7 for a while for backporting purposes, 
 but it will be also upgraded to Java 8 in the Remoting 3.11 release.
-This change is tracked as link:https://issues.jenkins-ci.org/browse/JENKINS-43985[JENKINS-43985] in Jenkins JIRA.
+Thit Rremoting version is expected to be available in Jenkins 2.75 (ETA: Aug 20, 2017).
+This change is tracked as link:https://issues.jenkins-ci.org/browse/JENKINS-43985[JENKINS-43985].
 
 ### Compatibility notes
 
@@ -87,17 +95,15 @@ Java 8 is already required there
 
 ### Java 9 support
 
-One may ask if Java 9 is supported in Remoting.
-As Jenkins core, right now in Remoting this Java version is **not supported** and **not tested**.
-It may work in some configurations, but itis not guaranteed.
+As with Jenkins core, Java 9 **not supported** and **not tested** in Remoting.
+It may work in some configurations, but it is not guaranteed.
 
 As a consequence, it is not recommended to run Remoting with Java 9 right now. 
 It is also not recommended to use link:https://plugins.jenkins.io/maven-plugin[Maven Integration Plugin] to run builds on Java 9.
 
 ## What's next?
 
-There are some ongoing activities on Remoting fronts. 
-They are grouped to several EPICs:
+There are some ongoing activities in the Remoting sub-project:
 
 1. Stability and Diagnosability improvements
 (link:https://issues.jenkins-ci.org/browse/JENKINS-38833[JENKINS-38833])
