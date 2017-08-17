@@ -1,0 +1,131 @@
+---
+layout: post
+title: "Run an Open-Source Load Test Through Jenkins Pipeline with Taurus"
+tags:
+- event
+- JenkinsWorld
+author: hinman
+---
+
+NOTE: This is a guest post by Guy Salton, Sr. Professional Services Engineer for 
+link:https://www.blazemeter.com/ca-technologies[CA BlazeMeter].
+
+link:https://www.blazemeter.com/blog/running-jmeter-test-jenkins-pipeline-tutorial?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[Jenkins Pipeline] is an important Jenkins feature for creating and managing your Jenkins project as a link:https://www.blazemeter.com/blog/groovy-new-black?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[Groovy] script. This is opposed to the traditional way of creating a Jenkins project by using the Jenkins GUI. When running your open-source load test, Jenkins Pipeline enables resilience, execution control, advanced logic and Version Control management. This blog post will explain how to run any open-source load test with Jenkins Pipeline, through Taurus.
+
+link:http://gettaurus.org/?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[Taurus] is an open-source test automation framework that enables running and analyzing tests from 9 open-source load and functional testing tools: link:http://www.blazemeter.com/jmeter-load-testing?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[JMeter], Selenium, Gatling, The Grinder, Locust, Tsung, Siege, Apache Bench and PBench. Test results can be analyzed in Taurus. For advanced analyses or running tests in the cloud, Taurus integrates with link:http://info.blazemeter.com/testing-landing-page-url?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[BlazeMeter].
+
+Here is what you need to do to run your Taurus through Jenkins Pipeline:
+
+[WARNING]
+--
+Guy will be
+link:https://jenkinsworld20162017.sched.com/event/BYQn/learn-to-release-faster-by-load-testing-with-jenkins-free?iframe=no[presenting]
+more on this topic at
+link:https://www.cloudbees.com/jenkinsworld/home[Jenkins World] in August,
+register with the code `JWFOSS` for a 30% discount off your pass.
+--
+
+### Configure and Run Your Taurus Script
+
+1. Install Taurus
+2. Create your script in YAML. Learn more about YAML link:https://gettaurus.org/docs/YAMLTutorial/?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[from here].
+
+[source, yaml]
+----
+## execution:
+- concurrency: 100
+  hold-for: 10m
+  ramp-up: 120s
+  scenario: Thread Group
+scenarios:
+  Thread Group:
+    requests:
+    - label: blazedemo
+      method: GET
+      url: http://blazedemo.com/
+----
+
+This script runs 100 concurrent users, holds the load for 10 minutes, the ramp-up is 120 seconds and the thread group runs one GET request to blazedemo.com.
+
+You can specify an executor by adding `executor: <executor_name>` to the script. Otherwise, the default executor will be JMeter. In the background, Taurus will create an artifact directory with a jmx file (or a Scala file if you run Gatling, a Python file if you are running Selenium, etc.).
+
+3. Open your terminal and run:
+`bzt <file_name>.yml`
+
+4. View the test results:
+
+insert image 1
+
+### View Test Results on BlazeMeter
+
+If you want to conduct an in-depth analysis of your test results, run your tests on BlazeMeter. You will be able to monitor KPIs through advanced and colorful reports, evaluate system health over time and run your tests from multiple geo-locations.
+
+5. Open your terminal and run:
+`bzt <file_name>.yml -report`
+
+insert image 2
+
+### Integrate Taurus With Jenkins Pipelines
+
+To run Taurus through Jenkins Pipeline, you can also go straight to Jenkins after creating your Taurus script.
+
+6. Open Jenkins -> New Item -> Fill in an item name -> Click on ‘Pipeline’
+
+insert image 3
+
+insert image 4
+
+7. Now is the time to create your Pipeline script. You can include all parts of your CI/CD process in this script: Commit, Build, Unit Test, Performance Test, etc., by creating different stages.
+
+This script has three stages: The first is called “build”. In this example it is empty, but you can add commands that will build your code. The second, called “Performance Tests”, creates a folder called “Taurus-Repo” and runs the Taurus script that we created. At the same time (note the “parallel” command), there is a “sleep” command for 60 seconds. Obviously it makes no sense to put those two commands together, this is just to show you the option of running 2 commands in parallel. The third stage called “Deploy” is also empty in this example. This is where you could deploy your new version.
+
+[source, yaml]
+----
+node {
+   stage('Build') {
+      // Run the Taurus build
+   }
+   stage('Performance Tests') { 
+    parallel(
+        BlazeMeterTest: {
+        dir ('Taurus-Repo') {
+        sh 'bzt <file_name>.yml -report'
+        }
+        }
+        , Analysis: {sleep 60})
+  
+   }
+   stage(‘Deploy’) {   
+   }
+}
+----
+
+insert image 5
+
+Note that you can either write the script in Groovy in the Pipeline section, or choose the “Pipeline script from SCM” option and add the URL to the script on GitHub (in this case you need to upload your script to GitHub). Now, if you need to update your tests, you can just update the Groovy script.
+
+8. Save your Jenkins project
+
+9. Click on ‘Build Now’ to run the project
+
+insert image 6
+
+10. Click on the new Build that is running now (build #6 in this example).
+
+insert image 7
+
+11. Click on ‘Console Output’ to see the test results:
+
+insert image 8
+
+12. In the Console Output you can see the test results and also the link to the report in BlazeMeter.
+
+insert image 9
+
+insert image 10
+
+That’s it! Jenkins Pipeline is now running open-source load testing tools through Taurus. 
+
+Come to link:https://jenkinsworld20162017.sched.com/event/BYQn/learn-to-release-faster-by-load-testing-with-jenkins-free[my free hands-on workshop “Learn to Release Faster by Load Testing With Jenkins”] at Jenkins World 2017. You will learn how to test continuously with Jenkins, JMeter, BlazeMeter and Taurus, including how to  run JMeter with Jenkins, run the BlazeMeter plugin for Jenkins and how to use open-source Taurus. (Tue., Aug. 29, 1:00pm - 5:00pm).
+
+To learn more about BlazeMeter, link:http://info.blazemeter.com/testing-landing-page2?utm_source=jenkins&utm_medium=external_article&utm_campaign=run-an-open-source-load-test-through-jenkins-pipeline-with-taurus[click here].
