@@ -1,0 +1,165 @@
+---
+layout: post
+title: "Declarative Pipeline Syntax Beta 2 release"
+tags:
+- plugins
+- pipeline
+author: abayer
+---
+
+This week, we released the second beta of the new
+plugin:pipeline-model-definition[Declarative Pipeline syntax],
+available in the Update Center now as version 0.8.1 of _Pipeline: Model Definition_.
+You can read more about Declarative Pipeline
+link:/blog/2016/12/19/declarative-pipeline-beta/[in the blog post introducing the first beta]
+from December, but we wanted to update you all on the syntax changes in the
+second beta. These syntax changes are the last compatibility-breaking changes to
+the syntax before the 1.0 release planned for February, so you can safely start
+using the 0.8.1 syntax now without needing to change it when 1.0 is released.
+
+A full syntax reference is link:https://github.com/jenkinsci/pipeline-model-definition-plugin/wiki/Syntax-Reference[available on the wiki] as well.
+
+== Syntax Changes
+
+=== Changed "agent" configuration to block structure
+In order to support more detailed and clear configuration of agents, as well as
+making agent syntax more consistent with the rest of the Declarative Pipeline
+syntax, we've moved the agent configuration into blocks. The `agent any` and
+`agent none` configurations work the same as previously, but `label`, `docker`
+and `dockerfile` now look like the following:
+
+Just specifying a label is simple.
+[pipeline]
+----
+// Declarative //
+agent {
+    label "some-label"
+}
+// Script //
+----
+
+If you're just specifying a Docker image, you can use this simple syntax.
+[pipeline]
+----
+// Declarative //
+agent {
+    docker "ubuntu:16.04"
+}
+// Script //
+----
+
+When you are specifying a label or other arguments, docker looks like this:
+[pipeline]
+----
+// Declarative //
+agent {
+    docker {
+        image "ubuntu:16.04"
+        label "docker-label"
+        args "-v /tmp:/tmp -p 8000:8000"
+    }
+}
+// Script //
+----
+
+When you're building an image from "Dockerfile" in your repository and
+don't care what node is used or have additional arguments, you can again
+use a simple syntax.
+[pipeline]
+----
+// Declarative //
+agent {
+    dockerfile true
+}
+// Script //
+----
+
+When you're building an image from a different file, or have a label or other
+arguments, use the following syntax:
+[pipeline]
+----
+// Declarative //
+agent {
+    dockerfile {
+        filename "OtherDockerfile"
+        label "docker-label"
+        args "-v /tmp:/tmp -p 8000:8000"
+    }
+}
+// Script //
+----
+
+=== Improved "when" conditions
+We introduced the `when` section a couple releases ago, but have made some
+changes to its syntax here in 0.8.1. We wanted to add some simpler ways to
+specify common conditions, and that required we re-work the syntax accordingly.
+
+==== Branch
+One of the most common conditions is running a stage only if you're on a
+specific branch. You can also use wildcards like "*/master".
+[pipeline]
+----
+// Declarative //
+when {
+    branch "master"
+}
+// Script //
+----
+
+==== Environment
+Another built-in condition is the environment condition, which checks to see
+if a given environment variable is set to a given value.
+[pipeline]
+----
+// Declarative //
+when {
+    environment name: "SOME_ENV_VAR", value: "SOME_VALUE"
+}
+// Script //
+----
+
+==== Expression
+Lastly, there's the expression condition, which resolves an arbitrary
+Pipeline expression. If the return value of that expression isn't false or
+null, the stage will execute.
+[pipeline]
+----
+// Declarative //
+when {
+    expression {
+        echo "Should I run?"
+        return "foo" == "bar"
+    }
+}
+// Script //
+----
+
+=== "options" replaces "properties" and "wrappers"
+We've renamed the `properties` section to `options`, due to needing to add new
+Declarative-specific options and to cut down on confusion. The `options` section
+is now where you'll put general Pipeline options like `buildDiscarder`,
+Declarative-specific options like `skipDefaultCheckout`, and block-scoped steps
+that should wrap the execution of the entire build, like `timeout` or
+`timestamps`.
+
+[pipeline]
+----
+// Declarative //
+
+options {
+    buildDiscarder(logRotator(numToKeepStr:'1'))
+    skipDefaultCheckout()
+    timeout(time: 5, unit: 'MINUTES')
+}
+// Script //
+----
+
+== Heading towards 1.0!
+While we may still add more functionality to the Declarative Pipeline syntax,
+we won't be making any changes to existing syntax for the 1.0 release. This
+means that any pipelines you write against the 0.8.1 syntax will keep working
+for the foreseeable future without any changes. So if you're already using
+Declarative Pipelines, make sure to update your `Jenkinsfile`s after upgrading
+to 0.8.1, and if you haven't been using Declarative Pipelines yet, install the
+plugin:pipeline-model-definition[_Pipeline: Model Definition_] plugin and
+give them a try!

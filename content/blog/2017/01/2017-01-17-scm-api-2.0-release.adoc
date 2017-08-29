@@ -1,0 +1,287 @@
+---
+:layout: post
+:title: SCM API turns 2.0 and what that means for you
+:tags:
+- development
+- plugins
+:author: stephenc
+---
+
+[NOTE]
+====
+The link:https://issues.jenkins-ci.org/browse/JENKINS-41121[regressions
+discovered after release] have now been resolved and this post has been updated with the correct plugin version numbers.
+
+See link:/blog/2017/02/06/scm-api-2-take2/[this post] for more details.
+====
+
+We are announcing the
+plugin:scm-api[SCM API]
+2.0.x and
+plugin:branch-api[Branch API]
+2.0.x release lines.
+
+Downstream of this there are also some great improvements to a number of popular plugins including:
+
+* plugin:github-branch-source[GitHub Branch Source]
+* plugin:cloudbees-bitbucket-branch-source[BitBucket branch source]
+* plugin:git[Git]
+* plugin:mercurial[Mercurial]
+* plugin:workflow-multibranch[Pipeline Multibranch]
+* plugin:github-organization-folder[GitHub Organization Folders]
+
+There are some gotcha's that Jenkins administrators will need to be aware of.
+
+TIP: Always take a backup of your `JENKINS_HOME` before upgrading any plugins.
+
+We want to give you the whole story, but the take home message is this:
+
+[quote,A Jenkins Administrator]
+____
+When updating the
+plugin:scm-api[SCM API]
+and/or
+plugin:branch-api[Branch API]
+plugins to the 2.0.x release lines, if you have any of the
+plugin:github-organization-folder[GitHub Organization Folders],
+plugin:github-branch-source[GitHub Branch Source]
+and/or
+plugin:cloudbees-bitbucket-branch-source[BitBucket branch source]
+plugins installed then you *must* upgrade them *all* to 2.0.x at the same time or Bad Things(TM) will happen.
+____
+
+[WARNING]
+====
+Do NOT upgrade some of these plugins but not others!
+Doing so may cause your jobs to fail to load.
+====
+
+If you don't care about the hows and whys, you can just skip down to <<tldr,this section>> but if you are curious... here we go!
+
+== The back-story
+
+Way back in September 2013 we announced the
+link:/blog/2013/09/23/literate-builds-wtf/[Literate plugin],
+as an experimental new way of modeling branch development in Jenkins.
+
+When you are performing an experiment, the recommendation is to do just enough work to let you perform the test.
+However, the culture in Jenkins is to always try and produce reusable components that others can use in ways you have not anticipated.
+
+So when releasing the initial version of the
+plugin:literate[Literate plugin]
+we also separated the Literate specific bits from the SCM specific concepts and multi-branch concepts.
+These were lower level concepts were organized into the following plugins:
+
+* plugin:scm-api[SCM API] -
+which was intended to be a plugin to hold a next generation API for interacting with source control systems.
+* plugin:branch-api[Branch API] -
+which was intended to be a plugin to hold the multi-branch functionality that was abstracted from the usage by the Literate plugin.
+
+In addition, we released updates to three of the more common SCM plugins which included implementations of the SCM API:
+
+* Git plugin
+* Subversion plugin
+* Mercurial plugin
+
+While there was some interest in the Literate plugin, it did not gain much traction - there are only 39 Jenkins instances running the Literate plugin as of December 2016.
+
+In terms of the reusable components, we had only made a minimal implementation with some limitations:
+
+* Very basic event support - events can only trigger a re-scan of the entire repository.
+This was acceptable at the time because the only three implementations use a local cache of the remote state so re-scanning is quick.
+* No implementation of the `SCMFileSystem` API.
+As a result it is not possible for plugins like
+plugin:workflow-multibranch[Pipeline Multibranch]
+to get the `Jenkinsfile` from the remote repository without needing to checkout the repository into a workspace.
+* No documentation on how plugin developers are supposed to implement the SCM API
+* No documentation on how plugin developers are supposed to consume the SCM API (if they wanted to do something like Branch API but not the same way as Branch API)
+* No documentation on how plugin developers are supposed to implement the Branch API to create their own multi-branch project types
+* No documentation on for users on how the Branch API based project types are expected to work.
+
+Roll forward to November 2015 and Jenkins Pipeline got a release of the
+plugin:workflow-multibranch[Pipeline Multibranch].
+It seems that pairing Pipeline with Branch API style multi-branch is much more successful than Literate - there are close to 60,000 instances running the pipeline multi-branch plugin as of December 2016.
+
+There also were two new SCM plugins implementing the SCM API:
+
+* GitHub Branch Source Plugin
+* BitBucket Branch Source Plugin
+
+Unlike the previous implementations of the SCM API, however, these plugins do not maintain a local cache of the repository state.
+Rather they make queries via the GitHub / BitBucket REST APIs on demand.
+
+The above design decision exposed one of the initial MVP compromises of the SCM API plugin: _very basic event support_.
+Under the SCM API 1.x model, the only event that an `SCMSource` can signal is _something changed, go look at everything again_.
+When you are accessing an API that only allows 5,000 API calls per hour, performing a full scan of the entire repository just to pick up a change in one branch does not make optimum usage of that 5,000 calls/hour rate limit.
+
+So we decided that perhaps the SCM API and Branch API plugins have left their Minimum Viability Experiment state and the corresponding limitations should be addressed.
+
+== Enter SCM API 2.0.x and Branch API 2.0.x
+
+So what has changed in the
+plugin:scm-api[SCM API]
+2.0.x and
+plugin:branch-api[Branch API]
+2.0.x release lines?
+These plugin releases include:
+
+* documentation on how plugin developers are supposed to
+link:https://github.com/jenkinsci/scm-api-plugin/blob/master/docs/implementation.adoc[implement the SCM API]
+* documentation on how plugin developers are supposed to
+link:https://github.com/jenkinsci/scm-api-plugin/blob/master/docs/consumer.adoc[consume the SCM API]
+(if they wanted to do something like Branch API but not the same way as Branch API)
+* documentation on how plugin developers are supposed to
+link:https://github.com/jenkinsci/branch-api-plugin/blob/master/docs/implementation.adoc[implement the Branch API]
+to create their own multi-branch project types
+* generic documentation for users on
+link:https://github.com/jenkinsci/branch-api-plugin/blob/master/docs/user.adoc[how Branch API based project types are intended to work]
+* a full featured
+link:https://github.com/jenkinsci/scm-api-plugin/blob/master/src/main/java/jenkins/scm/api/SCMEvent.java[event system]
+that allows implementers to provide fine grained notifications to consumers
+* link:https://github.com/jenkinsci/scm-api-plugin/tree/master/src/test/java/jenkins/scm/api[lots]
+link:https://github.com/jenkinsci/scm-api-plugin/tree/master/src/test/java/jenkins/scm/impl[and]
+link:https://github.com/jenkinsci/branch-api-plugin/tree/master/src/test/java/integration[lots]
+of new automated tests
+* a link:https://github.com/jenkinsci/scm-api-plugin/tree/master/src/test/java/jenkins/scm/impl/mock[mock implementation]
+of the SCM API to help consumers of the SCM API test their usage.
+
+In addition, we have upgraded the following plugins to include the new fine-grained event support:
+
+* Git Plugin
+* Mercurial Plugin
+
+Ok, that was the good news.
+Here is the bad news.
+
+We found out that the GitHub Branch Source and BitBucket Branch Source plugins had made invalid assumptions about how to implement the SCM API.
+To be clear, this was not the plugin developers fault: at the time there was no documentation on how to implement the SCM API.
+
+But fixing the issues that we found means that you have to be careful about which specific combinations of plugin versions you have installed.
+
+SCM API Plugin::
+Technically, the 2.0.x line of this plugin is both API and on-disk compatible with plugins compiled against older version lines.
++
+However, the 1.x lines of both the GitHub Branch Source and BitBucket Branch Source plugins have hard-coded assumptions about internal implementation of the SCM API that are no longer valid in the 2.0.x line.
++
+[WARNING]
+====
+If you upgrade to SCM API 2.0.x and you have either the GitHub Branch Source or the BitBucket Branch Source plugins *and* you do not upgrade those instances to the 2.0.x line then your Jenkins instance will fail to start-up correctly.
+
+The solution is just to upgrade the GitHub Branch Source or the BitBucket Branch Source plugin (as appropriate) to the 2.0.x line.
+====
++
+[TIP]
+====
+If you upgrade the SCM API plugin to the 2.0.x line and do not upgrade the Branch API plugin to the 2.0.x line then you will not get any of the benefits of the new version of the SCM API plugin.
+====
+
+Branch API Plugin::
+The 2.0.x line of this plugin makes on-disk file format changes that mean you will be unable to roll back to the 1.x line after an upgrade without restoring the old data files from a back-up.
+Technically, the API is compatible with plugins compiled against older version lines.
++
+The 1.x lines of both the GitHub Branch Source and BitBucket Branch Source plugins have implemented hacks that make assumptions about internal implementation of the Branch API that are no longer valid in the 2.0.x line.
++
+The Pipeline Multibranch plugin made a few minor invalid assumptions about how to implement a Multibranch project type.
+For example, if you do not upgrade the Pipeline Multibranch plugin in tandem then you will be unable to manually delete an orphaned item before the orphaned item retention strategy runs, which should be significantly less frequently with the new event support.
++
+[WARNING]
+====
+If you upgrade to Branch API 2.0.x and you have either the GitHub Branch Source or the BitBucket Branch Source plugins *and* you do not upgrade those instances to the 2.0.x line then your Jenkins instance will fail to start-up correctly.
+
+The solution is just to upgrade the GitHub Branch Source or the BitBucket Branch Source plugin (as appropriate) to the 2.0.x line.
+====
+
+Git Plugin::
+The new releases of this plugin are both API and on-disk compatible with plugins compiled against the previous releases.
++
+The 2.0.x lines of both the GitHub Branch Source and BitBucket Branch Source plugins require that you upgrade your Git Plugin to one of the versions that supports SCM API 2.0.x.
+In general, the required upgrade will be performed automatically when you upgrade your GitHub Branch Source and BitBucket Branch Source plugins.
+
+Mercurial Plugin::
+The new release of this plugin is both API and on-disk compatible with plugins compiled against the previous releases.
++
+The 2.0.x line of the BitBucket Branch Source plugins require that you upgrade your Mercurial Plugin to the 2.0.x line.
+In general, the required upgrade will be performed automatically when you upgrade your  BitBucket Branch Source plugins.
+
+BitBucket Branch Source Plugin::
+The 2.0.x line of this plugin makes on-disk file format changes that mean you will be unable to roll back to the 1.x line after an upgrade without restoring the old data files from a back-up.
+
+GitHub Branch Source Plugin::
+The 2.0.x line of this plugin makes on-disk file format changes that mean you will be unable to roll back to the 1.x line after an upgrade without restoring the old data files from a back-up.
++
+[WARNING]
+====
+If you upgrade to GitHub Branch Source 2.0.x and you have the GitHub Organization Folders plugin installed, you must upgrade that plugin to the tombstone release.
+====
+
+GitHub Organization Folders Plugin::
+The functionality of this plugin has been migrated to the GitHub Branch Source plugin.
+You will need to upgrade to the tombstone release in order to ensure all the data has been migrated to the classes in the GitHub Branch Source plugin.
++
+[TIP]
+====
+Once you have upgraded to the tombstone version and all GitHub Organization Folders have had a full scan completed successfully, you can disable and uninstall the GitHub Organization Folders plugin.
+There will be no more releases of this plugin after the tombstone.
+The tombstone is only required for data migration.
+====
+
+[[tldr]]
+== Summary for busy Jenkins Administrators
+
+Upgrading should make multi-branch projects much better.
+When you are ready to upgrade you must ensure that you upgrade all the required plugins.
+If you miss some, just upgrade them and restart to fix the issue.
+
+Folders Plugin:: [line-through]#5.16# *5.17* or newer
+SCM API Plugin:: [line-through]#2.0.1# *2.0.2* or newer
+Branch API Plugin:: [line-through]#2.0.0# *2.0.2* or newer
+Git Plugin:: *Either* [line-through]#2.6.2# *2.6.4* or newer in the 2.6.x line *or* [line-through]#3.0.2# *3.0.4* or newer
+Mercurial Plugin:: 2.0.0 or newer
+GitHub Branch Source Plugin:: [line-through]#2.0.0# *2.0.1* or newer
+BitBucket Branch Source Plugin:: [line-through]#2.0.0# *2.0.2* or newer
+GitHub Organization Folders Plugin:: 1.6
+Pipeline Multibranch Plugin:: [line-through]#2.10# *2.12* or newer
+
+If you are using the plugin:blueocean[Blue Ocean plugin]
+
+Blue Ocean Plugin:: *1.0.0-b22* or newer
+
+Other plugins that may require updating:
+
+GitHub API Plugin:: 1.84 or newer
+GitHub Plugin:: 1.25.0 or newer
+
+After an upgrade you will see the data migration warning (see the screenshot in link:https://issues.jenkins-ci.org/browse/JENKINS-41608[JENKINS-41608] for an example) this is normal and expected.
+The unreadable data will be removed by the next scan / index or can be removed manually using the _Discard Unreadable Data_ button.
+The warning will disappear on the next restart after the unreadable data has been removed.
+
+== Summary for busy Jenkins users
+
+SCM API 2.0.x adds fine-grained event support.
+This should significantly improve the responsiveness of multi-branch projects.
+This should significantly reduce your GitHub API rate limit usage.
+
+If you are using the
+plugin:github-branch-source[GitHub Branch Source]
+or
+plugin:github-organization-folder[GitHub Organization Folders]
+plugins then upgrading will *significantly* reduce the API calls made by Jenkins to GitHub.
+
+If you are using any of the upgraded SCM plugins (e.g. Git, Mercurial, GitHub Branch Source, BitBucket Branch Source) then upgrading will *significantly* improve the responsiveness to push event notifications.
+
+
+== Summary for busy SCM plugin developers
+
+You should read the new
+link:https://github.com/jenkinsci/scm-api-plugin/blob/master/docs/implementation.adoc[documentation]
+on how plugin developers are supposed to implement the SCM API
+
+== Where to now dear Literate Plugin
+
+The persistent reader may be wondering what happens now to the Literate plugin.
+
+For me, the logical heir of the Literate Plugin is the
+plugin:pipeline-model-definition[Pipeline Model Definition plugin].
+This new plugin has the advantage of an easy to read pipeline syntax with the extra functionality that I suspect was preventing people from adopting Literate.
+
+The good news is that the Pipeline Model Definition already has 5000 installations as of December 2016 and I expect up-take to keep on growing.

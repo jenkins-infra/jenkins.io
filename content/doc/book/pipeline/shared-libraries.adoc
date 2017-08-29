@@ -24,7 +24,7 @@ external source control repositories and loaded into existing Pipelines.
 
 == Defining Shared Libraries
 
-An Shared Library is defined with a name, a source code retrieval method such
+A Shared Library is defined with a name, a source code retrieval method such
 as by SCM, and optionally a default version.  The name should be a short
 identifier as it will be used in scripts.
 
@@ -114,12 +114,11 @@ sandbox just like typical Pipelines.
 
 ===  Automatic Shared Libraries
 
-Other plugins may add ways of defining libraries on the fly.
-For example, the
-link:https://plugins.jenkins.io/github-organization-folder[GitHub Organization Folder]
-plugin allows a script to use an untrusted library such as
-`github.com/someorg/somerepo` without any additional configuration.  In this
-case, the specified GitHub repository would be loaded, from the `master`
+Other plugins may add ways of defining libraries on the fly.  For example, the
+plugin:github-branch-source[GitHub Branch Source] plugin provides a "GitHub
+Organization Folder" item which allows a script to use an untrusted library
+such as `github.com/someorg/somerepo` without any additional configuration.  In
+this case, the specified GitHub repository would be loaded, from the `master`
 branch, using an anonymous checkout.
 
 == Using libraries
@@ -185,6 +184,50 @@ echo useSomeLib(new Helper('some text'))
 
 Global Variables however, are resolved at runtime.
 
+=== Loading libraries dynamically
+
+As of version 2.7 of the _Pipeline: Shared Groovy Libraries_ plugin,
+there is a new option for loading (non-implicit) libraries in a script:
+a `library` step that loads a library _dynamically_, at any time during the build.
+
+If you are only interested in using global variables/functions (from the `vars/` directory),
+the syntax is quite simple:
+
+[source,groovy]
+----
+library 'my-shared-library'
+----
+
+Thereafter, any global variables from that library will be accessible to the script.
+
+Using classes from the `src/` directory is also possible, but trickier.
+Whereas the `@Library` annotation prepares the “classpath” of the script prior to compilation,
+by the time a `library` step is encountered the script has already been compiled.
+Therefore you cannot `import` or otherwise “statically” refer to types from the library.
+
+However you may use library classes dynamically (without type checking),
+accessing them by fully-qualified name from the return value of the `library` step.
+`static` methods can be invoked using a Java-like syntax:
+
+[source,groovy]
+----
+library('my-shared-library').com.mycorp.pipeline.Utils.someStaticMethod()
+----
+
+You can also access `static` fields, and call constructors as if they were `static` methods named `new`:
+
+[source,groovy]
+----
+def useSomeLib(helper) { // dynamic: cannot declare as Helper
+    helper.prepare()
+    return helper.count()
+}
+
+def lib = library('my-shared-library').com.mycorp.pipeline // preselect the package
+
+echo useSomeLib(lib.Helper.new(lib.Constants.SOME_TEXT))
+----
+
 === Library versions
 
 The "Default version" for a configured Shared Library is used when "Load
@@ -197,6 +240,33 @@ If "Allow default version to be overridden" is enabled in the Shared Library's
 configuration, a `@Library` annotation may also override a default version
 defined for the library. This also allows a library with "Load implicitly" to
 be loaded from a different version if necessary.
+
+When using the `library` step you may also specify a version:
+
+[source,groovy]
+----
+library 'my-shared-library@master'
+----
+
+Since this is a regular step, that version could be _computed_
+rather than a constant as with the annotation; for example:
+
+[source,groovy]
+----
+library "my-shared-library@$BRANCH_NAME"
+----
+
+would load a library using the same SCM branch as the multibranch `Jenkinsfile`.
+As another example, you could pick a library by parameter:
+
+[source,groovy]
+----
+properties([parameters([string(name: 'LIB_VERSION', defaultValue: 'master')])])
+library "my-shared-library@${params.LIB_VERSION}"
+----
+
+Note that the `library` step may not be used to override the version of an implicitly loaded library.
+It is already loaded by the time the script starts, and a library of a given name may not be loaded twice.
 
 === Retrieval Method
 
@@ -218,6 +288,27 @@ this variable to checkout the appropriate version of the library.
 
 image::pipeline/global-pipeline-library-legacy-scm.png["Configuring a 'Legacy SCM' for a Pipeline Library", role=center]
 
+==== Dynamic retrieval
+
+If you only specify a library name (optionally with version after `@`) in the `library` step,
+Jenkins will look for a preconfigured library of that name.
+(Or in the case of a `github.com/owner/repo` automatic library it will load that.)
+
+But you may also specify the retrieval method dynamically,
+in which case there is no need for the library to have been predefined in Jenkins.
+Here is an example:
+
+[source,groovy]
+----
+library identifier: 'custom-lib@master', retriever: modernSCM(
+  [$class: 'GitSCMSource',
+   remote: 'git@git.mycorp.com:my-jenkins-utils.git',
+   credentialsId: 'my-private-key'])
+----
+
+It is best to refer to *Pipeline Syntax* for the precise syntax for your SCM.
+
+Note that the library version _must_ be specified in these cases.
 
 == Writing libraries
 
@@ -342,7 +433,9 @@ In the above, `name` is not referring to a field (even if you write it as `this.
 but to an entry created on demand in a `Script.binding`.
 To be clear about what data you intend to store and of what type,
 you can instead provide an explicit class declaration
-(the class name should match the file basename):
+(the class name should match the file basename, and Pipeline steps can
+only be invoked if `steps` or `this` is passed to the class or method,
+as with classes in `src` described above):
 
 [source,groovy]
 ----

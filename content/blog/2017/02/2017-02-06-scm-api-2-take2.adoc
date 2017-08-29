@@ -1,0 +1,179 @@
+---
+:layout: post
+:title: SCM API 2.0 Release Take 2
+:tags:
+- development
+- plugins
+:author: stephenc
+---
+
+In January we
+link:/blog/2017/01/17/scm-api-2/[announced the release of SCM API 2.0].
+After the original release was published we identified four new high-impact
+issues.  We decided to remove the new versions of the plugins from the update
+center until those issues could be resolved. The issues have now been resolved
+and the plugins are now available from the update center.
+
+== Summary for busy Jenkins Administrators
+
+Upgrading should make multi-branch projects much better.  When you are ready to
+upgrade you must ensure that you upgrade all the required plugins.  If you miss
+some, just upgrade them and restart to fix the issue. And of course, it's
+always a good idea to take a backup of your `JENKINS_HOME` before upgrading any
+plugins.
+
+
+In the list below, version numbers in *bold* indicate a change from the
+original version in the
+link:/blog/2017/01/17/scm-api-2/[original announcement]
+
+Folders Plugin:: *5.17* or newer
+SCM API Plugin:: *2.0.2* or newer
+Branch API Plugin:: *2.0.2* or newer
+Git Plugin:: This depends on the exact release line of the Git plugin that you are using.
++
+* Following the 2.6.x release line: *2.6.4* or newer
+* Following the 3.0.x release line (_recommended_): *3.0.4* or newer
+
+Mercurial Plugin:: 1.58 or newer
+GitHub Branch Source Plugin:: *2.0.1* or newer
+BitBucket Branch Source Plugin:: *2.0.2* or newer
+GitHub Organization Folders Plugin:: 1.6
+Pipeline Multibranch Plugin:: *2.12* or newer
+
+If you are using the plugin:blueocean[Blue Ocean plugin]
+
+Blue Ocean Plugin:: *1.0.0-b22* or newer
+
+Other plugins that may require updating:
+
+GitHub API Plugin:: 1.84 or newer
+GitHub Plugin:: 1.25.0 or newer
+
+[WARNING]
+====
+If you upgrade to Branch API 2.0.x and you have either the GitHub Branch Source or the BitBucket Branch Source plugins *and* you do not upgrade those instances to the 2.0.x line then your Jenkins instance will fail to start-up correctly.
+
+The solution is just to upgrade the GitHub Branch Source or the BitBucket Branch Source plugin (as appropriate) to the 2.0.x line.
+====
+
+After an upgrade you will see the data migration warning (see the screenshot in
+link:https://issues.jenkins-ci.org/browse/JENKINS-41608[JENKINS-41608] for an
+example) this is normal and expected.  The unreadable data will be removed by
+the next scan / index or can be removed manually using the _Discard Unreadable
+Data_ button.  The warning will disappear on the next restart after the
+unreadable data has been removed.
+
+Please update to the versions listed above. If you want to know more about the
+issues and how they were resolved, see the next section.
+
+---
+
+== Analysis of the issues
+
+The issues described below are resolved with these plugin releases:
+
+* Folders Plugin: *5.17*
+* SCM API Plugin: *2.0.2*
+* Branch API Plugin: *2.0.2*
+* Git Plugin: *Either* *2.6.4* *or* *3.0.4*
+* GitHub Branch Source Plugin: *2.0.1*
+* BitBucket Branch Source Plugin: *2.0.2*
+* Pipeline Multibranch Plugin: *2.12*
+
+
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-41121[JENKINS-41121: GitHub Branch Source upgrade can cause a lot of rebuilds]:
+
+Migration of GitHub branches from 1.x to 2.x resulted in a change of the
+implementation class used to identify branches.  Some other other bugs in
+Branch API had been fixed and the combined effect resulted in a rebuild of all
+GitHub Branches (not PRs) after an upgrade to GitHub Branch Source Plugin
+2.0.0.  This rebuild was referred to as a "build storm".
+
+*Resolution:*
+
+* The SCM API plugin was enhanced to add an extension point that allows for a second round of data migration when upgrading.
+* The second round of data migration allows plugins implementing the SCM API contract to fix implementation class issues in context.
+* The Branch API plugin was enhanced to use this new extension point.
+* The GitHub Branch Source plugin was enhanced to provide an implementation of this extension point.
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-41255[JENKINS-41255: Upgrading from a navigator that did not assign consistent source ids to a version that does assign consistent source ids causes a build storm on first scan]:
+
+The GitHub Branch Source and BitBucket Branch Source plugins in 1.x were not
+assigning consistent IDs to multi-branch projects discovered in an Organization
+Folder.  Both plugins were fixed in 2.0.0 to assign consistent IDs as a change
+of ID would result in a rebuild of all projects.  What was missed is that the
+very first scan of an Organization Folder after an upgrade will change the
+randomly assigned ID assigned by the 1.x plugins into the consistent ID
+assigned by the 2.0.0 plugins and consequently trigger a rebuild of all
+branches. This rebuild was referred to as a "build storm".
+
+*Resolution:*
+
+The Branch API plugin was enhanced to detect the case where a branch source has
+been changed but the change is only changing the ID.  When such changes are
+identified, the downstream references of the ID are all updated which will
+prevent a build storm.
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-41313[JENKINS-41313: On first index after upgrade to 2.0.0 all open PRs are rebuilt]:
+
+The BitBucket Branch Source 1.x did not store all the information about PRs
+that is required by the SCM API 2.0.x model.  This could well have resulted in
+subtle effects when manually triggering a rebuild of a merge PR if the PR's
+target branch has been modified after the PR branch was first detected by
+Jenkins. Consequently, as the information is required, BitBucket Branch Source
+plugin 2.0.0 populated the information with dummy values which would force the
+correct information to be retrieved.  The side-effect is that all PR branches
+would be rebuilt.
+
+*Resolution:*
+
+* The changes in SCM API 2.0.2 introduced to resolve JENKINS-41121 provided a path to resolve this issue without causing a rebuild of all PR branches.
+* The BitBucket Branch Source plugin was enhanced to provide an implementation of the new SCM API extension point that connects to BitBucket and retrieves the missing information.
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-41124[JENKINS-41124: Can't get a human readable job name anymore]:
+
+During initial testing of the Branch API 2.0.0 release an issue was identified
+with how Organization Folders handled unusual names.  None of the existing
+implementations of the `SCMNavigator` API could generate such unusual names due
+to form validation on GitHub / BitBucket replacing unusual characters with `-`
+when creating a repository.
+
+It would be irresponsible to rely on external services sanitizing their input
+data for the correct operation of Organization Folders.  Consequently, in
+Branch API 2.0.0 the names were all transformed into URL safe names, with the
+original URLs still resolving to the original projects so that any existing
+saved links would remain functional.
+
+Quite a number of people objected to this change of URL scheme.
+
+*Resolution:*
+
+* There has been a convention in Jenkins that the on-disk storage structure for
+  jobs mirrors the URL structure. This is only a convention and there is nothing specific in the code that
+  mandates following the convention.
+* The Folders Plugin was enhanced to allow for computed folders (where the item
+  names are provided by an external source) to provide a strategy to use when
+  generating the on-disk storage names as well as the URL component names for
+  the folder's child items.
+* The Branch API plugin was enhanced to use this new strategy for name transformation.
+* The net effect of this change is that the URLs remain the same as for 1.x but
+  the on-disk storage uses transformed names that are future proofed against
+  any new SCMNavigator implementations where the backing service allows names
+  that are problematic to use as filesystem directory names.
+
+*Side-effect:*
+
+* The Branch API 2.0.0 approach handled the transformation of names by renaming the items using the Jenkins Item rename API.
+* The Branch API 2.0.2 approach does not rename the child items as it is only the on-disk storage location that is moved.
+
+This means that the Jenkins Item rename API cannot be used.
+
+
+At this time, the only known side-effect is in the  plugin:jobConfigHistory[Job Configuration History] plugin.
+The configuration history of each child item will still be tracked going
+forward after the upgrade.  The pre-upgrade configuration history is also
+retained.  Because the Jenkins Item rename API cannot be used to flag the
+configuration file location change, there is no association between the
+pre-upgrade history chain and the post-upgrade history chain.

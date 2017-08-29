@@ -1,0 +1,171 @@
+---
+layout: post
+title: "Delivery Pipelines, with Jenkins 2, SonarQube, and Artifactory"
+tags:
+- quality
+- sonarqube
+- jenkins
+- artifactory
+author: michaelhuettermann
+---
+
+[NOTE]
+====
+This is a guest post by link:https://github.com/michaelhuettermann[Michael Hüttermann]. Michael is an expert
+in Continuous Delivery, DevOps and SCM/ALM. More information about him at link:http://huettermann.net[huettermann.net], or
+follow him on Twitter: link:http://twitter.com/huettermann[@huettermann].
+====
+
+Continuous Delivery and DevOps are well known and widely spread practices nowadays. It is commonly accepted that it
+is crucial to form great teams and define shared goals first and then choose and integrate the tools fitting best to
+given tasks. Often it is a mashup of lightweight tools, which are integrated to build up Continuous Delivery pipelines
+and underpin DevOps initiatives. In this blog post, we zoom in to an important part of the overall pipeline, that is the discipline
+often called _Continuous Inspection_, which comprises inspecting code and injecting a quality gate on that, and show how artifacts can
+be uploaded after the quality gate was met. DevOps enabler tools covered are Jenkins, SonarQube, and Artifactory.
+
+=== The Use Case
+You already know that quality cannot be injected after the fact, rather it should be part of the process and product from the very beginning.
+As a commonly used good practice, it is strongly recommended to inspect the code and make findings visible, as soon as possible.
+For that link:http://www.sonarqube.com[SonarQube] is a great choice. But SonarQube is not just running on any isolated
+island, it is integrated in a Delivery Pipeline. As part of the pipeline, the code is inspected, and only if the code is fine according to defined
+requirements, in other words: it meets the quality gates, the built artifacts are uploaded to the binary repository manager.
+
+Let's consider the following scenario. One of the busy developers has to fix code, and checks in changes to the central
+version control system. The day was long and the night short, and against all team commitments the developer
+did not check the quality of the code in the local sandbox. Luckily, there is the build engine link:http://www.jenkins.io[Jenkins]
+which serves as a single point of truth, implementing the Delivery Pipeline with its native pipeline features, and as a handy coincidence
+SonarQube has support for Jenkins pipeline.
+
+The change triggers a new run of the pipeline. Oh no! The build pipeline broke, and the change is not further processed.
+In the following image you see that a defined quality gate was missed. The visualizing is done with Jenkins Blue Ocean.
+
+image:/images/post-images/sonarqube-jenkins/01_PipelineFailedBlueOcean.png[role=center]
+
+=== SonarQube inspection
+What is the underlying issue? We can open the SonarQube web application and drill down to the finding. In the Java code, obviously a string literal is not placed on the right side.
+
+image:/images/post-images/sonarqube-jenkins/02_Finding.png[role=center]
+
+During a team meeting it was decided to define this to be a _Blocker_, and SonarQube was configured accordingly. Furthermore, a SonarQube quality gate was created to break any build, if a _blocker_ was identified. Let's now quickly look into the code.
+Yes, SonarQube is right, there is the issue with the following code snippet.
+
+image:/images/post-images/sonarqube-jenkins/03_FindingVisualizedInCode.png[role=center]
+
+We do not want to discuss in detail all used tools, and also covering the complete Jenkins build job would be out of scope.
+But the interesting extract here in regard of the inspection is the following _stage_ defined in Jenkins pipeline DSL:
+
+.config.xml: SonarQube inspection
+----
+    stage('SonarQube analysis') { // <1>
+        withSonarQubeEnv('Sonar') { // <2>
+          sh 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.3.0.603:sonar ' + // <3>
+          '-f all/pom.xml ' +
+          '-Dsonar.projectKey=com.huettermann:all:master ' +
+          '-Dsonar.login=$SONAR_UN ' +
+          '-Dsonar.password=$SONAR_PW ' +
+          '-Dsonar.language=java ' +
+          '-Dsonar.sources=. ' +
+          '-Dsonar.tests=. ' +
+          '-Dsonar.test.inclusions=**/*Test*/** ' +
+          '-Dsonar.exclusions=**/*Test*/**'
+        }
+    }
+----
+<1> The dedicated stage for running the SonarQube analysis.
+<2> Allow to select the SonarQube server you want to interact with.
+<3> Running and configuring the scanner, many options available, check the docs.
+
+[TIP]
+====
+Many options are available to integrate and configure SonarQube. Please consult the documentation for alternatives. Same applies to the other covered tools.
+====
+
+=== SonarQube Quality Gate
+As part of a Jenkins pipeline stage, SonarQube is configured to run and inspect the code. But this is just the first part,
+because we now also want to add the quality gate in order to break the build. The next stage is covering exactly that, see
+next snippet. The pipeline is paused until the quality gate is computed, specifically the _waitForQualityGate_ step will pause the
+pipeline until SonarQube analysis is completed and returns the quality gate status. In case a quality gate was missed, the build breaks.
+
+.config.xml: SonarQube Quality Gate
+----
+    stage("SonarQube Quality Gate") { // <1>
+        timeout(time: 1, unit: 'HOURS') { // <2>
+           def qg = waitForQualityGate() // <3>
+           if (qg.status != 'OK') {
+             error "Pipeline aborted due to quality gate failure: ${qg.status}"
+           }
+        }
+    }
+----
+<1> The defined quality gate stage.
+<2> A timeout to define when to proceed without waiting for any results for ever.
+<3> Here we wait for the OK. Underlying implementation is done with SonarQube's _webhooks_ feature.
+
+[NOTE]
+====
+This blog post is an appetizer, and scripts are excerpts. For more information, please consult the respective documentation, or a good book, or the great community, or ask your local expert.
+====
+
+Since they all work in a wonderful Agile team, the next available colleague just promptly fixes the issue. After checking in
+the fixed code, the build pipeline runs again.
+
+image:/images/post-images/sonarqube-jenkins/04_PipelineFixedBlueOcean.png[role=center]
+
+
+The pipeline was processed successfully, including the SonarQube quality gate, and as the final step, the packaged and tested artifact was
+deployed to link:http://www.jfrog.org/artifactory[Artifactory]. There are a couple of different flexible ways how to upload the artifacts,
+the one we use here is using an upload spec to actually collect and upload the artifact which was built at the very beginning of the pipeline.
+Also meta information are published to Artifactory, since it is the context which matters and thus we can add valuable labels to the artifact for further processing.
+
+.config.xml: Upload to Artifactory
+----
+stage ('Distribute binaries') { // <1>
+    def SERVER_ID = '4711' // <2>
+    def server = Artifactory.server SERVER_ID
+    def uploadSpec = // <3>
+    """
+    {
+    "files": [
+        {
+            "pattern": "all/target/all-(*).war",
+            "target": "libs-snapshots-local/com/huettermann/web/{1}/"
+        }
+      ]
+    }
+    """
+    def buildInfo = Artifactory.newBuildInfo() // <4>
+    buildInfo.env.capture = true // <5>
+    buildInfo=server.upload(uploadSpec) // <6>
+    server.publishBuildInfo(buildInfo) // <7>
+}
+----
+<1> The stage responsible for uploading the binary.
+<2> The server can be defined Jenkins wide, or as part of the build step, as done here.
+<3> In the upload spec, in JSON format, we define what to deploy to which target, in a fine-grained way.
+<4> The build info contains meta information attached to the artifact.
+<5> We want to capture environmental data.
+<6> Upload of artifact, according to upload spec.
+<7> Build info are published as well.
+
+Now let's see check that the binary was deployed to Artifactory, successfully. As part of the context information, also a reference to the
+producing Jenkins build job is available for better traceability.
+
+image:/images/post-images/sonarqube-jenkins/05_BinaryDeployedInArtifactory.png[role=center]
+
+=== Summary
+In this blog post, we've discovered tips and tricks to integrate Jenkins with SonarQube, how to define
+Jenkins stages with the Jenkins pipeline DSL, how those stages are visualized with Jenkins Blue Ocean, and how the artifact
+was deployed to our binary repository manager Artifactory.
+Now I wish you a lot of further fun with your great tools of choice to implement your Continuous Delivery pipelines.
+
+=== References
+* link:https://jenkins.io/[Jenkins 2]
+* link:https://www.sonarqube.org/[Sonarqube]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/SonarQube+plugin[Sonarqube Jenkins plugin]
+* link:https://www.jfrog.com/artifactory/[Artifactory]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Artifactory+Plugin[Jenkins Artifactory plugin]
+* link:http://huettermann.net/devops/['DevOps for Developers', Apress, 2012]
+* link:http://huettermann.net/alm/['Agile ALM', Manning, 2011]
+
+
+

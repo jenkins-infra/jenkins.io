@@ -1,0 +1,110 @@
+---
+layout: simplepage
+title: Jenkins Security Advisory 2017-04-26
+section: security
+kind: core
+---
+
+This advisory announces multiple vulnerabilities in Jenkins.
+
+== Description
+
+=== CSRF: Multiple vulnerabilities
+*SECURITY-412 through SECURITY-420 / CVE-2017-1000356*
+
+Multiple link:https://en.wikipedia.org/wiki/Cross-site_request_forgery[Cross-Site Request Forgery] vulnerabilities in Jenkins allowed malicious users to perform several administrative actions by tricking a victim into opening a web page.
+The most notable ones:
+
+* SECURITY-412: Restart Jenkins immediately, after all builds are finished, or after all plugin installations and builds are finished
+* SECURITY-412: Schedule a downgrade of Jenkins to a previously installed version if Jenkins previously upgraded itself
+* SECURITY-413: Install and (optionally) dynamically load any plugin present on a configured update site
+* SECURITY-414: Remove any update site from the Jenkins configuration
+* SECURITY-415: Change a user's API token
+* SECURITY-416: Submit system configuration
+* SECURITY-417: Submit global security configuration
+* SECURITY-418, SECURITY-420: For Jenkins user database authentication realm: create an account if signup is enabled; or create an account if the victim is an administrator, possibly deleting the existing default 'admin' user in the process
+* SECURITY-419: Create a new agent, possibly executing arbitrary shell commands on the master node by choosing the appropriate launch method
+* SECURITY-420: Cancel a scheduled restart
+* SECURITY-420: Configure the global logging levels
+* SECURITY-420: Create a copy of an existing agent
+* SECURITY-420: Create copies of views in users' "My Views" or as children of the experimental "Tree View" feature
+* SECURITY-420: Enter "quiet down" mode in which no new builds are started
+* SECURITY-420: On Windows, after successful installation as a service, restart
+* SECURITY-420: On Windows, try to install Jenkins as a service
+* SECURITY-420: Set the descriptions of items (jobs), builds, and users
+* SECURITY-420: Submit global tools configuration (Jenkins 2.0 and up)
+* SECURITY-420: Toggle keeping a build forever (i.e. exclude or include it in log rotation)
+* SECURITY-420: Try to connect all disconnected agents simultaneously
+* SECURITY-420: Update the node monitor data on all agents
+
+The above, as well as several other more minor issues, have all been fixed and these actions now require POST requests, and, if configured, a CSRF crumb, to work.
+
+=== CLI: Unauthenticated remote code execution
+*SECURITY-429 / CVE-2017-1000353*
+
+An unauthenticated remote code execution vulnerability allowed attackers to transfer a serialized Java `SignedObject` object to the remoting-based Jenkins CLI, that would be deserialized using a new `ObjectInputStream`, bypassing the existing blacklist-based protection mechanism.
+
+`SignedObject` has been added to the remoting blacklist.
+
+In Jenkins 2.54, the remoting-based CLI protocol was deprecated and a new, HTTP based protocol introduced as the new default, in addition to the existing SSH-based CLI.
+This feature has been backported to Jenkins 2.46.2.
+It is strongly recommended that users upgrading Jenkins disable the remoting-based CLI, and use the one of the other modes (HTTP or SSH) instead.
+
+=== CLI: Login command allowed impersonating any Jenkins user
+*SECURITY-466 / CVE-2017-1000354*
+
+The `login` command available in the remoting-based CLI stored the encrypted user name of the successfully authenticated user in a cache file used to authenticate further commands.
+Users with sufficient permission to create secrets in Jenkins, and download their encrypted values (e.g. with Job/Configure permission), were able to impersonate any other Jenkins user on the same instance.
+
+This has been fixed by storing the cached authentication as a hash-based MAC with a key specific to the Jenkins instance and the CLI authentication cache.
+
+Previously cached authentications are invalidated when upgrading Jenkins to a version containing a fix for this.
+
+=== XStream: Java crash when trying to instantiate void/Void
+*SECURITY-503 / CVE-2017-1000355*
+
+Jenkins uses the XStream library to serialize and deserialize XML.
+Its maintainer link:http://www.openwall.com/lists/oss-security/2017/04/03/4[recently published a security vulnerability] that allows anyone able to provide XML to Jenkins for processing using XStream to crash the Java process.
+In Jenkins this typically applies to users with permission to create or configure items (jobs), views, or agents.
+
+Jenkins now prohibits the attempted deserialization of `void` / `Void` that results in a crash.
+
+
+
+== Severity
+
+* SECURITY-412 through SECURITY-420: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H[high]
+* SECURITY-429: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H[critical]
+* SECURITY-466: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]
+* SECURITY-503: https://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H[medium]
+
+
+== Affected versions
+
+* All Jenkins main line releases up to and including 2.56
+* All Jenkins LTS releases up to and including 2.46.1
+
+
+
+== Fix
+
+* Jenkins main line users should update to 2.57
+* Jenkins LTS users should update to 2.46.2
+
+These versions include fixes to all the vulnerabilities described above.
+All prior versions are affected by these vulnerabilities unless otherwise indicated.
+
+
+
+== Credit
+
+The Jenkins project would like to thank the reporters for discovering and link:/security/#reporting-vulnerabilities[reporting] these vulnerabilities:
+
+* *An independent security researcher who reported this vulnerability to Beyond Security’s SecuriTeam Secure Disclosure program* for SECURITY-429
+* *Jesse Glick, CloudBees, Inc.* for SECURITY-466
+* *Steve Marlowe <smarlowe@cisco.com> of Cisco ASIG* for SECURITY-412, SECURITY-413, SECURITY-414, SECURITY-415, SECURITY-416, SECURITY-417, SECURITY-418, and SECURITY-419
+
+== Other Resources
+
+* link:/blog/2017/04/26/security-advisory/[Announcement blog post]
+

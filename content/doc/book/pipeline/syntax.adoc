@@ -9,6 +9,7 @@ title: Pipeline Syntax
 :sectanchors:
 :imagesdir: /doc/book/resources
 :toc:
+:toclevels: 3
 
 = Pipeline Syntax
 
@@ -50,7 +51,7 @@ pipeline {
 
 The basic statements and expressions which are valid in Declarative Pipeline
 follow the same rules as
-link:https://groovy-lang.org/syntax.html[Groovy's syntax]
+link:http://groovy-lang.org/syntax.html[Groovy's syntax]
 with the following exceptions:
 
 * The top-level of the Pipeline must be a _block_, specifically: `pipeline { }`
@@ -68,12 +69,171 @@ with the following exceptions:
 Sections in Declarative Pipeline typically contain one or more
 <<declarative-directives>> or <<declarative-steps>>.
 
+==== agent
+
+The `agent` section specifies where the entire Pipeline, or a specific stage,
+will execute in the Jenkins environment depending on where the `agent`
+section is placed. The section must be defined at the top-level inside the
+`pipeline` block, but stage-level usage is optional.
+
+
+[cols="^10h,>90a",role=syntax]
+|===
+| Required
+| Yes
+
+| Parameters
+| <<agent-parameters, Described below>>
+
+| Allowed
+| In the top-level `pipeline` block and each `stage` block.
+|===
+
+
+[[agent-parameters]]
+===== Parameters
+
+In order to support the wide variety of use-cases Pipeline authors may have,
+the `agent` section supports a few different types of parameters. These
+parameters can be applied at the top-level of the `pipeline` block, or within
+each `stage` directive.
+
+any:: Execute the Pipeline, or stage, on any available agent. For example: `agent any`
+
+none:: When applied at the top-level of the `pipeline` block no global agent
+will be allocated for the entire Pipeline run and each `stage` section will
+need to contain its own `agent` section. For example: `agent none`
+
+label:: Execute the Pipeline, or stage, on an agent available in the Jenkins
+environment with the provided label. For example: `agent { label 'my-defined-label' }`
+
+node:: `agent { node { label 'labelName' } }` behaves the same as
+`agent { label 'labelName' }`, but `node` allows for additional options (such
+as `customWorkspace`).
+
+docker:: Execute the Pipeline, or stage, with the given container which will be
+dynamically provisioned on a <<../glossary#node, node>> pre-configured to
+accept Docker-based Pipelines, or on a node matching the optionally defined
+`label` parameter.  `docker` also optionally accepts an `args` parameter
+which may contain arguments to pass directly to a `docker run` invocation.
+ For example: `agent { docker 'maven:3-alpine' }` or
++
+[source,groovy]
+----
+agent {
+    docker {
+        image 'maven:3-alpine'
+        label 'my-defined-label'
+        args  '-v /tmp:/tmp'
+    }
+}
+----
+
+dockerfile:: Execute the Pipeline, or stage, with a container built from a
+`Dockerfile` contained in the source repository. In order to use this option,
+the `Jenkinsfile` must be loaded from either a  Multibranch Pipeline, or a
+"Pipeline from SCM." Conventionally this is the `Dockerfile` in the root of the
+source repository: `agent { dockerfile true }`. If building a `Dockerfile` in
+another directory, use the `dir` option: `agent { dockerfile { dir 'someSubDir'
+} }`. You can pass additional arguments to the `docker build ...` command with
+the `additionalBuildArgs` option, like `agent { dockerfile {
+additionalBuildArgs '--build-arg foo=bar' } }`.
+
+===== Common Options
+
+These are a few options that can be applied two or more `agent` implementations.
+They are not required unless explicitly stated.
+
+label:: A string. The label on which to run the Pipeline or individual `stage`.
++
+This option is valid for `node`, `docker` and `dockerfile`, and is required for
+`node`.
+
+customWorkspace:: A string. Run the Pipeline or individual `stage` this `agent`
+is applied to within this custom workspace, rather than the default. It can be
+either a relative path, in which case the custom workspace will be under the
+workspace root on the node, or an absolute path. For example:
++
+[source,groovy]
+----
+agent {
+    node {
+        label 'my-defined-label'
+        customWorkspace '/some/other/path'
+    }
+}
+----
++
+This option is valid for `node`, `docker` and `dockerfile`.
+
+reuseNode:: A boolean, false by default. If true, run the container on the node
+specified at the top-level of the Pipeline, in the same workspace, rather than
+on a new node entirely.
++
+This option is valid for `docker` and `dockerfile`, and only has an effect when
+used on an `agent` for an individual `stage`.
+
+[[agent-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent { docker 'maven:3-alpine' } // <1>
+    stages {
+        stage('Example Build') {
+            steps {
+                sh 'mvn -B clean verify'
+            }
+        }
+    }
+}
+// Script //
+----
+<1> Execute all the steps defined in this Pipeline within a newly created container
+of the given name and tag (`maven:3-alpine`).
+
+====== Stage-level `agent` section
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none // <1>
+    stages {
+        stage('Example Build') {
+            agent { docker 'maven:3-alpine' } // <2>
+            steps {
+                echo 'Hello, Maven'
+                sh 'mvn --version'
+            }
+        }
+        stage('Example Test') {
+            agent { docker 'openjdk:8-jre' } // <3>
+            steps {
+                echo 'Hello, JDK'
+                sh 'java -version'
+            }
+        }
+    }
+}
+// Script //
+----
+<1> Defining `agent none` at the top-level of the Pipeline ensures that
+<<../glossary#executor, an Executor>> will not be assigned unnecessarily.
+Using `agent none` also forces each `stage` section contain its own `agent` section.
+<2> Execute the steps in this stage in a newly created container using this image.
+<3> Execute the steps in this stage in a newly created container using a different image
+from the previous stage.
+
 ==== post
 
 The `post` section defines actions which will be run at the end of the Pipeline
-run. A number of additional <<post-conditions>> blocks are supported within the `post` section:
-`always`, `changed`, `failure`, `success`, and `unstable`. These
-blocks allow for the execution of steps at the tail-end of the Pipeline run,
+run or stage. A number of <<post-conditions, post-condition>>
+blocks are supported within the `post` section:
+`always`, `changed`, `failure`, `success`, `unstable`, and `aborted`.
+These blocks allow for the execution of steps at the end of the Pipeline run or stage,
 depending on the status of the Pipeline.
 
 [cols="^10h,>90a",role=syntax]
@@ -101,6 +261,9 @@ denoted in the web UI with a blue or green indication.
 `unstable`:: Only run if the current Pipeline has an "unstable" status,
 usually caused by test failures, code violations, etc. Typically denoted in the
 web UI with a yellow indication.
+`aborted`:: Only run if the current Pipeline has an "aborted" status, usually
+due to the Pipeline being manually aborted. Typically denoted in the
+web UI with a gray indication.
 
 [[post-example]]
 ===== Example
@@ -117,21 +280,22 @@ pipeline {
             }
         }
     }
-    post { /* <1> */
-        always { /* <2> */
+    post { // <1>
+        always { // <2>
             echo 'I will always say Hello again!'
         }
     }
 }
+// Script //
 ----
 <1> Conventionally, the `post` section should be placed at the end of the
 Pipeline.
-<2> The <<post-conditions>> blocks can use steps.
-
+<2> <<post-conditions, Post-condition>> blocks contain <<declarative-steps, steps>>
+the same as the <<steps>> section.
 
 ==== stages
 
-A sequence of one or more <<stage>> directives, the `stages` section is where
+Containing a sequence of one or more <<stage>> directives, the `stages` section is where
 the bulk of the "work" described by a Pipeline will be located. At a minimum it
 is recommended that `stages` contain at least one <<stage>> directive for each
 discrete part of the continuous delivery process, such as Build, Test, and
@@ -157,7 +321,7 @@ Deploy.
 // Declarative //
 pipeline {
     agent any
-    stages { /* <1> */
+    stages { // <1>
         stage('Example') {
             steps {
                 echo 'Hello World'
@@ -165,13 +329,15 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 <1> The `stages` section will typically follow the directives such as `agent`,
 `options`, etc.
 
 ==== steps
 
-Defines a series of steps to be executed in a given `stage` directive.
+The `steps` section defines a series of one or more <<declarative-steps, steps>>
+to be executed in a given `stage` directive.
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -195,134 +361,18 @@ pipeline {
     agent any
     stages {
         stage('Example') {
-            steps { /* <1> */
+            steps { // <1>
                 echo 'Hello World'
             }
         }
     }
 }
+// Script //
 ----
 <1> The `steps` section must contain one or more steps.
 
 [[declarative-directives]]
 === Directives
-
-==== agent
-
-The `agent` directive specifies where the entire Pipeline, or a specific stage,
-will execute in the Jenkins environment depending on where the `agent`
-directive is placed. The directive must be defined at the top-level inside the
-`pipeline` block, but stage-level usage is optional.
-
-
-[cols="^10h,>90a",role=syntax]
-|===
-| Required
-| Yes
-
-| Parameters
-| <<agent-parameters, Described below>>
-
-| Allowed
-| In the top-level `pipeline` block and each `stage` block.
-|===
-
-
-[[agent-parameters]]
-===== Parameters
-
-In order to support the wide variety of use-cases Pipeline authors may have,
-the `agent` directive supports a few different types of parameters. These
-parameters can be applied at the top-level of the `pipeline` block, or within
-each `stage` directive.
-
-any:: Execute the Pipeline, or stage, on any available agent. For example: `agent any`
-
-none:: When applied at the top-level of the `pipeline` block no global agent
-will be allocated for the entire Pipeline run and each `stage` directive will
-need to contain its own `agent` directive. For example: `agent none`
-
-label:: Execute the Pipeline, or stage, on an agent available in the Jenkins
-environment with the provided label. For example: `agent { label 'my-defined-label' }`
-
-docker:: Execute the Pipeline, or stage, with the given container which will be
-dynamically provisioned on a <<../glossary#node, node>> pre-configured to
-accept Docker-based Pipelines, or on a node matching the optionally defined
-`label` parameter.  `docker` also optionally accepts an `args` parameter
-which may contain arguments to pass directly to a `docker run` invocation.
- For example: `agent { docker: 'maven:3-alpine' }` or
-[source,groovy]
-----
-agent {
-    docker {
-        image: 'maven:3-alpine'
-        label: 'my-defined-label'
-        args:  '-v /tmp:/tmp'
-    }
-}
-----
-
-////
-XXX: https://issues.jenkins-ci.org/browse/JENKINS-41607
-
-dockerfile:: Execute the Pipeline, or stage, with a container built from a
-`Dockerfile` contained in the source repository. Conventionally this can be the
-`Dockerfile` in the root of the source repository: `agent { dockerfile true }`
-
-////
-
-
-
-[[agent-example]]
-===== Example
-
-[pipeline]
-----
-// Declarative //
-pipeline {
-    agent { docker 'maven:3-alpine' } /* <1> */
-    stages {
-        stage('Example Build') {
-            steps {
-                sh 'mvn -B clean verify'
-            }
-        }
-    }
-}
-----
-<1> Execute all the steps defined in this Pipeline within a newly created container
-of the given name and tag (`maven:3-alpine`).
-
-====== Stage-level `agent` directive
-
-[pipeline]
-----
-// Declarative //
-pipeline {
-    agent none /* <1> */
-    stages {
-        stage('Example Build') {
-            agent { docker: 'maven:3-alpine' } /* <2> */
-            steps {
-                sh 'mvn -B clean verify'
-            }
-        }
-        stage('Example Test') {
-            agent { docker: 'openjdk:8-jre' } /* <3> */
-            steps {
-                echo 'Hello JRE'
-            }
-        }
-    }
-}
-----
-<1> Defining `agent none` at the top-level of the Pipeline ensures that
-<<../glossary#executor, an Executor>> will not be unnecessarily. Using `agent
-none` requires that each `stage` directive contain an `agent` directive.
-<2> Execute the steps contained within this stage using the given container.
-<3> Execute the steps contained within this steps using a different image
-from the previous stage.
-
 
 ==== environment
 
@@ -360,13 +410,13 @@ automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respective.
 // Declarative //
 pipeline {
     agent any
-    environment { /* <1> */
+    environment { // <1>
         CC = 'clang'
     }
     stages {
         stage('Example') {
-            environment { /* <2> */
-                AN_ACCESS_KEY = credentials('my-prefined-secret-text') /* <3> */
+            environment { // <2>
+                AN_ACCESS_KEY = credentials('my-prefined-secret-text') // <3>
             }
             steps {
                 sh 'printenv'
@@ -374,6 +424,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 <1> An `environment` directive used in the top-level `pipeline` block will
 apply to all steps within the Pipeline.
@@ -415,8 +466,10 @@ example: `options { disableConcurrentBuilds() }`
 skipDefaultCheckout:: Skip checking out code from source control by default in
 the `agent` directive. For example: `options { skipDefaultCheckout() }`
 
+skipStagesAfterUnstable:: Skip stages once the build status has gone to UNSTABLE. For example: `options { skipStagesAfterUnstable() }`
+
 timeout:: Set a timeout period for the Pipeline run, after which Jenkins should
-abort the Pipeline. For example: `options { timeout(time: 1, unit: 'HOUR') }`
+abort the Pipeline. For example: `options { timeout(time: 1, unit: 'HOURS') }`
 
 retry:: On failure, retry the entire Pipeline the specified number of times.
 For example: `options { retry(3) }`
@@ -433,7 +486,7 @@ time at which the line was emitted. For example: `options { timestamps() }`
 pipeline {
     agent any
     options {
-        timeout(time: 1, unit: 'HOUR') /* <1> */
+        timeout(time: 1, unit: 'HOURS') // <1>
     }
     stages {
         stage('Example') {
@@ -443,6 +496,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 <1> Specifying a global execution timeout of one hour, after which Jenkins will
 abort the Pipeline run.
@@ -498,6 +552,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 [NOTE]
@@ -512,7 +567,7 @@ The `triggers` directive defines the automated ways in which the Pipeline
 should be re-triggered. For Pipelines which are integrated with a source such
 as GitHub or BitBucket, `triggers` may not be necessary as webhooks-based
 integration will likely already be present. Currently the only two available
-triggers are `cron` and `pollScm`.
+triggers are `cron` and `pollSCM`.
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -529,13 +584,13 @@ triggers are `cron` and `pollScm`.
 
 cron:: Accepts a cron-style string to define a regular interval at which the
 Pipeline should be re-triggered, for example: `triggers { cron('H 4/* 0 0 1-5') }`
-pollScm:: Accepts a cron-style string to define a regular interval at which
+pollSCM:: Accepts a cron-style string to define a regular interval at which
 Jenkins should check for new source changes. If new changes exist, the Pipeline
-will be re-triggered. For example: `triggers { pollScm('H 4/* 0 0 1-5') }`
+will be re-triggered. For example: `triggers { pollSCM('H 4/* 0 0 1-5') }`
 
 [NOTE]
 ====
-The `pollScm` trigger is only available in Jenkins 2.22 or later.
+The `pollSCM` trigger is only available in Jenkins 2.22 or later.
 ====
 
 [[triggers-example]]
@@ -557,12 +612,13 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 ==== stage
 
 The `stage` directive goes in the `stages` section and should contain a
-<<steps>> directive, an optional `agent` directive, or other stage-specific directives.
+<<steps>> section, an optional `agent` section, or other stage-specific directives.
 Practically speaking, all of the real work done by a Pipeline will be wrapped
 in one or more `stage` directives.
 
@@ -594,6 +650,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 ==== tools
@@ -620,7 +677,7 @@ if `agent none` is specified.
 ===== Supported Tools
 
 maven::
-java::
+jdk::
 gradle::
 
 [[tools-example]]
@@ -632,7 +689,7 @@ gradle::
 pipeline {
     agent any
     tools {
-        maven 'apache-maven-3.0.1' /* <1> */
+        maven 'apache-maven-3.0.1' // <1>
     }
     stages {
         stage('Example') {
@@ -642,6 +699,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 <1> The tool name must be pre-configured in Jenkins under *Manage Jenkins* ->
 *Global Tool Configuration*.
@@ -650,6 +708,15 @@ pipeline {
 
 The `when` directive allows the Pipeline to determine whether the stage should
 be executed depending on the given condition.
+The `when` directive must contain at least one condition.
+If the `when` directive contains more than one condition,
+all the child conditions must return true for the stage to execute.
+This is the same as if the child conditions were nested in an `allOf` condition
+(see the <<when-example, examples>> below).
+
+More complex conditional structures can be built
+using the nesting conditions: `not`, `allOf`, or `anyOf`.
+Nesting conditions may be nested to any arbitrary depth.
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -666,17 +733,31 @@ be executed depending on the given condition.
 ===== Built-in Conditions
 
 branch:: Execute the stage when the branch being built matches the branch
-pattern given, for example: `when { branch '*/master' }`
+pattern given, for example: `when { branch 'master' }`. Note that this only works on
+a multibranch Pipeline.
 
 environment:: Execute the stage when the specified environment variable is set
 to the given value, for example: `when { environment name: 'DEPLOY_TO', value: 'production' }`
 
 expression:: Execute the stage when the specified Groovy expression evaluates
-to true, for example: `when { return params.DEBUG_BUILD }`
+to true, for example: `when { expression { return params.DEBUG_BUILD } }`
+
+not:: Execute the stage when the nested condition is false.
+Must contain one condition.
+For example: `when { not { branch 'master' } }`
+
+allOf:: Execute the stage when all of the nested conditions are true.
+Must contain at least one condition.
+For example: `when { allOf { branch 'master'; environment name: 'DEPLOY_TO', value: 'production' } }`
+
+anyOf:: Execute the stage when at least one of the nested conditions is true.
+Must contain at least one condition.
+For example: `when { anyOf { branch 'master'; branch 'staging' } }`
 
 [[when-example]]
-===== Example
+===== Examples
 
+.Single condition
 [pipeline]
 ----
 // Declarative //
@@ -690,7 +771,7 @@ pipeline {
         }
         stage('Example Deploy') {
             when {
-                branch '*/production'
+                branch 'production'
             }
             steps {
                 echo 'Deploying'
@@ -698,6 +779,119 @@ pipeline {
         }
     }
 }
+// Script //
+----
+
+.Multiple condition
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                branch 'production'
+                environment name: 'DEPLOY_TO', value: 'production'
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
+----
+
+.Nested condition (same behavior as previous example)
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                allOf {
+                    branch 'production'
+                    environment name: 'DEPLOY_TO', value: 'production'
+                }
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
+----
+
+.Multiple condition and nested condition
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                branch 'production'
+                anyOf {
+                    environment name: 'DEPLOY_TO', value: 'production'
+                    environment name: 'DEPLOY_TO', value: 'staging'
+                }
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
+----
+
+.Expression condition and nested condition
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                expression { BRANCH_NAME ==~ /(production|staging)/ }
+                anyOf {
+                    environment name: 'DEPLOY_TO', value: 'production'
+                    environment name: 'DEPLOY_TO', value: 'staging'
+                }
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
 ----
 
 [[declarative-steps]]
@@ -739,6 +933,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 [role=syntax]
@@ -774,6 +969,7 @@ node {
         }
     }
 }
+// Declarative //
 ----
 
 Another way Scripted Pipeline flow control can be managed is with Groovy's
@@ -795,6 +991,7 @@ node {
         }
     }
 }
+// Declarative //
 ----
 
 

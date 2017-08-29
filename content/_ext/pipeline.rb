@@ -1,16 +1,12 @@
 require 'awestruct/ibeams/debuggable_partial'
 require 'awestruct/ibeams/asciidoc_sections'
 require 'awestruct/ibeams/datadir'
+require 'asciidoctor/jenkins/extensions'
 
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
   next if extension == __FILE__
   require extension
 end
-
-Dir[File.join(File.dirname(__FILE__), '/../../lib/**/*.rb')].each do |extension|
-  require extension
-end
-
 
 Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
@@ -25,7 +21,8 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Atomizer.new(:posts,
                                                 '/rss.xml',
                                                 :feed_title => 'Jenkins Blog',
-                                                :template => '_ext/atom.xml.haml')
+                                                :template => '_ext/atom.xml.haml',
+                                                :num_entries => 20)
 
   extension Awestruct::Extensions::Tagger.new(:posts,
                                               '/node/index',
@@ -41,6 +38,9 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
+
+  extension Awestruct::IBeams::HandbookExtension.new(:devbook,
+                                                     File.expand_path(File.dirname(__FILE__) + '/../doc/developer'))
 
   transformer VersionSwitcher.new
 

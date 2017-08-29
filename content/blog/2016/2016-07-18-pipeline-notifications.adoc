@@ -1,0 +1,316 @@
+---
+layout: post
+title: "Sending Notifications in Pipeline"
+tags:
+- tutorial
+- pipeline
+- plugins
+- notifications
+- slack
+- hipchat
+- emailext
+author: lnewman
+---
+
+NOTE: This is a guest post by link:https://github.com/bitwiseman[Liam Newman],
+Technical Evangelist at link:https://cloudbees.com[CloudBees].
+
+Rather than sitting and watching Jenkins for job status, I want Jenkins to send
+notifications when events occur.  There are Jenkins plugins for
+link:https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin[Slack],
+link:https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin[HipChat],
+or even link:https://wiki.jenkins-ci.org/display/JENKINS/Email-ext+plugin[email]
+among others.
+
+
+=== Note: Something is happening!
+
+I think we can all agree getting notified when events occur is preferable to
+having to constantly monitor them just in case.  I'm going to continue from
+where I left off in my
+link:/blog/2016/07/01/html-publisher-plugin/[previous post] with the
+link:https://github.com/reiseburo/hermann[hermann] project.  I added a Jenkins
+Pipeline with an HTML publisher for code coverage. This week, I'd like to make
+Jenkins to notify me when builds start and when they succeed or fail.
+
+=== Setup and Configuration
+
+First, I select targets for my notifications. For this blog post, I'll use sample
+targets that I control.  I've created Slack and HipChat organizations called
+"bitwiseman", each with one member - me.  And for email I'm running a Ruby SMTP server called
+link:https://mailcatcher.me/[mailcatcher], that is perfect for local testing
+such as this.  Aside for these concessions, configuration would be much the
+same in a non-demo situation.
+
+Next, I install and add server-wide configuration for the
+link:https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin[Slack],
+link:https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin[HipChat],
+and link:https://wiki.jenkins-ci.org/display/JENKINS/Email-ext+plugin[Email-ext]
+plugins.  Slack and HipChat use API tokens - both products have integration
+points on their side that generate tokens which I copy into my Jenkins
+configuration. Mailcatcher SMTP runs locally. I just point Jenkins
+at it.
+
+Here's what the Jenkins configuration section for each of these looks like:
+
+image::/images/post-images/2016-07-15/slack-config.png[Slack Configuration, role="center"]
+
+image::/images/post-images/2016-07-15/hipchat-config.png[HipChat Configuration, role="center"]
+
+image::/images/post-images/2016-07-15/email-config.png[Email Configuration, role="center"]
+
+=== Original Pipeline
+
+Now I can start adding notification steps. The same as
+link:/blog/2016/07/01/html-publisher-plugin/[last week], I'll use the
+link:/blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]
+to explore the step syntax for the notification plugins.
+
+Here's the base pipeline before I start making changes:
+
+[source,groovy]
+----
+stage 'Build'
+
+node {
+  // Checkout
+  checkout scm
+
+  // install required bundles
+  sh 'bundle install'
+
+  // build and run tests with coverage
+  sh 'bundle exec rake build spec'
+
+  // Archive the built artifacts
+  archive (includes: 'pkg/*.gem')
+
+  // publish html
+  // snippet generator doesn't include "target:"
+  // https://issues.jenkins-ci.org/browse/JENKINS-29711.
+  publishHTML (target: [
+      allowMissing: false,
+      alwaysLinkToLastBuild: false,
+      keepAll: true,
+      reportDir: 'coverage',
+      reportFiles: 'index.html',
+      reportName: "RCov Report"
+    ])
+}
+----
+
+[NOTE]
+====
+This pipeline expects to be run from a `Jenkinsfile` in SCM.
+To copy and paste it directly into a Jenkins Pipeline job, replace the `checkout scm` step with
+`git 'https://github.com/reiseburo/hermann.git'`.
+====
+
+=== Job Started Notification
+
+For the first change, I decide to add a "Job Started" notification.  The
+snippet generator and then reformatting makes this straightforward:
+
+[source,groovy]
+----
+node {
+
+  notifyStarted()
+
+  /* ... existing build steps ... */
+}
+
+def notifyStarted() {
+  // send to Slack
+  slackSend (color: '#FFFF00', message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+
+  // send to HipChat
+  hipchatSend (color: 'YELLOW', notify: true,
+      message: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+    )
+
+  // send to email
+  emailext (
+      subject: "STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+      body: """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    )
+}
+----
+
+Since Pipeline is a Groovy-based DSL, I can use
+link:http://docs.groovy-lang.org/latest/html/documentation/index.html#_string_interpolation[string interpolation]
+and variables to add exactly the details I want in my notification messages. When
+I run this I get the following notifications:
+
+image::/images/post-images/2016-07-15/notify-started.png[Started Notifications, role="center"]
+
+image::/images/post-images/2016-07-15/notify-started-email.png[Started Email Notification, role="center"]
+
+=== Job Successful Notification
+
+The next logical choice is to get notifications when a job succeeds.  I'll
+copy and paste based on the `notifyStarted` method for now and do some refactoring
+later.
+
+[source,groovy]
+----
+node {
+
+  notifyStarted()
+
+  /* ... existing build steps ... */
+
+  notifySuccessful()
+}
+
+def notifyStarted() { /* .. */ }
+
+def notifySuccessful() {
+  slackSend (color: '#00FF00', message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+
+  hipchatSend (color: 'GREEN', notify: true,
+      message: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+    )
+
+  emailext (
+      subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+      body: """<p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    )
+}
+----
+
+Again, I get notifications, as expected.  This build is fast enough,
+some of them are even on the screen at the same time:
+
+image::/images/post-images/2016-07-15/notify-successful.png[Multiple Notifications, role="center"]
+
+=== Job Failed Notification
+
+Next I want to add failure notification.  Here's where we really start to see the power
+and expressiveness of Jenkins pipeline.  A Pipeline is a Groovy script, so as we'd
+expect in any Groovy script, we can handle errors using `try-catch` blocks.
+
+[source,groovy]
+----
+node {
+  try {
+    notifyStarted()
+
+    /* ... existing build steps ... */
+
+    notifySuccessful()
+  } catch (e) {
+    currentBuild.result = "FAILED"
+    notifyFailed()
+    throw e
+  }
+}
+
+def notifyStarted() { /* .. */ }
+
+def notifySuccessful() { /* .. */ }
+
+def notifyFailed() {
+  slackSend (color: '#FF0000', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
+
+  hipchatSend (color: 'RED', notify: true,
+      message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
+    )
+
+  emailext (
+      subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+      body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    )
+}
+
+----
+
+image::/images/post-images/2016-07-15/notify-failed.png[Failed Notifications, role="center"]
+
+
+=== Code Cleanup
+
+Lastly, now that I have it all working, I'll do some refactoring. I'll unify
+all the notifications in one method and move the final success/failure notification
+into a `finally` block.
+
+[source,groovy]
+----
+stage 'Build'
+
+node {
+  try {
+    notifyBuild('STARTED')
+
+    /* ... existing build steps ... */
+
+  } catch (e) {
+    // If there was an exception thrown, the build failed
+    currentBuild.result = "FAILED"
+    throw e
+  } finally {
+    // Success or failure, always send notifications
+    notifyBuild(currentBuild.result)
+  }
+}
+
+def notifyBuild(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus = buildStatus ?: 'SUCCESS'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+  def details = """<p>STARTED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+    <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>"""
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESS') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend (color: colorCode, message: summary)
+
+  hipchatSend (color: color, notify: true, message: summary)
+
+  emailext (
+      subject: subject,
+      body: details,
+      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    )
+}
+----
+
+
+=== You have been notified!
+I now get notified twice per build on three different channels.  I'm not sure I
+need to get notified this much for such a short build.  However, for a longer
+or complex CD pipeline, I might want exactly that.  If needed, I could even
+improve this to handle other status strings and call it as needed throughout
+my pipeline.
+
+image::/images/post-images/2016-07-15/final.png[Final View of Notifications, role="center"]
+
+
+=== Links
+
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Slack+Plugin[Slack Plugin]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/HipChat+Plugin[HipChat Plugin]
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Email-ext+plugin[Email-ext Plugin]
+* link:/blog/2016/05/31/pipeline-snippetizer/[Jenkins Pipeline Snippet Generator]

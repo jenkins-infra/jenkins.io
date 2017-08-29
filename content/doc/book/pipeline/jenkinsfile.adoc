@@ -51,7 +51,7 @@ pipeline {
                 echo 'Building..'
             }
         }
-        stage('Test'){
+        stage('Test') {
             steps {
                 echo 'Testing..'
             }
@@ -153,7 +153,7 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                sh 'make' /* <1> */
+                sh 'make' // <1>
                 archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true // <2>
             }
         }
@@ -190,7 +190,7 @@ link:https://plugins.jenkins.io/?labels=report[number of plugins].
 At a fundamental level, when there are test failures, it is useful to have
 Jenkins record the failures for reporting and visualization in the web UI.  The
 example below uses the `junit` step, provided by the
-link:https://plugins.jenkins.io/junit[JUnit plugin].
+plugin:junit[JUnit plugin].
 
 In the example below, if tests fail, the Pipeline is marked "unstable", as
 denoted by a yellow ball in the web UI. Based on the recorded test reports,
@@ -253,7 +253,11 @@ pipeline {
 
     stages {
         stage('Deploy') {
-            when { currentBuild.result == 'SUCCESS' } // <1>
+            when {
+              expression {
+                currentBuild.result == null || currentBuild.result == 'SUCCESS' // <1>
+              }
+            }
             steps {
                 sh 'make publish'
             }
@@ -264,7 +268,7 @@ pipeline {
 node {
     /* .. snip .. */
     stage('Deploy') {
-        if (currentBuild.result == 'SUCCESS') { // <1>
+        if (currentBuild.result == null || currentBuild.result == 'SUCCESS') { // <1>
             sh 'make publish'
         }
     }
@@ -372,12 +376,12 @@ directive, whereas users of Scripted Pipeline must use the `withEnv` step.
 // Declarative //
 pipeline {
     agent any
-    environment { /* <1> */
+    environment { // <1>
         CC = 'clang'
     }
     stages {
         stage('Example') {
-            environment { /* <2> */
+            environment { // <2>
                 DEBUG_FLAGS = '-g'
             }
             steps {
@@ -407,13 +411,12 @@ parameters directive>>. Configuring parameters with Scripted Pipeline is done
 with the `properties` step, which can be found in the Snippet Generator.
 
 If you configured your pipeline to accept parameters using the *Build with
-Parameters* option, those parameters are accessible as Groovy variables of the
-same name.
+Parameters* option, those parameters are accessible as members of the `params`
+variable.
 
 
 Assuming that a String parameter named "Greeting" has been configuring in the
-`Jenkinsfile`, it  can access that parameter via `$Greeting`:
-`$Greeting`:
+`Jenkinsfile`, it  can access that parameter via `${params.Greeting}`:
 
 [pipeline]
 ----
@@ -426,16 +429,16 @@ pipeline {
     stages {
         stage('Example') {
             steps {
-                echo "${Greeting} World!"
+                echo "${params.Greeting} World!"
             }
         }
     }
-1
+}
 // Script //
 properties([parameters([string(defaultValue: 'Hello', description: 'How should I greet the world?', name: 'Greeting')])])
 
 node {
-    echo "${Greeting} World!"
+    echo "${params.Greeting} World!"
 }
 ----
 
@@ -528,7 +531,9 @@ pipeline {
             }
         }
         stage('Test on Linux') {
-            agent label 'linux' // <2>
+            agent { // <2>
+                label 'linux'
+            }
             steps {
                 unstash 'app' // <3>
                 sh 'make check'
@@ -540,7 +545,9 @@ pipeline {
             }
         }
         stage('Test on Windows') {
-            agent label 'linux'
+            agent {
+                label 'windows'
+            }
             steps {
                 unstash 'app'
                 bat 'make check' // <4>
@@ -588,7 +595,7 @@ stage('Test') {
 <1> The `stash` step allows capturing files matching an inclusion pattern
 (`**/target/*.jar`) for reuse within the _same_ Pipeline. Once the Pipeline has
 completed its execution, stashed files are deleted from the Jenkins master.
-<2> The optional parameter to `agent`/`node` allows for any valid Jenkins label
+<2> The parameter in `agent`/`node` allows for any valid Jenkins label
 expression. Consult the <<syntax#, Pipeline Syntax>> section for more details.
 <3> `unstash` will retrieve the named "stash" from the Jenkins master into the
 Pipeline's current workspace.

@@ -6,21 +6,13 @@
 
 require 'faraday'
 require 'faraday_middleware'
+require 'fileutils'
 require 'uri'
 require 'yaml'
 require 'zip'
 
 
 RESOURCES = [
-  [
-    'https://raw.githubusercontent.com/jenkinsci/jenkins/master/changelog.html',
-    'content/changelog/index.html',
-    {
-      :layout => 'post',
-      :title => 'Changelog',
-    },
-    nil
-  ],
   [
     'https://updates.jenkins.io/latestCore.txt',
     'content/_tmp/latestCore.txt',
@@ -38,6 +30,18 @@ RESOURCES = [
     'content/_tmp/allAscii.zip',
     nil,
     'content/doc/pipeline/steps'
+  ],
+  [
+    'https://repo.jenkins-ci.org/api/search/versions?g=org.jenkins-ci.main&a=jenkins-core&repos=releases&v=?.*.1',
+    'content/_data/_generated/lts_baselines.yml',
+    nil,
+    nil
+  ],
+  [
+    'https://ci.jenkins.io/job/Infra/job/backend-extension-indexer/job/master/lastSuccessfulBuild/artifact/*.adoc/*zip*/extension-indexer.zip',
+    'content/_tmp/extension-indexer.zip',
+    nil,
+    'content/doc/developer/extensions'
   ],
 ]
 
@@ -67,6 +71,8 @@ class Fetcher
         next
       end
 
+      FileUtils.mkdir_p File.dirname(destination)
+
       File.open(destination, 'w+') do |f|
         if frontmatter
           f.write(frontmatter.to_yaml)
@@ -78,6 +84,9 @@ class Fetcher
       #if downloading a zip file, extract it
       if origin.include? ".zip"
         Zip.on_exists_proc = true
+
+        FileUtils.mkdir_p zip_dest
+
         Zip::File.open(destination) do |zip_file|
           zip_file.each do |f|
             fpath = File.join(zip_dest, f.name)

@@ -1,0 +1,244 @@
+---
+layout: developer
+title: Extend the Plugin
+---
+
+- link:../prepare[Step 1: Preparing for Plugin Development]
+- link:../create[Step 2: Create a Plugin]
+- link:../run[Step 3: Build and Run the Plugin]
+- link:../extend[*Step 4: Extend the Plugin*]
+
+NOTE: While possible to follow with a plain text editor, this section is much easier to follow along by using a Java IDE with Maven support.
+// TODO tools references
+
+It's time to extend the sample plugin with new features:
+
+* Record the name used in the greeting not just in the build log, but a proper data structure.
+* Add a new page to the build that shows the name used in the greeting.
+
+It is important that we store the name that was used when the build was run, rather than use the one in the configuration, as the configuration may change.
+ 
+== Record the name
+
+First, create a class called +HelloWorldAction+ in the same package as +HelloWorldBuilder+. That class needs to implement jenkinsdoc:Action[]. _Actions_ are a basic building block for extensibility in Jenkins: They can be attached to many model objects, get stored with them, and optionally add to their UI.
+
+[source,java]
+----
+package org.jenkinsci.plugins.demo;
+
+import hudson.model.Action;
+
+public class HelloWorldAction implements Action {
+
+    @Override
+    public String getIconFileName() {
+        return null;
+    }
+
+    @Override
+    public String getDisplayName() {
+        return null;
+    }
+
+    @Override
+    public String getUrlName() {
+        return null;
+    }
+}
+----
+
+Since we want to store the name used in the greeting, we'll need to add a field with getter to this class. We'll also add a constructor that takes the name as argument.
+
+[source,java]
+----
+(...)
+
+public class HelloWorldAction implements Action {
+
+    private String name;
+
+    public HelloWorldAction(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    (...)
+----
+
+Now, we actually need to create an instance of this class when the build step is executed. We need to extend the +perform+ method in the +HelloWorldBuilder+ class to add an instance of the action we created to the build that's being run:
+
+[source,java]
+----
+(...)
+    public void perform(Run<?,?> build, FilePath workspace, Launcher launcher, TaskListener listener) {
+        // This is where you 'build' the project.
+        // Since this is a dummy, we just say 'hello world' and call that a build.
+
+        build.addAction(new HelloWorldAction(name)); // <1>
+
+        // This also shows how you can consult the global configuration of the builder
+        if (getDescriptor().getUseFrench())
+            listener.getLogger().println("Bonjour, "+name+"!");
+        else
+            listener.getLogger().println("Hello, "+name+"!");
+    }
+(...)
+----
+<1> This is the line that was added, everything else can remain as is.
+
+Save these changes, and run the plugin again using +mvn hpi:run+.
+
+NOTE: Whenever changing the Java source code or adding or removing resource files, you will need to restart the Jenkins instance for the changes to take effect. Only some resource files can be edited while Jenkins is running via `hpi:run`.
+
+Now, when running a build with this build step, the action will be added to the build data. We can confirm this by looking at the +build.xml+ file corresponding to the build in the +work/jobs/_JOBNAME_/builds/_BUILDNUMBER_/+ directory.
+
+As we can see, there are two actions in this build:
+
+[source,xml]
+----
+<build>
+  <actions>
+    <hudson.model.CauseAction> // <1>
+      <causes>
+        <hudson.model.Cause_-UserIdCause/>
+      </causes>
+    </hudson.model.CauseAction>
+    <org.jenkinsci.plugins.demo.HelloWorldAction plugin="demo@1.0-SNAPSHOT"> // <2>
+      <name>Jenkins</name> // <3>
+    </org.jenkinsci.plugins.demo.HelloWorldAction>
+  </actions>
+  (...)
+</build>
+----
+<1> Build causes (how the build was triggered) are also stored as actions. In this case, the anonymous user started the build.
+<2> This is the action we created,
+<3> and this is the name that was used when the build was created.
+
+== Add a view that shows the name
+
+Next, we need to make the action we're storing with the build visible.
+
+First, we need to go back to the +HelloWorldAction+ and define an icon, title, and URL name:
+
+[source,java]
+----
+    @Override
+    public String getIconFileName() {
+        return "document.png"; // <1>
+    }
+
+    @Override
+    public String getDisplayName() {
+        return "Greeting"; // <2>
+    }
+
+    @Override
+    public String getUrlName() {
+        return "greeting"; // <3>
+    }
+----
+<1> This is the icon used for the side panel item. `document.png` is one of the predefined icons bundled with Jenkins.
+<2> This is the label used for the side panel item.
+<3> This is the URL fragment used for this action.
+
+With these changes, the action will show in the build's side panel, and link to the URL +http://_JENKINS_/job/_JOBNAME_/_BUILDNUMBER_/greeting/+.
+
+image::developer/tutorial/sidepanel-item.png[]
+
+Next, the page appearing at that URL needs to be defined.
+
+In the directory `src/main/resources/org/jenkinsci/plugins/demo/`, we need to create a new directory called `HelloWorldAction/`. This directory corresponds to the `HelloWorldAction` class and contains related resources.
+
+NOTE: We can see that resources related to the build step `HelloWorldBuilder` are stored in the `src/main/resources/org/jenkinsci/plugins/demo/HelloWorldBuilder/` directory: `config.jelly` is the job configuration form, `global.jelly` is the system configuration form fragment, and the `help*.html` files provide the inline help for these forms.
+
+Create a file named `index.jelly` in `src/main/resources/org/jenkinsci/plugins/demo/HelloWorldAction/`. This will be what gets shown at the +http://_JENKINS_/job/_JOBNAME_/_BUILDNUMBER_/greeting/+ URL. Add the following content:
+
+[source,xml]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+    <l:layout title="Greeting"> // <1>
+        <l:main-panel> // <2>
+            <h1> // <3>
+                Name: ${it.name} // <4>
+            </h1>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>
+----
+<1> +layout+ is a reusable _tag_ defined in Jenkins core that provides the basic page layout with header, side panel, main content area, and footer.
+<2> To make the name show up in the main content area (rather than e.g. the side panel), we need to wrap our output in a `main-panel` tag.
+<3> We can use any HTML tags and they will be used for the output.
+<4> This is a https://commons.apache.org/proper/commons-jexl/[JEXL] expression. +it+ is always the Java object corresponding to the view, in this case the `HelloWorldAction`. `it.name` is equivalent to a getter call (`getName()`).
+
+The resulting page will look similar to this:
+
+image::developer/tutorial/view1.png[]
+
+== Add the side panel for the build to the view
+
+In the output above, there is no side panel. As this view is related to a specific build, that build's side panel should be shown as well. To do that, we first need to obtain a reference to the corresponding build in our action, and then include the build's side panel view _fragment_ in the action's view.
+
+To obtain a reference to the build (or, more generally, the +jenkinsdoc:Run[]+) the +HelloWorldAction+ belongs to, we need to make it implement +jenkinsdoc:RunAction2[]+. This interface adds two methods that are called when the run is first attached to a build (+onAttached(Run)+), and when the action and run are loaded from disk (+onLoad(Run)+), respectively.
+
+[source,java]
+----
+(...)
+import hudson.model.Run;
+import jenkins.model.RunAction2;
+
+public class HelloWorldAction implements RunAction2 { // <1>
+
+    private transient Run run; // <2>
+
+    @Override
+    public void onAttached(Run<?, ?> run) {
+        this.run = run; // <3>
+    }
+
+    @Override
+    public void onLoad(Run<?, ?> run) {
+        this.run = run; // <4>
+    }
+
+    public Run getRun() { // <5>
+        return run;
+    }
+(...)
+----
+<1> +RunAction2+ is the interface to implement so that actions added to +jenkinsdoc:Run[]+s properly get references to the +Run+.
+<2> The +Run+ is stored in a transient action so this field won't be serialized to disk with the action.
+<3> Setting the field when first attaching this action to the +Run+.
+<4> Setting the field when loading this action from disk.
+<5> This will make the +Run+ available for use in the Jelly view -- it cannot access private fields.
+
+Once this is done, we need to extend the view to _include_ the side panel view fragment of the +Run+:
+
+[source,xml]
+----
+(...)
+    <l:layout title="Greeting">
+        <l:side-panel> // <1>
+            <st:include page="sidepanel.jelly" it="${it.run}" optional="true" /> // <2>
+        </l:side-panel>
+        <l:main-panel>
+          (...)
+        </l:main-panel>
+    </l:layout>
+(...)
+----
+<1> Similar to +main-panel+, we want the contents to show up only in the side panel, so we need to wrap them in this element.
+<2> This _includes_ a view fragment (+sidepanel.jelly+) of another object (the +Run+) at this location. We mark this as optional so no error is shown if this view fragment doesn't exist, as the abstract class +Run+ does not define such a view, only its subclass +jenkinsdoc:AbstractBuild[]+.
+
+With these changes, the view we created properly integrates with the Jenkins UI, appearing no different from built-in pages related to a build:
+
+image::developer/tutorial/view2.png[]
+
+Congratulations, you've successfully created and substantially extended a Jenkins plugin!
+
+== Troubleshooting
+
+NOTE: Anything not working for you? Ask for help in link:/chat[IRC] or link:/mailing-lists[on the jenkinsci-dev mailing list].

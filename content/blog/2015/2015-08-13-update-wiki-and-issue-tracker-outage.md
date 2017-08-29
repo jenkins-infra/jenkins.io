@@ -11,7 +11,7 @@
 
 > While this was a rather lengthy outage, it could have been much worse. We lost none of the data, after all.
 
-[OSUOSL have since published their post mortem](http://osuosl.org/blog/mysql1-vip-post-mortem). I was *really* wrong about not losing any data:
+[OSUOSL have since published their post mortem](http://osuosl.org/blog/mysql1-vip-outage-post-mortem/). I was *really* wrong about not losing any data:
 
 > A further complication was that our backups were pointed at mysql2, which was out-of-date with mysql1, due to the initial synchronization failures. Fortunately, we had the binary logs from the 17th through the 30th. This means that though most data could be restored, some data from between the 15th and the 17th was lost.
 

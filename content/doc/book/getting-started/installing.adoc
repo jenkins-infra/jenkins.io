@@ -38,7 +38,7 @@ For a full discussion of factors see link:/doc/book/hardware-recommendations/[Di
 
 Minimum Recommended Configuration:
 
-* Java 7
+* Java 8 (either JRE or JDK)
 * 256MB free memory
 * 1GB+ free disk space
 
@@ -57,8 +57,8 @@ For other scenarios, see link:/doc/book/appendix/advanced-installation/[Advanced
 
 === Stand-alone or Servlet?
 
-Jenkins can run stand-alone in it's own process using it's own web server.
-It can also run as one servlet in an existing framework, such as Tomcat.
+Jenkins can run stand-alone in its own process using its own built-in web server (Jetty).
+It can also run as one servlet in an existing framework, such as Tomcat or Glassfish application servers.
 This section is specifically targeted to stand-alone install and execution.
 For other scenarios, see link:/doc/book/appendix/advanced-installation/[Advanced Jenkins Installation]
 
@@ -101,7 +101,130 @@ If your `/etc/init.d/jenkins` file fails to start Jenkins, edit the `/etc/defaul
 Here, "8081" was chosen but you can put another port available.
 ====
 
-=== OS X
+==== OpenIndiana Hipster
+
+On a system running link:http://www.openindiana.org/[OpenIndiana Hipster]
+Jenkins can be installed in either the local or global zone using the
+link:https://en.wikipedia.org/wiki/Image_Packaging_System[Image Packaging
+System] (IPS).
+
+[NOTE]
+====
+Disclaimer: This platform is NOT officially supported by the Jenkins team,
+use it at your own risk. Packaging and integration described in this section
+is maintained by the OpenIndiana Hipster team, bundling the generic `jenkins.war`
+to work in that operating environment.
+====
+
+For the common case of running the newest packaged weekly build as a standalone (Jetty) server, simply execute:
+
+[source,bash]
+----
+pkg install jenkins
+svcadm enable jenkins
+----
+
+The common packaging integration for a standalone service will:
+
+* Create a `jenkins` user to run the service and to own the directory structures under `/var/lib/jenkins`.
+* Pull the OpenJDK8 and other packages required to execute Jenkins, including
+  the `jenkins-core-weekly` package with the latest `jenkins.war`.
++
+CAUTION: Long-Term Support (LTS) Jenkins releases currently do not support OpenZFS-based
+systems, so no packaging is provided at this time.
+* Set up Jenkins as an SMF service instance (`svc:/network/http:jenkins`) which
+  can then be enabled with the `svcadm` command demonstrated above.
+* Set up Jenkins to listen on port 8080.
+* Configure the log output to be managed by SMF at `/var/svc/log/network-http:jenkins.log`.
+
+Once Jenkins is running, consult the log
+(`/var/svc/log/network-http:jenkins.log`) to retrieve the generated
+administrator password for the initial set up of Jenkins, usually it will be 
+found at `/var/lib/jenkins/home/secrets/initialAdminPassword`. Then navigate to
+link:http://localhost:8080[localhost:8080] to <<setupwizard, complete configuration of the
+Jenkins instance>>.
+
+
+To change attributes of the service, such as environment variables like `JENKINS_HOME`
+or the port number used for the Jetty web server, use the `svccfg` utility:
+
+[source,bash]
+----
+svccfg -s svc:/network/http:jenkins editprop
+svcadm refresh svc:/network/http:jenkins
+----
+
+You can also refer to `/lib/svc/manifest/network/jenkins-standalone.xml` for more
+details and comments about currently supported tunables of the SMF service.
+Note that the `jenkins` user account created by the packaging is specially privileged
+to allow binding to port numbers under 1024.
+
+The current status of Jenkins-related packages available for the given release
+of OpenIndiana can be queried with:
+
+[source,bash]
+----
+pkg info -r '*jenkins*'
+----
+
+Upgrades to the package can be performed by updating the entire operating
+environment with `pkg update`, or specifically for Jenkins core software with:
+
+[source,bash]
+----
+pkg update jenkins-core-weekly
+----
+
+[CAUTION]
+====
+Procedure for updating the package will restart the currently running Jenkins
+process. Make sure to prepare it for shutdown and finish all running jobs
+before updating, if needed.
+====
+
+
+
+==== Solaris, OmniOS, SmartOS, and other siblings
+
+Generally it should suffice to install Java 8 and link:/download[download] the
+`jenkins.war` and run it as a standalone process or under an application server
+such as link:http://tomcat.apache.org[Apache Tomcat].
+
+
+Some caveats apply:
+
+* Headless JVM and fonts: For OpenJDK builds on minimalized-footprint systems,
+  there may be
+  link:https://wiki.jenkins.io/display/JENKINS/Jenkins+got+java.awt.headless+problem[issues
+  running the headless JVM], because Jenkins needs some fonts to render certain
+  pages.
+* ZFS-related JVM crashes: When Jenkins runs on a system detected as a `SunOS`,
+  it tries to load integration for advanced ZFS features using the bundled
+  `libzfs.jar` which maps calls from Java to native `libzfs.so` routines
+  provided by the host OS. Unfortunately, that library was made for binary
+  utilities built and bundled by the OS along with it at the same time, and was
+  never intended as a stable interface exposed to consumers. As the forks of
+  Solaris legacy, including ZFS and later the OpenZFS initiative evolved, many
+  different binary function signatures were provided by different host
+  operating systems - and when Jenkins `libzfs.jar` invoked the wrong
+  signature, the whole JVM process crashed. A solution was proposed and
+  integrated in `jenkins.war` since weekly release 2.55 (and not yet in any LTS
+  to date) which enables the administrator to configure which function
+  signatures should be used for each function known to have different variants,
+  apply it to their application server initialization options and then run and
+  update the generic `jenkins.war` without further workarounds. See
+  link:https://github.com/kohsuke/libzfs4j[the libzfs4j Git repository] for
+  more details, including a script to try and "lock-pick" the configuration
+  needed for your particular distribution (in particular if your kernel updates
+  bring a new incompatible `libzfs.so`).
+
+Also note that forks of the OpenZFS initiative may provide ZFS on various
+BSD, Linux, and macOS distributions. Once Jenkins supports detecting ZFS
+capabilities, rather than relying on the `SunOS` check, the above caveats for
+ZFS integration with Jenkins should be considered.
+
+
+=== macOS
 
 To install from the website, using a package:
 
@@ -136,24 +259,25 @@ You must have link:http://docker.io[Docker] properly installed on your machine.
 See the link:https://www.docker.io/gettingstarted/#h_installation[Docker installation guide] for details.
 
 
-First, pull the official link:https://hub.docker.com/_/jenkins/[jenkins] image from Docker repository.
+First, pull the official link:https://hub.docker.com/r/jenkins/jenkins[jenkins] image from Docker repository.
 
 [source,bash]
 ----
-docker pull jenkins
+docker pull jenkins/jenkins
 ----
 
 Next, run a container using this image and map data directory from the container to the host; e.g in the example below `/var/jenkins_home` from the container is mapped to `jenkins/` directory from the current path on the host. Jenkins `8080` port is also exposed to the host as `49001`.
 
 [source,bash]
 ----
-docker run -d -p 49001:8080 -v $PWD/jenkins:/var/jenkins_home -t jenkins
+docker run -d -p 49001:8080 -v $PWD/jenkins:/var/jenkins_home -t jenkins/jenkins
 ----
 
 === Other
 See link:/doc/book/appendix/advanced-installation/[Advanced Jenkins Installation]
 
 
+[[setupwizard]]
 == Post-install (Setup Wizard)
 
 === Create Admin User and Password for Jenkins
