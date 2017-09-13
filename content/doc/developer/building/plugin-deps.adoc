@@ -14,17 +14,181 @@ Building plugins using Gradle is also possible but particular capabilities may l
 
 ## Using the 2.x parent POM
 
-TODO mention archetype
+Properly maintained Jenkins plugins are expected to use a 2.x-series parent POM,
+the later the better, to define the basic structure of `pom.xml`.
 
-## The plugin class loader hierarchy
+https://github.com/jenkinsci/plugin-pom#usage[Parent POM general usage instructions]
 
-TODO gentle overview of the distinction between “initiating” and “defining” loader
+You can use Maven itself to create a new plugin:
 
-### +Messages+, views, and other resources
+https://github.com/jenkinsci/archetypes#usage[Archetype usage instructions]
 
-TODO
+If you are instead upgrading an older plugin, replace a header such as
+
+[source,xml]
+----
+<parent>
+    <groupId>org.jenkins-ci.plugins</groupId>
+    <artifactId>plugin</artifactId>
+    <version>1.625</version>
+</parent>
+----
+
+with the new format:
+
+[source,xml]
+----
+<parent>
+    <groupId>org.jenkins-ci.plugins</groupId>
+    <artifactId>plugin</artifactId>
+    <version>2.33</version>
+    <relativePath />
+</parent>
+<properties>
+    <jenkins.version>1.625</jenkins.version>
+</properties>
+----
+
+## Jenkins class loading
+
+Before diving into _how_ to refer to libraries and other plugins from your plugin,
+it is useful to understand the elements of Java class loading and how that applies to Jenkins.
+If you are not a Java developer, you can get away with ignoring all this for simple plugins,
+but will need to understand class loading to troubleshoot strange errors or perform advanced packaging.
+
+### The plugin class loader hierarchy
+
+[source]
+----
+□ Java Platform
+ ↖
+  □ “application classpath” (servlet container)
+   ↖
+    □ Jenkins core: jenkins.war!/WEB-INF/lib/*.jar)
+     ↖
+      □ plugin A: $JENKINS_HOME/plugins/a.jpi!/WEB-INF/lib/*.jar
+       ↖                                                             ↖
+        □ plugin C: $JENKINS_HOME/plugins/c.jpi!/WEB-INF/lib/*.jar  ← □ UberClassLoader
+     ↖ ↙                                                             ↙
+      □ plugin B: $JENKINS_HOME/plugins/b.jpi!/WEB-INF/lib/*.jar
+      ⋮
+----
+
+Java class loaders have _parents_ to which they delegate.
+For purposes of Jenkins, what matters most is that “Jenkins core” delegates to the Java Platform,
+and Jenkins plugins all delegate to Jenkins core.
+
+Plugins may also delegate to one another.
+In the above example, C declares dependencies on A and B.
+In its +c.jpi!/META-INF/MANIFEST.MF+ this would look something like:
+
+[source]
+----
+Plugin-Dependencies: a:1.13,b:1.6
+----
+
+Thus C can directly refer to classes defined in either A or B, as well as to Jenkins and the Java Platform:
+
+[source,java]
+----
+package org.jenkinsci.plugins.c;
+import java.util.Date;
+import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.a.Alpha;
+import org.jenkinsci.plugins.b.Beta;
+public class Charlie {/* … */}
+----
+
+Each (enabled) plugin gets its own +ClassLoader+.
+It is possible for two distinct plugins to define a class of the same name, so long as neither depends on the other.
+
+There is also a single special +UberClassLoader+ which delegates to _all_ enabled plugins.
+This never loads any additional resources but it can be used to look up any plugin class or resource.
+
+Java defines a +Thread.getContextClassLoader()+.
+Jenkins does not use this much; it will normally be set by the servlet container to the Jenkins core loader.
+
+### Initiating vs. defining loaders
+
+When you _initiate_ loading of a class
+
+[source,java]
+----
+Class<?> alpha = Charlie.class.getClassLoader().loadClass("org.jenkinsci.plugins.a.Alpha");
+----
+
+you are asking a particular +ClassLoader+ (here, C’s) to look up a class by name.
+(Normally this will _start_ by asking all of its parents to find that class,
+and only look in `c.jpi!/WEB-INF/lib/*.jar` as a last resort.)
+
+What happens if +Alpha.class+ refers to various other classes, for example by using them in +import+ statements?
+Java considers the _defining_ loader of +Alpha.class+ (A’s), and only asks that class loader.
+The fact that you started loading in C is irrelevant.
+This means that C cannot provide some class A might need to link against.
+A needs to be able to “see” any such class on its own.
+Otherwise you will get a +NoClassDefFoundError+ at runtime.
+
+### Views and other resources
+
+Jenkins plugins normally contain “Stapler views” like +config.jelly+ as well as other resources in +src/main/resources/+.
+While you can explicitly load these from Java code:
+
+[source,java]
+----
+package org.jenkinsci.plugins.a;
+public class Alpha {
+    /** loads {@code /org/jenkinsci/plugins/a/config.txt} from {@code a.jpi!/WEB-INF/lib/a.jar} */
+    static URL config() throws IOException {
+        return Alpha.class.getResource("config.txt");
+    }
+}
+----
+
+normally such resources would be loaded on your behalf, for example by the convention of Jenkins looking for a view.
+In such cases the lookup passes through +UberClassLoader+, so your resource path (+/org/jenkinsci/plugins/a/config.txt+)
+had better be globally unique.
+
++Messages.properties+ used for localization is a little different,
+since this is actually compiled to +Messages.class+ during the build,
+and thus behaves like any other Java class referred to statically from your plugin code:
+
+[source,java]
+----
+package org.jenkinsci.plugins.a;
+public class Alpha {
+    /** compiled from {@code /org/jenkinsci/plugins/a/Messages.properties#Alpha.message} */
+    static String message() throws IOException {
+        return Messages.Alpha_message();
+    }
+}
+----
 
 ## Depending on other plugins
+
+Making your plugin depend on other plugins is easy: just declare dependencies in your POM, by hand or using your favorite IDE.
+
+[source,xml]
+----
+<dependencies>
+    <dependency>
+        <groupId>org.jenkins-ci.plugins</groupId>
+        <artifactId>a</artifactId>
+        <version>1.13</version>
+    </dependency>
+    <dependency>
+        <groupId>org.jenkins-ci.plugins</groupId>
+        <artifactId>b</artifactId>
+        <version>1.6</version>
+    </dependency>
+</dependencies>
+----
+
+The Maven packaging type for Jenkins plugins understands to translate this to the +Plugin-Dependencies+ manifest header,
+which will be understood by the Jenkins plugin manager, as well as the update center and other tools.
+
+The Maven compiler plugin similarly understands that +a-1.13.jar+ and +b-1.6.jar+ should be added to your classpath when building your plugin.
+
+## Extensions and inversion of control
 
 TODO
 
@@ -72,6 +236,14 @@ TODO
 
 TODO
 
+## Optional dependencies and extensions
+
+TODO
+
+## +@Restricted+ annotations
+
+TODO
+
 ## Jenkins modules
 
 TODO
@@ -83,8 +255,3 @@ TODO
 ## Overridable core components
 
 TODO
-
-[source,xml]
-----
-<TODO/>
-----
