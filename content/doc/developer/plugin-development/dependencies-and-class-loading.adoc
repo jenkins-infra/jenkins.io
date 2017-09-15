@@ -154,21 +154,117 @@ The Maven compiler plugin similarly understands that +a-1.13.jar+ and +b-1.6.jar
 
 ### Extensions and inversion of control
 
-TODO
+A “service locator” pattern is used throughout Jenkins for modularity and extensibility.
+For example, if a plugin (or core) defines an API
+
+[source,java]
+----
+package org.jenkinsci.plugins.someapi;
+import hudson.ExtensionPoint;
+public interface Checker extends ExtensionPoint {
+    boolean doesThisSeemOK(String input);
+}
+----
+
+then another plugin may declare a dependency on that API
+
+[source,xml]
+----
+<dependency>
+    <groupId>org.jenkins-ci.plugins</groupId>
+    <artifactId>someapi</artifactId>
+    <version>1.0</version>
+</dependency>
+----
+
+and add an extension:
+
+[source,java]
+----
+package org.jenkinsci.plugins.somethingelse;
+import hudson.Extension;
+import org.jenkinsci.plugins.someapi.Checker;
+@Extension
+public class MyChecker implements Checker {
+    @Override
+    public boolean doesThisSeemOK(String input) {
+        return !input.contains("/");
+    }
+}
+----
+
+Now any code able to link against +someapi+ can use those implementations;
+most commonly this is done inside the same API plugin:
+
+[source,java]
+----
+package org.jenkinsci.plugins.someapi;
+import hudson.ExtensionList;
+class RunsChecks {
+    static boolean allFine(String input) {
+        for (Checker c : ExtensionList.lookup(Checker.class)) {
+            if (!c.doesThisSeemOK(input)) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+----
+
+It is important to understand that while +MyChecker+ needs to link against +Checker+, mandating that +dependency+,
++RunsChecks+ does _not_ need to be able to link against +MyChecker+ (or any of the other implementations).
+While the local variable +c+’s implementation class might be in the +somethingelse+ plugin,
+it need only care about the _declared type_ +Checker+.
 
 ## Bundling third-party libraries
 
-TODO
+Sometimes plugins need to use Java libraries beyond what is available in the Java Platform and Jenkins itself.
+For example, a plugin connecting to a particular service might use a Java SDK provided by the vendor.
+
+Doing this is very easy—in principle.
+Simply declare a Maven dependency on that library:
+
+[source,xml]
+----
+<dependency>
+    <groupId>com.yoyodyne.cloud</groupId>
+    <artifactId>cloud-access-sdk</artifactId>
+    <version>1.0</version>
+</dependency>
+----
+
+(This assumes that the library is available in Maven Central.
+If not, it is possible to upload artifacts to the Jenkins Artifactory repository for use from plugins.
+Ask on the developer list for help.
+Do *not* attempt to keep such binaries in source control.)
+
+Besides making SDK classes (say, +com.yoyodyne.cloud.*+) available during compilation,
+the +maven-hpi-plugin+ used to create Jenkins plugins will notice that this is dependency is not itself a Jenkins plugin,
+and instead _bundle_ it inside +yourplugin.hpi+ as +WEB-INF/lib/cloud-access-sdk-1.0.jar+.
+
+At runtime, the plugin class loader will load classes from +WEB-INF/lib/cloud-access-sdk-1.0.jar+,
+just as it would from +WEB-INF/lib/yourplugin.jar+ (your plugin’s own code, from +src/main/java/+ and +src/main/resources/+).
+Thus your plugin’s classes can refer to classes in that library.
+Other plugins depending on your plugin can, too.
+
+### Checking +WEB-INF/lib/*.jar+ for junk
+
+Beware that Maven dependencies include _all transitive_ dependencies.
+This can lead to unexpected results when bundling libraries.
+For example, the POM for +com.yoyodyne.cloud:cloud-access-sdk+ might declare that it needs +commons-net:commons-net:3.5+.
+Your plugin will thus wind up bundling +commons-net-3.5.jar+ as well.
+If you are not careful, +WEB-INF/lib/+ may fill up with megabytes of stuff which is not actually used.
 
 ### Using library wrapper plugins
 
-TODO
+TODO suggest inclusion of major version in artifactId
 
 ### +pluginFirstClassLoader+ and its discontents
 
 TODO
 
-### Checking +WEB-INF/lib/*.jar+ for junk
+### Shading
 
 TODO
 
@@ -180,7 +276,7 @@ TODO
 
 TODO
 
-## +JenkinsRule+ vs. +acceptance-test-harness+ testing
+## +JenkinsRule+ vs. +acceptance-test-harness+ class loading
 
 TODO
 
