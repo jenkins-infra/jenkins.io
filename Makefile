@@ -63,6 +63,7 @@ assets: depends-node
 	cp node_modules/anchor-js/*.js $(ASSETS_DIR)/anchor-js/
 	mkdir -p $(ASSETS_DIR)/ionicons
 	cp -R node_modules/ionicons/css $(ASSETS_DIR)/ionicons
+	cp -R node_modules/ionicons/fonts $(ASSETS_DIR)/ionicons
 #######################################################
 
 

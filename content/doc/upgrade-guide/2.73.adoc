@@ -36,12 +36,25 @@ Possible workarounds:
 . Override it for the process running Jenkins, for example using the `-Duser.home=/path/to/directory` parameter to the `java` command, pointing to a writable directory.
 
 
-==== Known Issue: Possible connectivity issue involving ed25519 SSH keys
+==== Known Issue: Randomly occurring connection failures with passphrase-protected ed25519 SSH keys
 
 link:https://issues.jenkins-ci.org/browse/JENKINS-46754[JENKINS-46754]
 
-A possible regression involving SSH authentication using password protected ed25519 keys has been identified.
-More details and the current state of the investigation is available in the linked issue.
+A regression involving authentication using passphrase-protected ed25519 SSH keys has been identified in 2.73.
+It randomly causes failures in features using these keys, such as:
+
+. SSH Slaves Plugin connections
+. Accessing Git repositories with the JGit implementation
+. Accessing Subversion repositories (unconfirmed)
+
+Workarounds for this issue:
+
+. Do not use ed25519 for SSH keys in Jenkins
+. Do not protect ed25519 SSH keys in Jenkins with a passphrase
+. In the case of Git Plugin, switch to the Git CLI implementation
+
+
+link:https://gist.github.com/rtyler/cd3a3f759c46f308bf7151819f5538a0[This Groovy Script], when executed in the "Script Console" (located at `/script`) can be used to determine if the instance contains any passphrase-proteced ed25519 SSH keys before upgrading.
 
 
 ==== Groovy 2.4.11 Upgrade
@@ -78,3 +91,26 @@ This behavior has been changed, and Jenkins will now perform the permission chec
 
 To restore the previous behavior, configure a global *Project default Build Authorization* setting the default authorization to that of the anonymous user.
 This feature has been implemented in Authorize Project Plugin version 1.2.0.
+
+==== Remoting Work Directories
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-44108[JENKINS-44108],
+link:https://issues.jenkins-ci.org/browse/JENKINS-44112[JENKINS-44112]
+
+The embedded link:https:/projects/remoting/[Jenkins Remoting] version has been updated from 3.7 to 3.10.
+It introduces support of work directories, which may be used by Remoting to store caches, logs and other metadata.
+
+Once work directory mode is enabled, Jenkins agents start writing logs to the disk and change the default destination of the filesystem JAR Cache.
+In Remoting this opt-in feature can be enabled using the `-workDir=${ROOT_DIR}` command-line option, but the Jenkins defines custom behavior for some agent launchers:
+
+* Java Web Start Launcher (aka _JNLP agent_)
+** Old agents: Work directory needs to be enabled manually
+** New agents created from Web UI: Work directory is enabled by default, work directory points to _Remote root directory_ of the agent.
+** New agents created from CLI/API: Behavior depends on the passed configuration file, work directory is disabled by default
+* Command Launcher
+** No changes, work directory should be manually enabled in launch settings if required
+* Other Launcher types (e.g. SSH Launcher)
+** The behavior is defined in plugins, which have independent release cycle
+** Follow updates in tickets linked to link:https://issues.jenkins-ci.org/browse/JENKINS-44108[JENKINS-44108]
+
+You can find more information, examples and upgrade guides in link:https://github.com/jenkinsci/remoting/blob/master/docs/workDir.md[Jenkins Remoting documentation].
