@@ -110,6 +110,9 @@ catch (exc) {
               to: recipient,
          replyTo: recipient,
             from: 'noreply@ci.jenkins.io'
+
+    /* Rethrow to fail the Pipeline properly */
+    throw exc
 }
 
 // vim: ft=groovy
