@@ -69,9 +69,6 @@ It is possible for two distinct plugins to define a class of the same name, so l
 There is also a single special +UberClassLoader+ which delegates to _all_ enabled plugins.
 This never loads any additional resources but it can be used to look up any plugin class or resource.
 
-Java defines a +Thread.getContextClassLoader()+.
-Jenkins does not use this much; it will normally be set by the servlet container to the Jenkins core loader.
-
 ### Initiating vs. defining loaders
 
 When you _initiate_ loading of a class
@@ -91,6 +88,77 @@ The fact that you started loading in C is irrelevant.
 This means that C cannot provide some class A might need to link against.
 A needs to be able to “see” any such class on its own.
 Otherwise you will get a +NoClassDefFoundError+ at runtime.
+
+### Context class loaders
+
+Java defines a +Thread.getContextClassLoader()+.
+Jenkins does not use this much; it will normally be set by the servlet container to the Jenkins core loader.
+
+Some Java libraries have a fundamental design flaw, originating in premodular systems with a “flat classpath”,
+whereby they expect classes defined by clients of the library to be available by name without any qualification:
+
+[source,java]
+----
+package org.somelib;
+public class LibClass {
+    public static Object use(String name) throws Exception {
+        return getUserClass(name).newInstance();
+    }
+    private Class<?> getUserClass(String name) throws ClassNotFoundException {
+        return Class.forName(name);
+    }
+}
+----
+
+This does not work properly in Jenkins because the library +org.somelib+ might be defined in plugin A,
+while the user class is defined in plugin B depending on A.
++Class.forName(String)+ uses the _calling class_ (+LibClass+) to determine the initiating +ClassLoader+;
+since plugin A cannot load classes from plugin B, this will result in a +ClassNotFoundException+.
+
+Other libraries try to work around the issue as follows:
+
+[source,java]
+----
+package org.somelib;
+public class LibClass {
+    public static Object use(String name) throws Exception {
+        return getUserClass(name).newInstance();
+    }
+    private Class<?> getUserClass(String name) throws ClassNotFoundException {
+        return Class.forName(name, true, Thread.currentThread().getContextClassLoader());
+    }
+}
+----
+
+This also fails by default in Jenkins, since the +contextClassLoader+ can see only Jenkins core (not even plugin A, much less B).
+Jenkins plugin code can work around the issue in some cases:
+
+[source,java]
+----
+package org.jenkinsci.plugins.b;
+import org.somelib.LibClass;
+class UsesThatLib {
+    Object someMethod() {
+        Thread t = Thread.currentThread();
+        ClassLoader orig = t.getContextClassLoader();
+        t.setContextClassLoader(UsesThatLib.class.getClassLoader());
+        try {
+            return LibClass.use(UsesThatLib.class.getName());
+        } finally {
+            t.setContextClassLoader(orig);
+        }
+    }
+}
+----
+
+(When the particular class loader needed is unclear, +UberClassLoader+ can be used as a fallback,
+though this is not as safe since lookups could be ambiguous in case two unrelated plugins both bundled the same library.)
+
+Ultimately however it is a design flaw in the library if it fails to allow clients to directly specify a +ClassLoader+ to use for lookups
+(or preregister +Class+ instances for particular names).
+Consider patching the library or looking harder for appropriate APIs that already exist.
+As an example, +java.io.ObjectInputStream+ (used for deserializing Java objects) by default uses a complicated algorithm to guess at a +ClassLoader+,
+but you can override +resolveClass+ to remove the need for guessing (as +hudson.remoting.ObjectInputStreamEx+ in fact does).
 
 ### Views and other resources
 
