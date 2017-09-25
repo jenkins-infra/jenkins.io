@@ -1,23 +1,29 @@
 ---
 layout: post
-title: "Declarative Pipelines 1.2 Released!"
+title: "Parallel stages with Declarative Pipeline 1.2"
 tags:
 - pipeline
+- declarative
 author: abayer
 ---
 
-After a few months of work on its key features, we're happy to announce the
-release of version 1.2 of link:https://jenkins.io/doc/book/pipeline/syntax/#declarative-pipeline[Declarative
-Pipelines]! We thought we'd detail three of the key changes for you.
+After a few months of work on its key features, I'm happy to announce the
+1.2 release of
+link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline]!
+On behalf of the contributors developing Pipeline, I thought it would be
+helpful to discuss three of the key changes.
+
+image:/images/post-images/declarative-1.2/pipeline-parallel-stages.png[A Pipeline with Parallel stages, role=center]
 
 === Parallel Stages
 
 First, we've added syntax support for parallel stages. In earlier versions of
-Declarative Pipelines, the only way to run chunks of Pipeline code in parallel
+Declarative Pipeline, the only way to run chunks of Pipeline code in parallel
 was to use the `parallel` step inside the `steps` block for a stage, like this:
 
 [source,groovy]
 ----
+/* .. snip .. */
 stage('run-parallel-branches') {
   steps {
     parallel(
@@ -30,59 +36,68 @@ stage('run-parallel-branches') {
     )
   }
 }
+/* .. snip .. */
 ----
 
-While this works, it doesn't integrate well with the rest of Declarative. For
-example, to run each parallel branch on a different agent, you need to use a
-`node` step, and if you do that, the output of the parallel branch won't be
-available for `post`-stage or `post`-build tasks. Basically, the old `parallel`
-step required you to use Scripted Pipeline within your Declarative Pipeline.
+While this works, it doesn't integrate well with the rest of the Declarative
+Pipeline syntax. For example, to run each parallel branch on a different agent,
+you need to use a `node` step, and if you do that, the output of the parallel
+branch won't be available for `post` directives (at a `stage` or `pipeline`
+level). Basically the old `parallel` step required you to use Scripted Pipeline
+within a Declarative Pipeline.
 
-But now with Declarative Pipelines 1.2, we've introduced a true Declarative
+But now with Declarative Pipeline 1.2, we've introduced a true Declarative
 syntax for running stages in parallel:
 
+.Jenkinsfile
 [source,groovy]
 ----
-stage('Run Tests') {
-  parallel {
-    stage('Test On Windows') {
-      agent {
-        label "windows"
-      }
-      steps {
-        bat "run-tests.bat"
-      }
-      post {
-        always {
-          junit "**/TEST-*.xml"
+pipeline {
+    agent none
+    stages {
+        stage('Run Tests') {
+            parallel {
+                stage('Test On Windows') {
+                    agent {
+                        label "windows"
+                    }
+                    steps {
+                        bat "run-tests.bat"
+                    }
+                    post {
+                        always {
+                        junit "**/TEST-*.xml"
+                        }
+                    }
+                }
+                stage('Test On Linux') {
+                    agent {
+                        label "linux"
+                    }
+                    steps {
+                        sh "run-tests.sh"
+                    }
+                    post {
+                        always {
+                        junit "**/TEST-*.xml"
+                        }
+                    }
+                }
+            }
         }
-      }
     }
-    stage('Test On Linux') {
-      agent {
-        label "linux"
-      }
-      steps {
-        sh "run-tests.sh"
-      }
-      post {
-        always {
-          junit "**/TEST-*.xml"
-        }
-      }
-    }
-  }
 }
 ----
 
 You can now specify either `steps` or `parallel` for a `stage`, and within
-`parallel`, you can specify a list of `stage`s to run in parallel, with all
-the configuration you're used to for a `stage` in Declarative. We think this
-will be really useful for cross-platform builds and testing, as an example.
-Support for parallel stages will be in the soon-to-be-released Blue Ocean
-Editor 1.3 release as well.
+`parallel`, you can specify a list of `stage` directives to run in parallel,
+with all the configuration you're used to for a `stage` in Declarative
+Pipeline. We think this will be really useful for cross-platform builds and
+testing, as an example. Support for parallel stages will be in the
+soon-to-be-released Blue Ocean Pipeline Editor 1.3 as well.
 
-You can find more documentation on parallel stages on link:https://jenkins.io/doc/book/pipeline/syntax/[jenkins.io].
+You can find more documentation on parallel stages in the
+link:/doc/book/pipeline/syntax/[User Handbook].
 
 === Defining Declarative Pipelines in Shared Libraries
 
