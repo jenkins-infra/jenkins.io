@@ -29,6 +29,12 @@ include::doc/tutorials/download-and-run-jenkins-in-docker.adoc[]
 
 === Fork and clone the sample repository on GitHub
 
+In this tutorial, we'll be building a simple Java application using Maven, whose
+overall build process will be orchestrated in Jenkins. This Java application
+(which you'll obtain from a sample repository on GitHub) simply outputs the
+string "Hello world!" and is accompanied by a unit test to check that the main
+application works as expected.
+
 . Ensure you are signed in to your GitHub account.
 +
 TIP: If you don't yet have a GitHub account, you can sign up for a free one on
@@ -69,8 +75,8 @@ where `<your-username>` is your user account's name on your operating system.
 
 === Create your Pipeline project in Jenkins
 
-. Back to Jenkins, log in again if necessary and click *create new jobs* under
-  *Welcome to Jenkins!*
+. Go back to Jenkins, log in again if necessary and click *create new jobs*
+  under *Welcome to Jenkins!*
 . In the *Enter an item name* field, specify the name for your new Pipeline
   project. In this tutorial, we'll assume `simple-java-maven-app`.
 . Scroll down and click *Pipeline*, then click *OK* at the end of the page.
@@ -80,7 +86,7 @@ where `<your-username>` is your user account's name on your operating system.
 . Click the *Pipeline* tab at the top of the page to scroll down to the
   *Pipeline* section.
 . From the *Definition* field, choose the *Pipeline script from SCM* option.
-  This option tells Jenkins to obtain your Pipeline from Source Control
+  This option instructs Jenkins to obtain your Pipeline from Source Control
   Management (SCM), which will be your locally cloned Git repository.
 . From the *SCM* field, choose *Git*.
 . In the *Repository URL* field, specify the directory path of your locally
@@ -89,7 +95,8 @@ where `<your-username>` is your user account's name on your operating system.
 * `/home/<your-username>/GitHub/simple-java-maven-app` for Linux or
 * `C:\Users\<your-username>\Documents\GitHub\simple-java-maven-app` for Windows.
 . Click *Save* to save your new Pipeline project. You're now ready to begin
-  creating your Jenkinsfile, which you'll be checking into your cloned Git repo.
+  creating your `Jenkinsfile`, which you'll be checking into your cloned Git
+  repo.
 
 
 === Create your initial Pipeline as a Jenkinsfile
@@ -98,3 +105,227 @@ You're now ready to create your Pipeline that will automate building your
 Java/Maven project in Jenkins. Your Pipeline will be created as a `Jenkinsfile`,
 which will be committed to your locally cloned Git repository
 (`simple-java-maven-app`).
+
+This is the foundation of "Pipeline-as-Code", which treats the continuous
+delivery pipeline a part of the application to be versioned and reviewed like
+any other code. Read more about Pipeline and what a Jenkinsfile is in the
+link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using
+a Jenkinsfile] sections of the User Handbook.
+
+First, we'll create an initial Pipeline to download and run a Maven in Docker
+(which will build your simple Java application) and then add a build stage that
+orchestrates this process.
+
+. Using your favorite text editor or IDE, create and save new text file with the
+  name `Jenkinsfile` at the root of your local `simple-java-maven-app` Git
+  repository.
+. Copy the following Declarative Pipeline code and paste it into your empty
+  `Jenkinsfile`:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'maven:3-alpine' // <1>
+            args '-v /root/.m2:/root/.m2' // <2>
+        }
+    }
+    stages {
+        stage('Build') { // <3>
+            steps {
+                sh 'mvn -B -DskipTests clean package' // <4>
+            }
+        }
+    }
+}
+----
+<1> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
+section's `docker` parameter) downloads the
+https://hub.docker.com/_/maven/[`maven:3-apline` Docker image] and runs it as a
+separate container in your locally running Docker instance. This means that:
+* You'll have separate Jenkins/Blue Ocean and Maven containers running locally
+  in Docker.
+* This Maven container becomes the link:/doc/book/glossary/#agent[agent] that
+  Jenkins uses to build your Pipeline project.
+<2> This `args` parameter creates a reciprocal mapping between the `/root/.m2`
+directories in the Jenkins/Blue Ocean and Maven Docker containers. Explaining
+the details behind this is beyond the scope of this tutorial. However, the
+reason for doing this is to ensure that Jenkins's local Maven repository retains
+the artifacts (necessary to build your Java application) which Maven downloads.
+These artifacts will be stored in the `maven-repository` Docker data volume you
+created <<download-and-run-jenkins-in-docker,above>>.
+<3> Defines a stage called `Build` that appears on the Jenkins UI.
+<4> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
+section) runs the Maven command to cleanly build your Java application (without
+running any tests).
++
+. Save your amended `Jenkinsfile` and commit it to your local
+  `simple-java-maven-app` Git repo.
+. Go back to Jenkins again, log in again if necessary and click *Open Blue
+  Ocean* on the left to access Jenkins's Blue Ocean interface.
+. In the *This job has not been run* message box, click *Run*, then quickly
+  click the *OPEN* link which appears briefly at the lower-right to see Jenkins
+  building your Pipeline project. If you weren't able to click the *OPEN* link,
+  click the row on the Blue Ocean interface to access this feature.
+
+[NOTE]
+====
+You may need to wait several minutes for this first run to complete.
+After making a clone of your local `simple-java-maven-app` Git repo itself,
+Jenkins:
+
+. Initially queues the project to be built on the agent.
+. Downloads the Maven Docker image and runs it in a container on Docker.
+. Executes the `Build` stage (defined in the `Jenkinsfile`) on the Maven
+  container. During this time, Maven will download many artifacts necessary to
+  build your Java application, which will ultimately be stored in Jenkins's
+  local Maven repository (and the `maven-repository` Docker data volume).
+====
+
+
+=== Add a test stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the
+  `Build` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+----
++
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'maven:3-alpine'
+            args '-v /root/.m2:/root/.m2'
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Test') { // <1>
+            steps {
+                sh 'mvn test' // <2>
+            }
+        }
+    }
+}
+----
++
+<1> Defines a new stage called `Test` that appears on the Jenkins UI.
+<2> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
+section) runs the Maven command to run a unit test on your simple Java
+application.
++
+. Save your amended `Jenkinsfile` and commit it to your local
+  `simple-java-maven-app` Git repo.
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Run* at the top left, then quickly click the *OPEN* link which appears
+  briefly at the lower-right to see Jenkins building your amended Pipeline
+  project. If you weren't able to click the **OPEN** link, click the _top_ row
+  on the Blue Ocean interface to access this feature.
+
+
+=== Add a final deliver stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the
+  `Test` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Deliver') {
+            steps {
+                sh '''
+                    mvn jar:jar install:install
+                    NAME=`mvn help:evaluate -Dexpression=project.name | grep "^[^\\[]"`
+                    VERSION=`mvn help:evaluate -Dexpression=project.version | grep "^[^\\[]"`
+                    echo 'Now running the application...'
+                    java -jar target/$NAME-$VERSION.jar
+                '''
+            }
+        }
+----
++
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'maven:3-alpine'
+            args '-v /root/.m2:/root/.m2'
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        stage('Deliver') { // <1>
+            steps {
+                sh ''' // <2>
+                    mvn jar:jar install:install // <3>
+                    NAME=`mvn help:evaluate -Dexpression=project.name | grep "^[^\\[]"` // <4>
+                    VERSION=`mvn help:evaluate -Dexpression=project.version | grep "^[^\\[]"` // <5>
+                    echo 'Now running the application...' // <6>
+                    java -jar target/$NAME-$VERSION.jar // <7>
+                '''
+            }
+        }
+    }
+}
+----
++
+<1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
+<2> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
+section) runs all the following commands between the triple apostrophes in
+succession, allowing their values to be retained from command to the next. If
+you were to run each command in separate `sh` steps, Jenkins treats each step in
+isolation and so the values from commands are not retained from one step to the
+next.
+<3> This Maven command installs your Maven-built Java application into the local
+Maven repository, which will ultimately be stored in Jenkins's local Maven
+repository (and the `maven-repository` Docker data volume).
+<4> This complex Maven command extracts the value of the `<name/>` element
+within `<project/>` of your Java/Maven project's `pom.xml` file.
+<5> This complex Maven command behaves similarly to the previous one but
+extracts the value of the `<version/>` element within `<project/>` instead.
+<6> Echos some informative text to the Jenkins UI.
+<7> Runs and outputs the execution of your Java application (which Jenkins built
+using Maven) to the Jenkins UI.
+
++
+. Save your amended `Jenkinsfile` and commit it to your local
+  `simple-java-maven-app` Git repo.
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Run* at the top left, then quickly click the *OPEN* link which appears
+  briefly at the lower-right to see Jenkins building your amended Pipeline
+  project. If you weren't able to click the **OPEN** link, click the _top_ row
+  on the Blue Ocean interface to access this feature.
++
+WARNING: It's quite possible that since Maven continues to download artifacts will need to be
+downloaded during this final `Deliver` stage, Maven will attempt to
++
