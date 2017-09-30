@@ -138,19 +138,22 @@ pipeline {
 ----
 <1> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
 section's `docker` parameter) downloads the
-https://hub.docker.com/_/maven/[`maven:3-apline` Docker image] and runs it as a
-separate container in your locally running Docker instance. This means that:
+https://hub.docker.com/_/maven/[`maven:3-apline` Docker image] (if it's not
+already available in your Docker host) and runs this image as a separate
+container. This means that:
 * You'll have separate Jenkins/Blue Ocean and Maven containers running locally
   in Docker.
 * This Maven container becomes the link:/doc/book/glossary/#agent[agent] that
-  Jenkins uses to build your Pipeline project.
+  Jenkins uses to build your Pipeline project. However, this container is
+  short-lived - its lifespan is that of the duration of your Pipeline's
+  execution.
 <2> This `args` parameter creates a reciprocal mapping between the `/root/.m2`
-directories in the Jenkins/Blue Ocean and Maven Docker containers. Explaining
-the details behind this is beyond the scope of this tutorial. However, the
-reason for doing this is to ensure that Jenkins's local Maven repository retains
-the artifacts (necessary to build your Java application) which Maven downloads.
-These artifacts will be stored in the `maven-repository` Docker data volume you
-created <<download-and-run-jenkins-in-docker,above>>.
+directories in the short-lived Maven Docker container and that of your Docker
+host's filesystem. Explaining the details behind this is beyond the scope of
+this tutorial. However, the reason for doing this is to ensure that the
+artifacts necessary to build your Java application (which Maven downloads while
+your Pipeline is being executed) are retained beyond the lifespan of the Maven
+container.
 <3> Defines a stage called `Build` that appears on the Jenkins UI.
 <4> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
 section) runs the Maven command to cleanly build your Java application (without
@@ -244,13 +247,7 @@ application.
 ----
         stage('Deliver') {
             steps {
-                sh '''
-                    mvn jar:jar install:install
-                    NAME=`mvn help:evaluate -Dexpression=project.name | grep "^[^\\[]"`
-                    VERSION=`mvn help:evaluate -Dexpression=project.version | grep "^[^\\[]"`
-                    echo 'Now running the application...'
-                    java -jar target/${NAME}-${VERSION}.jar
-                '''
+                sh './Jenkins/scripts/deliver.sh'
             }
         }
 ----
@@ -279,13 +276,7 @@ pipeline {
         }
         stage('Deliver') { // <1>
             steps {
-                sh ''' // <2>
-                    mvn jar:jar install:install // <3>
-                    NAME=`mvn help:evaluate -Dexpression=project.name | grep "^[^\\[]"` // <4>
-                    VERSION=`mvn help:evaluate -Dexpression=project.version | grep "^[^\\[]"` // <5>
-                    echo 'Now running the application...' // <6>
-                    java -jar target/${NAME}-${VERSION}.jar // <7>
-                '''
+                sh './Jenkins/scripts/deliver.sh' // <2>
             }
         }
     }
@@ -294,21 +285,8 @@ pipeline {
 +
 <1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
 <2> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
-section) runs all the following commands between the triple apostrophes in
-succession, allowing their values to be retained from command to the next. If
-you were to run each command in separate `sh` steps, Jenkins treats each step in
-isolation and so the values from commands are not retained from one step to the
-next.
-<3> This Maven command installs your Maven-built Java application into the local
-Maven repository, which will ultimately be stored in Jenkins's local Maven
-repository (and the `maven-repository` Docker data volume).
-<4> This complex Maven command extracts the value of the `<name/>` element
-within `<project/>` of your Java/Maven project's `pom.xml` file.
-<5> This complex Maven command behaves similarly to the previous one but
-extracts the value of the `<version/>` element within `<project/>` instead.
-<6> Echos some informative text to the Jenkins UI.
-<7> Runs and outputs the execution of your Java application (which Jenkins built
-using Maven) to the Jenkins UI.
+section) runs the shell script `deliver.sh` located in the `Jenkins/scripts`
+directory from the root of the `simple-java-maven-app` repository.
 
 +
 . Save your amended `Jenkinsfile` and commit it to your local
