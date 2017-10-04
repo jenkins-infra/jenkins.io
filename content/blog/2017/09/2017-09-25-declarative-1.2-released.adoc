@@ -1,0 +1,145 @@
+---
+layout: post
+title: "Parallel stages with Declarative Pipeline 1.2"
+tags:
+- pipeline
+- declarative
+author: abayer
+---
+
+After a few months of work on its key features, I'm happy to announce the
+1.2 release of
+link:/doc/book/pipeline/syntax/#declarative-pipeline[Declarative Pipeline]!
+On behalf of the contributors developing Pipeline, I thought it would be
+helpful to discuss three of the key changes.
+
+image:/images/post-images/declarative-1.2/pipeline-parallel-stages.png[A Pipeline with Parallel stages, role=center]
+
+=== Parallel Stages
+
+First, we've added syntax support for parallel stages. In earlier versions of
+Declarative Pipeline, the only way to run chunks of Pipeline code in parallel
+was to use the `parallel` step inside the `steps` block for a stage, like this:
+
+[source,groovy]
+----
+/* .. snip .. */
+stage('run-parallel-branches') {
+  steps {
+    parallel(
+      a: {
+        echo "This is branch a"
+      },
+      b: {
+        echo "This is branch b"
+      }
+    )
+  }
+}
+/* .. snip .. */
+----
+
+While this works, it doesn't integrate well with the rest of the Declarative
+Pipeline syntax. For example, to run each parallel branch on a different agent,
+you need to use a `node` step, and if you do that, the output of the parallel
+branch won't be available for `post` directives (at a `stage` or `pipeline`
+level). Basically the old `parallel` step required you to use Scripted Pipeline
+within a Declarative Pipeline.
+
+But now with Declarative Pipeline 1.2, we've introduced a true Declarative
+syntax for running stages in parallel:
+
+.Jenkinsfile
+[source,groovy]
+----
+pipeline {
+    agent none
+    stages {
+        stage('Run Tests') {
+            parallel {
+                stage('Test On Windows') {
+                    agent {
+                        label "windows"
+                    }
+                    steps {
+                        bat "run-tests.bat"
+                    }
+                    post {
+                        always {
+                            junit "**/TEST-*.xml"
+                        }
+                    }
+                }
+                stage('Test On Linux') {
+                    agent {
+                        label "linux"
+                    }
+                    steps {
+                        sh "run-tests.sh"
+                    }
+                    post {
+                        always {
+                            junit "**/TEST-*.xml"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+You can now specify either `steps` or `parallel` for a `stage`, and within
+`parallel`, you can specify a list of `stage` directives to run in parallel,
+with all the configuration you're used to for a `stage` in Declarative
+Pipeline. We think this will be really useful for cross-platform builds and
+testing, as an example. Support for parallel stages will be in the
+soon-to-be-released Blue Ocean Pipeline Editor 1.3 as well.
+
+You can find more documentation on parallel stages in the
+link:/doc/book/pipeline/syntax/[User Handbook].
+
+=== Defining Declarative Pipelines in Shared Libraries
+
+Until the 1.2 release, Declarative Pipelines did not officially support
+defining your `pipeline` blocks in a shared library. Some of you may have tried
+that out and found that it could work in some cases, but since it was never an
+officially supported feature, it was vulnerable to breaking due to necessary
+changes for the supported use cases of Declarative. But with 1.2, we've added
+official support for defining `pipeline` blocks in `src/*.groovy` files in your
+shared libraries. Within your `src/*.groovy` file's `call` method, you can
+call `pipeline { ... }`, or possibly different `pipeline { ... }` blocks
+depending on `if` conditions and the like. Note that only one `pipeline { ... }`
+block can actually be executed per run - you'll get an error if a second one
+tries to execute!
+
+=== Major Improvements to Parsing and Environment Variables
+
+Hopefully, you'll never actually care about this change, but we're very happy
+about it nonetheless. The original approach used for actually taking the
+`pipeline { ... }` block and executing its contents was designed almost two
+years ago, and wasn't very well suited to how you all are actually using
+Declarative Pipelines. In our attempts to work around some of those limitations,
+we made the parsing logic even more complicated and fragile, resulting in an
+link:https://issues.jenkins-ci.org/issues/?jql=labels%20%3D%20declarative-variable-and-method-resolution[impressive
+number of bugs], mainly relating to inconsistencies and bad behavior with
+`environment` variables.
+
+In Declarative 1.2, we've replaced the runtime parsing logic completely with a
+far more robust system, which also happens to fix most of those bugs at the
+same time! While not every issue has been resolved, you may find that you can
+use `environment` variables in more places, escaping is more consistent,
+Windows paths are no longer handled incorrectly, and a lot more. Again, we're
+hoping you've never had the misfortune to run into any of these bugs, but if
+you have, well, they're fixed now, and it's going to be a lot easier for us to
+fix any future issues that may arise relating to `environment` variables, `when`
+expressions, and more. Also, the parsing at the very beginning of your build
+may be about 0.5 seconds faster. =)
+
+=== More to Come!
+
+While we don't have any concrete plans for what will be going into Declarative
+Pipelines 1.3, rest assured that we've got some great new features in mind, as
+well as our continuing dedication to fixing the bugs you encounter and report.
+So please do keep link:https://issues.jenkins-ci.org/[opening tickets] for
+issues and feature requests. Thanks!
