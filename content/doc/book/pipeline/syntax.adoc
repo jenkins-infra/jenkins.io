@@ -115,7 +115,9 @@ docker:: Execute the Pipeline, or stage, with the given container which will be
 dynamically provisioned on a <<../glossary#node, node>> pre-configured to
 accept Docker-based Pipelines, or on a node matching the optionally defined
 `label` parameter.  `docker` also optionally accepts an `args` parameter
-which may contain arguments to pass directly to a `docker run` invocation.
+which may contain arguments to pass directly to a `docker run` invocation, and
+an `alwaysPull` option, which will force a `docker pull` even if the image
+name is already present.
  For example: `agent { docker 'maven:3-alpine' }` or
 +
 [source,groovy]
@@ -896,6 +898,63 @@ pipeline {
         }
     }
 }
+// Script //
+----
+
+=== Parallel
+
+Stages in Declarative Pipeline may declare a number of nested stages within
+them, which will be executed in parallel. Note that a stage must have one and
+only one of either `steps` or `parallel`. The nested stages cannot contain
+further `parallel` stages themselves, but otherwise behave the same as
+any other `stage`. Any stage containing `parallel` cannot contain `agent` or
+`tools`, since those are not relevant without `steps`.
+
+In addition, you can force your `parallel` `stage`s to all be aborted when one
+of them fails, by adding `failFast true` to the `stage` containing the
+`parallel`.
+
+[[parallel-stages-example]]
+===== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Non-Parallel Stage') {
+            steps {
+                echo 'This stage will be executed first.'
+            }
+        }
+        stage('Parallel Stage') {
+            when {
+                branch 'master'
+            }
+            failFast true
+            parallel {
+                stage('Branch A') {
+                    agent {
+                        label "for-branch-a"
+                    }
+                    steps {
+                        echo "On Branch A"
+                    }
+                }
+                stage('Branch B') {
+                    agent {
+                        label "for-branch-b"
+                    }
+                    steps {
+                        echo "On Branch B"
+                    }
+                }
+            }
+        }
+    }
+}
+
 // Script //
 ----
 

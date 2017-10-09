@@ -97,8 +97,16 @@ try {
                     sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
                 }
             }
+            stage('Publish on Azure') {
+                /* -> https://github.com/Azure/blobxfer
+                Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
+                withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
+                    sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+                }
+            }
         }
     }
+
 }
 catch (exc) {
     echo "Caught: ${exc}"
@@ -110,6 +118,9 @@ catch (exc) {
               to: recipient,
          replyTo: recipient,
             from: 'noreply@ci.jenkins.io'
+
+    /* Rethrow to fail the Pipeline properly */
+    throw exc
 }
 
 // vim: ft=groovy
