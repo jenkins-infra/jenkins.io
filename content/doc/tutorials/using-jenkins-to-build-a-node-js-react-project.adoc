@@ -139,13 +139,10 @@ pipeline {
             args '-p 3000:3000' // <2>
         }
     }
-    environment {
-        CI = 'true' // <3>
-    }
     stages {
-        stage('Build') { // <4>
+        stage('Build') { // <3>
             steps {
-                sh 'npm install' // <5>
+                sh 'npm install' // <4>
             }
         }
     }
@@ -165,13 +162,10 @@ container. This means that:
 <2> This `args` parameter makes the Node container (temporarily) accessible
 through port 3000. The significance of this is explained in a subsequent section
 of this tutorial.
-<3> Sets the environment variable `CI` with a boolean value of `true`, which is
-available to all other steps in this Pipeline. Again, the significance of this
-is explained in a subsequent section of this tutorial.
-<4> Defines a stage called `Build` that appears on the Jenkins UI.
-<5> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
-section) runs the `npm` command to ensure that all dependencies required to run
-your application have been downloaded to the local `node_modules` directory
+<3> Defines a stage called `Build` that appears on the Jenkins UI.
+<4> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
+section) executes the `npm` command to ensure that all dependencies required to
+run your application have been downloaded to the local `node_modules` directory
 (i.e. within the `/var/jenkins_home/workspace/simple-node-js-react-app`
 directory in the Jenkins/Blue Ocean container).
 +
@@ -215,3 +209,110 @@ Pipeline runs successfully",width=100%]
 +
 image:tutorials/java-maven-05-main-blue-ocean-interface.png[alt="Main Blue Ocean
 interface",width=100%]
+
+
+=== Add a test stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the
+  `agent` section of your `Jenkinsfile`:
++
+[source,groovy]
+----
+    environment {
+        CI = 'true'
+    }
+----
++
+as well as the following immediately under the `Build` stage:
++
+[source,groovy]
+----
+        stage('Test') {
+            steps {
+                sh 'npm test'
+            }
+        }
+----
++
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'node:6-alpine'
+            args '-p 3000:3000'
+        }
+    }
+    environment {
+        CI = 'true' // <1>
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Test') { // <2>
+            steps {
+                sh 'npm test' // <3>
+            }
+        }
+    }
+}
+----
++
+<1> The link:/doc/book/pipeline/syntax#environment[`environment`] directive sets
+the environment variable `CI` with a boolean value of `true`, which is available
+to all steps in this Pipeline. When the `npm test` command (specified in
+`test.sh` in the `Test` stage further down the Pipeline) detects the value of
+this environment variable `CI` as `true`, then this command is run in
+"non-watch" (i.e. non-interactive) mode. In "watch" mode, `npm test` expects
+user input, which can cause CI and CD applications to pause indefinitely.
+Alternatively, instead of specifying the `environment` directive in a Jenkins
+Pipeline, you specify this value in the `package.json` file by:
+.. Uncommenting the `npm install --save-dev cross-env` command in `test.sh` (to
+install `cross-env`).
+.. Changing:
+   * `"test": "react-scripts test --env=jsdom"` +
+     to
+   * `"test": "cross-env CI=true react-scripts test --env=jsdom"`
+<2> Defines a new stage called `Test` that appears on the Jenkins UI.
+<3> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
+section) runs the shell script `test.sh` located in the `jenkins/scripts`
+directory from the root of the `simple-node-js-react-app` repository. As a
+general principle, it's a good idea to keep your Pipeline code (i.e. the
+`Jenkinsfile`) as tidy as possible and place more complex build scripting steps
+into separate shell script files like the `test.sh` file. This ultimately makes
+maintaining your Pipeline code easier, especially if your Pipeline gains more
+complexity.
++
+. Save your amended `Jenkinsfile` and commit it to your local
+  `simple-node-js-react-app` Git repository. E.g. Within the
+  `simple-node-js-react-app` directory, run the commands: +
+  `git stage .` +
+  then +
+  `git commit -m "Add 'Test' stage"`
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Run* at the top left, then quickly click the *OPEN* link which appears
+  briefly at the lower-right to see Jenkins building your amended Pipeline
+  project. If you weren't able to click the **OPEN** link, click the _top_ row
+  on the Blue Ocean interface to access this feature.
+
++
+*Note:* You'll notice from this run that Jenkins no longer needs to download the
+Node Docker image. Instead, Jenkins only needs to run a new container from the
+Node image downloaded previously. Also, no `npm` dependencies should need to be
+downloaded during the "Build" stage. Therefore, running your Pipeline this
+subsequent time should be much faster. +
+If your amended Pipeline ran successfully, here's what the Blue Ocean interface
+should look like. Notice the additional "Test" stage. You can click on the
+previous "Build" stage circle to access the output from that stage. +
+image:tutorials/java-maven-12-test-stage-runs-successfully-with-output.png[alt="Test
+stage runs successfully (with output)",width=100%]
+
++
+. Click the *X* at the top-right to return to the main Blue Ocean interface.
