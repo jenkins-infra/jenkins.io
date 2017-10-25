@@ -19,20 +19,21 @@ Our implementation should store all required data for populating environment var
 
 [source,java]
 ----
-@AllArgsConstructor <1>
-@Getter
+@Value <1>
 public class ExternalSystemLaunchedAction implements Action {
-    private String externalId; <2>
+    String name; <2>
+    String externalId; <3>
 }
 ----
 <1> We use https://projectlombok.org/[Project lombok] to simplify examples
-<2> Future content of environment variable
+<2> Part of variable name
+<3> Future content of environment variable
 
 Attaching this action to the run is straightforward - just call
 
 [source,java]
 ----
-run.addAction(new ExternalSystemLaunchedAction(externalId));
+run.addAction(new ExternalSystemLaunchedAction("SERVICE", externalId));
 ----
 
 inside of the `SimpleBuildStep#perform` method at the right moment.
@@ -53,14 +54,14 @@ public class ExternalSystemEnvironmentContributor extends EnvironmentContributor
     public void buildEnvironmentFor(@Nonnull Run run, @Nonnull EnvVars env, @Nonnull TaskListener listener) { <1>
         run.getActions(ExternalSystemLaunchedAction.class) <2>
                 .forEach(action -> {
-                    env.put("EXTERNAL_SYSTEM_ID", action.getExternalId()); <3>
+                    env.put(String.format("EXTERNAL_%s_ID", action.getName()), action.getExternalId()); <3>
                 });
     }
 }
 ----
-<1> Implementation for the `Job` almost the same if you don't use workspace specific features of the `Job`
+<1> Implementation for the `Job` almost the same if you don't use workspace-specific features of the `Job`
 <2> We should fetch already attached actions from the run
-<3> Of course you can do injection logic more complex, even store env variable name in action
-to avoid overriding in case of multiply actions of same class
+<3> Of course you can do injection logic more complex, even store full env variable name in action
+to avoid overriding in case of multiply actions of same class with same name field
 
 That's all. You can check it calling shell with `env` command.
