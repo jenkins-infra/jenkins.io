@@ -345,3 +345,48 @@ java.io.IOException: No X-Jenkins-CLI2-Port among [X-Jenkins, null, Server, X-Co
         at hudson.cli.CLI.<init>(CLI.java:132)
         ... 3 more
 ----
+
+====== Server key did not validate
+In the case the Jenkins CLI client show you a stacktrace that looks like:
+[source]
+----
+org.apache.sshd.common.SshException: Server key did not validate
+    at org.apache.sshd.client.session.AbstractClientSession.checkKeys(AbstractClientSession.java:523)
+    at org.apache.sshd.common.session.helpers.AbstractSession.handleKexMessage(AbstractSession.java:616)
+    ...
+----
+and you can find a log entry just below concerning like `mismatched keys`. 
+It means your SSH configuration does not recognize the public key presented by the server. It's often the case when you run Jenkins in dev mode and multiple instances
+of the application are run under the same SSH port over time.
+
+In a development context, you can just access your `~/.ssh/known_hosts` (or in `C:/Users/<your_name>/.ssh/known_hosts` for Windows)
+and remove the line corresponding to your current SSH port, example : `[localhost]:3485`.
+In a production context, check with the Jenkins administrator if the public key of the server changed recently.
+If it's the case, just do like for development but otherwise inform the administrator the keys seem to have be changed.
+
+====== UsernameNotFoundException
+
+If your client displays a stacktrace that looks like:
+[source]
+----
+org.acegisecurity.userdetails.UsernameNotFoundException: <name_you_used>
+    ...
+----
+That means your SSH keys were recognized and valid against the users stored but the username is not valid against the SecurityRealm your application is using at the moment.
+This could occurs when you were using the Jenkins database initially, configured your users and switch to another SecurityRealm (like LDAP, etc.) where the defined users do not exist yet.
+
+To solve the problem, ensure your users exist in your configured SecurityRealm.
+
+====== Troubleshooting logs
+
+To have more information about the authentication process, follow those steps:
+
+. Go in *Manage Jenkins* > *System Log* > *Add new log recorder*.
+. Enter any name you want (e.g. AuthConsole) and click on *Ok*.
+. Then click on *Add*, type `org.jenkinsci.main.modules.sshd.PublicKeyAuthenticatorImpl` (tips: you can just type `PublicKeyAuth` and select the full name), let the level to *ALL*.
+. Repeat the previous step for `hudson.model.User`
+. Click on *Save*
+
+When you try to authenticate, you can then refresh the page and see what happen internally.
+
+Additional tip: you can click on *ENABLE AUTO REFRESH* to have a continuous logging page.
