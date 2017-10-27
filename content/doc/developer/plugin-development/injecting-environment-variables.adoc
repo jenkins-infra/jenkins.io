@@ -1,0 +1,67 @@
+---
+layout: developerguide
+title: How to inject environment variables
+---
+
+Injecting some env variables allows to communicate steps with shell scripts and another
+steps. To achieve it, just follow this guide.
+We will add `EXTERNAL_SYSTEM_ID` environment variable in Pipeline compatible way.
+
+### Using implementation of SimpleBuildStep
+
+To be compatible both with old-fashion Freestyle jobs and brand new Pipeline, your step should
+implement `SimpleBuildStep` interface, which provides `perform(Run<?,?>, FilePath, Launcher, TaskListener)` method.
+
+First of all we should create specific implementation of `hudson.model.Action`. This will allow
+us to attach some information to the `Run` instance.
+
+Our implementation should store all required data for populating environment variable.
+
+[source,java]
+----
+@Value <1>
+public class ExternalSystemLaunchedAction implements Action {
+    String name; <2>
+    String externalId; <3>
+}
+----
+<1> We use https://projectlombok.org/[Project lombok] to simplify examples
+<2> Part of variable name
+<3> Future content of environment variable
+
+Attaching this action to the run is straightforward - just call
+
+[source,java]
+----
+run.addAction(new ExternalSystemLaunchedAction("SERVICE", externalId));
+----
+
+inside of the `SimpleBuildStep#perform` method at the right moment.
+
+Next, we should really inject this variable for future steps in execution. To help with this task,
+`EnvironmentContributor` extension point exists. Just extend this class, annotate yours with `@Extension`
+annotation and override both `buildEnvironmentFor` methods for `Job` (Freestyle) and `Run` (Pipeline) injections.
+
+This methods will be called each time the environment should be prepared for next steps.
+That's why you should keep it simple.
+
+[source,java]
+----
+@Extension
+public class ExternalSystemEnvironmentContributor extends EnvironmentContributor {
+
+    @Override
+    public void buildEnvironmentFor(@Nonnull Run run, @Nonnull EnvVars env, @Nonnull TaskListener listener) { <1>
+        run.getActions(ExternalSystemLaunchedAction.class) <2>
+                .forEach(action -> {
+                    env.put(String.format("EXTERNAL_%s_ID", action.getName()), action.getExternalId()); <3>
+                });
+    }
+}
+----
+<1> Implementation for the `Job` almost the same if you don't use workspace-specific features of the `Job`
+<2> We should fetch already attached actions from the run
+<3> Of course you can do injection logic more complex, even store full env variable name in action
+to avoid overriding in case of multiply actions of same class with same name field
+
+That's all. You can check it calling shell with `env` command.
