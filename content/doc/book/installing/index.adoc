@@ -12,8 +12,8 @@ title: Installing Jenkins
 
 = Installing Jenkins
 
-The procedures on this page are for new installations of Jenkins on a single or
-local machine.
+The procedures on this page are for new installations of Jenkins on a
+single/local machine.
 
 Jenkins is typically run as a standalone application as its own process with the
 built-in
@@ -26,14 +26,17 @@ as link:http://tomcat.apache.org/[Apache Tomcat] or
 link:https://javaee.github.io/glassfish/[GlassFish]. However, these types of
 installations are beyond the scope of this page.
 
+*Note:* Although this page focusses on local installations of Jenkins, this
+content can also be used to set up Jenkins in production environments.
+
 
 == Prerequisites
 
 Minimum hardware requirements:
 
 * 256 MB of RAM
-* 1 GB of drive space (although 10 GB is a recomnended minimum if running
-  Jenkins as a <<docker,Docker>> container.)
+* 1 GB of drive space (although 10 GB is a recommended minimum if running
+  Jenkins as a <<docker,Docker>> container)
 
 Recommended hardware configuration for a small team:
 
@@ -50,7 +53,8 @@ Sofware requirements:
 
 == Installation platforms
 
-This section describes how to install Jenkins on different platforms.
+This section describes how to install Jenkins on different platforms or
+operating systems.
 
 
 === Docker
@@ -58,23 +62,140 @@ This section describes how to install Jenkins on different platforms.
 As described on the https://docs.docker.com/engine/docker-overview/[Docker
 overview] page, Docker is a platform for running applications in an isolated
 environment called a Docker "container". Applications like Jenkins can be
-downloaded as a "Docker image", which in turn is run in Docker as a Docker
-container. (A container is in effect a "running instance" of the Docker image.)
+downloaded as a read-only "Docker image", which in turn are run in Docker as a
+Docker container. A container is in effect a "running instance" of a Docker
+image. From this perspective, an image is stored semi-permanently (i.e. insofar
+as image updates are published), whereas containers are stored temporarily. Read
+more about these concepts in the Docker documentation's
+https://docs.docker.com/get-started/[Getting Started, Part 1: Orientation and
+setup] page.
 
-Therefore, this allows a single Docker image to be run on any operating system
-(e.g. macOS, Linux and Windows) which is running Docker.
+Docker's fundamental platform and container design means that a single Docker
+image (for any given application like Jenkins) can be run on any operating
+system (e.g. macOS, Linux and Windows) which is also running Docker.
+
+
+==== Installing Docker
 
 To install Docker on your operating system, visit the
-link:https://www.docker.com/[Docker] web site and navigate to *Get Docker* at
-the top of the website to begin accessing the Docker download that's suitable
-for your operating system.
+link:https://www.docker.com/[Docker] website and navigate to *Get Docker* at
+the top of their site to begin accessing the Docker download that's suitable
+for your operating system. Follow the installation instructions on their
+website.
 
-*Note:* If you use Linux, ensure you configure Docker so it can be managed as a
-non-root user. Read more about this in Docker's
+*Note:* If you are installing Docker on a Linux-based operating system, ensure
+you configure Docker so it can be managed as a non-root user. Read more about
+this in Docker's
 https://docs.docker.com/engine/installation/linux/linux-postinstall/[Post-installation
 steps for Linux] page of their documentation. This page also contains
 information about how to configure Docker to start on boot.
 
+
+==== Which Docker image of Jenkins?
+
+There are several Docker images of Jenkins available.
+
+However, the recommended Docker image to use is the
+link:https://hub.docker.com/r/jenkinsci/blueocean/[`jenkinsci/blueocean` image].
+This image contains the current link:/download[Long-Term Support (LTS) release
+of Jenkins] (which is production-ready) bundled with all Blue Ocean plugins and
+features. This means that you do not need to install the Blue Ocean plugins
+separately.
+
+*Note:* A new `jenkinsci/blueocean` image is published each time a new release
+of Blue Ocean is published.
+
+
+*To download and run Jenkins with Blue Ocean in Docker:*
+
+. Open up a terminal/command prompt window.
+. Download the `jenkinsci/blueocean` image and run it as a container in Docker
+  using the following
+  link:https://docs.docker.com/engine/reference/commandline/run/[`docker run`]
+  command:
+** *On macOS and Linux:*
++
+[source,bash]
+----
+docker run \
+  --rm \  # <1>
+  -d \ # <2>
+  -p 8080:8080 \ # <3>
+  -v jenkins-data:/var/jenkins_home \ # <4>
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  jenkinsci/blueocean # <5>
+----
+<1> Automatically removes the Docker container (which is the instantiation of
+the `jenkinsci/blueocean` image below) when it is shut down. This keeps things
+tidy if you need to quit Jenkins.
+<2> ( _Optional_ ) Runs the `jenkinsci/blueocean` container in the background
+(i.e. "detached" mode) and outputs the container ID. If you do not specify this
+option, then the running Docker log for this container is output in the terminal
+window.
+<3> Makes (i.e. "publishes") port 8080 of the `jenkinsci/blueocean` container to
+port 8080 on the host machine. The 1st number represents the port on the host
+while the 2nd represents the container's port. Therefore, if you specified `-p
+49001:8080` for this option, you would be accessing Jenkins on your host machine
+through port 49001.
+<4> Maps the Docker
+link:https://docs.docker.com/engine/admin/volumes/volumes/[volume] with the name
+`jenkins-data` to the `/var/jenkins_home` directory in the container. If this
+volume does not exist, then this `docker run` command will automatically create
+the volume for you. +
+*Note:* This volume could also be created independently using the
+https://docs.docker.com/engine/reference/commandline/volume_create/[`docker
+volume create`] command: +
+`docker volume create jenkins-data`
+<6> The `jenkinsci/blueocean` Docker image itself. If this image has not already
+been downloaded, then this `docker run` command will automtically download the
+image for you. Furthermore, if any updates to this image were published since
+you last ran this command, then running this command again will automatically
+download these published image updates for you. +
+*Note:* This Docker image could also be downloaded (or updated) independently
+using the https://docs.docker.com/engine/reference/commandline/pull/[`docker
+pull`] command: +
+`docker pull jenkinsci/blueocean`
++
+*Note:* If copying and pasting the command snippet above doesn't work, try
+copying and pasting this annotation-free version here:
++
+[source,bash]
+----
+docker run \
+  --rm \
+  -d \
+  -p 8080:8080 \
+  -v jenkins-data:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  jenkinsci/blueocean
+----
+
++
+** *On Windows:* +
+   The following command is effectively the same command shown for macOS/Linux
+   above but if you're using the Windows command prompt, replace the backslash
+   symbols `\` at the end of each line with carat symbols instead `^`, which
+   gives you:
++
+[source]
+----
+docker run ^
+  --rm ^
+  -d ^
+  -p 8080:8080 ^
+  -v jenkins-data:/var/jenkins_home ^
+  -v /var/run/docker.sock:/var/run/docker.sock ^
+  jenkinsci/blueocean
+----
+
++
+*Tip:* If you have some experience with Docker, you can add an option to the
+`docker run` command like `--name jenkins-blueocean`, which would give the
+`jenkinsci/blueocean` container the name "jenkins-blueocean". This would make it
+easier to refer to the container if, for instance you needed to access the
+container through a terminal/command prompt.
+
+////
 First, pull the official link:https://hub.docker.com/r/jenkins/jenkins[jenkins]
 image from Docker repository.
 
@@ -97,11 +218,35 @@ docker run
   -t \
   jenkins/jenkins
 ----
+////
 
 
-=== Unix/Linux
+=== macOS
+
+To install from the website, using a package:
+
+* link:http://mirrors.jenkins.io/osx/latest[Download the latest package]
+* Open the package and follow the instructions
+
+Jenkins can also be installed using `brew`:
+
+* Install the latest release version
+[source,bash]
+----
+brew install jenkins
+----
+
+* Install the LTS version
+[source,bash]
+----
+brew install jenkins-lts
+----
+
+
+=== Linux
 
 ==== Debian/Ubuntu
+
 On Debian-based distributions, such as Ubuntu, you can install Jenkins through `apt`.
 
 Recent versions are available in link:https://pkg.jenkins.io/debian/[an apt repository]. Older but stable LTS versions are in link:https://pkg.jenkins.io/debian-stable/[this apt repository].
@@ -128,6 +273,18 @@ If your `/etc/init.d/jenkins` file fails to start Jenkins, edit the `/etc/defaul
 `----HTTP_PORT=8080----` with `----HTTP_PORT=8081----`
 Here, "8081" was chosen but you can put another port available.
 ====
+
+
+=== Windows
+
+To install from the website, using the installer:
+
+* link:http://mirrors.jenkins.io/windows/latest[Download the latest package]
+* Open the package and follow the instructions
+
+
+=== Other operating systems
+
 
 ==== OpenIndiana Hipster
 
@@ -250,40 +407,6 @@ Also note that forks of the OpenZFS initiative may provide ZFS on various
 BSD, Linux, and macOS distributions. Once Jenkins supports detecting ZFS
 capabilities, rather than relying on the `SunOS` check, the above caveats for
 ZFS integration with Jenkins should be considered.
-
-
-=== macOS
-
-To install from the website, using a package:
-
-* link:http://mirrors.jenkins.io/osx/latest[Download the latest package]
-* Open the package and follow the instructions
-
-Jenkins can also be installed using `brew`:
-
-* Install the latest release version
-[source,bash]
-----
-brew install jenkins
-----
-
-* Install the LTS version
-[source,bash]
-----
-brew install jenkins-lts
-----
-
-
-=== Windows
-
-To install from the website, using the installer:
-
-* link:http://mirrors.jenkins.io/windows/latest[Download the latest package]
-* Open the package and follow the instructions
-
-
-=== Other
-See link:/doc/book/appendix/advanced-installation/[Advanced Jenkins Installation]
 
 
 [[setupwizard]]
