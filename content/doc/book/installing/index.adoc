@@ -8,6 +8,8 @@ title: Installing Jenkins
 ////
 :sectanchors:
 :toc:
+:toclevels: 3
+:imagesdir: /doc/book/resources
 
 
 = Installing Jenkins
@@ -15,7 +17,7 @@ title: Installing Jenkins
 The procedures on this page are for new installations of Jenkins on a
 single/local machine.
 
-Jenkins is typically run as a standalone application as its own process with the
+Jenkins is typically run as a standalone application in its own process with the
 built-in
 link:https://stackoverflow.com/questions/7213541/what-is-java-servlet[Java
 servlet] container/application server
@@ -23,11 +25,11 @@ servlet] container/application server
 
 Jenkins can also be run as a servlet in different Java servlet containers such
 as link:http://tomcat.apache.org/[Apache Tomcat] or
-link:https://javaee.github.io/glassfish/[GlassFish]. However, these types of
-installations are beyond the scope of this page.
+link:https://javaee.github.io/glassfish/[GlassFish]. However, instructions for
+setting up these types of installations are beyond the scope of this page.
 
 *Note:* Although this page focusses on local installations of Jenkins, this
-content can also be used to set up Jenkins in production environments.
+content can also be used to help set up Jenkins in production environments.
 
 
 == Prerequisites
@@ -91,7 +93,7 @@ steps for Linux] page of their documentation. This page also contains
 information about how to configure Docker to start on boot.
 
 
-==== Which Docker image of Jenkins should you use?
+==== Downloading and running Jenkins in Docker
 
 There are several Docker images of Jenkins available.
 
@@ -137,15 +139,22 @@ port 8080 on the host machine. The 1st number represents the port on the host
 while the 2nd represents the container's port. Therefore, if you specified `-p
 49001:8080` for this option, you would be accessing Jenkins on your host machine
 through port 49001.
-<4> Maps the Docker
+<4> Maps the `/var/jenkins_home` directory in the container to the Docker
 link:https://docs.docker.com/engine/admin/volumes/volumes/[volume] with the name
-`jenkins-data` to the `/var/jenkins_home` directory in the container. If this
-volume does not exist, then this `docker run` command will automatically create
-the volume for you. +
-*Note:* This volume could also be created independently using the
+`jenkins-data`. If this volume does not exist, then this `docker run` command
+will automatically create the volume for you. +
+*Notes:*
+This volume could also be created independently using the
 https://docs.docker.com/engine/reference/commandline/volume_create/[`docker
 volume create`] command: +
-`docker volume create jenkins-data`
+`docker volume create jenkins-data` +
+Instead of mapping the `/var/jenkins_home` directory to a Docker volume, you
+could also map this directory to one on your machine's local file system. For
+example, specifying the option +
+`-v $HOME/jenkins:/var/jenkins_home` would map the container's
+`/var/jenkins_home` directory to the `jenkins` subdirectory within the `$HOME`
+directory on your local machine, which would typically be
+`/Users/<your-username>/jenkins` or `/home/<your-username>/jenkins`.
 <6> The `jenkinsci/blueocean` Docker image itself. If this image has not already
 been downloaded, then this `docker run` command will automtically download the
 image for you. Furthermore, if any updates to this image were published since
@@ -155,6 +164,7 @@ download these published image updates for you. +
 using the https://docs.docker.com/engine/reference/commandline/pull/[`docker
 pull`] command: +
 `docker pull jenkinsci/blueocean`
+
 +
 *Note:* If copying and pasting the command snippet above doesn't work, try
 copying and pasting this annotation-free version here:
@@ -194,30 +204,63 @@ docker run ^
 `jenkinsci/blueocean` container the name "jenkins-blueocean". This would make it
 easier to refer to the container if, for instance you needed to access the
 container through a terminal/command prompt.
+. Browse to `http://localhost:8080` (or whichever port you published for your
+  host machine above in the `docker run ...` command) and wait until the *Unlock
+  Jenkins* page appears.
+. Continue on with the <<setupwizard,Post-installation setup wizard>> below.
+
+
+==== Accessing the Jenkins console log through Docker logs
+
+If you didn't specify the detached mode option `-d` with the `docker run ...`
+command <<downloading-and-running-jenkins-in-docker,above>>, then the Jenkins
+console log is easily accessible through the terminal/command prompt window from
+which you ran this Docker command.
+
+Otherwise, you can access the Jenkins console log through the
+https://docs.docker.com/engine/reference/commandline/logs/[Docker logs] of
+the `jenkinsci/blueocean` container using the following command:
+
+`docker logs <docker-container-name>`
+
+Your `<docker-container-name>` can be obtained using the
+https://docs.docker.com/engine/reference/commandline/ps/[`docker ps`] command.
+If you specified the +
+`--name jenkins-blueocean` option in the `docker run ...`
+command above, you can simply use the `docker logs` command:
+
+`docker logs jenkins-blueocean`
+
+
+==== Accessing the Jenkins home directory
+
+If you mapped the Jenkins home directory (`/var/jenkins_home`) to one on your
+machine's local file system (i.e. in the `docker run ...` command
+<<downloading-and-running-jenkins-in-docker,above>>), then you can access the
+contents of this directory through your machine's usual terminal/command prompt.
+
+Otherwise, if you specified the `-v jenkins-data:/var/jenkins_home` option in
+the `docker run ...` command, you can access the contents of the Jenkins home
+directory through the `jenkinsci/blueocean` container's terminal/command prompt
+using the
+https://docs.docker.com/engine/reference/commandline/exec/[`docker exec`]
+command:
+
+`docker exec -it <docker-container-name> bash`
+
+As mentioned <<accessing-the-jenkins-console-log-through-docker-logs,above>>,
+your `<docker-container-name>` can be obtained using the
+https://docs.docker.com/engine/reference/commandline/ps/[`docker ps`] command.
+If you specified the +
+`--name jenkins-blueocean` option in the `docker run ...`
+command above, you can simply use the `docker exec` command:
+
+`docker exec -it jenkins-blueocean bash`
 
 ////
-First, pull the official link:https://hub.docker.com/r/jenkins/jenkins[jenkins]
-image from Docker repository.
-
-[source,bash]
-----
-docker pull jenkins/jenkins
-----
-
-Next, run a container using this image and map data directory from the container
-to the host; e.g in the example below `/var/jenkins_home` from the container is
-mapped to `jenkins/` directory from the current path on the host. Jenkins `8080`
-port is also exposed to the host as `49001`.
-
-[source,bash]
-----
-docker run
-  -d \
-  -p 49001:8080 \
-  -v $PWD/jenkins:/var/jenkins_home
-  -t \
-  jenkins/jenkins
-----
+Might wish to add explaining the `jenkins/jenkins` Docker image and the `docker
+run -t` option. Both of these were covered in the old installation instructions
+but not above.
 ////
 
 
@@ -232,17 +275,22 @@ any operating system or platform that supports Java.
   stable Jenkins WAR file] to an appropriate directory on your machine.
 . Open up a terminal/command prompt window to the download directory.
 . Run the command `java -jar jenkins.war`.
-. Browse to `http://localhost:8080`.
-. Follow the instructions to complete the installation.
+. Browse to `http://localhost:8080` and wait until the *Unlock Jenkins* page
+  appears.
+. Continue on with the <<setupwizard,Post-installation setup wizard>> below.
 
-*Note:* Unlike downloading and running Jenkins with Blue Ocean in Docker
-(<<docker,above>>), this process does not automatically install the Blue Ocean
-features, which would need to installed separately via the
-link:../../book/managing[**Manage Jenkins**] >
-link:../../book/managing/plugins/[**Manage Plugins**] page in Jenkins. Read more
-about the specifics for installing Blue Ocean on the
-link:../../book/blueocean/getting-started/[Getting Started with Blue Ocean]
-page.
+*Notes:*
+
+* Unlike downloading and running Jenkins with Blue Ocean in Docker
+  (<<docker,above>>), this process does not automatically install the Blue Ocean
+  features, which would need to installed separately via the
+  link:../../book/managing[**Manage Jenkins**] >
+  link:../../book/managing/plugins/[**Manage Plugins**] page in Jenkins. Read
+  more about the specifics for installing Blue Ocean on the
+  link:../../book/blueocean/getting-started/[Getting Started with Blue Ocean]
+  page.
+* You can change the port by specifying the XYZ option when you run the `java
+  -jar jenkins.war` command.
 
 
 === macOS
@@ -434,33 +482,58 @@ ZFS integration with Jenkins should be considered.
 
 
 [[setupwizard]]
-== Post-install (Setup Wizard)
+== Post-installation setup wizard
 
-=== Create Admin User and Password for Jenkins
+After downloading, installing and running Jenkins using one of the procedures
+above, the post-installation setup wizard begins:
 
-Jenkins is initially configured to be secure on first launch.
-Jenkins can no longer be accessed without a username and
-password and open ports are limited. During the initial run of
-Jenkins a security token is generated and printed in the console
-log:
+. When the *Unlock Jenkins* page appears:
++
+[.boxshadow]
+image:tutorials/setup-jenkins-01-unlock-jenkins-page.jpg[alt="Unlock Jenkins
+page",width=100%]
++
+copy the automatically-generated alphanumeric password from the Jenkins
+console log output:
+[.boxshadow]
+image:tutorials/setup-jenkins-02-copying-initial-admin-password.png[alt="Copying
+initial admin password",width=100%] +
+  into the *Administrator password* field of the *Unlock Jenkins* page and click
+  *Continue*. +
+  *Notes:*
+* If you ran Jenkins in Docker in detached mode, you can access the Jenkins
+  console log from the Docker logs
+  (<<accessing-the-jenkins-console-log-through-docker-logs,above>>).
+* The Jenkins console log indicates the location (in the Jenkins home directory)
+  where this password can also be obtained. This password must be entered in the
+  setup wizard on new Jenkins installations before you can access Jenkins's main
+  UI. This password also serves as the default admininstrator account's password
+  (with username "admin") if you happen to skip the subsequent user-creation
+  step in the setup wizard.
+. On the *Customize Jenkins* page, click either:
+* *Install suggested plugins* - to install the recommended set of plugins, which
+  are based on most common use cases.
+* *Select plugins to install* - to choose which set of plugins to initially
+  install. When you first access the plugin selection page, the suggested
+  plugins are selected by default.
 
-----
-*************************************************************
++
+The setup wizard shows the progression of Jenkins being
+configured and your chosen set of Jenkins plugins being installed. (This process
+may take a few minutes.) Be aware that you can install or remove any Jenkins
+plugins at a later point in time via the link:../../book/managing[**Manage
+Jenkins**] > link:../../book/managing/plugins/[**Manage Plugins**] page in
+Jenkins.
+. When the *Create First Admin User* page appears, specify the details for your
+  administrator user in the respective fields and click *Save and Finish*.
+. When the *Jenkins is ready* page appears, click *Start using Jenkins*. +
+  *Notes:*
+* This page may indicate *Jenkins is almost ready!* instead and if so, click
+  *Restart*.
+* If the page doesn't automatically refresh after a minute, use your web browser
+  to refresh the page manually.
+. If required, log in to Jenkins with the credentials of the user you just
+  created and you're ready to start using Jenkins!
 
-Jenkins initial setup is required. A security token is required to proceed.
-Please use the following security token to proceed to installation:
-
-41d2b60b0e4cb5bf2025d33b21cb
-
-*************************************************************
-----
-
-The install instructions for each of the platforms above includes the default location for when you can find this log output.
-This token must be entered in the "Setup Wizard" the first time you open the Jenkins UI.
-This token will also serve as the default password for the user 'admin' if you skip the user-creation step in the Setup Wizard.
-
-=== Initial Plugin Installation
-
-The Setup Wizard will also install the initial plugins for this Jenkins server.
-The recommended set of plugins available are based on the most common use cases.
-You are free to add more during the Setup Wizard or install them later as needed.
+*Note:* From this point on, the Jenkins UI is only accessible with valid
+username and password credentials.
