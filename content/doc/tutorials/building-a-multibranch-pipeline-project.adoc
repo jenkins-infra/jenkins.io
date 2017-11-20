@@ -27,7 +27,7 @@ be building the same application although this time, from different Git branches
 that selectively execute different stages of a Pipeline depending on the Git
 branch that your Jenkins build is running on.
 
-*Duration:* This tutorial takes 20-40 minutes to complete (assuming you've
+*Duration:* This tutorial takes 30-50 minutes to complete (assuming you've
 already met the <<prerequisites,prerequisites>> below). The exact duration will
 depend on the speed of your machine and whether or not you've already
 <<run-jenkins-in-docker,run Jenkins in Docker>> from link:..[another tutorial].
@@ -85,12 +85,13 @@ where `<your-username>` is your user account's name on your operating system.
   where `YOUR-GITHUB-ACCOUNT-NAME` is the name of your GitHub account.
 
 
-=== Create development and production branches
+=== Create development and production branches in your repository
 
-Next, create "development" and "production" branches of your locally cloned
-repository. You'll be creating a single Jenkinsfile (which you'll pull in to
-each of these branches) whose stages will be selectively executed by Jenkins
-based on the branch being processed by Jenkins.
+Before creating your Pipeline project in Jenkins, create "development" and
+"production" branches of your locally cloned Git repository. You'll be creating
+a single Jenkinsfile (initially in the `master` branch, which you'll pull into
+the other branches) whose stages will be selectively executed based on the
+branch that Jenkins is building from.
 
 . Within the `building-a-multibranch-pipeline-project` directory (i.e. your
   local clone of the sample repository), run the following commands to create
@@ -141,7 +142,7 @@ project as a "Multibranch Pipeline" project.
 . Click *Save* to save your new Pipeline project. +
   Blue Ocean detects the presence of the `Jenkinsfile` "Pipeline stub" in each
   branch and proceeds to run each Pipeline against its respective branch, whose
-  build results are shown on (and can be accessed through) the main Blue Ocean
+  build results are shown on the *Activity* page of the main Blue Ocean
   interface.
 +
 [.boxshadow]
@@ -162,8 +163,9 @@ after creating the Pipeline project in Blue Ocean, which in turn makes these
 branches accessible through the Blue Ocean interface.
 
 If you created a Pipeline project in Blue Ocean but didn't have a Jenkinsfile in
-one or more of your repository's branches, then to access these branches in Blue
-Ocean after adding a `Jenkinsfile` to them, either:
+one or more of your repository's branches, then to access the branches in Blue
+Ocean after subsequently pulling in/adding a `Jenkinsfile` to these branches,
+either:
 
 * Use the *Scan Multibranch Pipeline Now* feature in the Multibranch Pipeline
   project (accessible through Jenkins's classic interface), +
@@ -172,13 +174,33 @@ Ocean after adding a `Jenkinsfile` to them, either:
 ====
 
 
+=== Create your initial Pipeline as a Jenkinsfile with build and test stages
+
+You're now ready to create the Pipeline that will automate building your Node.js
+and React application in Jenkins. Your Pipeline will be created as a
+`Jenkinsfile`, which will be committed to the `master` branch of your locally
+cloned Git repository (`building-a-multibranch-pipeline-project`).
+
+First, create an initial Pipeline to download a Node Docker image and run it as
+a Docker container that will build your simple Node.js and React application.
+Also add a "Build" stage to the Pipeline to begin orchestrating this whole
+process and a "Test" stage to check that the application renders satisfactorily.
+
+. Using your favorite text editor or IDE, open the existing `Jenkinsfile` at the
+  root of your local `building-a-multibranch-pipeline-project` Git repository
+  and clear its contents. +
+  *Note:* Be sure you are performing this step on the `master` branch of your
+  repository.
+. Copy the following Declarative Pipeline code and paste it into your empty
+  `Jenkinsfile`:
++
 [source,groovy]
 ----
 pipeline {
     agent {
         docker {
             image 'node:6-alpine'
-            args '-p 3000:3000 -p 5000:5000'
+            args '-p 3000:3000 -p 5000:5000' // <1>
         }
     }
     environment {
@@ -198,7 +220,66 @@ pipeline {
     }
 }
 ----
+<1> This `args` parameter makes the Node container (temporarily) accessible
+through ports 3000 and 5000. The significance of this is explained in the
+`jenkins/scripts/deliver-for-deployment.sh` and
+`jenkins/scripts/deploy-for-production.sh` files of your cloned repository, and
+are covered in subsequent sections of this tutorial.
++
+*Note:* For an explanation of the other components of this `Jenkinsfile`, refer
+to the annotations of the Declarative Pipeline at the
+link:../building-a-node-js-and-react-app-with-npm/#create-your-initial-pipeline-as-a-jenkinsfile[``Create
+your initial Pipeline...''] and
+link:../building-a-node-js-and-react-app-with-npm/#add-a-test-stage-to-your-pipeline[``Add
+a test stage...''] sections of the
+link:../building-a-node-js-and-react-app-with-npm/[Using Jenkins to build a
+Node.js and React application with npm] tutorial.
+. Save your amended `Jenkinsfile` and commit it to your local
+  `building-a-multibranch-pipeline-project` Git repository. E.g. Within the
+  `building-a-multibranch-pipeline-project` directory, run the commands: +
+  `git stage .` +
+  then +
+  `git commit -m "Add initial Jenkinsfile with 'Test' stage"`
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Branches* at the top right to access the list of your Pipeline
+  project's branches.
+[.boxshadow]
+image:tutorials/multibranch-pipeline-11-branches-page.png[alt="Branches
+page",width=100%]
+. Click the run icon
+  image:tutorials/multibranch-pipeline-12-run-icon.png[alt="Run icon",width=3%]
+  of the `master` branch of your Pipeline project, then quickly click the *OPEN*
+  link that appears briefly at the lower-right to see Jenkins building the
+  `master` branch with the amended `Jenkinsfile`. If you weren't able to click
+  the **OPEN** link, click the _top_ row on the Blue Ocean *Activity* page to
+  access this feature. +
+  Within a few minutes, the Blue Ocean interface turns green if Jenkins built
+  your Node.js and React application successfully from your `master` branch.
+[.boxshadow]
+image:tutorials/multibranch-pipeline-13-build-and-test-stages-run-successfully-with-output.png[alt="Build
+and test stages run successfully with output",width=100%]
+. Click the *X* at the top-right to return to the *Activity* page of the Blue
+  Ocean interface.
 
+
+=== Add deliver and deploy stages to your Pipeline
+
+Next, add "Deliver for development" and "Deploy for production" stages to your
+Pipeline, which Jenkins will selectively execute based on the based on the
+branch that Jenkins is building from.
+
+This takes the "Pipeline-as-Code" concept to a new level, in which a single
+`Jenkinsfile` describes your project's entire build, test, delivery and
+deployment processes in Jenkins for each branch of your repository. Read more
+about Pipeline and what a Jenkinsfile is in the
+link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using
+a Jenkinsfile] sections of the User Handbook.
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the
+  `Test` stage of your `Jenkinsfile`:
++
 [source,groovy]
 ----
         stage('Deliver for development') {
@@ -222,3 +303,185 @@ pipeline {
             }
         }
 ----
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'node:6-alpine'
+            args '-p 3000:3000 -p 5000:5000'
+        }
+    }
+    environment {
+        CI = 'true'
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh './jenkins/scripts/test.sh'
+            }
+        }
+        stage('Deliver for development') {
+            when {
+                branch 'development' // <1>
+            }
+            steps {
+                sh './jenkins/scripts/deliver-for-development.sh'
+                input message: 'Finished using the web site? (Click "Proceed" to continue)'
+                sh './jenkins/scripts/kill.sh'
+            }
+        }
+        stage('Deploy for production') {
+            when {
+                branch 'production'  // <1>
+            }
+            steps {
+                sh './jenkins/scripts/deploy-for-production.sh'
+                input message: 'Finished using the web site? (Click "Proceed" to continue)'
+                sh './jenkins/scripts/kill.sh'
+            }
+        }
+    }
+}
+----
+<1> These link:/doc/book/pipeline/syntax#when[`when`] directives (along with
+their `branch` conditions) determine whether or not the
+link:/doc/book/pipeline/syntax#stage[`stages`] (containing these `when`
+directives) should be executed. If a `branch` condition's value (i.e. pattern)
+matches the name of the branch that Jenkins is running the build from, then the
+`stage` that contains this `when` and `branch` construct will be executed.
++
+*Notes:*
+* For an explanation of the `input message` steps, refer to annotation *4* of
+  the Declarative Pipeline at the
+  link:../building-a-node-js-and-react-app-with-npm/#add-a-final-deliver-stage-to-your-pipeline[``Add
+  a final deliver stage...'' section of the building a Node.js and React
+  application] tutorial.
+* For an explanation of the `deliver-for-development.sh`,
+  `deploy-for-production.sh` and `kill.sh` script steps, refer to the contents
+  of these files located in the `jenkins/scripts` directory from the root of the
+  `building-a-multibranch-pipeline-project` respository.
+. Save your amended `Jenkinsfile` and commit it to your local
+  `building-a-multibranch-pipeline-project` Git repository. E.g. Within the
+  `building-a-multibranch-pipeline-project` directory, run the commands: +
+  `git stage .` +
+  then +
+  `git commit -m "Add 'Deliver...' and 'Deploy...' stages"`
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Branches* at the top right to access the list of your Pipeline
+  project's branches.
+. Click the run icon
+  image:tutorials/multibranch-pipeline-12-run-icon.png[alt="Run icon",width=3%]
+  of the `master` branch of your Pipeline project, then quickly click the *OPEN*
+  link that appears briefly at the lower-right to see Jenkins building the
+  `master` branch with the amended `Jenkinsfile`. If you weren't able to click
+  the **OPEN** link, click the _top_ row on the Blue Ocean *Activity* page to
+  access this feature. +
+  Notice how Jenkins skips the last two stages you added, since the branch you
+  are running the build from (`master`) does not meet the `when` directives in
+  these stages.
+[.boxshadow]
+image:tutorials/multibranch-pipeline-21-complete-pipeline-runs-successfully-on-master-branch.png[alt="Complete
+Pipeline runs successfully on the 'master' branch",width=100%]
+. Click the *X* at the top-right to return to the *Activity* page of the Blue
+  Ocean interface.
+
+
+=== Pull your updated Jenkinsfile into the other repository branches
+
+Now that you have a completed `Jenkinsfile` to build your application in
+Jenkins, you can pull this file from the `master` branch of your repository into
+its `development` and `production` branches.
+
+. Within the `building-a-multibranch-pipeline-project` directory of your local
+  repository, run the following commands to pull changes from `master` to
+  `development`:
+* `git checkout development` +
+  and
+* `git pull . master`
+. Also run the following commands to pull changes from `master` to `production`:
+* `git checkout production` +
+  and
+* `git pull . master`
+
+
+=== Run your Pipeline on the development branch
+
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Branches* at the top right to access the list of your Pipeline
+  project's branches.
+. Click the run icon
+  image:tutorials/multibranch-pipeline-12-run-icon.png[alt="Run icon",width=3%]
+  of the `development` branch of your Pipeline project, then quickly click the
+  *OPEN* link that appears briefly at the lower-right to see Jenkins building
+  the `development` branch with the amended `Jenkinsfile`. If you weren't able
+  to click the **OPEN** link, click the _top_ row on the Blue Ocean *Activity*
+  page to access this feature.
+. After a few minutes and when the build pauses, ensure you are viewing the
+  *Deliver for development* stage (click it if necessary), click the top green
+  *Shell Script* step to expand its contents and scroll down until you see the
+  `http://localhost:3000` link. +
+  *Note:* Since you are building the application on a different branch, the `npm
+  install` step will require a few minutes for `npm` to download the many
+  dependencies required to run your Node.js and React application (stored in a
+  local `node_modules` directory within the Jenkins home directory). These
+  dependencies are downloaded again because this would be the first time you are
+  running your Pipeline project on the `development` branch and each branch has
+  its own workspace directory (containing its own `node_modules` directory)
+  within the Jenkins home directory.
+. Click the `http://localhost:3000` link to view your Node.js and React
+  application running (in development mode) in a new web browser tab. You should
+  see a page/site with the title *Welcome to React* on it.
+. When you are finished viewing the page/site, click the *Proceed* button in
+  Blue Ocean to complete the Pipeline's execution. +
+  The Blue Ocean interface turns green if Jenkins built your Node.js and React
+  application successfully from your `development` branch. Notice how the
+  *Deliver for development* stage was executed but the *Deploy for production*
+  stage was not.
+[.boxshadow]
+image:tutorials/multibranch-pipeline-31-complete-pipeline-runs-successfully-on-development-branch.png[alt="Complete
+Pipeline runs successfully on the 'development' branch",width=100%]
+. Click the *X* at the top-right to return to the *Activity* page of the Blue
+  Ocean interface.
+
+
+=== Run your Pipeline on the production branch
+
+. Click *Branches* at the top right to access the list of your Pipeline
+  project's branches.
+. Click the run icon
+  image:tutorials/multibranch-pipeline-12-run-icon.png[alt="Run icon",width=3%]
+  of the `production` branch of your Pipeline project, then quickly click the
+  *OPEN* link that appears briefly at the lower-right to see Jenkins building
+  the `production` branch with the amended `Jenkinsfile`. If you weren't able to
+  click the **OPEN** link, click the _top_ row on the Blue Ocean *Activity* page
+  to access this feature.
+. After a few minutes and when the build pauses, ensure you are viewing the
+  *Deploy for production* stage (click it if necessary), click the top green
+  *Shell Script* step to expand its contents and scroll down until you see the
+  `http://localhost:5000` link.
+. Click the `http://localhost:5000` link to view your Node.js and React
+  application in a new web browser tab. This will be running in production mode
+  from a production build of your source code. Again, you should see a page/site
+  with the title *Welcome to React* on it. However, this time, the contents are
+  served by the `npm serve` module and likely to be cached by your browser.
+. When you are finished viewing the page/site, click the *Proceed* button in
+  Blue Ocean to complete the Pipeline's execution. +
+  The Blue Ocean interface turns green if Jenkins built your Node.js and React
+  application successfully from your `development` branch. Notice how the
+  *Deliver for development* stage was executed but the *Deploy for production*
+  stage was not.
+[.boxshadow]
+image:tutorials/multibranch-pipeline-31-complete-pipeline-runs-successfully-on-development-branch.png[alt="Complete
+Pipeline runs successfully on the 'development' branch",width=100%]
+. Click the *X* at the top-right to return to the *Activity* page of the Blue
+  Ocean interface.
