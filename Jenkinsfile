@@ -4,6 +4,7 @@
 def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
 ]
+def imageName = 'jenkinsciinfra/jenkinsio'
 
 if (!env.CHANGE_ID) {
     if (env.BRANCH_NAME == null) {
@@ -75,6 +76,19 @@ try {
             }
         }
 
+        def container
+        stage('Build docker image'){
+            timestamps {
+                dir('docker'){
+                    sh 'git rev-parse HEAD > GIT_COMMIT'
+                    shortCommit = readFile('GIT_COMMIT').take(6)
+                    def imageTag = "${env.BUILD_ID}-build${shortCommit}"
+                    echo "Creating the container ${imageName}:${imageTag}"
+                    container = docker.build("${imageName}:${imageTag}")
+                }
+            }
+        }
+
         stage('Archive site') {
             /* The `archive` task inside the Gradle build should be creating a zip file
             * which we can use for the deployment of the site. This stage will archive
@@ -86,22 +100,16 @@ try {
         /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
         */
         if (env.BRANCH_NAME == null) {
-            stage('Deploy site') {
-                /* This Credentials ID is from the `site-deployer` account on
-                * ci.jenkins-ci.org
-                *
-                * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
-                */
-                sshagent(credentials: ['site-deployer']) {
-                    sh 'ls build/archives'
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
-                }
-            }
             stage('Publish on Azure') {
                 /* -> https://github.com/Azure/blobxfer
                 Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
                 withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
                     sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+                }
+            }
+            stage('Publish docker image') {
+                infra.withDockerCredentials {
+                    timestamps { container.push() }
                 }
             }
         }
