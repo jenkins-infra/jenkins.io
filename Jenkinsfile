@@ -86,17 +86,6 @@ try {
         /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
         */
         if (env.BRANCH_NAME == null) {
-            stage('Deploy site') {
-                /* This Credentials ID is from the `site-deployer` account on
-                * ci.jenkins-ci.org
-                *
-                * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
-                */
-                sshagent(credentials: ['site-deployer']) {
-                    sh 'ls build/archives'
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
-                }
-            }
             stage('Publish on Azure') {
                 /* -> https://github.com/Azure/blobxfer
                 Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
