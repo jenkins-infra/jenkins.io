@@ -80,9 +80,10 @@ try {
         stage('Build docker image'){
             timestamps {
                 dir('docker'){
-                    sh 'git rev-parse HEAD > GIT_COMMIT'
-                    shortCommit = readFile('GIT_COMMIT').take(6)
-                    def imageTag = "${env.BUILD_ID}-build${shortCommit}"
+                    /* Only update docker tag when docker files change*/
+                    sh 'tar cf - docker | md5sum > DOCKER_HASH'
+                    dockerHash = readFile('DOCKER_HASH').take(6)
+                    def imageTag = "${dockerHash}"
                     echo "Creating the container ${imageName}:${imageTag}"
                     container = docker.build("${imageName}:${imageTag}")
                 }
