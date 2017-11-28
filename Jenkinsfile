@@ -81,9 +81,7 @@ try {
             timestamps {
                 dir('docker'){
                     /* Only update docker tag when docker files change*/
-                    sh 'tar cf - docker | md5sum > DOCKER_HASH'
-                    dockerHash = readFile('DOCKER_HASH').take(6)
-                    def imageTag = "${dockerHash}"
+                    def imageTag = sh(script: 'tar cf - docker | md5sum', returnStdout: true).take(6)
                     echo "Creating the container ${imageName}:${imageTag}"
                     container = docker.build("${imageName}:${imageTag}")
                 }
