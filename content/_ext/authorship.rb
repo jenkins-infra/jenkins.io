@@ -11,7 +11,7 @@ module Authorship
     [:blog, 'VALUE'],
   ].freeze
 
-  def display_author_for(node)
+  def display_author_for(node, link = nil)
     # bail early if what we were given doesn't even respond
     return unless node.author
 
@@ -19,20 +19,22 @@ module Authorship
 
     if node.author && site.authors.has_key?(author)
       full_name = site.authors[author].name
-      link = nil
 
-      # Let's find a nice link to give our author
-      AUTHOR_LINK_PREFERENCE.each do |link_type, url|
-        value = site.authors[author].send(link_type)
-        # If we didn't get anything, skip
-        next if value.nil?
-
-        link = url.gsub(/VALUE/, value.to_s)
-        break unless link.nil?
-      end
-
+      # If the caller provided a link use it, otherwise
       if link.nil?
-        return full_name
+        # Let's find a nice link to give our author
+        AUTHOR_LINK_PREFERENCE.each do |link_type, url|
+          value = site.authors[author].send(link_type)
+          # If we didn't get anything, skip
+          next if value.nil?
+
+          link = url.gsub(/VALUE/, value.to_s)
+          break unless link.nil?
+        end
+
+        if link.nil?
+          return full_name
+        end
       end
 
       return "<a href=\"#{link}\">#{full_name}</a>"
