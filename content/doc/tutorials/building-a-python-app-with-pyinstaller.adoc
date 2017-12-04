@@ -16,8 +16,10 @@ familiar with these concepts but don't know how to implement building your
 application using Jenkins, then this tutorial is for you.
 
 The simple Python application (which you'll obtain from a sample repository on
-GitHub) is an "add" function that outputs the sum of two numbers and is
-accompanied by a unit test to check that the function works as expected.
+GitHub) is an "add" function that outputs the addition of two values. If at
+least one of the values happens to be a string, the "add" function treats both
+values as a string and instead concatenates them together. The add function is
+accompanied by a set of unit tests to check that the function works as expected.
 
 *Duration:* This tutorial takes 20-40 minutes to complete (assuming you've
 already met the <<prerequisites,prerequisites>> below). The exact duration will
@@ -130,62 +132,59 @@ any other code. Read more about Pipeline and what a Jenkinsfile is in the
 link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using
 a Jenkinsfile] sections of the User Handbook.
 
-First, create an initial Pipeline to download a Maven Docker image and run it as
-a Docker container (which will build your simple Python application). Also add a
-"Build" stage to the Pipeline that begins orchestrating this whole process.
+First, create an initial Pipeline with a "Build" stage that executes the first
+part of the entire production process for your application. This "Build" stage
+downloads a Python Docker image and runs it as a Docker container, which in turn
+compiles your simple Python application into byte code.
 
 . Using your favorite text editor or IDE, create and save new text file with the
-  name `Jenkinsfile` at the root of your local `simple-python-pyinstaller-app` Git
-  repository.
+  name `Jenkinsfile` at the root of your local `simple-python-pyinstaller-app`
+  Git repository.
 . Copy the following Declarative Pipeline code and paste it into your empty
   `Jenkinsfile`:
 +
 [source,groovy]
 ----
 pipeline {
-    agent {
-        docker {
-            image 'maven:3-alpine' // <1>
-            args '-v /root/.m2:/root/.m2' // <2>
-        }
-    }
+    agent none // <1>
     stages {
-        stage('Build') { // <3>
+        stage('Build') { // <2>
+            agent {
+                docker {
+                    image 'python:3.4-slim' // <3>
+                }
+            }
             steps {
-                sh 'mvn -B -DskipTests clean package' // <4>
+                sh 'python -m py_compile sources/add2vals.py' // <4>
             }
         }
     }
 }
 ----
-<1> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
+<1> The link:/doc/book/pipeline/syntax#agent[`agent`] section with the `none`
+parameter specified at the top of this Pipeline code block means that no global
+agent will be allocated for the entire Pipeline's execution and that each
+link:/doc/book/pipeline/syntax/#stage[`stage`] directive must specify its own
+`agent` section.
+<2> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
+`Build` that appears on the Jenkins UI.
+<3> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
 section's `docker` parameter) downloads the
-https://hub.docker.com/_/maven/[`maven:3-apline` Docker image] (if it's not
+https://hub.docker.com/_/python/[`python:3.4-slim` Docker image] (if it's not
 already available in your Docker host) and runs this image as a separate
 container. This means that:
-* You'll have separate Jenkins/Blue Ocean and Maven containers running locally
+* You'll have separate Jenkins/Blue Ocean and Python containers running locally
   in Docker.
-* The Maven container becomes the link:/doc/book/glossary/#agent[agent] that
-  Jenkins uses to build your Pipeline project. However, this container is
-  short-lived - its lifespan is only that of the duration of your Pipeline's
-  execution.
-<2> This `args` parameter creates a reciprocal mapping between the `/root/.m2`
-(i.e. Maven repository) directories in the short-lived Maven Docker container
-and that of your Docker host's filesystem. Explaining the details behind this is
-beyond the scope of this tutorial. However, the main reason for doing this is to
-ensure that the artifacts necessary to build your Java application (which Maven
-downloads while your Pipeline is being executed) are retained in the Maven
-repository beyond the lifespan of the Maven container. This prevents Maven from
-having to download the same artifacts during successive runs of your Jenkins
-Pipeline, which you'll be conducting later on. Be aware that unlike the Docker
-data volume you created for `jenkins-data`
-<<download-and-run-jenkins-in-docker,above>>, the Docker host's filesystem is
-effectively cleared out each time Docker is restarted. This means you'll lose
-the downloaded Maven repository artifacts each time Docker restarts.
-<3> Defines a stage called `Build` that appears on the Jenkins UI.
+* The Python container becomes the link:/doc/book/glossary/#agent[agent] that
+  Jenkins uses to run the `Build` stage of your Pipeline project. However,
+  this container is short-lived - its lifespan is only that of the duration of
+  your `Build` stage's execution.
 <4> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
-section) runs the Maven command to cleanly build your Java application (without
-running any tests).
+section) runs the Python command to compile your application into a byte code
+file (with a `.pyc` extension), which is placed into the local
+`sources/__pycache__` directory (i.e. within the
+`/var/jenkins_home/workspace/simple-python-pyinstaller-app` directory in the
+Jenkins/Blue Ocean container).
 . Save your amended `Jenkinsfile` and commit it to your local
   `simple-python-pyinstaller-app` Git repository. E.g. Within the
   `simple-python-pyinstaller-app` directory, run the commands: +
@@ -196,27 +195,27 @@ running any tests).
   Ocean* on the left to access Jenkins's Blue Ocean interface.
 . In the *This job has not been run* message box, click *Run*, then quickly
   click the *OPEN* link which appears briefly at the lower-right to see Jenkins
-  building your Pipeline project. If you weren't able to click the *OPEN* link,
+  running your Pipeline project. If you weren't able to click the *OPEN* link,
   click the row on the main Blue Ocean interface to access this feature. +
   *Note:* You may need to wait several minutes for this first run to complete.
-  After making a clone of your local `simple-python-pyinstaller-app` Git repository
-  itself, Jenkins:
-.. Initially queues the project to be built on the agent.
-.. Downloads the Maven Docker image and runs it in a container on Docker.
+  After making a clone of your local `simple-python-pyinstaller-app` Git
+  repository itself, Jenkins:
+.. Initially queues the project to be run on the agent.
+.. Downloads the Python Docker image and runs it in a container on Docker.
 +
 [.boxshadow]
 image:tutorials/java-maven-01-downloading-maven-docker-image.png[alt="Downloading
 Maven Docker image",width=100%]
-.. Executes the `Build` stage (defined in the `Jenkinsfile`) on the Maven
-   container. During this time, Maven downloads many artifacts necessary to
-   build your Java application, which will ultimately be stored in Jenkins's
-   local Maven repository (in the Docker host's filesystem).
+.. Runs the `Build` stage (defined in the `Jenkinsfile`) on the Python
+   container. During this time, Python uses the `py_compile` module to compile
+   your Python application's code into byte code, which will be stored in the
+   local `sources/__pycache__` directory (within the Jenkins home directory).
 [.boxshadow]
 image:tutorials/java-maven-02-initial-pipeline-downloading-maven-artifacts.png[alt="Downloading
 Maven artifacts",width=100%]
 
 +
-The Blue Ocean interface turns green if Jenkins built your Java application
+The Blue Ocean interface turns green if Jenkins compiled your Python application
 successfully.
 [.boxshadow]
 image:tutorials/java-maven-03-initial-pipeline-runs-successfully.png[alt="Initial
@@ -237,13 +236,13 @@ interface",width=100%]
 [source,groovy]
 ----
         stage('Test') {
-            steps {
-                sh 'mvn test'
-            }
-            post {
-                always {
-                  junit 'target/surefire-reports/*.xml'
+            agent {
+                docker {
+                    image 'python:3.4-slim'
                 }
+            }
+            steps {
+                sh 'python sources/test_calc.py'
             }
         }
 ----
@@ -252,35 +251,45 @@ so that you end up with:
 [source,groovy]
 ----
 pipeline {
-    agent {
-        docker {
-            image 'maven:3-alpine'
-            args '-v /root/.m2:/root/.m2'
-        }
-    }
+    agent none
     stages {
         stage('Build') {
+            agent {
+                docker {
+                    image 'python:3.4-slim'
+                }
+            }
             steps {
-                sh 'mvn -B -DskipTests clean package'
+                sh 'python -m py_compile sources/add2vals.py'
             }
         }
         stage('Test') { // <1>
-            steps {
-                sh 'mvn test' // <2>
-            }
-            post {
-                always {
-                  junit 'target/surefire-reports/*.xml'
+            agent {
+                docker {
+                    image 'python:3.4-slim' // <2>
                 }
+            }
+            steps {
+                sh 'python sources/test_calc.py' // <3>
             }
         }
     }
 }
 ----
-<1> Defines a new stage called `Test` that appears on the Jenkins UI.
-<2> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
-section) executes the Maven command to run the unit test on your simple Java
-application.
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
+`Test` that appears on the Jenkins UI.
+<2> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
+section's `docker` parameter) runs the previously downloaded
+https://hub.docker.com/_/python/[`python:3.4-slim` Docker image] as a separate
+container, such that:
+* You'll have separate Jenkins/Blue Ocean and Python containers running locally
+  in Docker again.
+* The Python container becomes the link:/doc/book/glossary/#agent[agent] that
+  Jenkins uses to run the `Test` stage of your Pipeline project. This
+  container's lifespan lasts the duration of your `Test` stage's execution.
+<3> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
+section) executes the Python command to run `sources/test_calc.py`, which runs a
+set of unit tests (defined in `test_calc.py`) on your simple Python application.
 . Save your amended `Jenkinsfile` and commit it to your local
   `simple-python-pyinstaller-app` Git repository. E.g. Within the
   `simple-python-pyinstaller-app` directory, run the commands: +
@@ -290,15 +299,13 @@ application.
 . Go back to Jenkins again, log in again if necessary and ensure you've accessed
   Jenkins's Blue Ocean interface.
 . Click *Run* at the top left, then quickly click the *OPEN* link which appears
-  briefly at the lower-right to see Jenkins building your amended Pipeline
+  briefly at the lower-right to see Jenkins running your amended Pipeline
   project. If you weren't able to click the **OPEN** link, click the _top_ row
   on the Blue Ocean interface to access this feature. +
   *Note:* You'll notice from this run that Jenkins no longer needs to download
-  the Maven Docker image. Instead, Jenkins only needs to run a new container
-  from the Maven image downloaded previously. Also, if Docker had not restarted
-  since you last ran the Pipeline <<create-your-initial-pipeline-as-a-jenkinsfile,above>>,
-  then no Maven artifacts need to be downloaded during the "Build" stage.
-  Therefore, running your Pipeline this subsequent time should be much faster. +
+  the Python Docker image. Instead, Jenkins only needs to run new containers
+  from the initially downloaded Python image. Therefore, running your Pipeline
+  this subsequent time should be much faster. +
   If your amended Pipeline ran successfully, here's what the Blue Ocean
   interface should look like. Notice the additional "Test" stage. You can click
   on the previous "Build" stage circle to access the output from that stage.
@@ -317,8 +324,13 @@ stage runs successfully (with output)",width=100%]
 [source,groovy]
 ----
         stage('Deliver') {
+            agent {
+                docker {
+                    image 'cdrx/pyinstaller-linux'
+                }
+            }
             steps {
-                sh './jenkins/scripts/deliver.sh'
+                sh 'pyinstaller --onefile sources/add2vals.py'
             }
         }
 ----
@@ -327,44 +339,63 @@ so that you end up with:
 [source,groovy]
 ----
 pipeline {
-    agent {
-        docker {
-            image 'maven:3-alpine'
-            args '-v /root/.m2:/root/.m2'
-        }
-    }
+    agent none
     stages {
         stage('Build') {
+            agent {
+                docker {
+                    image 'python:3.4-slim'
+                }
+            }
             steps {
-                sh 'mvn -B -DskipTests clean package'
+                sh 'python -m py_compile sources/add2vals.py'
             }
         }
         stage('Test') {
-            steps {
-                sh 'mvn test'
-            }
-            post {
-                always {
-                  junit 'target/surefire-reports/*.xml'
+            agent {
+                docker {
+                    image 'python:3.4-slim'
                 }
+            }
+            steps {
+                sh 'python sources/test_calc.py'
             }
         }
         stage('Deliver') { // <1>
+            agent {
+                docker {
+                    image 'cdrx/pyinstaller-linux' // <2>
+                }
+            }
             steps {
-                sh './jenkins/scripts/deliver.sh' // <2>
+                sh 'pyinstaller --onefile sources/add2vals.py' // <3>
             }
         }
     }
 }
 ----
-<1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
+`Deliver` that appears on the Jenkins UI.
+<2> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
+section's `docker` parameter) downloads the
+https://hub.docker.com/r/cdrx/pyinstaller-linux/[`cdrx/pyinstaller-linux` Docker
+image] (if it's not already available in your Docker host) and runs this image
+as a separate container. This means that:
+* You'll have separate Jenkins/Blue Ocean and PyInstaller (for Linux) containers
+  running locally in Docker.
+* The PyInstaller container becomes the link:/doc/book/glossary/#agent[agent]
+  that Jenkins uses to run the `Deliver` stage of your Pipeline project. This
+  container's lifespan lasts the duration of your `Deliver` stage's execution.
 <2> This `sh` step (of the link:/doc/book/pipeline/syntax/#steps[`steps`]
-section) runs the shell script `deliver.sh` located in the `jenkins/scripts`
-directory from the root of the `simple-python-pyinstaller-app` repository. As a general
-principle, it's a good idea to keep your Pipeline code (i.e. the `Jenkinsfile`)
-as tidy as possible and place more complex build scripting steps into separate
-shell script files like the `deliver.sh` file. This ultimately makes maintaining
-your Pipeline code easier, especially if your Pipeline gains more complexity.
+section) executes the `pyinstaller` command (in the PyInstaller container) on
+your simple Python application. This bundles your `add2vals.py` Python
+application into a single-file executable (via the +
+`--onefile` option). Although this step consists of a single command, as a
+general principle, it's a good idea to keep your Pipeline code (i.e. the
+`Jenkinsfile`) as tidy as possible and place more complex build steps
+(particularly for stages consisting of 2 or more steps) into separate shell
+script files like the `deliver.sh` file. This ultimately makes maintaining your
+Pipeline code easier, especially if your Pipeline gains more complexity.
 . Save your amended `Jenkinsfile` and commit it to your local
   `simple-python-pyinstaller-app` Git repository. E.g. Within the
   `simple-python-pyinstaller-app` directory, run the commands: +
@@ -374,7 +405,7 @@ your Pipeline code easier, especially if your Pipeline gains more complexity.
 . Go back to Jenkins again, log in again if necessary and ensure you've accessed
   Jenkins's Blue Ocean interface.
 . Click *Run* at the top left, then quickly click the *OPEN* link which appears
-  briefly at the lower-right to see Jenkins building your amended Pipeline
+  briefly at the lower-right to see Jenkins running your amended Pipeline
   project. If you weren't able to click the **OPEN** link, click the _top_ row
   on the Blue Ocean interface to access this feature. +
   If your amended Pipeline ran successfully, here's what the Blue Ocean
