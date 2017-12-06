@@ -16,10 +16,16 @@ familiar with these concepts but don't know how to implement building your
 application using Jenkins, then this tutorial is for you.
 
 The simple Python application (which you'll obtain from a sample repository on
-GitHub) is an "add" function that outputs the addition of two values. If at
-least one of the values happens to be a string, the "add" function treats both
-values as a string and instead concatenates them together. The add function is
-accompanied by a set of unit tests to check that the function works as expected.
+GitHub) is a command line tool "add2vals" that outputs the addition of two
+values. If at least one of the values is a string, "add2vals" treats both values
+as a string and instead concatenates the values. The "add2" function in the
+"calc" library (which "add2vals" imports) is accompanied by a set of unit tests.
+These are tested with pytest to check that this function works as expected and
+the results are saved to a JUnit XML report.
+
+The delivery of the "add2vals" tool through PyInstaller converts this tool into
+a standalone executable file for Linux, which you can download through Jenkins
+and execute at the command line on Linux machines without Python.
 
 *Duration:* This tutorial takes 20-40 minutes to complete (assuming you've
 already met the <<prerequisites,prerequisites>> below). The exact duration will
@@ -148,11 +154,11 @@ pipeline {
         stage('Build') { // <2>
             agent {
                 docker {
-                    image 'python:3.4-slim' // <3>
+                    image 'python:2-alpine' // <3>
                 }
             }
             steps {
-                sh 'python -m py_compile sources/add2vals.py' // <4>
+                sh 'python -m py_compile sources/add2vals.py sources/calc.py' // <4>
             }
         }
     }
@@ -167,7 +173,7 @@ link:/doc/book/pipeline/syntax/#stage[`stage`] directive must specify its own
 `Build` that appears on the Jenkins UI.
 <3> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
 section's `docker` parameter) downloads the
-https://hub.docker.com/_/python/[`python:3.4-slim` Docker image] (if it's not
+https://hub.docker.com/_/python/[`python:2-alpine` Docker image] (if it's not
 already available on your machine) and runs this image as a separate container.
 This means that:
 * You'll have separate Jenkins and Python containers running locally in Docker.
@@ -178,10 +184,11 @@ This means that:
 <4> This
 link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
 step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) runs the
-Python command to compile your application into a byte code file (with a `.pyc`
-extension), which is placed into the `sources/__pycache__` workspace directory
-(within the `/var/jenkins_home/workspace/simple-python-pyinstaller-app`
-directory in the Jenkins container).
+Python command to compile your application and its `calc` library into byte code
+files (each with `.pyc` extension), which are placed into the `sources`
+workspace directory (within the
+`/var/jenkins_home/workspace/simple-python-pyinstaller-app` directory in the
+Jenkins container).
 . Save your edited `Jenkinsfile` and commit it to your local
   `simple-python-pyinstaller-app` Git repository. E.g. Within the
   `simple-python-pyinstaller-app` directory, run the commands: +
@@ -205,9 +212,9 @@ image:tutorials/python-pyinstaller-01-downloading-python-docker-image.png[alt="D
 Python Docker image",width=100%]
 .. Runs the `Build` stage (defined in the `Jenkinsfile`) on the Python
    container. During this time, Python uses the `py_compile` module to compile
-   your Python application's code into byte code, which will be stored in the
-   `sources/__pycache__` workspace directory (within the Jenkins home
-   directory).
+   the code of your Python application and its `calc` library into byte code,
+   which are stored in the `sources` workspace directory (within the Jenkins
+   home directory).
 
 +
 The Blue Ocean interface turns green if Jenkins compiled your Python application
@@ -233,11 +240,16 @@ Blue Ocean interface",width=100%]
         stage('Test') {
             agent {
                 docker {
-                    image 'python:3.4-slim'
+                    image 'qnib/pytest'
                 }
             }
             steps {
-                sh 'python sources/test_calc.py -v'
+                sh 'py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py'
+            }
+            post {
+                always {
+                    junit 'test-reports/results.xml'
+                }
             }
         }
 ----
@@ -251,21 +263,26 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'python:3.4-slim'
+                    image 'python:2-alpine'
                 }
             }
             steps {
-                sh 'python -m py_compile sources/add2vals.py'
+                sh 'python -m py_compile sources/add2vals.py sources/calc.py'
             }
         }
         stage('Test') { // <1>
             agent {
                 docker {
-                    image 'python:3.4-slim' // <2>
+                    image 'qnib/pytest' // <2>
                 }
             }
             steps {
-                sh 'python sources/test_calc.py -v' // <3>
+                sh 'py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py' // <3>
+            }
+            post {
+                always {
+                    junit 'test-reports/results.xml' // <4>
+                }
             }
         }
     }
@@ -274,20 +291,33 @@ pipeline {
 <1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
 `Test` that appears on the Jenkins UI.
 <2> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
-section's `docker` parameter) runs the previously downloaded
-https://hub.docker.com/_/python/[`python:3.4-slim` Docker image] as a separate
-container, such that:
-* You'll have separate Jenkins and Python containers running locally in Docker
-  again.
-* The Python container becomes the link:/doc/book/glossary/#agent[agent] that
+section's `docker` parameter) downloads the
+https://hub.docker.com/r/qnib/pytest/[`qnib:pytest` Docker image] (if it's not
+already available on your machine) and runs this image as a separate container.
+This means that:
+* You'll have separate Jenkins and pytest containers running locally in Docker.
+* The pytest container becomes the link:/doc/book/glossary/#agent[agent] that
   Jenkins uses to run the `Test` stage of your Pipeline project. This
   container's lifespan lasts the duration of your `Test` stage's execution.
 <3> This
 link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
-step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) executes
-the Python command to run `sources/test_calc.py`, which runs a set of unit tests
-(defined in `test_calc.py`) on your simple Python application. The trailing `-v`
-option generates verbose unittest result output.
+step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) runs
+pytest's `py.test` command on `sources/test_calc.py`, which runs a set of unit
+tests (defined in `test_calc.py`) on the "calc" library's `add2` function (used
+by your simple Python application `add2vals`). The:
+* `--verbose` option makes `py.test` generate verbose output in the Jenkins/Blue
+  Ocean interface.
+* `--junit-xml test-reports/results.xml` option makes `py.test` generate a JUnit
+  XML report, which is saved to `test-reports/results.xml`.
+<4> This
+link:/doc/pipeline/steps/junit/#code-junit-code-archive-junit-formatted-test-results[`junit`]
+step (provided by the link:/doc/pipeline/steps/junit[JUnit Plugin]) archives the
+JUnit XML report (generated by the `py.test` command above) and exposes the
+results through the Jenkins interface. In Blue Ocean, the results are accessible
+through the *Tests* page of a Pipeline run. The
+link:/doc/book/pipeline/syntax/#post[`post`] section's `always` condition that
+contains this `junit` step ensures that the step is _always_ executed _at the
+completion_ of the `Test` stage, regardless of the stage's outcome.
 . Save your edited `Jenkinsfile` and commit it to your local
   `simple-python-pyinstaller-app` Git repository. E.g. Within the
   `simple-python-pyinstaller-app` directory, run the commands: +
@@ -324,11 +354,16 @@ stage runs successfully (with output)",width=100%]
         stage('Deliver') {
             agent {
                 docker {
-                    image 'cdrx/pyinstaller-linux'
+                    image 'cdrx/pyinstaller-linux:python2'
                 }
             }
             steps {
                 sh 'pyinstaller --onefile sources/add2vals.py'
+            }
+            post {
+                success {
+                    archiveArtifacts 'dist/add2vals'
+                }
             }
         }
 ----
@@ -338,35 +373,44 @@ so that you end up with:
 ----
 pipeline {
     agent none
-    stages {
         stage('Build') {
             agent {
                 docker {
-                    image 'python:3.4-slim'
+                    image 'python:2-alpine'
                 }
             }
             steps {
-                sh 'python -m py_compile sources/add2vals.py'
+                sh 'python -m py_compile sources/add2vals.py sources/calc.py'
             }
         }
         stage('Test') {
             agent {
                 docker {
-                    image 'python:3.4-slim'
+                    image 'qnib/pytest'
                 }
             }
             steps {
-                sh 'python sources/test_calc.py'
+                sh 'py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py'
+            }
+            post {
+                always {
+                    junit 'test-reports/results.xml'
+                }
             }
         }
         stage('Deliver') { // <1>
             agent {
                 docker {
-                    image 'cdrx/pyinstaller-linux' // <2>
+                    image 'cdrx/pyinstaller-linux:python2' // <2>
                 }
             }
             steps {
                 sh 'pyinstaller --onefile sources/add2vals.py' // <3>
+            }
+            post {
+                success {
+                    archiveArtifacts 'dist/add2vals' // <4>
+                }
             }
         }
     }
@@ -397,6 +441,16 @@ possible and place more complex build steps (particularly for stages consisting
 of 2 or more steps) into separate shell script files like the `deliver.sh` file.
 This ultimately makes maintaining your Pipeline code easier, especially if your
 Pipeline gains more complexity.
+<4> This
+link:/doc/pipeline/steps/workflow-basic-steps/#code-archive-code-archive-artifacts[`archiveArtifacts`]
+step (provided as part of Jenkins core) archives the standalone executable file
+(generated by the `pyinstaller` command above at `dist/add2vals` within the
+Jenkins home's workspace directory) and exposes this file through the Jenkins
+interface. In Blue Ocean, archived artifacts like these are accessible through
+the *Artifacts* page of a Pipeline run. The
+link:/doc/book/pipeline/syntax/#post[`post`] section's `success` condition that
+contains this `archiveArtifacts` step ensures that the step is executed _at the
+completion_ of the `Deliver` stage _only if_ this stage completed successfully.
 . Save your edited `Jenkinsfile` and commit it to your local
   `simple-python-pyinstaller-app` Git repository. E.g. Within the
   `simple-python-pyinstaller-app` directory, run the commands: +
@@ -439,26 +493,23 @@ Blue Ocean interface with all previous runs displayed",width=100%]
 If you use Linux, you can try running the standalone `add2vals` application you
 generated with PyInstaller locally on your machine. To do this:
 
-. Run the following commands:
-+
-[source]
-----
-docker exec -it <docker-container-name> bash # <1>
-cp /var/jenkins_home/workspace/simple-python-pyinstaller-app/dist/add2vals /home # <2>
-exit # <3>
-----
-<1> This command provides access to the terminal prompt of your Jenkins/Blue
-Ocean Docker container. The `<docker-container-name>` can be obtained using the
-command `docker ps`. Otherwise, it would be `jenkins-tutorials` (if you
-specified this in the command you used to run this container
-<<run-jenkins-in-docker,above>> - i.e. `--name jenkins-tutorials`).
-<2> Once in the container, copy the executable `add2vals` file generated by
-PyInstaller from the `dist` workspace directory (in the Jenkins home directory)
-to the `/home` of the Jenkins container (noting that `/home` was previously
-mapped to your host operating system's `$HOME` directory).
-<3> Exit out of your Jenkins container's terminal prompt.
-. Back in your operating system's terminal prompt, change to your home directory
-(i.e. `cd ~`).
+. From the main Blue Ocean interface, access your last Pipeline run you
+  performed <<add-a-final-deliver-stage-to-your-pipeline,above>>. To do this,
+  click the top row (representing the most recent Pipeline run) on the main Blue
+  Ocean's *Activity* page.
+[.boxshadow]
+image:tutorials/python-pyinstaller-23-main-blue-ocean-interface-with-all-previous-runs-displayed.png[alt="Main
+Blue Ocean interface with all previous runs displayed",width=100%]
+. On the results page of the Pipeline run, click *Artifacts* at the top right
+  to access the *Artifacts* page.
+[.boxshadow]
+image:tutorials/python-pyinstaller-21-deliver-stage-runs-successfully.png[alt="Deliver
+stage runs successfully",width=100%]
+. Click the *dist/add2vals* link to download the standalone executable file to
+  your browser's "Downloads" directory.
+. Back in your operating system's terminal prompt, `cd` to this "Downloads"
+  directory.
+. Make `add2vals` executable - i.e. `chmod a+x add2vals`
 . Run the command `./add2vals` and follow the instructions provided by your app.
 
 
