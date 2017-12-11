@@ -2,12 +2,18 @@
 // of the current page's URL in the variable "feedbackPageUrl" in the
 // browser's local storage.
 
-feedbackForm.start = function(currentUrl) {
-  var ref = document.getElementById('current-url');
-  console.log('start func:' + currentUrl);
-  ref.value = currentUrl;
-  localStorage.setItem("feedbackPageUrl",ref.value);
-};
+if (typeof feedbackForm === 'undefined') {
+  console.log('No "feedbackForm" with "formKey" and "start" function have been defined in the HTML file that imports this "feedback-form-functionality.js" file.');
+  var feedbackForm = { start : function() {} };
+}
+else {
+  feedbackForm.start = function(currentUrl) {
+    var ref = document.getElementById('current-url');
+    // console.log('Value of "start" function is:' + currentUrl);
+    ref.value = currentUrl;
+    localStorage.setItem("feedbackPageUrl",ref.value);
+  };
+}
 
 // This JavaScript code requires the user to add 2 integers (i.e. first <= 10
 // and the next <= 10) together in order to successfully submit the form. This
@@ -28,7 +34,7 @@ $(document).ready(function() {
 
  ssForm.submit(function(evt){
   if($('#'+testField).val() == answer){
-   console.log('feedback form func:' + feedbackForm.formKey);
+   // console.log('Value of "feedbackForm.formKey" function is:' + feedbackForm.formKey);
    ssForm.attr({'action' : 'https://docs.google.com/forms/d/' + feedbackForm.formKey + '/formResponse'});
    return true;
   }else{
