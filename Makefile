@@ -6,17 +6,19 @@ ASSETS_DIR=$(OUTPUT_DIR)/assets/bower
 VERSION=$(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
 
 # Generate everything
-all: fetch generate pdfs archive
+all: fetch-reset fetch generate archive
 prepare: fetch depends assets
 
 # Run a local dev server on localhost:4242
-run: warning depends-ruby assets
+run: fetch depends-ruby assets
 	LISTEN=true ./scripts/ruby bundle exec awestruct --bind 0.0.0.0 --dev $(AWESTRUCT_CONFIG)
 
-generate: warning $(OUTPUT_DIR) depends-ruby assets $(OUTPUT_DIR)/releases.rss pdfs
+generate: site pdfs
+
+site: fetch $(OUTPUT_DIR) depends-ruby assets
 	./scripts/ruby bundle exec awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
-pdfs: $(OUTPUT_DIR)/user-handbook.pdf
+pdfs: fetch $(OUTPUT_DIR)/user-handbook.pdf
 
 $(OUTPUT_DIR)/user-handbook.pdf: $(OUTPUT_DIR) depends-ruby scripts/generate-handbook-pdf
 	./scripts/ruby scripts/generate-handbook-pdf $(BUILD_DIR)/user-handbook.adoc
@@ -28,9 +30,17 @@ $(OUTPUT_DIR)/user-handbook.pdf: $(OUTPUT_DIR) depends-ruby scripts/generate-han
 
 # Fetching and generating content from external sources
 #######################################################
-fetch: depends-ruby scripts/fetch-examples scripts/fetch-external-resources
+# NOTE: Fetch only runs once until flag is reset
+fetch: depends-ruby $(BUILD_DIR)/fetched
+
+# force fetching of resources
+fetch-reset: $(OUTPUT_DIR)
+	@rm -f $(BUILD_DIR)/fetched
+
+$(BUILD_DIR)/fetched: $(OUTPUT_DIR) $(OUTPUT_DIR)/releases.rss scripts/fetch-examples scripts/fetch-external-resources
 	./scripts/fetch-examples
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
+	@touch $(BUILD_DIR)/fetched
 
 $(OUTPUT_DIR)/releases.rss: $(OUTPUT_DIR) scripts/release.rss.groovy
 	./scripts/groovy scripts/release.rss.groovy 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
@@ -41,11 +51,17 @@ $(OUTPUT_DIR)/releases.rss: $(OUTPUT_DIR) scripts/release.rss.groovy
 #######################################################
 depends: depends-ruby depends-node
 
-depends-ruby: Gemfile
-	./scripts/ruby bundle install --path=vendor/gems
+depends-ruby: vendor/gems
 
-depends-node: package.json
-	./scripts/node npm install
+vendor/gems: Gemfile
+	./scripts/ruby bundle install --path=vendor/gems
+	@touch vendor/gems
+
+depends-node: node_modules
+
+node_modules: package.json package-lock.json
+		./scripts/node npm install
+		@touch node_modules
 
 assets: depends-node
 	mkdir -p $(ASSETS_DIR)
@@ -72,7 +88,8 @@ assets: depends-node
 archive: $(OUTPUT_DIR)
 	mkdir -p $(BUILD_DIR)/archives
 	(cd $(BUILD_DIR) && \
-		ln -s _site jenkins.io-$(VERSION) && \
+		rm -f archives/jenkins.io-$(VERSION).zip && \
+		ln -f -s _site jenkins.io-$(VERSION) && \
 		zip --quiet -r archives/jenkins.io-$(VERSION).zip jenkins.io-$(VERSION))
 #######################################################
 
@@ -81,11 +98,6 @@ archive: $(OUTPUT_DIR)
 #######################################################
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
-warning:
-	@echo '-------------------------------------------------------------'
-	@echo ">> To save time, this won't automatically run \`make fetch\`."
-	@echo ">> Please ensure you have run \`make fetch\` at least once"
-	@echo '-------------------------------------------------------------'
 
 clean:
 	rm -rf vendor/gems
@@ -93,5 +105,5 @@ clean:
 	rm -rf node_modules/
 #######################################################
 
-.PHONY: all clean depends depends-node depends-ruby generate run \
-		fetch warning pdfs assets prepare archive
+.PHONY: all archive assets clean depends depends-node depends-ruby \
+		fetch fetch-reset generate pdfs prepare run site
