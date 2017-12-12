@@ -60,8 +60,9 @@ try {
                     set -o nounset
                     set -o pipefail
                     set -o xtrace
-                    make all | tee build.log
-                    if [[ -n "$( grep --fixed-strings WARNING build.log | grep --fixed-strings --invert-match user-handbook.adoc )" ]] ; then
+                    mkdir -p build
+                    make all 2>&1 | tee build/log.txt
+                    if [[ -n "$( grep --fixed-strings WARNING build/log.txt | grep --fixed-strings --invert-match user-handbook.adoc | grep --fixed-strings --invert-match 'conversion missing in backend pdf' )" ]] ; then
                         echo "Failing build due to warnings in log output" >&2
                         exit 1
                     fi
