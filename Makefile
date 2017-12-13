@@ -53,7 +53,7 @@ depends: depends-ruby depends-node
 
 depends-ruby: vendor/gems
 
-vendor/gems: Gemfile
+vendor/gems: Gemfile Gemfile.lock
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch vendor/gems
 
