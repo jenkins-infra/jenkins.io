@@ -3,7 +3,7 @@
 // browser's local storage.
 
 if (typeof feedbackForm === 'undefined') {
-  console.log('No "feedbackForm" with "formKey" and "start" function have been defined in the HTML file that imports this "feedback-form-functionality.js" file.');
+  console.log('No "feedbackForm" with "formKey" and "start" functions has been defined in the HTML file that imports this "feedback-form-functionality.js" file.');
   var feedbackForm = { start : function() {} };
 }
 else {
