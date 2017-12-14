@@ -51,6 +51,11 @@ $(OUTPUT_DIR)/releases.rss: $(OUTPUT_DIR) scripts/release.rss.groovy
 #######################################################
 depends: depends-ruby depends-node
 
+# update dependencies information
+update:
+	./scripts/ruby bundle update
+	./scripts/node npm update
+
 depends-ruby: vendor/gems
 
 vendor/gems: Gemfile Gemfile.lock
@@ -60,8 +65,8 @@ vendor/gems: Gemfile Gemfile.lock
 depends-node: node_modules
 
 node_modules: package.json package-lock.json
-		./scripts/node npm install
-		@touch node_modules
+	./scripts/node npm install
+	@touch node_modules
 
 assets: depends-node
 	mkdir -p $(ASSETS_DIR)
@@ -106,4 +111,4 @@ clean:
 #######################################################
 
 .PHONY: all archive assets clean depends depends-node depends-ruby \
-		fetch fetch-reset generate pdfs prepare run site
+		fetch fetch-reset generate pdfs prepare run site update
