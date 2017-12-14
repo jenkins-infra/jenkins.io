@@ -49,9 +49,8 @@ try {
             checkout scm
         }
 
-
         stage('Build site') {
-            /* If the slave can't gather resources and build the site in 60 minutes,
+            /* If the agent can't gather resources and build the site in 60 minutes,
             * something is very wrong
             */
             timeout(60) {
@@ -60,6 +59,13 @@ try {
                     set -o nounset
                     set -o pipefail
                     set -o xtrace
+                    make update
+                    if [[ -n "$( git diff )" ]] ; then
+                        echo "A node or ruby dependency has changed."
+                        echo "Run 'make update' and commit resulting changes."
+                        exit 1
+                    fi
+
                     mkdir -p build
                     make all 2>&1 | tee build/log.txt
                     if [[ -n "$( grep --fixed-strings WARNING build/log.txt | grep --fixed-strings --invert-match user-handbook.adoc | grep --fixed-strings --invert-match 'conversion missing in backend pdf' )" ]] ; then
