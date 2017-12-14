@@ -43,6 +43,7 @@ $(BUILD_DIR)/fetched: $(OUTPUT_DIR) $(OUTPUT_DIR)/releases.rss scripts/fetch-exa
 	@touch $(BUILD_DIR)/fetched
 
 $(OUTPUT_DIR)/releases.rss: $(OUTPUT_DIR) scripts/release.rss.groovy
+	./scripts/groovy pull
 	./scripts/groovy scripts/release.rss.groovy 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
 #######################################################
 
@@ -52,19 +53,25 @@ $(OUTPUT_DIR)/releases.rss: $(OUTPUT_DIR) scripts/release.rss.groovy
 depends: depends-ruby depends-node
 
 # update dependencies information
-update:
+update: depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
 depends-ruby: vendor/gems
 
+# when we pull dependencies also pull docker image
+# without this images can get stale and out of sync from CI system
 vendor/gems: Gemfile Gemfile.lock
+	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch vendor/gems
 
 depends-node: node_modules
 
+# when we pull dependencies also pull docker image
+# without this images can get stale and out of sync from CI system
 node_modules: package.json package-lock.json
+	./scripts/node pull
 	./scripts/node npm install
 	@touch node_modules
 
