@@ -60,9 +60,8 @@ try {
                     set -o pipefail
                     set -o xtrace
                     make update
-                    if ! git diff-index --quiet HEAD -- Gemfile.lock package-lock.json ; then
+                    if [[ -n "$( git diff )" ]] ; then
                         echo "A node or ruby dependency has changed."
-                        git diff
                         echo "Run 'make update' and commit resulting changes."
                         exit 1
                     fi
