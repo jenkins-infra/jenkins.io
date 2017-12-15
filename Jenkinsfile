@@ -66,12 +66,7 @@ try {
                         exit 1
                     fi
 
-                    mkdir -p build
-                    make all 2>&1 | tee build/log.txt
-                    if [[ -n "$( grep --fixed-strings WARNING build/log.txt | grep --fixed-strings --invert-match user-handbook.adoc | grep --fixed-strings --invert-match 'conversion missing in backend pdf' )" ]] ; then
-                        echo "Failing build due to warnings in log output" >&2
-                        exit 1
-                    fi
+                    make all
 
                     illegal_htaccess_content="$( find content -name '.htaccess' -type f -exec grep --extended-regexp --invert-match '^(#|ErrorDocument)' {} \\; )"
                     if [[ -n "$illegal_htaccess_content" ]] ; then
