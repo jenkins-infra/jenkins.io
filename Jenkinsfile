@@ -49,6 +49,23 @@ try {
             checkout scm
         }
 
+        stage('Verify Environment') {
+            /* Verify that we have the appropriate dependencies in a
+             * non-critical path, i.e. a pull request, and ask the contributor
+             * to keep our dependencies up to date.
+             */
+            if (env.CHANGE_ID) {
+                sh '''#!/usr/bin/env bash
+                    make update
+                    if [[ -n "$( git diff )" ]] ; then
+                        echo "A node or ruby dependency has changed."
+                        echo "Run 'make update' and commit resulting changes."
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
         stage('Build site') {
             /* If the agent can't gather resources and build the site in 60 minutes,
             * something is very wrong
@@ -59,12 +76,6 @@ try {
                     set -o nounset
                     set -o pipefail
                     set -o xtrace
-                    make update
-                    if [[ -n "$( git diff )" ]] ; then
-                        echo "A node or ruby dependency has changed."
-                        echo "Run 'make update' and commit resulting changes."
-                        exit 1
-                    fi
 
                     mkdir -p build
                     make all 2>&1 | tee build/log.txt
