@@ -59,12 +59,6 @@ try {
                     set -o nounset
                     set -o pipefail
                     set -o xtrace
-                    make update
-                    if [[ -n "$( git diff )" ]] ; then
-                        echo "A node or ruby dependency has changed."
-                        echo "Run 'make update' and commit resulting changes."
-                        exit 1
-                    fi
 
                     make all
 
