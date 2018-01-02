@@ -65,7 +65,7 @@ try {
                         exit 1
                     fi
 
-                    if [[ -n "$( find content | egrep -v '^content[-._a-zA-Z0-9/]*$' )" ]] ; then
+                    if [[ -n "$( find content | egrep -v '^content[-._a-zA-Z0-9/ ]*$' )" ]] ; then
                         echo Found file paths containing disallowed characaters.
                         exit 1
                     fi
