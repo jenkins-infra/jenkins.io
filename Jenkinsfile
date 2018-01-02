@@ -60,6 +60,16 @@ try {
                     set -o pipefail
                     set -o xtrace
 
+                    if [[ -n "$( find content | uniq -d -i )" ]] ; then
+                        echo Found file paths that differ only by character casing.
+                        exit 1
+                    fi
+
+                    if [[ -n "$( find content | egrep -v '^content[-._a-zA-Z0-9/ ]*$' )" ]] ; then
+                        echo Found file paths containing disallowed characaters.
+                        exit 1
+                    fi
+
                     make all
 
                     illegal_htaccess_content="$( find content -name '.htaccess' -type f -exec grep --extended-regexp --invert-match '^(#|ErrorDocument)' {} \\; )"
