@@ -55,12 +55,12 @@ You can use such environment variables in a `signingConfig` block within your `b
 Once you have your production-ready APK built and signed, you can automatically upload it to Google Play using the plugin:google-play-android-publisher[Google Play Android Publisher plugin].  The benefit of using this plugin is that it supports multiple APK upload, expansion files, uploading of ProGuard mapping files, promotion of builds from alpha, to beta, to production — and once again, your Google Play credentials are securely stored on Jenkins thanks to the Credentials Plugin.
 
 === Example Pipeline
-Here's a quick example of a build pipeline for Android, to build, test and archive an app:
+Here's a straightforward example of a `Jenkinsfile` defining a pipeline to build, test, and optionally deploy an Android app, from a multibranch Pipeline job.
+It requires the Pipeline, JUnit, Android Lint, Google Play Android Publisher, and Mailer plugins to be installed.
 
-[TODO: fix warning about missing scripted variant]
-[pipeline]
+.Jenkinsfile
+[source,groovy]
 ----
-// Declarative //
 pipeline {
   agent {
     // Run on a build agent where we have the Android SDK installed
@@ -87,8 +87,10 @@ pipeline {
     }
     stage('Build APK') {
       steps {
-        // Build and archive the APK
+        // Finish building and packaging the APK
         sh './gradlew assembleDebug'
+
+        // Archive the APKs so that they can be downloaded from Jenkins
         archiveArtifacts '**/*.apk'
       }
     }
@@ -117,19 +119,22 @@ pipeline {
         // Build the app in release mode, and sign the APK using the environment variables
         sh './gradlew assembleRelease'
 
-        // Upload the APK
+        // Archive the APKs so that they can be downloaded
+        archiveArtifacts '**/*.apk'
+
+        // Upload the APK to Google Play
         androidApkUpload googleCredentialsId: 'Google Play', apkFilesPattern: '**/*-release.apk', trackName: 'beta'
       }
       post {
         success {
-          // Send an email if the upload succeeded
+          // Notify if the upload succeeded
           mail to: 'beta-testers@example.com', subject: 'New build available!', body: 'Check it out!'
         }
       }
     }
   }
   post {
-    failed {
+    failure {
       // Notify developer team of the failure
       mail to: 'android-devs@example.com', subject: 'Oops!', body: "Build ${env.BUILD_NUMBER} failed; ${env.BUILD_URL}"
     }
