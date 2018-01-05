@@ -14,7 +14,7 @@ references:
 ---
 
 == Overview
-Writing tests for Jenkins plugins is important to ensure that everything works as expected — in various scenarios, with multiple Java versions, and on different operating systems — while helping to prevent regressions from being introduced in later releases.
+Writing tests for Jenkins and its plugins is important to ensure that everything works as expected — in various scenarios, with multiple Java versions, and on different operating systems — while helping to prevent regressions from being introduced in later releases.
 
 Whether you're writing a new Jenkins plugin, or just looking to link:/participate/[participate in the Jenkins project], this guide aims to cover everything you should need to get started writing various types of automated tests. Basic experience of writing Java-based tests with the link:http://junit.org/[JUnit test framework] is assumed.
 
@@ -52,6 +52,12 @@ The simplest way to do this is to add `workflow-aggregator`, which is the "paren
 ----
 <1> As of this writing, version 2.5 is the latest, requiring at least Jenkins 2.7.3; a newer version of the link:https://plugins.jenkins.io/workflow-aggregator[plugin] may now be available. If your plugin supports a Jenkins baseline below 2.7.3, you should preferably increase it; otherwise you will have to use a version of `workflow-aggregator` older than 2.5.
 
+==== Depending on Other Plugins
+Any Jenkins plugins that you add as dependencies to your POM with `<scope>test</scope>` will be available in the Jenkins installations created while running test cases, or when using link:/doc/developer/tutorial/run/[`mvn hpi:run`].
+
+You can
+TODO: During a test, you can also use `WithPlugin`, but this is rare.
+
 === Source Code Location
 The source code for your test cases should be placed in the standard location for Maven projects, i.e. under the `src/test/java/` directory. You can also write test cases in Groovy, placing them under `src/test/groovy/`.
 
@@ -72,7 +78,7 @@ import org.jvnet.hudson.test.*;
 
 public class BasicExample {
   @Rule public JenkinsRule j = new JenkinsRule(); // <1>
-  @Rule public BuildWatcher bw = new BuildWatcher(); // <2>
+  @ClassRule public static BuildWatcher bw = new BuildWatcher(); // <2>
 
   @Test public void freestyleEcho() throws Exception {
     final String command = "echo hello";
@@ -91,27 +97,27 @@ public class BasicExample {
   }
 
   @Test public void pipelineEcho() throws Exception {
-    // Create a new Pipeline with the given definition
+    // Create a new Pipeline with the given (Scripted Pipeline) definition
     WorkflowJob project = j.createProject(WorkflowJob.class); // <4>
-    project.setDefinition(new CpsFlowDefinition("node { echo 'greetings' }", true)); // <5>
+    project.setDefinition(new CpsFlowDefinition("node { echo 'hello' }", true)); // <5>
 
     // Enqueue a build of the Pipeline, wait for it to complete, and assert success
     WorkflowRun build = j.buildAndAssertSuccess(project);
 
     // Assert that the console log contains the output we expect
-    j.assertLogContains("greetings", build);
+    j.assertLogContains("hello", build);
   }
 }
 ----
-<1> This is all that's required in order to automatically set up and tear down a Jenkins installation for each test method. You can disable this behavior for individual test methods by adding the link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/WithoutJenkins.html[`@WithoutJenkins`] annotation.
-<2> This automatically captures the console log output for each build that runs in the test case, and writes it to standard output.
+<1> Creating a `JenkinsRule` is the only requirement to automatically set up and tear down a Jenkins installation for each test method. You can disable this behavior for individual test methods by adding the link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/WithoutJenkins.html[`@WithoutJenkins`] annotation.
+<2> link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/BuildWatcher.html[`BuildWatcher`] captures the console log output for each build that runs in the test case, and writes it to standard output.
 <3> Try to ensure that your tests run on both Windows and Unix-like operating systems; the link:http://javadoc.jenkins.io/hudson/Functions.html#isWindows--[`isWindows()`] method can help here.
 <4> As the link:http://javadoc.jenkins.io/plugin/workflow-job/?org/jenkinsci/plugins/workflow/job/WorkflowJob.html[Pipeline project type] isn't included in Jenkins core, unlike Freestyle, we have to use the generic link:http://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#createProject-java.lang.Class-[`createProject`] method with the `WorkflowJob` class, rather than a specific convenience method like link:http://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#createFreeStyleProject[`createFreeStyleProject`].
 <5> The second parameter should *always* be set to `true`, as this enables link:https://plugins.jenkins.io/script-security[script sandboxing].
 
 == Running Tests
 === From the Command Line
-`mvn test` will run the tests and report results on the command line.
+`mvn test` will run all test cases, report progress and results on the command line, and write those results to JUnit XML files following the pattern `target/surefire-reports/TEST-<class name>.xml`.
 // TODO: Running an individual test class.
 
 === From an IDE
@@ -120,26 +126,134 @@ Most Java IDEs should be able to run JUnit tests and report on the results.
 //=== Debugging
 // Use your IDE
 
-//== Test Techniques
-// TODO: Copy from the wiki
+== Common Patterns
+This section covers patterns that you will commonly use in your test cases, plus scenarios that you should consider testing.
 
-//== Providing Test Data
-// @LocalData
-// @PresetData
+=== Configuration Round-trip Testing
+For Freestyle jobs, where users have to configure projects via the web interface, if you're writing a link:http://javadoc.jenkins.io/byShortName/Builder[`Builder`], link:http://javadoc.jenkins.io/byShortName/Publisher[`Publisher`] or similar, it's a good idea to test that your configuration form works properly. The process to follow is:
 
-//=== SCM
-// @SingleFileScmWhatever
+1. Start up a Jenkins installation and programmatically configure your plugin.
+2. Open the relevant configuration page in Jenkins via HtmlUnit.
+3. Submit the configuration page without making any changes.
+4. Verify that your plugin is still identically configured.
+
+This can be done easily with the `configRoundtrip` convenience methods in `JenkinsRule`:
+
+[source,java]
+----
+@Rule public JenkinsRule j = new JenkinsRule();
+
+@Test public void configRoundtrip() {
+  // Configure a build step with certain properties
+  JUnitResultArchiver junit = new JUnitResultArchiver("**/TEST-*.xml");
+  junit.setAllowEmptyResults(true);
+
+  // Create a project using this build step, open the configuration form, and save it
+  j.configRoundtrip(junit);
+
+  // Assert that the build step still has the correct configuration
+  assertThat(junit.getTestResults(), is("**/TEST-*.xml"));
+  assertThat(junit.isAllowEmptyResults(), is(true));
+}
+----
+
+=== Providing Environment Variables
+In Jenkins, you can set environment variables on the Configure System page, which then become available during builds. To do the same configuration from a test method, you can do the following:
+
+[source,java]
+----
+@Rule public JenkinsRule j = new JenkinsRule();
+
+@Test public void someTest() {
+  EnvironmentVariablesNodeProperty prop = new EnvironmentVariablesNodeProperty();
+  EnvVars ens = prop.getEnvVars();
+  env.put("DEPLOY_TARGET", "staging");
+  j.jenkins.getGlobalNodeProperties().add(prop);
+  // …
+}
+----
+
+=== Providing Test Data
+In order to test parts of your plugin, you may want certain files to exist in the build workspace, or that Jenkins is configured in a certain way. This section covers various ways to achieve this using the Jenkins Test Harness.
+
+==== Customizing the Build Workspace
+Freestyle projects check out code from an SCM before running the build steps, and the test harness provides a few dummy SCM implementations which make it easy to "check out" files into the workspace.
+
+The simplest of these is the link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/SingleFileSCM.html[`SingleFileSCM`] which, as its name suggests, provides a single file during checkout. For example:
+
+[source,java]
+----
+@Rule public JenkinsRule j = new JenkinsRule();
+
+@Test public void customizeWorkspaceWithFile() throws Exception {
+  // Create a Freestyle project with a dummy SCM
+  FreeStyleProject project = j.createFreeStyleProject();
+  project.setScm(new SingleFileSCM("greeting.txt", "hello"));
+  // …
+}
+----
+Once a build of this project starts, the file `greetings.txt` with the contents `hello` will be added to the workspace during the SCM checkout phase. There are additional variants of the `SingleFileSCM` constructor, which let you create the file contents from a byte array, or by reading a file from the resources folder, or other `URL` source. For example:
+
+[source,java]
+----
+import io.jenkins.myplugin;
+
+// Reads the contents from `src/test/resources/io/jenkins/myplugin/test.json`
+project.setScm(new SingleFileSCM("data.json", getClass().getResource("test.json")));
+
+// Reads the contents from `src/test/resources/test.json`
+project.setScm(new SingleFileSCM("data.json", getClass().getResource("/test.json")));
+----
+
+          FilePath workspace = jenkinsRule.jenkins.getWorkspaceFor(job);
+        FilePath report = workspace.child("target").child("lint-results.xml");
+        report.copyFrom(getClass().getResourceAsStream("./parser/lint-results_r20.xml"));
+
+
+If you want to provide more than a single file, you can use link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/ExtractResourceSCM.html[`ExtractResourceSCM`], which will extract the contents of a given zip file into the workspace:
+
+[source,java]
+project.setScm(new ExtractResourceSCM(getClass().getResource("files-and-folders.zip")));
+
+[source,java]
+// TODO: Can you do this from Pipeline? Yes!
+URL zipFile = getClass().getResource("test_ok.zip");
+"unzip zipFile: '" + zipFile.getPath() + "'"
+
+==== Working with SCMs
 // @GitRepoWhatever
+// GitSampleRepoRule
 
-//== Using Agents
-// Creating fake agents.
+==== Customizing the `JENKINS_HOME` Directory
 
-//== Enabling Security
-// Creating fake security realms. Using LocalData presets.
+==== Using `@LocalData`
+Runs a test case with a data set local to test method or the test class.
 
-//== Further Pipeline Testing
-//=== Testing Durable Pipeline Steps
-// RestartableJenkinsRule
+This recipe allows your test case to start with the preset HUDSON_HOME data loaded either from your test method or from the test class.
+For example, if the test method is org.acme.FooTest.bar(), then you can have your test data in one of the following places in resources folder (typically src/test/resources):
+
+* Under org/acme/FooTest/bar directory (that is, you'll have org/acme/FooTest/bar/config.xml), in the same layout as in the real JENKINS_HOME directory.
+* In org/acme/FooTest/bar.zip as a zip file.
+* Under org/acme/FooTest directory (that is, you'll have org/acme/FooTest/config.xml), in the same layout as in the real JENKINS_HOME directory.
+* In org/acme/FooTest.zip as a zip file.
+
+Search is performed in this specific order. The fall back mechanism allows you to write one test class that interacts with different aspects of the same data set, by associating the dataset with a test class, or have a data set local to a specific test method.
+The choice of zip and directory depends on the nature of the test data, as well as the size of it.
+
+=== Configuring an SCM
+
+=== Using Agents
+Creating fake agents.
+
+=== Enabling security
+Creating fake security realms. Using LocalData presets.
+
+== Further Pipeline Testing
+=== Testing Durable Pipeline Steps
+RestartableJenkinsRule
+
+== Further Patterns
+=== Custom builder
 
 //== Advanced and Tips etc.
 //Tip: Use @ClassRule, if you're 900% sure that everything is ok
