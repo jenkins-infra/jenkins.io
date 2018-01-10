@@ -30,7 +30,7 @@ $(document).ready(function() {
  var randomInt1 = Math.floor((Math.random()*10)+1);
  var randomInt2 = Math.floor((Math.random()*10)+1);
  var answer = randomInt1+randomInt2;
- $('#'+labelName).text('Type the answer to "' + randomInt1 + '" plus "' + randomInt2 + '" before clicking "Submit" below.');
+ $('#'+labelName).text('Type the answer to ' + randomInt1 + ' plus ' + randomInt2 + ' before clicking "Submit" below.');
 
  ssForm.submit(function(evt){
   if($('#'+testField).val() == answer){
@@ -38,7 +38,7 @@ $(document).ready(function() {
    ssForm.attr({'action' : 'https://docs.google.com/forms/d/' + feedbackForm.formKey + '/formResponse'});
    return true;
   }else{
-   alert('You need to enter the answer to "' + randomInt1 + '" plus "' + randomInt2 + '".');
+   alert('You need to enter the answer to ' + randomInt1 + ' plus ' + randomInt2 + '.');
     return false;
   }
  });
