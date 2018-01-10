@@ -7,7 +7,7 @@ build:
 	@docker build -t '$(DOCKER_IMAGE):dev-$(DOCKER_TAG)' .
 
 run:
-	@cd .. && docker run -i -t --rm -v `pwd`/build/_site/:/usr/share/nginx/html -p 80:80 $(DOCKER_IMAGE)
+	@cd .. && docker run -i -t --rm -v `pwd`/build/_site/:/usr/share/nginx/html -p 80:80 $(DOCKER_IMAGE):dev-$(DOCKER_TAG)
 
 clean:
 	docker rmi $(DOCKER_IMAGE):dev-$(DOCKER_TAG)
