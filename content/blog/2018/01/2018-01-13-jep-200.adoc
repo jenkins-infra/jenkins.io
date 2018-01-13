@@ -66,22 +66,33 @@ and run Jenkins with this startup option (details will depend on your installati
 
 == For plugin developers
 
+=== Testing plugins against Jenkins 2.102 and above
+
 As a plugin developer encountering this kind of error,
 your first task is to ensure that it is reproducible in a functional (`JenkinsRule`) test
-when running
+when running Jenkins 2.102 or newer to reproduce the error.
 
 [source,sh]
 ----
 mvn test -Djenkins.version=2.102
 ----
 
-or the next LTS version of Jenkins reported to reproduce the error (or a newer version).
-The above assumes you are using a recent 2.x parent POM.
-For certain cases you may need to use `plugin-compat-tester` to run tests against Jenkins core versions much newer than your baseline.
+The above assumes you are using a recent 2.x or 3.x parent link:https://github.com/jenkinsci/plugin-pom[Plugin POM].
+For certain cases you may need to use link:https://github.com/jenkinsci/plugin-compat-tester[Plugin Compat Tester (PCT)]
+to run tests against Jenkins core versions newer than your baseline.
+
+Running PCT against the latest Jenkins core:
+
+[source,sh]
+----
+java -jar pct-cli.jar -reportFile $(pwd)/out/pct-report.xml \
+    -workDirectory $(pwd)/work -skipTestCache true -mvn $(which mvn) \
+    -includePlugins ${ARTIFACT_ID} -localCheckoutDir ${YOUR_PLUGIN_REPO}
+----
 
 You may need to run tests using an agent (e.g., `JenkinsRule.createSlave`) or force saves of plugin settings.
 
-Also make sure your `Jenkinsfile` specifies
+For maven plugins you can also specify custom Jenkins versions in `Jenkinsfile` to run tests against JEP-200:
 
 [source,groovy]
 ----
@@ -91,14 +102,18 @@ buildPlugin(jenkinsVersions: [null, '2.102'])
 (again picking whatever version you need to test against)
 so that the test is included during CI builds, even while your minimum core baseline predates JEP-200.
 
-You then have several choices for fixing the problem:
+If your plugins are built with Gradle, your mileage may vary.
 
+=== Making plugins compatible with Jenkins 2.102 or above
+
+If you discover a compatibility issue in your plugin,
+you then have several choices for fixing the problem:
+
+* Ideally, simplify your code so that the mentioned class is not deserialized via Jenkins Remoting or XStream to begin with:
+** If the problem occurred when receiving a response from an agent, change your `Callable` (or `FileCallable`) to return a plainer type.
+** If the problem occurred when saving an XML file (such as a `config.xml` or `build.xml`), use a plainer type in non-`transient` fields in your persistable plugin classes.
 * If the class(es) are defined in the Java Platform or some library bundled in Jenkins core, propose a pull request adding it to `core/src/main/resources/jenkins/security/whitelisted-classes.txt` in `jenkinsci/jenkins`.
 * If the class(es) are defined in a third-party library bundled in your plugin, create a resource file `META-INF/hudson.remoting.ClassFilter` listing them. (link:https://github.com/jenkinsci/workflow-support-plugin/pull/50/files[example])
 ** You may also do this for Java or Jenkins core library classes, as a hotfix until your core baseline includes the whitelist entry proposed above.
 * If the class(es) are defined in a JAR you build and then bundle in your plugin’s `*.jpi`, add a `Jenkins-ClassFilter-Whitelisted: true` manifest entry. This whitelists every class in the JAR. (link:https://github.com/jenkinsci/lib-jenkins-maven-embedder/pull/15/files[example])
-* Ideally, simplify your code so that the mentioned class is not deserialized via Jenkins Remoting or XStream to begin with:
-** If the problem occurred when receiving a response from an agent, change your `Callable` (or `FileCallable`) to return a plainer type.
-** If the problem occurred when saving an XML file (such as a `config.xml` or `build.xml`), use a plainer type in non-`transient` fields in your persistable plugin classes.
 
-// to be linked to from /content/_data/changelogs/weekly.yml & /content/doc/upgrade-guide
