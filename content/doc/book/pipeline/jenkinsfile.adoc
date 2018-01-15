@@ -26,8 +26,8 @@ provides a number of immediate benefits:
   footnote:[https://en.wikipedia.org/wiki/Single_Source_of_Truth]
   for the Pipeline, which can be viewed and edited by multiple members of the project.
 
-Pipeline supports <<syntax#, two syntaxes>>, Declarative (introduced in
-Pipeline 2.5) and Scripted Pipeline. Both of which support building continuous
+Pipeline supports <<syntax#, two syntaxes>>, declarative (introduced in
+Pipeline 2.5) and scripted Pipeline. Both of which support building continuous
 delivery pipelines. Both may be used to define a Pipeline in either the web UI
 or with a `Jenkinsfile`, though it's generally considered a best practice to
 create a `Jenkinsfile` and check the file into the source control repository.
@@ -95,21 +95,21 @@ syntax highlighting, create a new `Jenkinsfile` in the root directory of the
 project.
 
 [role=declarative-pipeline]
-The Declarative Pipeline example above contains the minimum necessary structure
+The declarative Pipeline example above contains the minimum necessary structure
 to implement a continuous delivery pipeline. The <<syntax#agent, agent
 directive>>, which is required, instructs Jenkins to allocate an executor and
 workspace for the Pipeline. Without an `agent` directive, not only is the
-Declarative Pipeline not valid, it would not be capable of doing any work! By
+declarative Pipeline not valid, it would not be capable of doing any work! By
 default the `agent` directive ensures that the source repository is checked out
 and made available for steps in the subsequent stages`
 
 The <<syntax#stages, stages directive>>, and <<syntax#steps, steps directives>>
-are also required for a valid Declarative Pipeline as they instruct Jenkins
+are also required for a valid declarative Pipeline as they instruct Jenkins
 what to execute and in which stage it should be executed.
 
 [role=scripted-pipeline]
 ====
-For more advanced usage with Scripted Pipeline, the example above `node` is
+For more advanced usage with scripted Pipeline, the example above `node` is
 a crucial first step as it allocates an executor and workspace for the Pipeline.
 In essence, without `node`, a Pipeline cannot do any work! From within `node`,
 the first order of business will be to checkout the source code for this
@@ -288,9 +288,9 @@ each successful Pipeline run will have associated build artifacts archived,
 test results reported upon and the full console output all in Jenkins.
 
 [role=scripted-pipeline]
-A Scripted Pipeline can include conditional tests (shown above), loops,
+A scripted Pipeline can include conditional tests (shown above), loops,
 try/catch/finally blocks and even functions. The next section will cover this
-advanced Scripted Pipeline syntax in more detail.
+advanced scripted Pipeline syntax in more detail.
 
 
 == Advanced syntax for Pipeline
@@ -373,10 +373,10 @@ node {
 ==== Setting environment variables
 
 Setting an environment variable within a Jenkins Pipeline is accomplished
-differently depending on whether Declarative or Scripted Pipeline is used.
+differently depending on whether declarative or scripted Pipeline is used.
 
 Declarative Pipeline supports an <<syntax#environment, environment>>
-directive, whereas users of Scripted Pipeline must use the `withEnv` step.
+directive, whereas users of scripted Pipeline must use the `withEnv` step.
 
 [pipeline]
 ----
@@ -413,12 +413,127 @@ given environment variables to steps within the `stage`.
 
 === Handling credentials
 
+Jenkins can store credentials that may be used:
+
+* anywhere applicable throughout Jenkins (i.e. global credentials),
+* by a specific Pipeline project/item,
+* by a specific Jenkins user (as is the case for
+  link:/doc/book/blueocean/creating-pipelines[Pipeline projects created in Blue
+  Ocean]).
+
+These credentials could take the form of:
+
+* a token such as an API token (e.g. a GitHub personal access token), also known
+  as "secret text",
+* a username and password, which could be handled separately or as a colon
+  separated string in the format `username:password`,
+* an SSH public/private key pair,
+* a "secret file", which is essentially secret content in a file,
+* a PKCS#12 certificate file and password, also known as a "certificate", or
+* Docker host certificate authentication credentials.
+
+There are numerous 3rd-party sites and applications that can interact with
+Jenkins, for example, artifact repositories, cloud-based storage systems and
+services, and so on. A systems administrator of such an application can
+configure credentials in the application for dedicated use by Jenkins. This is
+done typically to "lock down" areas of the application's functionality available
+to Jenkins, usually by applying access controls to these credentials. Once a
+Jenkins manager (i.e. a Jenkins user who administers a Jenkins site)
+adds/configures these credentials in Jenkins, the credentials can be used by
+Pipeline projects to interact with these 3rd party applications.
+
+To maximize security, credentials configured in Jenkins are only handled in
+Pipeline projects via their credential IDs. This minimizes the chances of
+exposing the actual credentials themselves to Jenkins users. When a Jenkins
+manager manually adds credentials to Jenkins, the opportunity is provided to
+specify a meaningful credential ID value - for example, +
+`jenkins-user-for-xyz-artifact-repository`. If this optional field is not
+specified, Jenkins assigns a globally unique ID (GUID) value for the credential
+ID. Bear in mind that once a credential ID is set, it can no longer be changed.
+
+
+==== Setting credentials in a Pipeline
+
+Once the Jenkins environment has the necessary credentials configured, these can
+be easily be set within your Pipeline for immediate use.
+
+===== Using declative Pipeline syntax
+
+Jenkins' decalartive Pipeline syntax has the `credentials()` helper method
+(within the <<syntax#environment,`environment`>> directive) that supports secret
+text, as well as username and password credentials.
+
+For example, the snippet below shows how you can create a Pipeline that uses
+environment variables for two secret text credentials to access Amazon Web
+Services (AWS), where one of these credentials has been configured in Jenkins
+with the credential ID `jenkins-aws-secret-key-id` and the other with
+`jenkins-aws-secret-access-key`.
+
+[source,groovy]
+----
+pipeline {
+    agent {
+        // define agent details
+    }
+    environment {
+        AWS_ACCESS_KEY_ID     = credentials('jenkins-aws-secret-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws-secret-access-key')
+    }
+    stages {
+        stage('Stage 1') {
+            steps {
+                // Use these credential environment variables, which are scoped
+                // globally in this example, by referencing them in your steps
+                // with the syntax $AWS_ACCESS_KEY_ID and $AWS_SECRET_ACCESS_KEY.
+                // For security reasons, if you attempt to retrieve the value of
+                // these credential variables (e.g. echo $AWS_SECRET_ACCESS_KEY),
+                // Jenkins will only return the value "****" to prevent secret
+                // information being written to any logs.
+            }
+        }
+    }
+}
+
+----
+
+Just as the first example, these variables will be available either globally or
+per-stage depending on where the `environment` directive is located in the
+`Jenkinsfile`.
+
+The second most common type of Credentials is "Username and Password" which can
+still be used in the `environment` directive, but results in slightly
+different variables being set.
+
+[source,groovy]
+----
+environment {
+   SAUCE_ACCESS = credentials('sauce-lab-dev')
+}
+----
+
+This will actually set 3 environment variables:
+
+* `SAUCE_ACCESS` containing `<username>:<password>`
+* `SAUCE_ACCESS_USR` containing the username
+* `SAUCE_ACCESS_PSW` containing the password
+
+[NOTE]
+====
+`credentials` is only available for Declarative Pipeline. For those using Scripted
+Pipeline, see the documentation for the `withCredentials` step.
+====
+
+Thus far we have concerned ourselves with creating a Pipeline that is
+configured and executes the way we might expect. In the next couple sections,
+we'll cover another crucial aspect of continuous delivery: surfacing feedback
+and information.
+
 
 === Handling parameters
 
 Declarative Pipeline supports parameters out-of-the-box, allowing the Pipeline
 to accept user-specified parameters at runtime via the <<syntax#parameters,
-parameters directive>>. Configuring parameters with Scripted Pipeline is done
+parameters directive>>. Configuring parameters with scripted Pipeline is done
 with the `properties` step, which can be found in the Snippet Generator.
 
 If you configured your pipeline to accept parameters using the *Build with
@@ -636,19 +751,21 @@ sh 'echo hello' /* short form  */
 sh([script: 'echo hello'])  /* long form */
 ----
 
-=== Advanced Scripted Pipeline
+
+=== Advanced scripted Pipeline
 
 Scripted Pipeline is a domain-specific language
 footnoteref:[dsl, https://en.wikipedia.org/wiki/Domain-specific_language]
 based on Groovy, most
 link:http://groovy-lang.org/semantics.html[Groovy syntax]
-can be used in Scripted Pipeline without modification.
+can be used in scripted Pipeline without modification.
+
 
 ==== Parallel execution
 ////
-NOTE: This is only under "Advanced Scripted Pipeline" temporarily until some
-cleaner parallel syntax is supported for Declarative Pipeline. Right now
-(20170201) parallel in Declarative is indistinguishable from script { } based
+NOTE: This is only under "Advanced scripted Pipeline" temporarily until some
+cleaner parallel syntax is supported for declarative Pipeline. Right now
+(20170201) parallel in declarative is indistinguishable from script { } based
 stuff.
 ////
 
@@ -658,7 +775,7 @@ execution takes 30 minutes to complete, the "Test" stage would now take 60
 minutes to complete!
 
 Fortunately, Pipeline has built-in functionality for executing portions of
-Scripted Pipeline in parallel, implemented in the aptly named `parallel` step.
+scripted Pipeline in parallel, implemented in the aptly named `parallel` step.
 
 Refactoring the example above to use the `parallel` step:
 
