@@ -425,10 +425,10 @@ These credentials could take the form of:
 
 * a token such as an API token (e.g. a GitHub personal access token), also known
   as "secret text",
-* a username and password, which could be handled separately or as a colon
-  separated string in the format `username:password`,
-* an SSH public/private key pair,
+* a username and password, which could be handled as separate components or as a
+  colon separated string in the format `username:password`,
 * a "secret file", which is essentially secret content in a file,
+* an SSH public/private key pair,
 * a PKCS#12 certificate file and password, also known as a "certificate", or
 * Docker host certificate authentication credentials.
 
@@ -458,20 +458,27 @@ Once the Jenkins environment has the necessary credentials configured, these can
 easily be specified within your Pipeline for immediate use.
 
 
-===== Using declative Pipeline syntax
+===== For secret text, usernames and passwords, and secret files
 
 Jenkins' decalartive Pipeline syntax has the `credentials()` helper method (used
-within the <<syntax#environment,`environment`>> directive) which supports secret
-text, as well as username and password credentials.
+within the <<syntax#environment,`environment`>> directive) which supports
+<<#secret-text,secret text>>, <<#usernames-and-passwords,username and
+password>>, as well as <<#secret-files,secret file>> credentials. If want to
+handle other types of credentials, refer to the <<#for-other-credential-types,
+For other credential types>> section below.
 
-For example, the snippet below shows how you can create a Pipeline that uses
+
+====== Secret text
+
+The following code snippet shows an example of how to create a Pipeline using
 environment variables for two "secret text" credentials to access Amazon Web
-Services (AWS); one of these credentials has been configured in Jenkins with the
-credential ID +
-`jenkins-aws-secret-key-id` and the other with `jenkins-aws-secret-access-key`.
+Services (AWS); these credentials would have been configured in Jenkins with
+their respective credential IDs +
+`jenkins-aws-secret-key-id` and `jenkins-aws-secret-access-key`.
 
-[source,groovy]
+[pipeline]
 ----
+// Declarative //
 pipeline {
     agent {
         // define agent details
@@ -496,17 +503,25 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 In this example, the credentials assigned to the two `AWS_...` environment
 variables are scoped globally for the entire Pipeline. However, like any other
 environment variables in a Pipeline, credential variables can be scoped to a
 specific stage by moving the `environment` directive containing these variables
-into a <<syntax#steps,`steps`>> section.
+into the relevant <<syntax#steps,`steps`>> section.
 
-The `credentials()` method also supports the creation of environment variables
-for "username and password" credentials which, in the following example, shows
-the creation of credential variables to access a Bitbucket repository:
+
+====== Usernames and passwords
+
+The following code snippets show an example of how to create a Pipeline using
+environment variables for "username and password" credentials to access a
+Bitbucket repository; these credentials would have been configured in Jenkins
+with the credential ID `jenkins-common-bitbucket-repo-creds`.
+
+When setting the credential environment variable in the <<syntax#environment,
+`environment`>> directive:
 
 [source,groovy]
 ----
@@ -515,31 +530,28 @@ environment {
 }
 ----
 
-where the credential ID is `jenkins-common-bitbucket-repo-creds`.
-
-This will actually set the following three environment variables:
+this actually sets the following three environment variables:
 
 * `COMMON_BITBUCKET_REPO_CREDS` - contains a username and a password separated
   by a colon in the format `username:password`.
-* `COMMON_BITBUCKET_REPO_CREDS_USR` contains the username component only.
-* `COMMON_BITBUCKET_REPO_CREDS_PSW` contains the password component only.
+* `COMMON_BITBUCKET_REPO_CREDS_USR` - contains the username component only.
+* `COMMON_BITBUCKET_REPO_CREDS_PSW` - contains the password component only.
 
 [NOTE]
 ====
 By convention, variable names for environment variables are typically specified
-in capital case, with individual words separated by underscores. However,
-variable names do not need to follow this convention. You can specify any
-legitimate variable name using lower case characters. Bear in mind, however,
-that the additional environment variables created by the `credentials()` method
-(above) will always be appended with `_USR` and `_PSW` (i.e. in the format of an
-underscore followed by three capital letters).
+in capital case, with individual words separated by underscores. You can,
+however, specify any legitimate variable name using lower case characters. Bear
+in mind that the additional environment variables created by the `credentials()`
+method (above) will always be appended with `_USR` and `_PSW` (i.e. in the
+format of an underscore followed by three capital letters).
 ====
 
-The following Pipeline example shows how these credentials can be used within
-the scope of a single stage:
+The following code snippet shows the example Pipeline in its entirety:
 
-[source,groovy]
+[pipeline]
 ----
+// Declarative //
 pipeline {
     agent {
         // define agent details
@@ -565,12 +577,41 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 
-===== Using scripted Pipeline syntax
+====== Secret files
 
-If you need to specify other forms of
+As far as Pipelines are concerned, secret files are handled in exactly the same
+manner as secret text (<<#secret-text,above>>).
+
+Essentially, the only difference between secret text and secret file credentials
+are that for secret text, the credential itself is entered directly into Jenkins
+whereas for a secret file, the credential is originally stored in a file which
+is then uploaded to Jenkins.
+
+Unlike secret text, secret files cater for credentials which might be:
+
+* too unwieldy to enter directly into Jenkins, and/or
+* in binary format, such as a GPG file.
+
+
+===== For other credential types
+
+If you need to set credentials in a Pipeline for anything other than secret
+text, usernames and passwords, or secret files - i.e SSH keys or certificates,
+then use Jenkins' *Snippet Generator* feature, which you can access through
+Jenkins' classic UI.
+
+To access the *Snippet Generator* for your Pipeline project/item:
+
+. From the Jenkins home page (i.e. the Dashboard of Jenkins' classic UI), click
+  the name of your Pipeline project/item.
+. On the left, click *Pipeline Syntax* and ensure that the *Snippet Generator*
+  link is in bold at the top-left. (If not, click this link.)
+. From the *Sample Step* field, choose *withCredentials: Bind credentials to
+  variables*.
 
 
 === Handling parameters
