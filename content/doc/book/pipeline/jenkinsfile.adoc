@@ -10,6 +10,7 @@ title: Using a Jenkinsfile
 :toclevels: 4
 :hide-uri-scheme:
 
+
 = Using a Jenkinsfile
 
 This section builds on the information covered in <<getting-started#, Getting Started>>,
@@ -413,52 +414,13 @@ given environment variables to steps within the `stage`.
 
 === Handling credentials
 
-Jenkins can store credentials that may be used:
-
-* anywhere applicable throughout Jenkins (i.e. global credentials),
-* by a specific Pipeline project/item,
-* by a specific Jenkins user (as is the case for
-  link:/doc/book/blueocean/creating-pipelines[Pipeline projects created in Blue
-  Ocean]).
-
-These credentials could take the form of:
-
-* a token such as an API token (e.g. a GitHub personal access token), also known
-  as "secret text",
-* a username and password, which could be handled as separate components or as a
-  colon separated string in the format `username:password`,
-* a "secret file", which is essentially secret content in a file,
-* an SSH public/private key pair,
-* a PKCS#12 certificate file and password, also known as a "certificate", or
-* Docker host certificate authentication credentials.
-
-There are numerous 3rd-party sites and applications that can interact with
-Jenkins, for example, artifact repositories, cloud-based storage systems and
-services, and so on. A systems administrator of such an application can
-configure credentials in the application for dedicated use by Jenkins. This is
-done typically to "lock down" areas of the application's functionality available
-to Jenkins, usually by applying access controls to these credentials. Once a
-Jenkins manager (i.e. a Jenkins user who administers a Jenkins site)
-adds/configures these credentials in Jenkins, the credentials can be used by
-Pipeline projects to interact with these 3rd party applications.
-
-To maximize security, credentials configured in Jenkins are only handled in
-Pipeline projects via their credential IDs. This minimizes the chances of
-exposing the actual credentials themselves to Jenkins users. When a Jenkins
-manager manually adds credentials to Jenkins, the opportunity is provided to
-specify a meaningful credential ID value - for example, +
-`jenkins-user-for-xyz-artifact-repository`. If this optional field is not
-specified, Jenkins assigns a globally unique ID (GUID) value for the credential
-ID. Bear in mind that once a credential ID is set, it can no longer be changed.
-
-
-==== Setting credentials in a Pipeline
+Jenkins can
 
 Once the Jenkins environment has the necessary credentials configured, these can
 easily be specified within your Pipeline for immediate use.
 
 
-===== For secret text, usernames and passwords, and secret files
+==== For secret text, usernames and passwords, and secret files
 
 Jenkins' decalartive Pipeline syntax has the `credentials()` helper method (used
 within the <<syntax#environment,`environment`>> directive) which supports
@@ -468,7 +430,7 @@ handle other types of credentials, refer to the <<#for-other-credential-types,
 For other credential types>> section below.
 
 
-====== Secret text
+===== Secret text
 
 The following code snippet shows an example of how to create a Pipeline using
 environment variables for secret text credentials. In this example, two secret
@@ -499,7 +461,9 @@ pipeline {
                 // these credential variables from within the Pipeline (e.g.
                 // echo $AWS_SECRET_ACCESS_KEY), Jenkins will only return the
                 // value "****" to prevent secret information being written to
-                // any logs.
+                // any logs. Any sensitive information in credential IDs
+                // themselves (such as usernames) are also obfuscated to "****"
+                // in the Pipeline run output.
             }
         }
     }
@@ -514,7 +478,7 @@ specific stage by moving the `environment` directive containing these variables
 into the relevant <<syntax#steps,`steps`>> section.
 
 
-====== Usernames and passwords
+===== Usernames and passwords
 
 The following code snippets show an example of how to create a Pipeline using
 environment variables for username and password credentials. In this example,
@@ -585,7 +549,7 @@ pipeline {
 ----
 
 
-====== Secret files
+===== Secret files
 
 As far as Pipelines are concerned, secret files are handled in exactly the same
 manner as secret text (<<#secret-text,above>>).
@@ -595,13 +559,13 @@ are that for secret text, the credential itself is entered directly into Jenkins
 whereas for a secret file, the credential is originally stored in a file which
 is then uploaded to Jenkins.
 
-Unlike secret text, secret files cater for credentials which might be:
+Unlike secret text, secret files cater for credentials that are:
 
 * too unwieldy to enter directly into Jenkins, and/or
 * in binary format, such as a GPG file.
 
 
-===== For other credential types
+==== For other credential types
 
 If you need to set credentials in a Pipeline for anything other than secret
 text, usernames and passwords, or secret files
@@ -617,6 +581,53 @@ To access the *Snippet Generator* for your Pipeline project/item:
   link is in bold at the top-left. (If not, click this link.)
 . From the *Sample Step* field, choose *withCredentials: Bind credentials to
   variables*.
+. Under *Bindings*, choose:
+  * *SSH User Private Key* - to handle SSH public/private key pair credentials,
+    from which you can specify:
+  ** *Key File Variable* - the name of the environment variable that will be
+     bound to these credentials (i.e. the temporary location of the private key
+     file required in the authentication process).
+  ** *Passphrase Variable* ( *Optional* ) - the name of the environment variable
+     that will be bound to the
+     link:https://tools.ietf.org/html/rfc4251#section-9.4.4[passphrase]
+     associated with the SSH public/private key pair.
+  ** *Username Variable* ( *Optional* ) - the name of the environment variable
+     that will be bound to username associated with the SSH public/private key
+     pair.
+  ** *Credentials* - the SSH public/private key credentials stored in Jenkins.
+     The value of this field is the credential ID, which Jenkins writes out to
+     the generated snippet. +
+     *Note:* Only credentials which your current Pipeline project/item has
+     access to can be selected from this list.
+  * *Certificate* - to handle PKCS#12 certificates, from which you can specify:
+  ** *Keystore Variable* - the name of the environment variable that will be
+     bound to these credentials (i.e. the temporary location of the keystore
+     for the certificate required in the authentication process).
+  ** *Password Variable* ( *Optional* ) -
+  ** *Alias Variable* ( *Optional* ) -
+  ** *Credentials* -
+  * *Docker client certificate* - to handle Docker Host Certificate
+    Authentication.
+
+[source,groovy]
+----
+withCredentials(bindings: [sshUserPrivateKey(credentialsId: 'jenkins-ssh-key-for-xyz', \
+                                             keyFileVariable: 'SSH_KEY_FOR_XYZ', \
+                                             passphraseVariable: '', \
+                                             usernameVariable: '')]) {
+  echo "The value of 'jenkins-ssh-key-for-xyz' is $SSH_KEY_FOR_XYZ"
+}
+----
+
+[source,groovy]
+----
+withCredentials(bindings: [certificate(aliasVariable: '', \
+                                       credentialsId: 'jenkins-certificate-for-xyz', \
+                                       keystoreVariable: 'CERTIFICATE_FOR_XYZ', \
+                                       passwordVariable: 'xyz-password')]) {
+  echo "The value of 'jenkins-certificate-for-xyz' is $CERTIFICATE_FOR_XYZ"
+}
+----
 
 
 === Handling parameters
