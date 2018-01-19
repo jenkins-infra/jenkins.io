@@ -414,10 +414,9 @@ given environment variables to steps within the `stage`.
 
 === Handling credentials
 
-Jenkins can
-
-Once the Jenkins environment has the necessary credentials configured, these can
-easily be specified within your Pipeline for immediate use.
+Credentials <<using-credentials#configuring-credentials,configured in Jenkins>>
+can be handled in Pipelines for immediate use. Read more about using credentials
+in Jenkins on the <<using-credentials#,Using credentials>> page.
 
 
 ==== For secret text, usernames and passwords, and secret files
@@ -425,18 +424,19 @@ easily be specified within your Pipeline for immediate use.
 Jenkins' decalartive Pipeline syntax has the `credentials()` helper method (used
 within the <<syntax#environment,`environment`>> directive) which supports
 <<#secret-text,secret text>>, <<#usernames-and-passwords,username and
-password>>, as well as <<#secret-files,secret file>> credentials. If want to
+password>>, as well as <<#secret-files,secret file>> credentials. If you want to
 handle other types of credentials, refer to the <<#for-other-credential-types,
 For other credential types>> section below.
 
 
 ===== Secret text
 
-The following code snippet shows an example of how to create a Pipeline using
-environment variables for secret text credentials. In this example, two secret
-text credentials are assigned to separate environment variables to access Amazon
-Web Services (AWS). These credentials would have been configured in Jenkins with
-their respective credential IDs +
+The following Pipeline code shows an example of how to create a Pipeline using
+environment variables for secret text credentials.
+
+In this example, two secret text credentials are assigned to separate
+environment variables to access Amazon Web Services (AWS). These credentials
+would have been configured in Jenkins with their respective credential IDs +
 `jenkins-aws-secret-key-id` and `jenkins-aws-secret-access-key`.
 
 [pipeline]
@@ -444,47 +444,56 @@ their respective credential IDs +
 // Declarative //
 pipeline {
     agent {
-        // define agent details
+        // Define agent details here
     }
     environment {
         AWS_ACCESS_KEY_ID     = credentials('jenkins-aws-secret-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws-secret-access-key')
     }
     stages {
-        stage('Example stage') {
+        stage('Example stage 1') {
             steps {
-                // Use these credential environment variables, which in this
-                // Pipeline example are scoped for the entire Pipeline, by
-                // referencing these variables in your steps with the syntax
-                // $AWS_ACCESS_KEY_ID and $AWS_SECRET_ACCESS_KEY.
-                // For security reasons, if you attempt to retrieve the value of
-                // these credential variables from within the Pipeline (e.g.
-                // echo $AWS_SECRET_ACCESS_KEY), Jenkins will only return the
-                // value "****" to prevent secret information being written to
-                // any logs. Any sensitive information in credential IDs
-                // themselves (such as usernames) are also obfuscated to "****"
-                // in the Pipeline run output.
+                // // <1>
+            }
+        }
+        stage('Example stage 2') {
+            steps {
+                // // <2>
             }
         }
     }
 }
 // Script //
 ----
-
-In this example, the credentials assigned to the two `AWS_...` environment
-variables are scoped globally for the entire Pipeline. However, like any other
-environment variables in a Pipeline, credential variables can be scoped to a
-specific stage by moving the `environment` directive containing these variables
-into the relevant <<syntax#steps,`steps`>> section.
+<1> You can reference the two credential environment variables (defined in this
+Pipeline's <<syntax#environment,`environment`>> directive), within this stage's
+steps using the syntax `$AWS_ACCESS_KEY_ID` and `$AWS_SECRET_ACCESS_KEY`. For
+example, here you can authenticate to AWS using the secret text credentials
+assigned to these credential variables. +
+For security reasons, if you attempt to retrieve the value of these credential
+variables from within the Pipeline (e.g. `echo $AWS_SECRET_ACCESS_KEY`), Jenkins
+only returns the value "`****`" to prevent secret information from being written
+to the console output and any logs. Any sensitive information in credential IDs
+themselves (such as usernames) are also returned as "`****`" in the Pipeline
+run's output.
+<2> In this Pipeline example, the credentials assigned to the two `AWS_...`
+environment variables are scoped globally for the entire Pipeline, so these
+credential variables could also be used in this stage's steps. If, however, the
+`environment` directive in this Pipeline were moved to a specific stage (as is
+the case in the <<#usernames-and-passwords,Usernames and passwords>> Pipeline
+example below), then these `AWS_...` environment variables would only be scoped
+to the steps in that stage.
 
 
 ===== Usernames and passwords
 
-The following code snippets show an example of how to create a Pipeline using
-environment variables for username and password credentials. In this example,
-username and password credentials are assigned to environment variables to
-access a Bitbucket repository; these credentials would have been configured in
-Jenkins with the credential ID `jenkins-common-bitbucket-repo-creds`.
+The following Pipeline code snippets show an example of how to create a Pipeline
+using environment variables for username and password credentials.
+
+In this example, username and password credentials are assigned to environment
+variables to access a Bitbucket repository in a common account or team for your
+organization; these credentials would have been configured in Jenkins with the
+credential ID `jenkins-bitbucket-common-creds`.
 
 When setting the credential environment variable in the <<syntax#environment,
 `environment`>> directive:
@@ -492,18 +501,18 @@ When setting the credential environment variable in the <<syntax#environment,
 [source,groovy]
 ----
 environment {
-    COMMON_BITBUCKET_REPO_CREDS = credentials('jenkins-common-bitbucket-repo-creds')
+    BITBUCKET_COMMON_CREDS = credentials('jenkins-bitbucket-common-creds')
 }
 ----
 
 this actually sets the following three environment variables:
 
-* `COMMON_BITBUCKET_REPO_CREDS` - contains a username and a password separated
-  by a colon in the format `username:password`.
-* `COMMON_BITBUCKET_REPO_CREDS_USR` - an additional variable containing the
-  username component only.
-* `COMMON_BITBUCKET_REPO_CREDS_PSW` - an additional variable containing the
-  password component only.
+* `BITBUCKET_COMMON_CREDS` - contains a username and a password separated by a
+  colon in the format `username:password`.
+* `BITBUCKET_COMMON_CREDS_USR` - an additional variable containing the username
+  component only.
+* `BITBUCKET_COMMON_CREDS_PSW` - an additional variable containing the password
+  component only.
 
 [NOTE]
 ====
@@ -522,31 +531,48 @@ The following code snippet shows the example Pipeline in its entirety:
 // Declarative //
 pipeline {
     agent {
-        // define agent details
+        // Define agent details here
     }
     stages {
         stage('Example stage 1') {
             environment {
-                COMMON_BITBUCKET_REPO_CREDS = credentials('jenkins-common-bitbucket-repo-creds')
+                BITBUCKET_COMMON_CREDS = credentials('jenkins-bitbucket-common-creds')
             }
             steps {
-                // The following credential environment variables are available
-                // for use in this stage block:
-                // * $COMMON_BITBUCKET_REPO_CREDS
-                // * $COMMON_BITBUCKET_REPO_CREDS_USR
-                // * $COMMON_BITBUCKET_REPO_CREDS_PSW
+                // // <1>
             }
         }
         stage('Example stage 2') {
             steps {
-                // However, these credential variables are not available in this
-                // stage block.
+                // // <2>
             }
         }
     }
 }
 // Script //
 ----
+<1> The following credential environment variables (defined in this Pipeline's
+<<syntax#environment,`environment`>> directive) are available within this
+stage's steps and can be referenced using the syntax:
+* `$BITBUCKET_COMMON_CREDS`
+* `$BITBUCKET_COMMON_CREDS_USR`
+* `$BITBUCKET_COMMON_CREDS_PSW`
+
++
+For example, here you can authenticate to Bitbucket with the username and
+password assigned to these credential variables. +
+If you attempt to retrieve the value of these credential variables from within
+the Pipeline, the same behavior described in the <<#secret-text,Secret text>>
+example above applies to these username and password credential variable types
+too, to maintain the security and anonymity of these credentials.
+<2> In this Pipeline example, the credentials assigned to the three
+`COMMON_BITBUCKET_REPO_CREDS...` environment variables are scoped only to
+`Example stage 1`, so these credential variables are not available for use in
+this stage's steps. If, however, the `environment` directive in this Pipeline
+were moved immediately within the <<syntax#declarative-pipeline,`pipeline`>>
+block (as is the case in the <<#secret-text,Secret text>> Pipeline example
+above), then these `COMMON_BITBUCKET_REPO_CREDS...` environment variables would
+be scoped globally and could be used in any stage's steps.
 
 
 ===== Secret files
@@ -578,46 +604,63 @@ To access the *Snippet Generator* for your Pipeline project/item:
 . From the Jenkins home page (i.e. the Dashboard of Jenkins' classic UI), click
   the name of your Pipeline project/item.
 . On the left, click *Pipeline Syntax* and ensure that the *Snippet Generator*
-  link is in bold at the top-left. (If not, click this link.)
+  link is in bold at the top-left. (If not, click its link.)
 . From the *Sample Step* field, choose *withCredentials: Bind credentials to
   variables*.
-. Under *Bindings*, choose:
-  * *SSH User Private Key* - to handle SSH public/private key pair credentials,
-    from which you can specify:
+. Under *Bindings*, click *Add* and choose from the dropdown:
+  * *SSH User Private Key* - to handle
+    link:http://www.snailbook.com/protocols.html[SSH public/private key pair
+    credentials], from which you can specify:
   ** *Key File Variable* - the name of the environment variable that will be
-     bound to these credentials (i.e. the temporary location of the private key
-     file required in the authentication process).
-  ** *Passphrase Variable* ( *Optional* ) - the name of the environment variable
+     bound to these credentials (i.e. the location of the private key file
+     required in the authentication process using the SSH public/private key
+     pair).
+  ** *Passphrase Variable* ( _Optional_ ) - the name of the environment variable
      that will be bound to the
      link:https://tools.ietf.org/html/rfc4251#section-9.4.4[passphrase]
      associated with the SSH public/private key pair.
-  ** *Username Variable* ( *Optional* ) - the name of the environment variable
+  ** *Username Variable* ( _Optional_ ) - the name of the environment variable
      that will be bound to username associated with the SSH public/private key
      pair.
-  ** *Credentials* - the SSH public/private key credentials stored in Jenkins.
-     The value of this field is the credential ID, which Jenkins writes out to
-     the generated snippet. +
-     *Note:* Only credentials which your current Pipeline project/item has
-     access to can be selected from this list.
-  * *Certificate* - to handle PKCS#12 certificates, from which you can specify:
+  ** *Credentials* - choose the SSH public/private key credentials stored in
+     Jenkins. The value of this field is the credential ID, which Jenkins writes
+     out to the generated snippet.
+  * *Certificate* - to handle link:https://tools.ietf.org/html/rfc7292[PKCS#12
+    certificates], from which you can specify:
   ** *Keystore Variable* - the name of the environment variable that will be
-     bound to these credentials (i.e. the temporary location of the keystore
-     for the certificate required in the authentication process).
-  ** *Password Variable* ( *Optional* ) -
-  ** *Alias Variable* ( *Optional* ) -
-  ** *Credentials* -
+     bound to these credentials (i.e. the location of the certificate's keystore
+     required in the authentication process using the certificate).
+  ** *Password Variable* ( _Optional_ ) - the name of the environment variable
+     that will be bound to the password associated with the certificate.
+  ** *Alias Variable* ( _Optional_ ) - the name of the environment variable that
+     will be bound to the unique alias associated with the certificate.
+  ** *Credentials* - choose the certificate credentials stored in Jenkins. The
+     value of this field is the credential ID, which Jenkins writes out to the
+     generated snippet.
   * *Docker client certificate* - to handle Docker Host Certificate
     Authentication.
+. Click *Generate Pipeline Script* and Jenkins generates a Pipeline step snippet
+  for the credentials you specified, which you can then copy and paste into your
+  declarative or scripted Pipeline code. +
+  *Note:* The *Credentials* fields (above) show the names of credentials
+  configured in Jenkins. However, these values are converted to credential IDs
+  after clicking *Generate Pipeline Script*.
+
+*SSH User Private Key example*
 
 [source,groovy]
 ----
-withCredentials(bindings: [sshUserPrivateKey(credentialsId: 'jenkins-ssh-key-for-xyz', \
-                                             keyFileVariable: 'SSH_KEY_FOR_XYZ', \
+withCredentials(bindings: [sshUserPrivateKey(credentialsId: 'jenkins-ssh-key-for-abc', \
+                                             keyFileVariable: 'SSH_KEY_FOR_ABC', \
                                              passphraseVariable: '', \
                                              usernameVariable: '')]) {
-  echo "The value of 'jenkins-ssh-key-for-xyz' is $SSH_KEY_FOR_XYZ"
+  // some block
 }
 ----
+The optional `passphraseVariable` and `usernameVariable` definitions can be
+deleted in your final Pipeline code.
+
+*Certificate example*
 
 [source,groovy]
 ----
@@ -625,9 +668,80 @@ withCredentials(bindings: [certificate(aliasVariable: '', \
                                        credentialsId: 'jenkins-certificate-for-xyz', \
                                        keystoreVariable: 'CERTIFICATE_FOR_XYZ', \
                                        passwordVariable: 'xyz-password')]) {
-  echo "The value of 'jenkins-certificate-for-xyz' is $CERTIFICATE_FOR_XYZ"
+  // some block
 }
 ----
+The optional `aliasVariable` and `passwordVariable` variable definitions can be
+deleted in your final Pipeline code.
+
+The following code snippet shows an example Pipeline in its entirety, which
+implements the *SSH User Private Key* and *Certificate* snippets above:
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent {
+        // define agent details
+    }
+    stages {
+        stage('Example stage 1') {
+            steps {
+                withCredentials(bindings: [sshUserPrivateKey(credentialsId: 'jenkins-ssh-key-for-abc', \
+                                                             keyFileVariable: 'SSH_KEY_FOR_ABC', \
+                                                             passphraseVariable: '', \
+                                                             usernameVariable: '')]) {
+                  // // <1>
+                }
+                withCredentials(bindings: [certificate(aliasVariable: '', \
+                                                       credentialsId: 'jenkins-certificate-for-xyz', \
+                                                       keystoreVariable: 'CERTIFICATE_FOR_XYZ', \
+                                                       passwordVariable: 'xyz-password')]) {
+                  // // <2>
+                }
+            }
+        }
+        stage('Example stage 2') {
+            steps {
+                // // <3>
+            }
+        }
+    }
+}
+// Script //
+----
+<1> Within this step, you can reference the credential environment variable with
+the syntax `$SSH_KEY_FOR_ABC`. For example, here you can authenticate to the ABC
+application with its configured SSH public/private key pair credentials, whose
+*SSH User Private Key* file is assigned to `$SSH_KEY_FOR_ABC`.
+<2> Within this step, you can reference the credential environment variable with
+the syntax `$CERTIFICATE_FOR_XYZ`. For example, here you can authenticate to the
+XYZ application with its configured certificate credential, whose *Certificate*
+file is assigned to `$CERTIFICATE_FOR_XYZ`.
+<3> In this Pipeline example, the credentials assigned to the `$SSH_KEY_FOR_ABC`
+and `$CERTIFICATE_FOR_XYZ` environment variables are scoped only within their
+respective `withCredentials( ... ) { ... }` steps, so these credential variables
+are not available for use in this stage's steps.
+
+If you attempt to retrieve the value of these credential variables from within
+these `withCredentials( ... ) { ... }` steps, the same behavior described in the
+<<#secret-text,Secret text>> example above applies to these SSH public/private
+key pair credential and certificate variable types too, to maintain the security
+and anonymity of these credentials.
+
+[NOTE]
+====
+* Only credentials which your current Pipeline project/item has access to can be
+selected from any *Credentials* field's list when using the *Sample Step*
+field's *withCredentials: Bind credentials to variables* option in the *Snippet
+Generator*. While you can manually write a `withCredentials( ... ) { ... }` step
+for your Pipeline (like the examples above), using the *Snippet Generator* is
+recommended because you are less likely to make this step of your Pipeline fail,
+as a result of specifying credentials which are out of scope for this Pipeline
+project/item.
+* You can specify multiple credentials to make available within a
+`withCredentials( ... ) { ... }` step by clicking the
+====
 
 
 === Handling parameters
