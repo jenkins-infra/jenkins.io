@@ -1,0 +1,69 @@
+---
+layout: section
+title: Scaling Pipelines
+---
+:description:
+:author: Sam Van Oort
+:sectanchors:
+:toc:
+:hide-uri-scheme:
+
+
+= Using Speed/Durability Settings To Reduce Disk I/O Needs
+
+One of the main bottlenecks in Pipeline is that it writes transient data to disk *FREQUENTLY* in order to be able to resume Pipelines when Jenkins restarts or if something goes wrong and it crashes.  This durability is useful for many users but its performance cost can be a problem. 
+
+Pipeline now includes features to let users improve performance by reducing how much data is written to disk and how often it is written -- at a cost to being able to durability.  In some special cases, users may not be able to resume or visualize running Pipelines if Jenkins shuts down suddenly without getting a chance to write data. 
+
+Because these settings include a trade-off they are initially opt-in. Users need to explicity set a _Speed/Durability Setting_ for Pipelines.  Initially they will default to the least aggressive setting.  Note that the same plugin updates including these new settings also include additional I/O optimizations. 
+
+== How Do I Set Speed/Durability Settings?
+There are 3 ways to configure the durability setting:
+
+. *Globally*, you can choose a global default durability setting under "Manage Jenkins" > "Configure System", labelled "Pipeline Speed/Durability Settings".  You can override these with more specific settings below.
+
+. *Per pipeline job:* at the top of the job configuration, labelled "Custom Pipeline Speed/Durability Level" - this overrides the global setting.  Or, use a "properties" step - the setting will apply to the NEXT run after the step is executed (same result).
+
+. *Per-branch for a multibranch project:* configure a custom Branch Property Strategy (under the SCM) and add a property for Custom Pipeline Speed/Durability Level.  This overrides the global setting. You can also use a "properties" step to override the setting, but remember that you may have to run the step again to undo this.
+
+Durability settings will take effect with the next applicable Pipeline run, not immediately.  The setting will be displayed in the log. 
+
+== Will Higher-Performance Durability Settings Help Me?
+* Yes, if you are running complex Pipelines or Pipelines with many steps (more than several hundred).
+* Yes, if your Pipeline stores large files or complex data to variables in the script and then runs steps.  This sounds oddly specific but happens more than you'd expect.
+* Yes, if your Jenkins instance uses NFS, magnetic storage, runs many Pipelines at once, or shows high iowait.
+* No, if your Pipelines spend almost all their time waiting for a few shell/batch scripts to finish.  This ISN'T a magic "go fast" button for everything!
+* No, if Pipelines are writing massive amounts of data to logs (logging is unchanged).
+* No, if you are not using Pipelines, or your system is loaded down by other factors.
+* No, if you don't enable higher-performance modes for pipelines.
+
+== What Am I Giving Up With This Durability Setting "Trade-Off?"
+
+Stability of Jenkins ITSELF is not changed regardless of this setting - it only applies to Pipelines.  The worst-case behavior for Pipelines reverts to something like FreeStyle builds -- running Pipelines that cannot persist transient data may not be able to resume or displayed in Blue Ocean/Stage View/etc, but will have logs.  This impacts _only_ running Pipelines and only when Jenkins is shut down abruptly and not gracefully before they get to complete.
+
+A "graceful" shutdown is where Jenkins goes through a full shutdown process, such as visiting http://[jenkins-server]/exit,  or using normal service shutdown scripts (if Jenkins is healthy).  Sending a SIGTERM/SIGINT to Jenkins will trigger a graceful shutdown.  
+
+A "dirty" shutdown is when Jenkins does not get to do normal shutdown processes. This can occur if the process is forcibly terminated.  The most common causes are using SIGKILL to terminate the Jenkins process or killing the container/VM running Jenkins.  Simply stopping or pausing the container/VM will not cause this, as long as the Jenkins process is able to resume. 
+A dirty shutdown can also happen due to catastrophic operating system failures, including the Linux OOMKiller attacking the Jenkins process to free memory.
+
+All but the most durable setting avoid atomic writes -- what this means is that if the Operating System fails, data that is buffered for writing to disk will not be flushed will be lost.  This is quite rare, but can happen as a result of container or virtualization operations that halt the operating system or disconnect storage.  Usually this data is flushed pretty quickly to disk.
+
+== Requirements To Use Durability Settings
+
+* Jenkins LTS 2.73+ or higher (or a weekly 2.62+)
+* Current Pipeline Plugin versions from near the end of January 2018 for all the following:
+    - Pipeline: API (workflow-api)
+    - Pipeline: Groovy (workflow-cps)
+    - Pipeline: Job (workflow-job)
+    - Pipeline: Supporting APIs (workflow-support)
+    - Pipeline: Multibranch (workflow-multibranch) - optional, only needed to enable this setting for them.
+* Restart the master to use the updated plugins - note: you need all of them to take advantage.
+
+
+== What are the settings? 
+
+* Performance optimized mode ("PERFORMANCE_OPTIMIZED") - Greatly reduces disk I/O but running Pipelines with lower durability settings may lose runtime data IF they do not finish AND Jenkins is not shut down gracefully.  If this happens, they behave like FreeStyle builds (logs, but no steps to visualize). Details at bottom.
+
+* Maximum durability ("MAX_SURVIVABILITY") - behaves just like Pipeline did before, slowest option.  Use this for running your most critical Pipelines.
+
+* Less durable, a bit faster ("SURVIVABLE_NONATOMIC") - Writes data with every step but avoids atomic writes. On some filesytems this is faster than maximum durability mode, but it carries a small extra risk (details at bottom).
