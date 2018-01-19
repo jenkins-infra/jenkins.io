@@ -566,13 +566,13 @@ the Pipeline, the same behavior described in the <<#secret-text,Secret text>>
 example above applies to these username and password credential variable types
 too, to maintain the security and anonymity of these credentials.
 <2> In this Pipeline example, the credentials assigned to the three
-`COMMON_BITBUCKET_REPO_CREDS...` environment variables are scoped only to
-`Example stage 1`, so these credential variables are not available for use in
-this stage's steps. If, however, the `environment` directive in this Pipeline
-were moved immediately within the <<syntax#declarative-pipeline,`pipeline`>>
-block (as is the case in the <<#secret-text,Secret text>> Pipeline example
-above), then these `COMMON_BITBUCKET_REPO_CREDS...` environment variables would
-be scoped globally and could be used in any stage's steps.
+`COMMON_BITBUCKET_CREDS...` environment variables are scoped only to `Example
+stage 1`, so these credential variables are not available for use in this
+stage's steps. If, however, the `environment` directive in this Pipeline were
+moved immediately within the <<syntax#declarative-pipeline,`pipeline`>> block
+(as is the case in the <<#secret-text,Secret text>> Pipeline example above),
+then these `COMMON_BITBUCKET_CREDS...` environment variables would be scoped
+globally and could be used in any stage's steps.
 
 
 ===== Secret files
@@ -639,9 +639,11 @@ To access the *Snippet Generator* for your Pipeline project/item:
      generated snippet.
   * *Docker client certificate* - to handle Docker Host Certificate
     Authentication.
-. Click *Generate Pipeline Script* and Jenkins generates a Pipeline step snippet
-  for the credentials you specified, which you can then copy and paste into your
-  declarative or scripted Pipeline code. +
+. Click *Generate Pipeline Script* and Jenkins generates a
+  `withCredentials( ... ) { ... }` Pipeline step snippet for the credentials you
+  specified, which you can then copy and paste into your declarative or scripted
+  Pipeline code. +
+  [[withcredentials-script-examples]]
   *Note:* The *Credentials* fields (above) show the names of credentials
   configured in Jenkins. However, these values are converted to credential IDs
   after clicking *Generate Pipeline Script*.
@@ -667,7 +669,7 @@ deleted in your final Pipeline code.
 withCredentials(bindings: [certificate(aliasVariable: '', \
                                        credentialsId: 'jenkins-certificate-for-xyz', \
                                        keystoreVariable: 'CERTIFICATE_FOR_XYZ', \
-                                       passwordVariable: 'xyz-password')]) {
+                                       passwordVariable: 'XYZ-CERTIFICATE-PASSWORD')]) {
   // some block
 }
 ----
@@ -688,15 +690,12 @@ pipeline {
         stage('Example stage 1') {
             steps {
                 withCredentials(bindings: [sshUserPrivateKey(credentialsId: 'jenkins-ssh-key-for-abc', \
-                                                             keyFileVariable: 'SSH_KEY_FOR_ABC', \
-                                                             passphraseVariable: '', \
-                                                             usernameVariable: '')]) {
+                                                             keyFileVariable: 'SSH_KEY_FOR_ABC')]) {
                   // // <1>
                 }
-                withCredentials(bindings: [certificate(aliasVariable: '', \
-                                                       credentialsId: 'jenkins-certificate-for-xyz', \
+                withCredentials(bindings: [certificate(credentialsId: 'jenkins-certificate-for-xyz', \
                                                        keystoreVariable: 'CERTIFICATE_FOR_XYZ', \
-                                                       passwordVariable: 'xyz-password')]) {
+                                                       passwordVariable: 'XYZ-CERTIFICATE-PASSWORD')]) {
                   // // <2>
                 }
             }
@@ -715,11 +714,14 @@ the syntax `$SSH_KEY_FOR_ABC`. For example, here you can authenticate to the ABC
 application with its configured SSH public/private key pair credentials, whose
 *SSH User Private Key* file is assigned to `$SSH_KEY_FOR_ABC`.
 <2> Within this step, you can reference the credential environment variable with
-the syntax `$CERTIFICATE_FOR_XYZ`. For example, here you can authenticate to the
-XYZ application with its configured certificate credential, whose *Certificate*
-file is assigned to `$CERTIFICATE_FOR_XYZ`.
-<3> In this Pipeline example, the credentials assigned to the `$SSH_KEY_FOR_ABC`
-and `$CERTIFICATE_FOR_XYZ` environment variables are scoped only within their
+the syntax `$CERTIFICATE_FOR_XYZ` and +
+`$XYZ-CERTIFICATE-PASSWORD`. For example, here you can authenticate to the XYZ
+application with its configured certificate credentials, whose *Certificate*'s
+keystore file and password are assigned to the variables `$CERTIFICATE_FOR_XYZ`
+and `$XYZ-CERTIFICATE-PASSWORD`, respectively.
+<3> In this Pipeline example, the credentials assigned to the
+`$SSH_KEY_FOR_ABC`, `$CERTIFICATE_FOR_XYZ` and +
+`$XYZ-CERTIFICATE-PASSWORD` environment variables are scoped only within their
 respective `withCredentials( ... ) { ... }` steps, so these credential variables
 are not available for use in this stage's steps.
 
@@ -731,17 +733,42 @@ and anonymity of these credentials.
 
 [NOTE]
 ====
-* Only credentials which your current Pipeline project/item has access to can be
-selected from any *Credentials* field's list when using the *Sample Step*
-field's *withCredentials: Bind credentials to variables* option in the *Snippet
-Generator*. While you can manually write a `withCredentials( ... ) { ... }` step
-for your Pipeline (like the examples above), using the *Snippet Generator* is
-recommended because you are less likely to make this step of your Pipeline fail,
-as a result of specifying credentials which are out of scope for this Pipeline
-project/item.
-* You can specify multiple credentials to make available within a
-`withCredentials( ... ) { ... }` step by clicking the
+* When using the *Sample Step* field's *withCredentials: Bind credentials to
+variables* option in the *Snippet Generator*, only credentials which your
+current Pipeline project/item has access to can be selected from any
+*Credentials* field's list. While you can manually write a
+`withCredentials( ... ) { ... }` step for your Pipeline (like the examples
+<<#withcredentials-script-examples,above>>), using the *Snippet Generator* is
+recommended because you are less likely to make this Pipeline step fail (as a
+result of not being able to specify credentials which are out of scope for this
+Pipeline project/item).
+* You can also use the *Snippet Generator* to generate `withCredentials( ... )
+{ ... }` steps to handle secret text, usernames and passwords and secret files.
+However, it is recommended you use the relevant procedure described in the
+section <<#for-secret-text-usernames-and-passwords-and-secret-files,above>> for
+improved readability.
 ====
+
+
+===== Combining credentials in one step
+
+Using the *Snippet Generator*, you can make multiple credentials available
+within a single `withCredentials( ... ) { ... }` step by doing the following:
+
+. From the Jenkins home page (i.e. the Dashboard of Jenkins' classic UI), click
+  the name of your Pipeline project/item.
+. On the left, click *Pipeline Syntax* and ensure that the *Snippet Generator*
+  link is in bold at the top-left. (If not, click its link.)
+. From the *Sample Step* field, choose *withCredentials: Bind credentials to
+  variables*.
+. Click *Add* under *Bindings*.
+. Choose the credential type to add to the `withCredentials( ... ) { ... }` step
+  from the dropdown list.
+. Specify the credential details.
+. Repeat from "Click *Add* ..." (above) for each (set of) credential/s to add to
+  the `withCredentials( ... ) { ... }` step.
+. Click *Generate Pipeline Script* to generate the final
+  `withCredentials( ... ) { ... }` step snippet.
 
 
 === Handling parameters
