@@ -13,14 +13,14 @@ title: Scaling Pipelines
 
 One of the main bottlenecks in Pipeline is that it writes transient data to disk *FREQUENTLY* in order to be able to resume Pipelines when Jenkins restarts or if something goes wrong and it crashes.  This durability is useful for many users but its performance cost can be a problem. 
 
-Pipeline now includes features to let users improve performance by reducing how much data is written to disk and how often it is written -- at a cost to being able to durability.  In some special cases, users may not be able to resume or visualize running Pipelines if Jenkins shuts down suddenly without getting a chance to write data. 
+Pipeline now includes features to let users improve performance by reducing how much data is written to disk and how often it is written -- at a small cost to durability.  In some special cases, users may not be able to resume or visualize running Pipelines if Jenkins shuts down suddenly without getting a chance to write data. 
 
 Because these settings include a trade-off they are initially opt-in. Users need to explicity set a _Speed/Durability Setting_ for Pipelines.  Initially they will default to the least aggressive setting.  Note that the same plugin updates including these new settings also include additional I/O optimizations. 
 
 == How Do I Set Speed/Durability Settings?
 There are 3 ways to configure the durability setting:
 
-. *Globally*, you can choose a global default durability setting under "Manage Jenkins" > "Configure System", labelled "Pipeline Speed/Durability Settings".  You can override these with more specific settings below.
+. *Globally*, you can choose a global default durability setting under "Manage Jenkins" > "Configure System", labelled "Pipeline Speed/Durability Settings".  You can override these with the more specific settings below.
 
 . *Per pipeline job:* at the top of the job configuration, labelled "Custom Pipeline Speed/Durability Level" - this overrides the global setting.  Or, use a "properties" step - the setting will apply to the NEXT run after the step is executed (same result).
 
@@ -39,14 +39,14 @@ Durability settings will take effect with the next applicable Pipeline run, not 
 
 == What Am I Giving Up With This Durability Setting "Trade-Off?"
 
-Stability of Jenkins ITSELF is not changed regardless of this setting - it only applies to Pipelines.  The worst-case behavior for Pipelines reverts to something like FreeStyle builds -- running Pipelines that cannot persist transient data may not be able to resume or displayed in Blue Ocean/Stage View/etc, but will have logs.  This impacts _only_ running Pipelines and only when Jenkins is shut down abruptly and not gracefully before they get to complete.
+*Stability of Jenkins ITSELF is not changed regardless of this setting* - it only applies to Pipelines.  The worst-case behavior for Pipelines reverts to something like FreeStyle builds -- running Pipelines that cannot persist transient data may not be able to resume or be displayed in Blue Ocean/Stage View/etc, but will show logs.  This impacts _only_ running Pipelines and only when Jenkins is shut down abruptly and not gracefully before they get to complete.
 
 A "graceful" shutdown is where Jenkins goes through a full shutdown process, such as visiting http://[jenkins-server]/exit,  or using normal service shutdown scripts (if Jenkins is healthy).  Sending a SIGTERM/SIGINT to Jenkins will trigger a graceful shutdown.  
 
 A "dirty" shutdown is when Jenkins does not get to do normal shutdown processes. This can occur if the process is forcibly terminated.  The most common causes are using SIGKILL to terminate the Jenkins process or killing the container/VM running Jenkins.  Simply stopping or pausing the container/VM will not cause this, as long as the Jenkins process is able to resume. 
 A dirty shutdown can also happen due to catastrophic operating system failures, including the Linux OOMKiller attacking the Jenkins process to free memory.
 
-All but the most durable setting avoid atomic writes -- what this means is that if the Operating System fails, data that is buffered for writing to disk will not be flushed will be lost.  This is quite rare, but can happen as a result of container or virtualization operations that halt the operating system or disconnect storage.  Usually this data is flushed pretty quickly to disk.
+All but the most durable setting avoid atomic writes -- what this means is that if the Operating System fails, data that is buffered for writing to disk will not be flushed, it will be lost.  This is quite rare, but can happen as a result of container or virtualization operations that halt the operating system or disconnect storage.  Usually this data is flushed pretty quickly to disk.
 
 == Requirements To Use Durability Settings
 
@@ -56,14 +56,30 @@ All but the most durable setting avoid atomic writes -- what this means is that 
     - Pipeline: Groovy (workflow-cps)
     - Pipeline: Job (workflow-job)
     - Pipeline: Supporting APIs (workflow-support)
-    - Pipeline: Multibranch (workflow-multibranch) - optional, only needed to enable this setting for them.
+    - Pipeline: Multibranch (workflow-multibranch) - optional, only needed to enable this setting for multibranch pipelines.
 * Restart the master to use the updated plugins - note: you need all of them to take advantage.
 
 
-== What are the settings? 
+== What Are The Durability Settings? 
 
-* Performance optimized mode ("PERFORMANCE_OPTIMIZED") - Greatly reduces disk I/O but running Pipelines with lower durability settings may lose runtime data IF they do not finish AND Jenkins is not shut down gracefully.  If this happens, they behave like FreeStyle builds (logs, but no steps to visualize). Details at bottom.
+* Performance optimized mode ("PERFORMANCE_OPTIMIZED") - *Greatly* reduces disk I/O.  If Pipelines do no finish AND Jenkins is not shut down gracefully, they may lose data and behave like freestyle projects -- see details above.
 
 * Maximum durability ("MAX_SURVIVABILITY") - behaves just like Pipeline did before, slowest option.  Use this for running your most critical Pipelines.
 
-* Less durable, a bit faster ("SURVIVABLE_NONATOMIC") - Writes data with every step but avoids atomic writes. On some filesytems this is faster than maximum durability mode, but it carries a small extra risk (details at bottom).
+* Less durable, a bit faster ("SURVIVABLE_NONATOMIC") - Writes data with every step but avoids atomic writes. This is faster than maximum durability mode, especially on networked filesystems.  It carries a small extra risk (details above under "What Am I Giving Up").
+
+== Suggested Best Practices for Durability Settings
+
+* Use the PERFORMANCE_OPTIMIZED mode for basic build-test Pipelines and anything that can simply be run again if needed.
+* Use MAX_SURVIVABILITY and higher durability modes for Pipelines where you need a guaranteed record of their execution (auditing).
+* Use MAX_SURVIVABILITY and other higher durability modes when pipelines modify the state of critical infrastructure. For example, use it for production deployments.
+* Set a global default (see above) of PERFORMANCE_OPTIMIZED for the Durability Setting, and then go and set MAX_SURVIVABILITY on individual Pipeline jobs or Multibranch Pipeline branches ("master" or release branches).
+
+= Other Scaling Suggestions
+
+* Whenever possible, run Jenkins with fast SSD-backed storage and not hard drives.  This can make a *huge* difference.
+* In general try to fit the tool to the job.  Consider writing short Shell/Batch/Groovy/Python scripts when running a complex process on a build agent.  Good examples include processing data, communicating interactively with REST APIs, and parsing/templating larger XML or JSON files.  The "sh" and "bat" steps are helpful to invoke these, especially with "returnStdout: true" to return the output from this script.
+* Use the latest versions of the Pipeline plugins and Script Security, if applicable.  These include regular performance improvements.
+* Try to simplify Pipeline code by reducing the number of steps run and using simpler Groovy code for Scripted Pipelines.  
+* Consolidate sequential steps of the same type if you can, for example by using one Shell step to invoke a helper script rather than running many steps.
+* Try to limit the amount of data written to logs by Pipelines.  If you are writing several MB of log data, consider writing this to an external file, compressing it, and archiving it as a build artifact.
