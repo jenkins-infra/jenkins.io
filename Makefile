@@ -6,7 +6,8 @@ ASSETS_DIR=$(OUTPUT_DIR)/assets/bower
 FONTS_DIR=$(OUTPUT_DIR)/css/fonts
 VERSION=$(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
 GITHUB_USER=$(USER)
-AWESTRUCT_USER_SITE=-P user-site --url "https://$(GITHUB_USER).github.io/jenkins.io/"
+BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
+AWESTRUCT_USER_SITE=-P user-site --url "https://$(GITHUB_USER).github.io/jenkins.io/$(BRANCH)/"
 
 
 # Generate everything
@@ -24,7 +25,7 @@ site: prepare scripts/awestruct
 
 user-site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
-	./scripts/user-site-deploy.sh
+	./scripts/user-site-deploy.sh $(BRANCH)
 
 pdfs: prepare scripts/generate-handbook-pdf scripts/asciidoctor-pdf
 	./scripts/ruby scripts/generate-handbook-pdf $(BUILD_DIR)/user-handbook.adoc
