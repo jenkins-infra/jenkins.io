@@ -34,6 +34,9 @@ This provides the following features:
 By default, you don't need to do anything to set up the https://github.com/jenkinsci/jenkins-test-harness/[Jenkins Test Harness] for your plugin.
 All Jenkins plugins inherit from the link:https://github.com/jenkinsci/plugin-pom/[plugin parent POM] and therefore have the test harness dependency included automatically.
 
+Similarly, JUnit is included as a dependency by the parent POM, so you don't need to add it as a dependency.
+
+===== Overriding the Test Harness Version
 If you're using version 2.3 or newer of the plugin parent POM, you can change the test harness version used by overriding the `jenkins-test-harness.version` property, if you need newer features.
 For example:
 [source,xml]
@@ -45,11 +48,9 @@ For example:
   </properties>
 ----
 
-Similarly, JUnit is included as a dependency by the parent POM, so you don't need to add it as a dependency.
-
 ==== Working with Pipeline
 You are encouraged to test that your plugin works with link:/doc/pipeline/[Pipeline].
-You can do so without making your plugin itself dependent on various Pipeline-related plugins; you can include these as `test` dependencies, so that they are only used when compiling and running test cases.
+You can do so without making your plugin itself dependent on various Pipeline-related plugins; instead you can include these as `test` dependencies, so that they are only used when compiling and running test cases.
 
 The simplest way to do this is to add plugin:workflow-aggregator[`workflow-aggregator`], which is the "parent" Pipeline plugin, to the `<dependencies>` section of your POM, like this:
 
@@ -63,12 +64,12 @@ The simplest way to do this is to add plugin:workflow-aggregator[`workflow-aggre
 </dependency>
 ----
 <1> As of this writing, version 2.5 is the latest, requiring at least Jenkins 2.7.3; a newer version of the plugin:workflow-aggregator[plugin] may now be available.
-If your plugin supports a Jenkins baseline below 2.7.3, you should preferably increase it; otherwise you will have to use a version of `workflow-aggregator` older than 2.5.
+If your plugin supports a Jenkins baseline below 2.7.3, you should preferably increase it; otherwise you will have to find an appropriate version of `workflow-aggregator` older than 2.5.
 
 ==== Depending on Other Plugins
 Any Jenkins plugins that you add as dependencies to your POM with `<scope>test</scope>` will be available in the Jenkins installations created while running test cases, or when using link:/doc/developer/tutorial/run/[`mvn hpi:run`].
 
-You can also apply the link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/recipes/WithPlugin.html[`@WithPlugin`] annotation, but this is rarely required.
+You can also apply the link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/recipes/WithPlugin.html[`@WithPlugin`] annotation to individual test cases, but this is rarely required.
 
 === Source Code Location
 The source code for your test cases should be placed in the standard location for Maven projects, i.e. under the `src/test/java/` directory.
@@ -77,9 +78,9 @@ You can also write test cases in Groovy, placing them under `src/test/groovy/`. 
 == Basic Example
 Here we'll show a basic test class that exercises a Jenkins build step.
 
-By using link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/JenkinsRule.html[`JenkinsRule`], a fresh, temporary installation of Jenkins will be set up before each test method.
+By using link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/JenkinsRule.html[`JenkinsRule`], a fresh, temporary installation of Jenkins will be set up before each `@Test` method.
 Once the Jenkins instance is running, each test method can use the `Jenkins` object model, via the convenience methods of `JenkinsRule`, to set up and run a new project.
-Once each test method completes, the temporary Jenkins installation will be destroyed.
+After each test method completes, the temporary Jenkins installation will be destroyed.
 
 [source,java]
 ----
@@ -139,7 +140,13 @@ public class BasicExampleTest {
 Most Java IDEs should be able to run JUnit tests and report on the results.
 
 //=== Debugging
-// Use your IDE
+//==== From the Command Line
+//==== From an IDE
+
+== What to Test
+Now that we can write a basic test, we should discuss what you should be testing…
+
+TODO: Unit testing of your code, as much as possible. JenkinsRule testing: creating jobs that use your build steps, running them, asserting on the output
 
 == Common Patterns
 This section covers patterns that you will commonly use in your test cases, plus scenarios that you should consider testing.
@@ -195,7 +202,7 @@ In order to test parts of your plugin, you may want certain files to exist in th
 This section covers various ways to achieve this using the Jenkins Test Harness.
 
 ==== Customizing the Build Workspace
-===== Dummy SCM Implementations
+===== Using a Dummy SCM
 Freestyle projects typically check out code from an SCM before running the build steps, and the test harness provides a few dummy SCM implementations which make it easy to "check out" files into the workspace.
 
 The simplest of these is the link:http://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/SingleFileSCM.html[`SingleFileSCM`] which, as its name suggests, provides a single file during checkout.
@@ -238,9 +245,31 @@ import io.jenkins.myplugin;
 project.setScm(new ExtractResourceSCM(getClass().getResource("files-and-folders.zip")));
 ----
 
-When testing a Pipeline, you can use the link:TODO[`unzip`] step from the plugin:pipeline-utility-steps[Pipeline Utility Steps plugin].
+===== Within a Pipeline
+Pipeline projects don't have the concept of a single SCM, like Freestyle projects do, but offer a variety of ways to places files into a workspace.
 
-First, add the plugin to your POM as a test dependency — you can find the `groupId` and `artifactId` values in the link:TODO[plugin POM]:
+At its most simple, you can use the link:/doc/pipeline/steps/workflow-basic-steps/#code-writefile-code-write-file-to-workspace[`writeFile`] step from the plugin:workflow-basic-steps[Pipeline: Basic Steps plugin]. For example:
+
+[source,java]
+----
+@Rule public JenkinsRule j = new JenkinsRule();
+
+@Test public void customizeWorkspace() throws Exception {
+    // Create a new Pipeline with the given (Scripted Pipeline) definition
+    WorkflowJob project = j.createProject(WorkflowJob.class);
+    project.setDefinition(new CpsFlowDefinition("" +
+        "node {" + // <1>
+        "  writeFile text: 'hello', file: 'greeting.txt'" +
+        "  // …" +
+        "}", true));
+    // …
+}
+----
+<1> The `node` allocates a workspace on an agent, so that we have somewhere to write files to.
+
+Alternatively, you can use the link:/doc/pipeline/steps/pipeline-utility-steps/#code-unzip-code-extract-zip-file[`unzip`] step from the plugin:pipeline-utility-steps[Pipeline Utility Steps plugin] to copy multiple files and folders into the workspace.
+
+First, add the plugin to your POM as a test dependency — you can find the `groupId` and `artifactId` values in the link:https://github.com/jenkinsci/pipeline-utility-steps-plugin/blob/master/pom.xml[plugin POM]:
 [source,xml]
 ----
 <dependency>
@@ -251,8 +280,8 @@ First, add the plugin to your POM as a test dependency — you can find the `gro
 </dependency>
 ----
 
-Then you can extract that zip file using:
-
+You can then write a test which starts by extracting that zip file.
+For example:
 [source,java]
 ----
 import io.jenkins.myplugin;
@@ -268,21 +297,16 @@ public class PipelineWorkspaceExampleTest {
       WorkflowJob project = j.createProject(WorkflowJob.class);
       project.setDefinition(new CpsFlowDefinition("" +
           "node {" + // <1>
-          "  unzip '" + zipFile.getPath() + "'" + // <2>
+          "  unzip '" + zipFile.getPath() + "'" + // <1>
+          "  // …" +
           "}", true));
       // …
   }
 }
 ----
-<1> The `node` allocates a workspace on an agent, so that we can write files into it.
-<2> The path to the zip file is dynamic, so we pass it into the Pipeline definition.
+<1> The path to the zip file is dynamic, so we pass it into the Pipeline definition.
 
-===== Real SCM Implementations
-You can create a Git repository during a test using `@GitSampleRepoRule`.
-
-TODO: Expand this section.
-
-==== Using `FilePath`
+===== Using `FilePath`
 TODO: Expand this section, and explain the below example.
 
 [source,java]
@@ -313,6 +337,7 @@ The choice of zip and directory depends on the nature of the test data, as well 
 
 === Configuring an SCM
 TODO: Write this section.
+You can create a Git repository during a test using `@GitSampleRepoRule`.
 
 === Using Agents
 TODO: Creating fake agents.
