@@ -1,0 +1,99 @@
+---
+layout: simplepage
+section: security
+---
+
+:ruby
+  plugins = page.issues.collect { |issue| issue.plugins }.flatten.uniq.sort { |x,y| site._generated[:update_center].plugins[x.name].title <=> site._generated[:update_center].plugins[y.name].title }
+  credits = page.issues.reduce({}) do |issues, issue|
+    if issue.has_key?("reporter")
+      if !issues.has_key?(issue.reporter)
+        issues[issue.reporter] = []
+      end
+      if !issues[issue.reporter].include?(issue.id)
+        issues[issue.reporter] << issue.id
+      end
+    end
+    issues
+  end
+  credits = credits.sort_by { |k,v| k }
+
+  versions = page.issues.collect { |issue| issue.plugins }.flatten
+
+  fixed_plugins = plugins.dup.keep_if { |p| p.fixed }
+  unfixed_plugins = plugins.dup.keep_if { |p| !p.fixed }
+
+%p
+  This advisory announces vulnerabilities in the following Jenkins deliverables:
+
+%p
+  %ul
+    - if page.core
+      Jenkins core
+    - plugins.each do | plugin |
+      %li
+        %a{:href => 'https://plugins.jenkins.io/' + plugin.name }
+          = site._generated[:update_center].plugins[plugin.name].title
+
+= content
+
+%h2
+  Severity
+
+%ul
+  - page.issues.each do | issue |
+    %li
+      = "#{issue.id}:"
+      %a{ :href => 'http://www.first.org/cvss/calculator/3.0#' + issue.cvss.vector }
+        = issue.cvss.severity
+
+%h2
+  Affected Versions
+%ul
+  - plugins.each do | plugin |
+    - if plugin.previous
+      %li
+        %strong
+          = site._generated[:update_center].plugins[plugin.name].title
+        up to and including
+        = plugin.previous
+
+%h2
+  Fix
+- if fixed_plugins.length > 0
+  %ul
+    - fixed_plugins.each do | plugin |
+      %li
+        %strong
+          = site._generated[:update_center].plugins[plugin.name].title
+        should be updated to version
+        = plugin.fixed
+  %p
+    These versions include fixes to the vulnerabilities described above. All prior versions are considered to be affected by these vulnerabilities unless otherwise indicated.
+
+- if unfixed_plugins.length > 0
+  %p
+    As of publication of this advisory, no fixes are available for the following plugins:
+  %ul
+    - unfixed_plugins.each do | plugin |
+      %li
+        = site._generated[:update_center].plugins[plugin.name].title
+
+
+- if credits.length > 0
+  %h2
+    Credit
+
+  %p
+    The Jenkins project would like to thank the reporters for discovering and
+    %a{href => '/security/#reporting-vulnerabilities'}
+      reporting
+    these vulnerabilities:
+
+    %ul
+      - credits.each do | reporter, issues |
+        %li
+          %strong
+            = reporter
+          for
+          = issues.join(", ")
