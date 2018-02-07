@@ -6,6 +6,17 @@ if [ -z "$1" ] ; then
 fi
 
 BRANCH=$1
+GHP_PATH=./build/_gh-pages
+
+if [ ! -f "${GHP_PATH}/.git" ]; then
+  echo "Setting up user-site work tree under ${GHP_PATH}"
+  rm -rf "${GHP_PATH}"
+  git worktree prune -v
+  git worktree add --no-checkout "${GHP_PATH}" HEAD || exit 1
+fi
+
+pushd "${GHP_PATH}" || exit 1
+rm -rf ./"${BRANCH}"
 
 # if there is no remote gh-pages
 if git ls-remote --exit-code --heads origin gh-pages; then
@@ -23,15 +34,12 @@ else
   fi
 fi
 
-mkdir -p build/_gh-pages &&
-  cp -r build/_site build/_gh-pages/"${BRANCH}"
-  git --work-tree build/_gh-pages/ add --all -- "${BRANCH}" &&
+cp -r ../_site ./"${BRANCH}" &&
+  git add --all -- "${BRANCH}" &&
   git commit -m "Publish site for ${BRANCH} branch to gh-pages" &&
   git push origin gh-pages
 
 RESULT=$?
-rm -rf build/_gh-pages
-rm -rf "${BRANCH}"
-git reset --hard && git checkout - || exit 1
+popd
 
 exit $RESULT
