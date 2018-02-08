@@ -27,7 +27,7 @@ site: prepare scripts/awestruct
 user-site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
 	./scripts/user-site-deploy.sh $(BRANCH)
-	@echo SUCCESS: Published to $(USER_SITE_URL)
+	@echo SUCCESS: Published to $(USER_SITE_URL)index.html
 
 pdfs: prepare scripts/generate-handbook-pdf scripts/asciidoctor-pdf
 	./scripts/ruby scripts/generate-handbook-pdf $(BUILD_DIR)/user-handbook.adoc
