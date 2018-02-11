@@ -4,7 +4,7 @@ section: security
 ---
 
 :ruby
-  plugins = page.issues.collect { |issue| issue.plugins }.flatten.uniq.sort { |x,y| site._generated[:update_center].plugins[x.name].title <=> site._generated[:update_center].plugins[y.name].title }
+  plugins = page.issues.collect { |issue| issue.plugins }.flatten.uniq.keep_if { |p| p }.sort { |x,y| site._generated[:update_center].plugins[x.name].title <=> site._generated[:update_center].plugins[y.name].title }
   credits = page.issues.reduce({}) do |issues, issue|
     if issue.has_key?("reporter")
       if !issues.has_key?(issue.reporter)
@@ -29,7 +29,8 @@ section: security
 %p
   %ul
     - if page.core
-      Jenkins core
+      %li
+        Jenkins (core)
     - plugins.each do | plugin |
       %li
         %a{:href => 'https://plugins.jenkins.io/' + plugin.name }
@@ -50,6 +51,14 @@ section: security
 %h2
   Affected Versions
 %ul
+  - if page.core&.weekly&.previous
+    %li
+      Jenkins weekly up to and including
+      = page.core.weekly&.previous
+  - if page.core&.lts&.previous
+    %li
+      Jenkins LTS up to and including
+      = page.core.lts&.previous
   - plugins.each do | plugin |
     - if plugin.previous
       %li
@@ -60,8 +69,16 @@ section: security
 
 %h2
   Fix
-- if fixed_plugins.length > 0
+- if fixed_plugins.length > 0 || page.core&.weekly&.fixed || page.core&.lts&.fixed
   %ul
+    - if page.core&.weekly&.fixed
+      %li
+        Jenkins weekly should be updated to version
+        = page.core.weekly&.fixed
+    - if page.core&.lts&.fixed
+      %li
+        Jenkins LTS should be updated to version
+        = page.core.lts&.fixed
     - fixed_plugins.each do | plugin |
       %li
         %strong
@@ -72,6 +89,7 @@ section: security
     These versions include fixes to the vulnerabilities described above. All prior versions are considered to be affected by these vulnerabilities unless otherwise indicated.
 
 - if unfixed_plugins.length > 0
+  - # TODO layout does not support unfixed core releases
   %p
     As of publication of this advisory, no fixes are available for the following plugins:
   %ul
@@ -97,3 +115,13 @@ section: security
             = reporter
           for
           = issues.join(", ")
+
+- if page.resources && page.resources.length > 0
+  %h2
+    Other Resources
+
+  %ul
+    - page.resources.each do | resource |
+      %li
+        %a{:href => resource.url}
+          = resource.title
