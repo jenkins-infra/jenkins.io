@@ -1,0 +1,56 @@
+// Deal with formatting later
+
+==  Project Cheetah: Pipeline Improvements Long in the Making
+For a long time, Pipeline has had a bit of a Dr. Jekyll and Mr Hyde performance problem.  In the wrong circumstances, Pipeline turns from a mild-mannered CI/CD assistant to a voracious resource hog. It can consume disk IOPs, processor time, and memory on Jenkins with nary a care for the other concerns of our friendly butler.  In the past we've given link:https://jenkins.io/blog/2017/02/01/pipeline-scalability-best-practice/[Scalability Best Practices] to try to help work around these challenges.  But the amount of effort involved made a comprehensive solution challenging.
+
+Today we're announcing the first major fruits of Project Cheetah, our long-running effort to properly and permanently solve these problems.  More broadly, Cheetah aims to help in 3 places:
+
+* *Small-scale containers:* Pipeline needs to run leanly in resource-constrained containers, to enable easy scale-out without consuming excessive resources on shared container hosts.
+* *Enterprise systems:* Pipeline needs to effectively serve high-scale Jenkins instances that are central to many large companies.
+* *General case:* run Pipelines a bit more quickly on average, and allow users to get much-stronger performance in worst-case scenarios.
+
+
+== What Did This Take?
+A lot.  You're looking at many developer and QA-months here.
+
+We needed to create tooling that would generate a Jenkins deployment in miniature - Jenkins master, build agent swarm, Git server for code, and integrated monitoring and data collection.  These needed to be isolated and independent of an external system such as Github to prevent it becoming an artificial bottleneck.  Then we needed to instrument it to collect detailed system metrics over time - the sort of metrics normally provided by production monitoring tools.  Next we had to come up with a set of Pipelines to use in load testing.  One set hammered specific Pipeline operations such as recording Step information, logging, running complex Groovy code, and executing highly-branched parallels.  Another set mimicked real world scenarios.  This included both lean, lightweight Ppelines and more complex and convoluted all-in-one enterprise pipelines.  
+
+So, that covers several months right there. 
+
+Then we could hammer Pipeline and really measure where its bottlenecks were.  We wanted to attack the storage primarily, because for users that's one of the largest bottlenecks and the hardest to address.  It's fairly easy to upgrade to servers with more CPUs or memory, but often storage options are far more limited.  Especially on cloud instances, fast storage is _expensive._  We also knew that NFS hit major bottlenecks with Pipelines due to the number of tiny files created.
+
+
+== So, what does this actually do for me?
+* Reduce the size of Pipeline FlowNode data on disk by about 30%
+* For users, timing stats generally show 10-20% of normal builds is serializing the Program and writing the record of steps run ("FlowNodes") - the performance optimized durability setting will cut this to _almost nothing_ (for standard pipelines, 1/100 or less) - so builds will complete faster, especially complex ones.
+
+
+== How Do I Set Speed/Durability Settings?
+There are 3 ways to configure the durability setting:
+
+. *Globally*, you can choose a global default durability setting under "Manage Jenkins" > "Configure System", labelled "Pipeline Speed/Durability Settings".  You can override these with the more specific settings below.
+
+<< IMAGE HERE >>
+
+. *Per pipeline job:* at the top of the job configuration, labelled "Custom Pipeline Speed/Durability Level" - this overrides the global setting.  Or, use a "properties" step - the setting will apply to the NEXT run after the step is executed (same result).
+
+<< IMAGE HERE >>
+
+. *Per-branch for a multibranch project:* configure a custom Branch Property Strategy (under the SCM) and add a property for Custom Pipeline Speed/Durability Level.  This overrides the global setting. You can also use a "properties" step to override the setting, but remember that you may have to run the step again to undo this.
+
+<< IMAGE HERE >>
+
+Durability settings will take effect with the next applicable Pipeline run, not immediately.  The setting will be displayed in the log. 
+
+
+== Will Higher-Performance Durability Settings Help Me?
+* Yes, if your Jenkins instance uses NFS, magnetic storage, runs many Pipelines at once, or shows high iowait.
+* Yes, if you are running Pipelines with many steps (more than several hundred).
+* Yes, if your Pipeline stores large files or complex data to variables in the script, keeps that variable in scope for future use, and then runs steps.  This sounds oddly specific but happens more than you'd expect.
+** For example: `readFile` step with a large XML/JSON file, or using configuration information from parsing such a file with link:https://jenkins.io/doc/pipeline/steps/pipeline-utility-steps/#code-readjson-code-read-json-from-files-in-the-workspace[One of the Utility Steps].
+** Another common pattern is a "summary" object containing data from many branches (logs, results, or statistics). Often this is visible because you'll be adding to it often via an add/append or `Map.put()` operations.
+** Large arrays of data or `Map`s of configuration information are another common example of this situation.
+* No, if your Pipelines spend almost all their time waiting for a few shell/batch scripts to finish.  This ISN'T a magic "go fast" button for everything!
+* No, if Pipelines are writing massive amounts of data to logs (logging is unchanged).
+* No, if you are not using Pipelines, or your system is loaded down by other factors.
+* No, if you don't enable higher-performance modes for pipelines.
