@@ -5,7 +5,7 @@ module ActiveNav
   end
 
   def expand_link(relative_url)
-    return [site.base_url, relative_url].join('/')
+    return [site.base_url, relative_url.sub(/^\//, '')].join('/')
   end
 
   def active_href(relative_url, text, options={:class => nil})

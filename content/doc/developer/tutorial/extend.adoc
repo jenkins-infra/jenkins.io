@@ -24,7 +24,7 @@ First, create a class called +HelloWorldAction+ in the same package as +HelloWor
 
 [source,java]
 ----
-package org.jenkinsci.plugins.sample;
+package io.jenkins.plugins.sample;
 
 import hudson.model.Action;
 
@@ -103,9 +103,9 @@ As we can see, there are two actions in this build:
         <hudson.model.Cause_-UserIdCause/>
       </causes>
     </hudson.model.CauseAction>
-    <org.jenkinsci.plugins.sample.HelloWorldAction plugin="demo@1.0-SNAPSHOT"> // <2>
+    <io.jenkins.plugins.sample.HelloWorldAction plugin="demo@1.0-SNAPSHOT"> // <2>
       <name>Jenkins</name> // <3>
-    </org.jenkinsci.plugins.sample.HelloWorldAction>
+    </io.jenkins.plugins.sample.HelloWorldAction>
   </actions>
   (...)
 </build>
@@ -146,12 +146,26 @@ With these changes, the action will show in the build's side panel, and link to 
 image::developer/tutorial/sidepanel-item.png[]
 
 Next, the page appearing at that URL needs to be defined.
+To create such _views_ in Jenkins, link:http://commons.apache.org/proper/commons-jelly/[Apache Commons Jelly] is typically used.
+Jelly allows defining XML and XHTML output in XML.
+It has many features useful for this purpose: It
+* supports conditions and loops
+* allows inclusion of _view fragments_ defined elsewhere
+* can be used to define reusable UI components
 
-In the directory `src/main/resources/org/jenkinsci/plugins/sample/`, we need to create a new directory called `HelloWorldAction/`. This directory corresponds to the `HelloWorldAction` class and contains related resources.
+In the directory `src/main/resources/io/jenkins/plugins/sample/`, we need to create a new directory called `HelloWorldAction/`.
+This directory corresponds to the `HelloWorldAction` class and contains related resources.
 
-NOTE: We can see that resources related to the build step `HelloWorldBuilder` are stored in the `src/main/resources/org/jenkinsci/plugins/sample/HelloWorldBuilder/` directory: `config.jelly` is the build step configuration form, the various `config*.properties` files contain the localizations for the build step configuration and the `help*.html` files provide the localized inline help for the configuration.
+NOTE: This is a directory in `src/main/resources`, not `src/main/java`.
 
-Create a file named `index.jelly` in `src/main/resources/org/jenkinsci/plugins/sample/HelloWorldAction/`. This will be what gets shown at the +http://_JENKINS_/job/_JOBNAME_/_BUILDNUMBER_/greeting/+ URL. Add the following content:
+NOTE: We can see that resources related to the build step `HelloWorldBuilder` are stored in the `src/main/resources/io/jenkins/plugins/sample/HelloWorldBuilder/` directory:
+`config.jelly` is the build step configuration form,
+the various `config*.properties` files contain the localizations for the build step configuration
+and the `help*.html` files provide the localized inline help for the configuration.
+
+Create a file named `index.jelly` in `src/main/resources/io/jenkins/plugins/sample/HelloWorldAction/`.
+This will be what gets shown at the +http://_JENKINS_/job/_JOBNAME_/_BUILDNUMBER_/greeting/+ URL.
+Add the following content:
 
 [source,xml]
 ----
@@ -169,7 +183,7 @@ Create a file named `index.jelly` in `src/main/resources/org/jenkinsci/plugins/s
 <1> +layout+ is a reusable _tag_ defined in Jenkins core that provides the basic page layout with header, side panel, main content area, and footer.
 <2> To make the name show up in the main content area (rather than e.g. the side panel), we need to wrap our output in a `main-panel` tag.
 <3> We can use any HTML tags and they will be used for the output.
-<4> This is a https://commons.apache.org/proper/commons-jexl/[JEXL] expression. +it+ is always the Java object corresponding to the view, in this case the `HelloWorldAction`. `it.name` is equivalent to a getter call (`getName()`).
+<4> This is a https://commons.apache.org/proper/commons-jexl/[JEXL] expression. +it+ refers to the Java object the view belongs to (similar to +this+ in Java), in this case the `HelloWorldAction` instance. `it.name` is equivalent to a getter call (`getName()`).
 
 The resulting page will look similar to this:
 
@@ -179,7 +193,8 @@ image::developer/tutorial/view1.png[]
 
 In the output above, there is no side panel. As this view is related to a specific build, that build's side panel should be shown as well. To do that, we first need to obtain a reference to the corresponding build in our action, and then include the build's side panel view _fragment_ in the action's view.
 
-To obtain a reference to the build (or, more generally, the +jenkinsdoc:Run[]+) the +HelloWorldAction+ belongs to, we need to make it implement +jenkinsdoc:RunAction2[]+. This interface adds two methods that are called when the run is first attached to a build (+onAttached(Run)+), and when the action and run are loaded from disk (+onLoad(Run)+), respectively.
+To obtain a reference to the build (or, more generally, the +jenkinsdoc:Run[]+) the +HelloWorldAction+ belongs to, we need to change the existing class to make it implement +jenkinsdoc:RunAction2[]+.
+This interface adds two methods that are called when the run is first attached to a build (+onAttached(Run)+), and when the action and run are loaded from disk (+onLoad(Run)+), respectively.
 
 [source,java]
 ----
