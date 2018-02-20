@@ -1,29 +1,49 @@
 // Deal with formatting later
 
-==  Project Cheetah: Pipeline Improvements Long in the Making
-For a long time, Pipeline has had a bit of a Dr. Jekyll and Mr Hyde performance problem.  In the wrong circumstances, Pipeline turns from a mild-mannered CI/CD assistant to a voracious resource hog. It can consume disk IOPs, processor time, and memory on Jenkins with nary a care for the other concerns of our friendly butler.  In the past we've given link:https://jenkins.io/blog/2017/02/01/pipeline-scalability-best-practice/[Scalability Best Practices] to try to help work around these challenges.  But the amount of effort involved made a comprehensive solution challenging.
+= Project Cheetah: Faster, Leaner Pipeline Masters That Can Keep Up With Demand
 
-Today we're announcing the first major fruits of Project Cheetah, our long-running effort to properly and permanently solve these problems.  More broadly, Cheetah aims to help in 3 places:
+== The Problem To Solve
+Since it launched, Pipeline has had a bit of a Dr. Jekyll and Mr. Hyde performance problem.  In the wrong circumstances, Pipeline turns from a mild-mannered CI/CD assistant into a monster.  It will happily eat storage read/write capacity like popcorn with nary a care for the other concerns of our friendly butler.  When combined with additional factors, this results in real-world stability problems.  For example, combining slow storage with a spike in running Pipelines has brought down production Jenkins at more than one company.  Similarly users see issues if a busy master gets hit with an extra source of stress; past culprits have been heavy (ab)use of automated APIs, now-solved user lookup bugs, backup jobs, and plugins run amuck that load excessive numbers of builds.
+
+Now I'm _not_ saying this to scare people or to criticize the technology I've helped build. Implementing link:https://jenkins.io/blog/2017/02/01/pipeline-scalability-best-practice/[Pipeline scalability best practices] coupled with SSD storage keeps Jenkins in a happy place.  We just need context on the weaknesses to see why it's important to address them.
+
+== An Improvement Long In The Making
+
+Today we're announcing the first major results of Project Cheetah, our long-running effort to address these challenges and improve Pipeline scalability.  More broadly, Cheetah aims to help in 3 places:
 
 * *Small-scale containers:* Pipeline needs to run leanly in resource-constrained containers, to enable easy scale-out without consuming excessive resources on shared container hosts.
 * *Enterprise systems:* Pipeline needs to effectively serve high-scale Jenkins instances that are central to many large companies.
 * *General case:* run Pipelines a bit more quickly on average, and allow users to get much-stronger performance in worst-case scenarios.
 
+== Yes, but what does it DO? 
 
-== What Did This Take?
-A lot.  You're looking at many developer and QA-months here.
+Project Cheetah offers several things, but the most important is Durability Settings for all Pipelines, and especially the Performance-Optimized setting.  This setting greatly reduces the disk IO needs for Pipeline.  How much?  Below is a graph of storage utilization with legacy Pipeline versions (think early 2017) and with the latest version using the Performance-Optimized mode.  These are tested on an AWS instance backed by an EBS volume provisioned with 300 IOPs. 
 
-We needed to create tooling that would generate a Jenkins deployment in miniature - Jenkins master, build agent swarm, Git server for code, and integrated monitoring and data collection.  These needed to be isolated and independent of an external system such as Github to prevent it becoming an artificial bottleneck.  Then we needed to instrument it to collect detailed system metrics over time - the sort of metrics normally provided by production monitoring tools.  Next we had to come up with a set of Pipelines to use in load testing.  One set hammered specific Pipeline operations such as recording Step information, logging, running complex Groovy code, and executing highly-branched parallels.  Another set mimicked real world scenarios.  This included both lean, lightweight Ppelines and more complex and convoluted all-in-one enterprise pipelines.  
+Before and After:
 
-So, that covers several months right there. 
+<< PICTURE HERE >>
 
-Then we could hammer Pipeline and really measure where its bottlenecks were.  We wanted to attack the storage primarily, because for users that's one of the largest bottlenecks and the hardest to address.  It's fairly easy to upgrade to servers with more CPUs or memory, but often storage options are far more limited.  Especially on cloud instances, fast storage is _expensive._  We also knew that NFS hit major bottlenecks with Pipelines due to the number of tiny files created.
+<< PICTURE HERE >>
 
+As you can see, storage utilization goes down by a _lot_.  While the exact number will vary, in our testcases *this translates to 2x to 6x the throughput before becoming IO-bound*. This also increases stability of masters because they will tolerate unexpected load.
 
-== So, what does this actually do for me?
-* Reduce the size of Pipeline FlowNode data on disk by about 30%
-* For users, timing stats generally show 10-20% of normal builds is serializing the Program and writing the record of steps run ("FlowNodes") - the performance optimized durability setting will cut this to _almost nothing_ (for standard pipelines, 1/100 or less) - so builds will complete faster, especially complex ones.
+This comes with a major drop in CPU IOWait as well:
 
+<<IOWAIT BEFORE>>
+
+<<IOWAIT AFTER>>
+
+And of course the rate at which data is written to disk and number of writes/s is also reduced:
+
+<< PICTURE >> 
+
+<< PICTURE >>
+
+For enterprise users, timing stats often show 10-20% of normal builds is serializing the Program and writing the record of steps run ("FlowNodes") - the performance optimized durability setting will cut this to _almost nothing_ (for standard pipelines, 1/100 or less) - so builds will complete faster, especially complex ones.
+
+Please see the Pipeline Scalability documentation for deeper information on the new Durability Settings and how to use them: <<LINK HERE>>.
+
+Also, users may see a reduction in hung Pipelines because new test utilities made it possible to identify and correct a variety of bugs.
 
 == How Do I Set Speed/Durability Settings?
 There are 3 ways to configure the durability setting:
@@ -42,15 +62,49 @@ There are 3 ways to configure the durability setting:
 
 Durability settings will take effect with the next applicable Pipeline run, not immediately.  The setting will be displayed in the log. 
 
+<< IMAGE HERE >>
 
-== Will Higher-Performance Durability Settings Help Me?
-* Yes, if your Jenkins instance uses NFS, magnetic storage, runs many Pipelines at once, or shows high iowait.
+
+== Will Performance-Optimized Mode Help Me?
+* Yes, if your Jenkins instance uses NFS, magnetic storage, runs many Pipelines at once, or shows high iowait (above 5%)
 * Yes, if you are running Pipelines with many steps (more than several hundred).
 * Yes, if your Pipeline stores large files or complex data to variables in the script, keeps that variable in scope for future use, and then runs steps.  This sounds oddly specific but happens more than you'd expect.
 ** For example: `readFile` step with a large XML/JSON file, or using configuration information from parsing such a file with link:https://jenkins.io/doc/pipeline/steps/pipeline-utility-steps/#code-readjson-code-read-json-from-files-in-the-workspace[One of the Utility Steps].
 ** Another common pattern is a "summary" object containing data from many branches (logs, results, or statistics). Often this is visible because you'll be adding to it often via an add/append or `Map.put()` operations.
 ** Large arrays of data or `Map`s of configuration information are another common example of this situation.
-* No, if your Pipelines spend almost all their time waiting for a few shell/batch scripts to finish.  This ISN'T a magic "go fast" button for everything!
+* No, if your Pipelines spend almost all their time waiting for a few shell/batch steps to finish.  This ISN'T a magic "go fast" button for everything!
 * No, if Pipelines are writing massive amounts of data to logs (logging is unchanged).
 * No, if you are not using Pipelines, or your system is loaded down by other factors.
 * No, if you don't enable higher-performance modes for pipelines.
+
+== Other Goodies
+
+* Users can now set a job property so that individual Pipelines fail cleanly rather than resuming upon restarting the master. 
+
+* We've reduced classloading and reflection quite significantly, which improves scaling and reduces CPU use:
+
+<< PICTURE HERE >>
+
+* Script Security has gotten optimizations to reduce the performance overhead of Sandbox mode and elliminate lock contention so Pipeline multithreads better. 
+
+* Pipeline Step data uses up less space on disk (regardless of the durability setting) - this should be 30% smaller.  Assume it's a few MB per 1000 steps - but for every build after the change. 
+
+<< BENCHMARK PICTURES HERE >>
+
+* Even in the low-performance/high-durability modes, some redundant writes have been removed, which decreases IOPs needs by 10-20%.
+
+== How Did You Do It?
+
+That's probably material for another blog post or Jenkins World talk <<LINK TO JW PAGE>>.
+
+The short answer is: first we built a tool to simulate a full production environment and provide detailed metrics collection at scale.  Then we profiled Jenkins to identify bottlenecks and attacked them.  Rinse and repeat.
+
+== What Next?
+
+The next big change, which I'm calling Cheetah Part 2 is to address Pipeline's logging. For every Step run, Pipeline writes one or more small log files. These log files are then copied into the build log content, but are retained to make it possible to easily fetch logs for each step. 
+
+This copying process means every log line is written twice, greatly reducing perforance, and writing to many small files is orders of magnitude slower than appending to one big log file.
+
+We're going to remove this duplication and data fragmentation and use a more efficient mechanism to find per-step logs. This should further improve the ability to run Pipelines on NFS mounts and hard-drive-backed storage, and should significantly improve performance at scale.
+
+Besides this, there's a variety of different tactical improvements to improve scaling behavior and reduce resource needs.
