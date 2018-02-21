@@ -1,13 +1,22 @@
-// Deal with formatting later
+---
+:layout: post
+:title: "Project Cheetah\: Faster, Leaner Pipeline That Can Keep Up With Demand"
+:tags:
+- pipeline
+- performance
+- scalability
+- features
+:author: svanoort
+---
 
-= Project Cheetah: Faster, Leaner Pipeline Masters That Can Keep Up With Demand
+:toc: 
 
 == The Problem To Solve
 Since it launched, Pipeline has had a bit of a Dr. Jekyll and Mr. Hyde performance problem.  In the wrong circumstances, Pipeline turns from a mild-mannered CI/CD assistant into a monster.  It will happily eat storage read/write capacity like popcorn with nary a care for the other concerns of our friendly butler.  When combined with additional factors, this results in real-world stability problems.  For example, combining slow storage with a spike in running Pipelines has brought down production Jenkins at more than one company.  Similarly users see issues if a busy master gets hit with an extra source of stress; past culprits have been heavy (ab)use of automated APIs, now-solved user lookup bugs, backup jobs, and plugins run amuck that load excessive numbers of builds.
 
-Now I'm _not_ saying this to scare people or to criticize the technology I've helped build. Implementing link:https://jenkins.io/blog/2017/02/01/pipeline-scalability-best-practice/[Pipeline scalability best practices] coupled with SSD storage keeps Jenkins in a happy place.  We just need context on the weaknesses to see why it's important to address them.
+Now I'm _not_ saying this to scare people or to criticize the technology I've helped build. Implementing link:/blog/2017/02/01/pipeline-scalability-best-practice/[Pipeline scalability best practices] coupled with SSD storage keeps Jenkins in a happy place.  We just need context on the weaknesses to see why it's important to address them.
 
-== An Improvement Long In The Making
+== Introducing Project Cheetah
 
 Today we're announcing the first major results of Project Cheetah, our long-running effort to address these challenges and improve Pipeline scalability.  More broadly, Cheetah aims to help in 3 places:
 
@@ -21,48 +30,51 @@ Project Cheetah offers several things, but the most important is Durability Sett
 
 Before and After:
 
-<< PICTURE HERE >>
+image:/images/post-images/2018-02-22-cheetah/io-utilization.png[role="center"]
 
-<< PICTURE HERE >>
-
-As you can see, storage utilization goes down by a _lot_.  While the exact number will vary, in our testcases *this translates to 2x to 6x the throughput before becoming IO-bound*. This also increases stability of masters because they will tolerate unexpected load.
+As you can see, storage utilization goes down by a _lot_.  While the exact number will vary, across the benchmark testcases *this translates to 2x to 6x the Pipeline throughput before becoming IO-bound*. This also increases stability of masters because they will tolerate unexpected load.
 
 This comes with a major drop in CPU IOWait as well:
 
-<<IOWAIT BEFORE>>
-
-<<IOWAIT AFTER>>
+image:/images/post-images/2018-02-22-cheetah/cpu-iowait.png[role="center"]
 
 And of course the rate at which data is written to disk and number of writes/s is also reduced:
 
-<< PICTURE >> 
-
-<< PICTURE >>
+image:/images/post-images/2018-02-22-cheetah/diskio.png[role="center"]
 
 For enterprise users, timing stats often show 10-20% of normal builds is serializing the Program and writing the record of steps run ("FlowNodes") - the performance optimized durability setting will cut this to _almost nothing_ (for standard pipelines, 1/100 or less) - so builds will complete faster, especially complex ones.
 
-Please see the Pipeline Scalability documentation for deeper information on the new Durability Settings and how to use them: <<LINK HERE>>.
+Please see the link:/doc/book/pipeline/scaling-pipeline/[Pipeline Scalability documentation] for deeper information on the new Durability Settings and how to use them.
 
 Also, users may see a reduction in hung Pipelines because new test utilities made it possible to identify and correct a variety of bugs.
 
 == How Do I Set Speed/Durability Settings?
 There are 3 ways to configure the durability setting:
 
-. *Globally*, you can choose a global default durability setting under "Manage Jenkins" > "Configure System", labelled "Pipeline Speed/Durability Settings".  You can override these with the more specific settings below.
+==== 1. *Globally*, you can choose a global default durability setting:
+Under "Manage Jenkins" > "Configure System", labelled "Pipeline Speed/Durability Settings".  You can override these with the more specific settings below.
 
-<< IMAGE HERE >>
+image:/images/post-images/2018-02-22-cheetah/global-durability.png[role="center"]
 
-. *Per pipeline job:* at the top of the job configuration, labelled "Custom Pipeline Speed/Durability Level" - this overrides the global setting.  Or, use a "properties" step - the setting will apply to the NEXT run after the step is executed (same result).
+==== 2. *Each Pipeline* can get a custom Durability Setting:
+This is one of the job properties located at the top of the job configuration, labelled "Custom Pipeline Speed/Durability Level."  **This overrides the global setting.**  Or, use a "properties" step - the setting will apply to the NEXT run after the step is executed (same result).
 
-<< IMAGE HERE >>
+image:/images/post-images/2018-02-22-cheetah/pipeline-durability-highlighted.png[role="center"]
 
-. *Per-branch for a multibranch project:* configure a custom Branch Property Strategy (under the SCM) and add a property for Custom Pipeline Speed/Durability Level.  This overrides the global setting. You can also use a "properties" step to override the setting, but remember that you may have to run the step again to undo this.
+[pipeline]
+----
+// Script //
+properties([durabilityHint('PERFORMANCE_OPTIMIZED')])
+----
 
-<< IMAGE HERE >>
+==== 3. **Multibranch Projects** can use a new BranchProperty to customize the Durability Setting.
+Under the SCM you can configure a custom Branch Property Strategy and add a property for Custom Pipeline Speed/Durability Level.  This overrides the global Durability Setting and will apply to each branch at the next run.  You can also use a "properties" step to override the setting, but remember that you may have to run the step again to undo this.
+
+image:/images/post-images/2018-02-22-cheetah/multibranch-durability.png[role="center"]
 
 Durability settings will take effect with the next applicable Pipeline run, not immediately.  The setting will be displayed in the log. 
 
-<< IMAGE HERE >>
+image:/images/post-images/2018-02-22-cheetah/durability-in-log-highlighted.png[role="center"]
 
 
 == Will Performance-Optimized Mode Help Me?
@@ -71,7 +83,7 @@ Durability settings will take effect with the next applicable Pipeline run, not 
 * Yes, if your Pipeline stores large files or complex data to variables in the script, keeps that variable in scope for future use, and then runs steps.  This sounds oddly specific but happens more than you'd expect.
 ** For example: `readFile` step with a large XML/JSON file, or using configuration information from parsing such a file with link:https://jenkins.io/doc/pipeline/steps/pipeline-utility-steps/#code-readjson-code-read-json-from-files-in-the-workspace[One of the Utility Steps].
 ** Another common pattern is a "summary" object containing data from many branches (logs, results, or statistics). Often this is visible because you'll be adding to it often via an add/append or `Map.put()` operations.
-** Large arrays of data or `Map`s of configuration information are another common example of this situation.
+** Large arrays of data or Maps of configuration information are another common example of this situation.
 * No, if your Pipelines spend almost all their time waiting for a few shell/batch steps to finish.  This ISN'T a magic "go fast" button for everything!
 * No, if Pipelines are writing massive amounts of data to logs (logging is unchanged).
 * No, if you are not using Pipelines, or your system is loaded down by other factors.
@@ -83,19 +95,17 @@ Durability settings will take effect with the next applicable Pipeline run, not 
 
 * We've reduced classloading and reflection quite significantly, which improves scaling and reduces CPU use:
 
-<< PICTURE HERE >>
+image:/images/post-images/2018-02-22-cheetah/classloading.png[role="center"]
 
 * Script Security has gotten optimizations to reduce the performance overhead of Sandbox mode and elliminate lock contention so Pipeline multithreads better. 
 
 * Pipeline Step data uses up less space on disk (regardless of the durability setting) - this should be 30% smaller.  Assume it's a few MB per 1000 steps - but for every build after the change. 
 
-<< BENCHMARK PICTURES HERE >>
-
-* Even in the low-performance/high-durability modes, some redundant writes have been removed, which decreases IOPs needs by 10-20%.
+* Even in the low-performance/high-durability modes, some redundant writes have been removed, which decreases the number of writes by 10-20%.
 
 == How Did You Do It?
 
-That's probably material for another blog post or Jenkins World talk <<LINK TO JW PAGE>>.
+That's probably material for another blog post or https://www.cloudbees.com/jenkinsworld[Jenkins World talk].
 
 The short answer is: first we built a tool to simulate a full production environment and provide detailed metrics collection at scale.  Then we profiled Jenkins to identify bottlenecks and attacked them.  Rinse and repeat.
 
