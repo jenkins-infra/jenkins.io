@@ -1,0 +1,263 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2018-02-26
+section: security
+kind: plugins
+issues:
+
+- id: SECURITY-248
+  title: Environment Injector Plugin before 1.91 stored sensitive build variables
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: envinject
+      fixed: 1.91
+      previous: "1.90"
+  description: |
+    EnvInject plugin stores environment variables in order to visualize them in the "Injected Environment Variables" view.
+    Sensitive build variables, typically passwords, are exempt from this behavior.
+    Plugin versions older than 1.91 (released on Mar 08, 2015) however did not exempt sensitive variables, and persisted them on disk too.
+    Such persisted sensitive variables may be displayed by any release of this plugin for builds run before it was updated to version 1.91 or newer.
+
+    While the bug persisting sensitive build variables has been addressed in release 1.91, there is no fix addressing this problem for historical build data.
+
+    You may be affected by this sensitive data exposure issue if all of the following are true:
+
+    * You define sensitive environment variables globally, per node, or per job.
+    * You have ever used Environment Injector Plugin 1.90 or older.
+    * You still have build records created while Environment Injector Plugin 1.90 or older was installed and enabled.
+
+    To prevent the further exposure of sensitive build variables, we recommend that you take the following steps if you are affected by this:
+
+    * Disable the visualization of Injected Environment variables in the global configuration.
+      After this change the data will be accessible only to those ones who have access to raw build.xml files.
+      This is a reversible action that can be applied immediately, and can be reverted once you've purged the data on disk (below).
+    * Remove the sensitive data from disk by manually removing corresponding entries from +injectedEnvVars.txt+ files, or deleting the +injectedEnvVars.txt+ files in old build directories.
+    * Rotate all secrets that have potentially been exposed.
+
+
+- id: SECURITY-260
+  title: Coverity Plugin stored keystore and private key passwords in plain text
+  reporter: Steve Marlowe &lt;smarlowe@cisco.com&gt; of Cisco ASIG
+  cvss:
+    severity: low
+    vector: CVSS:3.0/AV:N/AC:L/PR:H/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    name: coverity
+    fixed: 1.11.0
+    previous: 1.10.0
+  description: |
+    The Coverity Plugin stored passwords unencrypted as part of its configuration.
+    This allowed users with Jenkins master local file system access and Jenkins administrators to retrieve the stored password.
+    The latter could result in exposure of the passwords through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+    The Coverity Plugin now integrates with plugin:credentials[Credentials Plugin] to store passwords, and automatically migrates existing passwords.
+
+
+- id: SECURITY-402
+  title: Improper access control in Gerrit Trigger Plugin allowed unauthorized users to read some server configuration information
+  reporter: Daniel Beck, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: gerrit-trigger
+      fixed: 2.27.5
+      previous: 2.27.4
+  description: |
+    Missing permission checks in Gerrit Trigger Plugin allowed users with Overall/Read permission to access a form that showed the configuration of Gerrit servers in Jenkins.
+    The key file password was only shown in its encrypted form, if configured.
+    Other options were plainly visible.
+
+    The missing permission check has been added.
+
+
+- id: SECURITY-403
+  title: Improper access control in Gerrit Trigger Plugin allowed unauthorized users to modify global Gerrit Server configurations
+  reporter: Daniel Beck, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:L
+  plugins:
+    - name: gerrit-trigger
+      fixed: 2.27.5
+      previous: 2.27.4
+  description: |
+    Missing permission checks in Gerrit Trigger Plugin allowed users with Overall/Read permission to perform the following actions:
+
+    - Configure Gerrit servers
+    - Connect and disconnect configured Gerrit servers
+
+    The missing permission checks have been added.
+
+
+- id: SECURITY-498
+  title: Improper access control allowed users without ManageOwnership permission to change job ownership metadata in Job and Node ownership Plugin
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  plugins:
+    - name: ownership
+      fixed: 0.12.0
+      previous: 0.11.0
+  description: |
+    Job and Node ownership Plugin did not prevent the ownership metadata being overwritten when a job or node configuration was updated from the CLI or using the remote API (`POST config.xml`).
+
+    This allowed users with Job/Configure permission but without ManageOwnership/Jobs permission to change job ownership metadata, and users with Computer/Configure but without ManageOwnership/Nodes to change node ownership metadata.
+
+    Changes to job or node ownership metadata via remote API now require ManageOwnership/Jobs or ManageOwnership/Nodes permission, respectively.
+    Changes to job or node ownership via CLI require Overall/Administer permission.
+
+- id: SECURITY-554
+  title: Azure Slave Plugin bundled outdated httpclient library with denial of service vulnerability
+  cve: CVE-2015-5262
+  cvss:
+    severity: medium
+    vector: (AV:N/AC:M/Au:N/C:N/I:N/A:P)
+  plugins:
+    - name: azure-slave-plugin
+      title: Azure Slave
+      previous: 0.3.4
+  description: |
+    The Azure Slave Plugin bundles a version of the httpclient library that is vulnerable to link:https://nvd.nist.gov/vuln/detail/CVE-2015-5262[CVE-2015-5262].
+
+    As the plugin has been deprecated in favor of plugin:azure-vm-agents[Azure VM Agents Plugin] in 2016, there are no plans to release a fix.
+    It has been removed from distribution per request by the former maintainers.
+
+
+- id: SECURITY-712
+  title: Reflected cross-site-scripting vulnerability in report URL of CppNCSS Plugin
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N
+  plugins:
+    - name: cppncss
+      fixed: 1.2
+      previous: 1.1
+  description: |
+    CppNCSS Plugin did not properly escape the report name and graph name, resulting in a reflected cross-site scripting vulnerability.
+
+    Report name and graph name are now properly escaped.
+
+
+- id: SECURITY-715
+  title: Unprivileged users are able to enumerate credential IDs in Google Play Android Publisher Plugin
+  reporter: Christopher Orr
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: google-play-android-publisher
+      fixed: 1.7
+      previous: 1.6
+  description: |
+    Google Play Android Publisher Plugin provides a list of applicable credential IDs to allow users configuring a job to select the one they'd like to use to authenticate with the Google Play API.
+
+    This functionality did not check permissions, allowing any user with Overall/Read permission to get a list of valid credential IDs.
+    Those could be used as part of an attack to capture the credentials using another vulnerability.
+
+    Additionally, a related form validation function would allow verification whether a specified credential is valid for use with the Google Play API.
+
+    Enumeration of credentials IDs and validation of specified credentials in this plugin now requires the permission to have the ExtendedRead permission (when that permission is enabled; otherwise Configure permission) to the job in whose context credentials are being accessed.
+
+
+- id: SECURITY-723
+  title: Disclosure of user names and node names to unauthorized users through post-commit hook URL in Git Plugin
+  reporter: Spencer Gietzen of Rhino Security Labs
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: git
+      fixed: 3.8.0
+      previous: 3.7.0
+  description: |
+    The class handling unauthenticated Git post-commit hook notification requests at the +/git/+ path unnecessarily extended another type that handled requests to the +…/search/+ sub-path.
+
+    This allowed submission of search queries to Jenkins, and getting a list of search results usually available to anyone with Overall/Read permission.
+    In current Jenkins releases, those are typically the names of known users (both actual users of Jenkins, and known SCM committers) and nodes (master and agents).
+
+    The class handling requests to +/git/+ no longer extends the class handling requests to the +…/search/+ sub-path, therefore any such requests will fail.
+
+
+- id: SECURITY-724
+  title: Disclosure of user names and node names to unauthorized users through post-commit hook URL in Subversion Plugin
+  # reporter: Internal to security team triggered by SECURITY-723
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: subversion
+      fixed: 2.10.3
+      previous: 2.10.2
+  description: |
+    The class handling unauthenticated Subversion post-commit hook notification requests at the +/subversion/+ path unnecessarily extended another type that handled requests to the +…/search/+ sub-path.
+
+    This allowed submission of search queries to Jenkins, and getting a list of search results usually available to anyone with Overall/Read permission.
+    In current Jenkins releases, those are typically the names of known users (both actual users of Jenkins, and known SCM committers) and nodes (master and agents).
+
+    The class handling requests to +/subversion/+ no longer extends the class handling requests to the +…/search/+ sub-path, therefore any such requests will fail.
+
+
+- id: SECURITY-726
+  # reporter: Internal to security team triggered by SECURITY-723
+  title: Disclosure of user names and node names to unauthorized users through post-commit hook URL in Mercurial Plugin
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: mercurial
+      fixed: 2.3
+      previous: 2.2
+  description: |
+    The class handling unauthenticated Mercurial post-commit hook notification requests at the +/mercurial/+ path unnecessarily extended another type that handled requests to the +…/search/+ sub-path.
+
+    This allowed submission of search queries to Jenkins, and getting a list of search results usually available to anyone with Overall/Read permission.
+    In current Jenkins releases, those are typically the names of known users (both actual users of Jenkins, and known SCM committers) and nodes (master and agents).
+
+    The class handling requests to +/mercurial/+ no longer extends the class handling requests to the +…/search/+ sub-path, therefore any such requests will fail.
+
+
+- id: SECURITY-731
+  title: Stored cross-site scripting vulnerability in TestLink Plugin
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N
+  plugins:
+    - name: testlink
+      fixed: 3.13
+      previous: 3.12
+  description: |
+    Users with Job/Configure permission were able to configure TestLink reports to display arbitrary unescaped HTML e.g. in test case names.
+
+    The plugin now properly escapes its HTML output.
+
+- id: SECURITY-746
+  title: Promoted Builds Plugin allowed unauthorized users to run some promotion processes
+  reporter: Devin Nusbaum, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  plugins:
+    - name: promoted-builds
+      fixed: 3.0
+      previous: 2.31.1
+  description: |
+    Users with Job/Read access were able to approve and re-execute promotion processes with a manual promotion condition that did not specify a list of users allowed to manually approve the promotion.
+
+    The plugin now requires users to have the Promotion/Promote permission to be able to approve or re-execute a promotion with manual condition that does not specify a list of users allowed to approve it.
+
+    The following additional changes to permission enforcement were implemented in this update to make condition enforcement consistent for the three actions Approve, Re-Execute, and Force:
+
+    NOTE: Some of these changes allow users to act on some promotions they were not able to act on in 2.x releases of this plugin.
+
+    . Users with just the Promotion/Promote permission are no longer allowed to re-execute or force promotions with a manual condition that specifies a list of users, unless the user is on that list.
+    . Administrators are now able to approve any promotion with a manual condition.
+    . Users specified in a manual promotion condition are now allowed to force this promotion.
+
+---
