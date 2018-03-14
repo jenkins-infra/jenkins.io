@@ -1,0 +1,137 @@
+---
+layout: post
+title: "JEP-200: Remoting / XStream whitelist lands in the 2.107.1 LTS"
+tags:
+- core
+- security
+- remoting
+- upgrade
+author: oleg_nenashev
+---
+
+[NOTE]
+====
+This is a post about a major update in the Jenkins core, which is available starting
+from Jenkins 2.102 and Jenkins LTS 2.107.1.
+This is a change with a serious risk of regressions in plugins.
+If you are a Jenkins administrator, please read this guide carefully *before* upgrading.
+====
+
+== Background
+
+link:https://github.com/jenkinsci/jep/blob/master/jep/200/README.adoc[JEP-200] has been integrated into Jenkins weekly builds
+and (if all goes well) will be a part of the next LTS line.
+Staring from Jenkins 2.102 (released in January 2018), Jenkins rejects *ALL* classes not explicitly mentioned in a _whitelist_, or defined in Jenkins core or plugins.
+See link:/blog/2018/01/13/jep-200/[this blogpost] for the original announcement.
+In a nutshell, this change is a security hardening measure
+to be less permissive about deserializing Java classes defined in the Java Platform or libraries bundled with Jenkins.
+
+:toc:
+
+For several years now, Jenkins has specifically _blacklisted_ certain classes and packages according to known or suspected exploits.
+This approach has been proven unsustainable due to the risk of deserialization attacks via unknown classes
+from 3rd-party components, and in JEP-200 we aim to prevent this risk.
+The change implies some collateral damage to plugins serializing non-whitelisted 3rd-party classes,
+see link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by JEP-200]) for the list.
+
+
+== Heads-up
+
+In order to provide more details to Jenkins administrators and users,
+we prepared some enablement materials together with link:https://github.com/bitwiseman[Liam Newman]
+and link:https://github.com/jglick[Jesse Glick].
+
+Slides:
+++++
+<center>
+  <iframe width="560" height="315" frameborder="0"
+  src="https://speakerdeck.com/player/f2b7e049ec46424b98ec4f0b58fd33bf"></iframe>
+</center>
+++++
+
+Video:
+++++
+<center>
+  <iframe width="560" height="315" frameborder="0"
+    src="https://www.youtube-nocookie.com/embed/Vfnc9t1RuYA?rel=0"></iframe>
+</center>
+++++
+
+== For Jenkins administrators
+
+Upgrading to a core with JEP-200 requires a special update procedure, which is described below.
+
+=== Upgrade
+
+. Read this blog post carefully
+. If you have a way of testing the upgrade before applying it to production, do it
+. **BACKUP YOUR INSTANCE** so you have any easy way of rolling back
+. Update all affected plugins.
+See link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[this Wiki page] for the list of affected plugins,
+fix statuses and workarounds
+. Apply workarounds for non-released patches if needed (see below)
+. Update to the new version of the Jenkins core
+
+Using backups and staging servers is good advice before _any_ upgrade but especially this one,
+with a relatively high risk of regression.
+Due to the nature of the changes, some plugins may refuse to load after the upgrade and cause denial of the service.
+
+=== After the upgrade
+
+To the extent that advance testing of the impact of this change on popular plugins has been completed,
+most users (and even plugin developers) should not notice any difference.
+So it is highly advised to monitor your system after the upgrade, especially the following cases:
+
+* Jenkins System log (especially during the startup)
+* Build logs
+
+If you do encounter a log message with the `https://jenkins.io/redirect/class-filter/` link,
+most likely you have found a JEP-200 regression.
+Example:
+
+----
+some.pkg.and.ClassName in file:/var/lib/jenkins/plugins/some-plugin-name/WEB-INF/lib/some-library-1.2.jar might be dangerous, so rejecting; see https://jenkins.io/redirect/class-filter/
+----
+
+If you see such message, we highly recommend reporting it so that it can be investigated and probably fixed quickly.
+
+=== Reporting JEP-200 issues
+
+Please report it in the link:https://issues.jenkins-ci.org/[Jenkins issue tracker], under the appropriate plugin component.
+Before reporting please check whether there are already reported issues.
+
+. Add the `JEP-200` label
+. Link the newly created issue to link:https://issues.jenkins-ci.org/browse/JENKINS-47736[JENKINS-47736]
+. Include the stacktrace you see in the log
+. If possible, include complete steps to reproduce the problem from scratch
+
+You can find examples of the reported issues using link:https://issues.jenkins-ci.org/issues/?jql=labels%20%3D%20JEP-200[this query].
+
+Jenkins developers will strive to evaluate the reason for the violation and offer a fix in the form of a core and/or plugin update.
+Right after the feature release there will be a special team triaging the reports with high priority
+See link:https://github.com/jenkinsci/jep/tree/master/jep/200#rollout-plan[JEP-200 Maintenance plan] for more info.
+
+For more details and current status, see
+link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by fix for JEP-200].
+
+=== Applying workarounds
+
+Assuming you see no particular reason to think that the class in question has dangerous deserialization semantics, which is rare,
+it is possible to work around the problem in your own installation as a temporary expedient.
+Note class name(s) mentioned in the JEP-200 log messages,
+and run Jenkins with the `hudson.remoting.ClassFilter` startup option, e.g.:
+
+----
+java -Dhudson.remoting.ClassFilter=some.pkg.and.ClassName,some.pkg.and.OtherClassName -jar jenkins.war ...
+----
+
+Your mileage may vary depending on Jenkins packaging and installation.
+Such update may require several iterations, because classes whitelisted in the workaround may also
+include fields with types requiring whitelisting.
+
+== For plugin developers
+
+If you are a plugin developer, please see link:/blog/2018/01/13/jep-200/[the original JEP-200 announcement].
+This blogpost provides guidelines about testing and fixing plugin compatibility after the JEP-200 changes.
+
+The presentation above also provides some information about what needs to be tested.
