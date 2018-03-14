@@ -9,60 +9,106 @@ tags:
 author: jglick
 ---
 
+[NOTE]
+====
+This is a post about a major update in the Jenkins core, which is available starting
+from Jenkins 2.102 and Jenkins LTS 2.107.1.
+This is a change with a serious risk of regressions in plugins.
+If you are a Jenkins administrator, please read this guide carefully *before* upgrading.
+====
+
 == Overview
 
 link:https://github.com/jenkinsci/jep/blob/master/jep/200/README.adoc[JEP-200] has been integrated into Jenkins weekly builds
 and (if all goes well) will be a part of the next LTS line.
+Staring from Jenkins 2.102, it will reject *ALL* classes not explicitly mentioned in a _whitelist_, or defined in Jenkins core or plugins.
+
 In a nutshell, this change is a security hardening measure
 to be less permissive about deserializing Java classes defined in the Java Platform or libraries bundled with Jenkins.
-For several years now, Jenkins has specifically _blacklisted_ certain classes and packages according to known or suspected exploits;
-now it will reject all classes not explicitly mentioned in a _whitelist_, or defined in Jenkins core or plugins.
+For several years now, Jenkins has specifically _blacklisted_ certain classes and packages according to known or suspected exploits.
+This approach has been proven unsustainable due to the risk of deserialization attacks via unknown classes
+from 3rd-party components, and in JEP-200 we aim to prevent this risk.
+The change implies some collateral damage to plugins serializing non-whitelisted 3rd-party classes,
+see link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by JEP-200]) for the list.
+
+This blogpost provides upgrade guidelines for Jenkins administrators and testing guidelines for plugin developers.
 
 == For Jenkins administrators
 
-=== Before upgrade
+Upgrading to a core with JEP-200 requires a special update procedure, which is described below.
 
-Back up your Jenkins instance prior to upgrade so you have any easy way of rolling back.
-If you are running any of the plugins listed in
-link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by fix for JEP-200],
-update them after taking the backup but before upgrading Jenkins core.
+=== Upgrade
 
-If you have a way of testing the upgrade in an isolated environment before applying it to production,
-do so now.
+. Read this blog post carefully.
+We have also created upgrade guidelines (link:https://www.google.com/url?q=https%3A%2F%2Fspeakerdeck.com%2Fonenashev%2Fjenkins-jep-200-status-update-and-heads-up&sa=D&sntz=1&usg=AFQjCNG2yWKrxw-jkqc-he9fd6bFa5675A[slides],
+   link:https://www.youtube.com/watch?v=Vfnc9t1RuYA[video])
+which provide more background and guidelines
+. If you have a way of testing the upgrade before applying it to production, do it
+. **BACKUP YOUR INSTANCE** so you have any easy way of rolling back
+. Update all affected plugins.
+See link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[this Wiki page] for the list of affected plugins,
+fix statuses and workarounds
+. Apply workarounds for non-released patches if needed (see below)
+. Update to the new version of the Jenkins core
 
-Using backups and a staging server is good advice before _any_ upgrade but especially this one,
+Using backups and staging servers is good advice before _any_ upgrade but especially this one,
 with a relatively high risk of regression.
+Due to the nature of the changes, some plugins may refuse to load after the upgrade and cause denial of the service.
 
-=== After upgrade
+=== After the upgrade
 
 To the extent that advance testing of the impact of this change on popular plugins has been completed,
 most users (and even plugin developers) should not notice any difference.
-If you do encounter a `java.lang.SecurityException: Rejected: some.pkg.and.ClassName` in the Jenkins UI or logs,
+So it is highly advised to monitor your system after the upgrade, especially the following cases:
+
+* Jenkins System log (especially during the startup)
+* Build logs
+
+If you do encounter a log message with the `https://jenkins.io/redirect/class-filter/` link,
 you may have found a case where an unusual plugin, or an unusual usage mode of a common plugin,
 violates the existing whitelist.
-This will be visible in the Jenkins system log as a message from `jenkins.security.ClassFilterImpl` like the following:
+
+Example:
 
 ----
 some.pkg.and.ClassName in file:/var/lib/jenkins/plugins/some-plugin-name/WEB-INF/lib/some-library-1.2.jar might be dangerous, so rejecting; see https://jenkins.io/redirect/class-filter/
 ----
 
-where the link would direct you here.
+If you see such message, we highly recommend reporting it so that it can be investigated and probably fixed quickly.
 
-If you find such a case, please report it in the Jenkins issue tracker, under the appropriate plugin component.
-Link it to link:https://issues.jenkins-ci.org/browse/JENKINS-47736[JENKINS-47736] and add the `JEP-200` label.
-If at all possible, include complete steps to reproduce the problem from scratch.
+=== Reporting JEP-200 issues
+
+Please report it in the link:https://issues.jenkins-ci.org/[Jenkins issue tracker], under the appropriate plugin component.
+Before reporting please check whether there are already reported issues.
+
+. Add the `JEP-200` label
+. Link the newly created issue to link:https://issues.jenkins-ci.org/browse/JENKINS-47736[JENKINS-47736]
+. Include the stacktrace you see in the log
+. If possible, include complete steps to reproduce the problem from scratch.
+
+You can find examples of the reported issues using link:https://issues.jenkins-ci.org/issues/?jql=labels%20%3D%20JEP-200[this query].
+
 Jenkins developers will strive to evaluate the reason for the violation and offer a fix in the form of a core and/or plugin update.
+Right after the feature release there will be a special team triaging the reports with high priority
+See link:https://github.com/jenkinsci/jep/tree/master/jep/200#rollout-plan[JEP-200 Maintenance plan] for more info.
+
 For more details and current status, see
 link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by fix for JEP-200].
 
+=== Applying workarounds
+
 Assuming you see no particular reason to think that the class in question has dangerous deserialization semantics, which is rare,
 it is possible to work around the problem in your own installation as a temporary expedient.
-Simply make note of any class name(s) mentioned in such log messages,
-and run Jenkins with this startup option (details will depend on your installation method):
+Note class name(s) mentioned in the JEP-200 log messages,
+and run Jenkins with the `hudson.remoting.ClassFilter` startup option, e.g.:
 
 ----
--Dhudson.remoting.ClassFilter=some.pkg.and.ClassName,some.pkg.and.OtherClassName
+java -Dhudson.remoting.ClassFilter=some.pkg.and.ClassName,some.pkg.and.OtherClassName -jar jenkins.war ...
 ----
+
+Your mileage may vary depending on Jenkins packaging and installation.
+Such update may require several iterations, because classes whitelisted in the workaround may also
+include fields with types requiring whitelisting.
 
 == For plugin developers
 
