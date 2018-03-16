@@ -1,0 +1,136 @@
+---
+layout: post
+title: "Introducing Jenkins X: a CI/CD solution for modern cloud applications on Kubernetes"
+tags:
+- jenkins-x
+- kubernetes
+- pipeline
+author: jstrachan
+---
+
+The last few years have seen massive changes in the software industry:
+
+* use of immutable container images for distributing software which are smaller, easier to work with and have cheaper hardware costs than VMs (approx 20% less on average)
+* https://kubernetes.io/[Kubernetes] has become the defacto way of installing, upgrading, operating and managing containers at scale on any public or hybrid cloud 
+** 2018 is the year all the major public clouds, operating system vendors and PaaS offerings support https://kubernetes.io/[Kubernetes] natively
+** we now have open source industry standard for distributing, installing and managing applications on any cloud!
+* increased adoption of microservices and cloud native applications leading to massive increase in the number of components which require CI / CD along with increased release frequency
+* improvements in DevOps practices coming from the community such as the https://puppet.com/blog/2017-state-devops-report-here[State of DevOps Report] which show the approach of high performing teams
+** increasingly many businesses now realise that to compete you have to deliver value quickly via software
+** teams need to become high performing if the business is to succeed
+
+All of this adds up to an increased demand for teams to have a solution for cloud native CI / CD with lots of automation!
+
+We are excited to share and invite the community to join us on a project we’ve been thinking about over the last few months called http://jenkins-x.io[Jenkins X] which tries to extend the Jenkins ecosystem to solve the problem of automating CI / CD on the cloud.
+
+http://jenkins-x.io[Jenkins X] is a project which rethinks how developers should interact with CI / CD in the cloud with a focus on making development teams productive through automation, tooling and DevOps best practices.
+
+http://jenkins-x.io[Jenkins X] is open source and we invite you to give us feedback and to contribute to the project.
+
+image::http://jenkins-x.io/images/logo.png[Sunset,200,200]
+
+Here's a brief overview of the current Jenkins X features and towards the end of this post there's a short video demo.
+
+### Automated CI / CD Pipelines
+
+Create http://jenkins-x.io/developing/create-spring/[new projects]  or http://jenkins-x.io/developing/import/[import existing source code] quickly into Jenkins X via the http://jenkins-x.io/commands/jx/[jx command line tool] and:
+
+ * get a Pipeline automatically setup for you that implements best practice CI / CD features:
+** creates a `Jenkinsfile` for defining the CI / CD pipelines through declarative pipeline-as-code
+** creates a `Dockerfile` for packaging the application up as an immutable container image (for applications which generate images)
+** creates a https://docs.helm.sh/developing_charts/#charts[Helm chart] for deploying and running your application on https://kubernetes.io/[Kubernetes]
+* ensures your code is in a git repository (e.g. GitHub) with the necessary webhooks to trigger the Jenkins CI / CD pipelines on push events
+* triggers the first release pipeline to promote your application to your teams _Staging_ Environment
+
+Then on each Pull Request:
+
+* a CI pipeline is triggered to build your application and run all the tests ensuring you keep the master branch in a ready to release state
+* your Pull Request is deployed to a Preview Environment (more on this later)
+
+When a Pull Request is merged to the master branch the CD pipeline is triggered to create a new release:
+
+* a new semantic version number is generated
+* the source code is modified for the new version (e.g. _pom.xml_ files get their _<version>_ elements modified) and then tagged in git
+* a new immutable version of the software is published including:
+** versioned artifacts like _pom.xml_ and jar files for Java or npm packages for node or binaries for go etc
+** versioned docker image is pushed to your docker registry
+** versioned helm chart is pushed to the chart repository
+* then the new version is promoted (more on this later)
+
+
+### Environment Promotion via GitOps
+
+In Jenkins X each team gets their own http://jenkins-x.io/about/features/#environments[environments]. The default environments are _Staging_ and _Production_ but teams can create as many environments as they wish and call them whatever they prefer.
+
+An Environment is a place to deploy code and each Environment maps to a separate https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/[namespace in Kubernetes] so they are isolated from each other and can be managed independently.
+
+We use something called _GitOps_ to manage environments and perform http://jenkins-x.io/about/features/#promotion[promotion]. This means that:
+
+* Each environment gets its own git repository to store all the environment specific configuration together with a list of all the applications and their version and configuration.
+* Promotion of new versions of applications to an environment results in:
+
+** a Pull Request is created for the configuration change that triggers the CI pipeline tests on the Environment along with code review and approval
+** once the Pull Request is merged the release pipeline for the environment which updates the applications running in that environment by applying the helm chart metadata from the git repository.
+
+Environments can be configured to either promote _automatically_ as part of a release pipeline or they can use _manual_ promotion.
+
+The defaults today are for the _Staging_ environment to use automatic promotion; so all merges to master are automatically promoted to Staging. Then the _Production_ environment is configured to use manual promotion; so you choose when do promote.
+
+However it is easy to change the  configuration of how many environments you need and how they are configured via the http://jenkins-x.io/commands/jx_create_environment/[jx create environment] and http://jenkins-x.io/commands/jx_edit_environment/[jx edit environment] commands
+
+
+### Preview Environments
+
+Jenkins X lets you create http://jenkins-x.io/about/features/#preview-environments[Preview Environments] for Pull Requests. Typically this happens automatically in the CI Pipelines when a Pull Request is submitted but you can also perform this manually yourself via the http://jenkins-x.io/developing/preview/[jx preview] command.
+
+The following happens when a preview environment is created:
+
+* a new http://jenkins-x.io/about/features/#environments[Environment] of kind `Preview` is created along with a https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/[kubernetes namespace] which show up the http://jenkins-x.io/commands/jx_get_environments/[jx get environments] command along with the http://jenkins-x.io/developing/kube-context/[jx environment and jx namespace commands] so you can see which preview environments are active and switch into them to look around
+* the Pull Request is built as a preview docker image and chart and deployed into the preview environment
+* a comment is added to the Pull Request to let your team know the preview application is ready for testing with a link to open the application. So in one click your team members can try out the preview!
+
+image::http://jenkins-x.io/images/pr-comment.png[Issue Comment]
+
+This is particularly useful if you are working on a web application or REST endpoint; it lets your team interact with the running Pull Request to help folks approve changes.
+
+### Feedback
+
+If the commit comments reference issues (e.g. via the text `fixes #123`) then Jenkins X pipelines will generate release notes like those of [the jx releases](https://github.com/jenkins-x/jx/releases).
+
+Also as the version with those new commits is promoted to `Staging` or `Production` you will get automated comments on each fixed issue that the issue is now available for review in the corresponding environment along with a link to the release notes and a link to the app running in that environment. e.g.
+
+image::http://jenkins-x.io/images/issue-comment.png[Issue Comment]
+
+
+## Demo
+
+Here's demonstration of the above features of Jenkins X running on GKE:
+
+++++
+<center>
+<iframe width="853" height="480"
+src="https://www.youtube-nocookie.com/embed/kPes3rvT1UM?rel=0" frameborder="0"
+allowfullscreen></iframe>
+</center>
+++++
+
+## Closing thoughts
+
+So I hope the above has given you a feel for the vision of where we are heading with Jenkins X and to show where we are today. The project is still very early and we have https://github.com/jenkins-x/jx/issues[lots to do]! We're also working on high level [roadmap]
+
+To make Jenkins X a success we'd love you to get involved, http://jenkins-x.io/getting-started/[try it out] and http://jenkins-x.io/community/[give us feedback in the community]! We love contributions whether its email, chat, issues or even better Pull Requests ;).
+
+One of the most rewarding things about Open Source is being able to learn from others in the community. So I'm hoping that even if you are not yet ready to use Kubernetes in your day job or are not yet interested in automating your Continuous Delivery - that you'll at least consider taking a look at Jenkins X, if for no other reason than to help you learn more about all these new ideas, technologies and approaches!
+
+Thanks for listening and I'm looking forward to http://jenkins-x.io/community/[seeing you in the community].
+
+
+## Links
+
+* https://github.com/jenkinsci/jep/tree/master/jep/400[Jenkins X JEP proposal]
+* http://jenkins-x.io/[Jenkins X website]
+
+
+
+
+
