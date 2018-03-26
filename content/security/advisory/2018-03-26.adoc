@@ -1,0 +1,220 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2018-03-26
+section: security
+kind: plugins
+issues:
+
+- id: SECURITY-261 # and SECURITY-697
+  title: GitHub Pull Request Builder Plugin stores GitHub access tokens in build.xml
+  reporter: Steve Marlowe &lt;smarlowe@cisco.com&gt; of Cisco ASIG
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: ghprb
+      fixed: 1.40.0
+      previous: 1.39.0
+  description: |
+    GitHub Pull Request Builder Plugin stored serialized objects in `build.xml` files that contained the credential used to poll Jenkins.
+    This can be used by users with master file system access to obtain GitHub credentials.
+
+    Since 1.40.0, the plugin no longer stores serialized objects containing the credential on disk.
+
+    Builds started before the plugin was updated to 1.40.0 will retain the encoded credentials on disk.
+    We strongly recommend revoking old GitHub credentials used in Jenkins.
+    We're providing https://github.com/jenkinsci-cert/SECURITY-261[a script for use in the Script Console that will attempt to remove old stored credentials from build.xml files].
+
+- id: SECURITY-262
+  title: GitHub Pull Request Builder Plugin stores webhook secret in plain text
+  reporter: Steve Marlowe &lt;smarlowe@cisco.com&gt; of Cisco ASIG
+  cvss:
+    severity: low
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N
+  plugins: []
+# TODO make affected/fixed versions sections work with different versions of the same plugin.
+#   - name: ghprb
+#     fixed: 1.32.1
+#     previous: 1.32.0
+  description: |
+    GitHub Pull Request Builder Plugin stored the webhook secret shared between Jenkins and GitHub in plain text.
+
+    This allowed users with Jenkins master local file system access and Jenkins administrators to retrieve the stored password.
+    The latter could result in exposure of the passwords through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+    GitHub Pull Request Builder Plugin 1.32.1 and newer stores the webhook secret encrypted on disk.
+
+- id: SECURITY-308
+  title: Cucumber Living Documentation Plugin disabled Content-Security-Policy for archived and workspace files
+  reporter: Daniel Beck, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:C/C:L/I:L/A:N
+  plugins:
+    - name: cucumber-living-documentation
+      fixed: 1.1.0
+      previous: 1.0.12
+  description: |
+    Jenkins 1.641 and 1.625.3 introduced +Content-Security-Policy+ HTTP headers as protection against Cross-Site Scripting attacks using workspace files and archived artifacts served using +DirectoryBrowserSupport+ (link:https://jenkins.io/security/advisory/2015-12-09/[SECURITY-95]).
+
+    Cucumber Living Documentation Plugin disabled this XSS protection until Jenkins was restarted whenever a Cucumber Report was viewed by any user to work around the +Content-Security-Policy+ limitations.
+
+    While disabling this protection mechanism temporarily may be necessary to make plugins work that haven't been adapted to work with the Content-Security-Policy restriction, this should only be done by administrators, as doing so may result in a security issue (see https://wiki.jenkins-ci.org/display/JENKINS/Configuring+Content+Security+Policy[Configuring Content Security Policy]).
+
+    This has been addressed in version 1.1.0 of the plugin, and it will now request that users change the Content-Security-Policy option in Jenkins.
+
+- id: SECURITY-373
+  title: Perforce Plugin uses ineffective credentials encryption
+  reporter: Steve Marlowe &lt;smarlowe@cisco.com&gt; of Cisco ASIG
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: perforce
+      previous: 1.3.36
+  description: |
+    Perforce Plugin encrypts its credentials using DES and a public key stored in its public source code, so it only serves as basic obfuscation.
+    This allowed users with Jenkins master local file system access and Jenkins administrators to retrieve the stored password.
+    The latter could result in exposure of the passwords through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+    As of publication of this advisory, there is no fix.
+    The plugin has been removed from publication at the request of its former maintainers.
+    We recommend that users of Perforce Plugin use the plugin:p4[P4 Plugin] instead.
+
+- id: SECURITY-504
+  title: vSphere Plugin does not validate SSL/TLS certificates
+  reporter: Peter Adkins
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L
+  plugins:
+    - name: vsphere-cloud
+      previous: 2.16
+      fixed: 2.17
+  description: |
+    vSphere Plugin disabled SSL/TLS certificate validation unconditionally, allowing potential man-in-the-middle attacks.
+
+    vSphere Plugin 2.17 now has SSL/TLS certificate validation enabled by default.
+
+- id: SECURITY-745
+  title: CSRF vulnerability and missing permission checks in vSphere Plugin form validation allowed enumerating credentials IDs, capturing credentials, and denial of service
+  reporter: Daniel Beck, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
+  plugins:
+    - name: vsphere-cloud
+      previous: 2.16
+      fixed: 2.17
+  description: |
+    vSphere Plugin did not perform permission checks on methods implementing form validation.
+    This allowed users with Overall/Read access to Jenkins to perform various actions such as:
+
+    * Connect to an attacker-specified vSphere server using attacker-specified credentials IDs obtained through another method, capturing credentials stored in Jenkins
+    * Connect to configured vSphere servers and looking up information, potentially resulting in denial of service
+
+    Additionally, these form validation methods did not require POST requests, resulting in a CSRF vulnerability.
+
+    These form validation methods now require POST requests and appropriate user permissions.
+
+- id: SECURITY-519
+  title: Liquibase Runner Plugin allows users to load arbitrary Java code into master JVM
+  reporter: Yoann Dubreuil, CloudBees, Inc.
+  cvss:
+    severity: high
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  plugins:
+    - name: liquibase-runner
+      previous: 1.3.0
+  description: |
+    Liquibase Runner Plugin allows users with Job/Configure permission to configure its build step in a way that loads arbitrary class files into the Jenkins master JVM, resulting in arbitrary code execution.
+
+    As of publication of this advisory, there is no fix.
+
+- id: SECURITY-536
+  title: Perforce Plugin credentials can be obtained by users with Job/Extended Read permission
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: perforce
+      previous: 1.3.36
+  description: |
+    Jenkins prevents users with Extended Read permission from obtaining secrets such as credentials stored in job configurations.
+
+    Perforce Plugin implements its own credential encryption using DES and an encryption key stored in its public source code.
+    This is not considered a secret by Jenkins, resulting in potential exposure of Perforce credentials stored in job configurations to users with Extended Read permission.
+    While these are encrypted, this can only be considered basic obfuscation due to the hard-coded public encryption key used.
+
+    As of publication of this advisory, there is no fix.
+    The plugin has been removed from publication at the request of its maintainers.
+    We recommend that users of Perforce Plugin use the plugin:p4[P4 Plugin] instead.
+
+- id: SECURITY-545
+  title: Copy To Slave Plugin allows access to arbitrary files on the Jenkins master file system
+  reporter: Jesse Glick, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  plugins:
+    - name: copy-to-slave
+      previous: 1.4.4
+  description: |
+    Copy To Slave Plugin allows users with Job/Configure permissions to configure it in such a way that it allows obtaining arbitrary files accessible to the Jenkins master process from the Jenkins master file system.
+
+    As of publication of this advisory, there is no fix.
+
+- id: SECURITY-630
+  title: Ansible Plugin disabled host key verification by default
+  reporter: Daniel Beck, CloudBees, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L
+  plugins:
+    - name: ansible
+      previous: 0.8
+      fixed: "1.0"
+  description: |
+    Ansible Plugin disabled host key verification by default, having it only as an opt-in option.
+
+    Ansible Plugin 1.0 now enables host key verification by default, adding options allowing users to opt out.
+
+    Existing configurations that previously did not opt into host key verification will have host key verification enabled after update, possibly resulting in failures.
+
+- id: SECURITY-736
+  title: Reverse Proxy Auth persisted authorities cache on disk
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  cvss:
+    severity: low
+    vector: CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  plugins:
+    - name: reverse-proxy-auth-plugin
+      previous: 1.5
+      fixed: 1.6.0
+  description: |
+    Reverse Proxy Auth Plugin persisted a cache of granted authorities (group memberships) on disk.
+
+    This could allow users with local Jenkins master file system access to obtain group membership information of Jenkins users.
+
+    Reverse Proxy Auth Plugin 1.6.0 and newer no longer store the cache of granted authorities on disk.
+
+- id: SECURITY-774
+  title: Mailer Plugin allowed unauthorized users to send test emails
+  reporter: Hyoungwook Jang, SKinfosec, Inc.
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L
+  cve: CVE-2018-8718
+  plugins:
+    - name: mailer
+      previous: "1.20"
+      fixed: 1.21
+  description: |
+    A missing permission check in Mailer Plugin allowed users with Overall/Read access to Jenkins to have it connect to a user-specified mail server with user-specified credentials to send a test email to a user-specified email address.
+    The email subject and body could not be changed.
+    This could result in DoS if, for example, specifying a valid mail server but invalid credentials.
+
+    As the same URL did not require POST to be used, it also was vulnerable to cross-site request forgery.
+
+    The URL handling test emails now requires POST to protect from CSRF, and performs an Overall/Administer permission check.
