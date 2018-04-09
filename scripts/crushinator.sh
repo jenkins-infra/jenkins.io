@@ -16,11 +16,11 @@ if [ $? -ne 0 ]; then
 fi;
 
 
-pngcrush -reduce $FILENAME $OUTPUTFILE
+pngcrush -reduce "$FILENAME" "$OUTPUTFILE"
 
 if [ $? -ne 0 ]; then
     echo "Error crushing ${FILENAME} to ${OUTPUTFILE}"
     exit 1;
 fi;
 
-mv $OUTPUTFILE $FILENAME
+mv "$OUTPUTFILE" "$FILENAME"
