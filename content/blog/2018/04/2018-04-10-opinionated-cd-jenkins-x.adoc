@@ -1,0 +1,245 @@
+---
+layout: post
+title: "Opinionated Kubernetes and Jenkins X"
+tags:
+- jenkins-x
+- kubernetes
+- pipeline
+author: michaelneale
+---
+
+I
+link:https://www.cloudbees.com/blog/all-in-on-kubernetes-for-developers[recently wrote]
+about how all the cloud platforms are all in Kubernetes and so are developers.
+It is an exciting time, but the problem for many is that this is
+a huge blank sheet of paper for how to build and deploy applications.
+A white space, a void, a limitless canvas of possibilities.
+Insert metaphors here.
+
+The problem, as you may guess, is that few people really like or are able to start with a blank canvas.
+I know I prefer to start with something working and iterate towards a solution,
+or be given some rails to stay on (again with the metaphors).
+
+That's where the link:http://jenkins-x.io/[Jenkins X] project comes in.
+Jenkins X is a Kubernetes-native continuous integration and continuous delivery platform
+for developing cloud native applications that was recently introduced as a
+link:https://github.com/jenkinsci/jep/blob/master/jep/400/README.adoc[Jenkins Enhancement Proposal],
+sponsored by link:https://twitter.com/jstrachan[James Strachan].
+
+There is a lot to take in but at it’s heart,
+this is an open source opinionated way to do continuous delivery with Kubernetes,
+natively, without necessarily having to learn all the things I talked about in my last blog post.
+I shall attempt to explain what this is all about and why it matters to developers.
+As someone said on the jenkins-dev mailing list
+“We have the two glued together with baling wire and twine” -
+Jenkins X aims to simplify how to work with continuous delivery and Kubernetes.
+
+First and most importantly, let's see the logo:
+
+image::/images/logos/jenkins-x/jenkins-x.svg[Jenkins X Logo,width=200]
+
+You can see the nautical theme leaking through (and Kubernetes).
+Whilst it is called Jenkins X, it is about quite a lot more than Jenkins.
+
+== Jenkins X makes decisions for you
+
+Jenkins X presents itself to you initially as a handy sleek command line
+(a native binary you can install called jx - the debate is on as to how pronounce it).
+Let’s take a tour (sail?):
+
+[source]
+----
+> jx import my-app
+----
+
+If you have an existing project, this will detect what type of project it is, build a pipeline for you (and a bunch of Kubernetes things, like Helm Charts), add it to your project and set it up in GitHub, WebHooks and all, build the project (run the pipeline) and deploy a version to a “staging” environment.
+
+If it looks ok, you can promote it to production:
+
+[source]
+----
+> jx promote --env production --version 1.0.1 my-app
+----
+
+If something went wrong in production, you can roll back an app to any version (the version numbers are made for you):
+
+[source]
+----
+> jx promote --env production --version 1.0.0 my-app
+> jx get apps # list versions
+----
+
+An *environment* is a well-established concept for web developers using
+continuous delivery: out of the box Jenkins X makes three of them for you
+(dev, staging and production), but you can make as many as you like.
+Environments have rules around how things are promoted into them
+(and they also have their own extensible pipelines,
+but you can just use them as-is to start).
+
+You can also create a Spring Boot microservice app:
+
+[source]
+----
+> jx create spring
+----
+
+Answer a few questions and it will set everything up for you.
+
+Any changes you make to your app automatically are built,
+and if the build looks good, they go through to the staging environment.
+WebHooks are setup for you (if you are using GitHub) to smooth this over.
+
+For those looking at starting from pre-made apps, there are "quickstarts":
+
+[source]
+----
+> jx create quickstart
+----
+
+They are based on a growing set of starter apps, in a variety of languages and tech stacks.
+
+*Review apps* for your changes: Each pull request is built/tested,
+and a “review app” is made available in a temporary environment.
+That means each proposed change, before it goes to the default branch (master),
+has an environment made (temporary) that it can be tried out in.
+In GitHub, this shows up as a comment in the pull request:
+
+image::/images/jenkins-x/comment-in-github-pull-request_0.png[Comment in a GitHub Pull Request, width=550]
+
+== Project type detection
+
+As you can see, so far there is no editing or manual creation of pipelines,
+or scripting or setup, just importing or creating your app and go.
+This is powered by
+link:https://github.com/jenkins-x/draft-repo/tree/master/packs[Draft “packs”]
+(a handy project that came out of Azure).
+ What you end up with is a Jenkinsfile in your project repository.
+ You may want to edit it one day, or you may be happy with it as is!
+ Jenkins is famous for being un-opinionated in what you do,
+ but Jenkins X has strong opinions (but you can extend and customise).
+
+ image::/images/jenkins-x/draft-logo.png[Draft Logo, width=300]
+
+== Deploying or promoting to environments
+
+Deploying happens via pipelines behind the scenes -
+when a change is pushed, or a version promoted.
+You don’t need to directly interact with Kubernetes if you don’t need to.
+A tool called Helm does the heavy lifting:
+Helm is used to package and perform installations and upgrade for your apps.
+
+image::/images/jenkins-x/helm-logo.png[Helm Logo, width=156]
+
+There is a little more magic going on here with environments, which you don’t see at first.
+Each environment, for a team, is represented by a Git repository behind the scenes.
+Configuration as code is a well-established best practice these days,
+so why not use it to track deployments and initiate deployments.
+I also mentioned in my previous post how declarative Kubernetes is:
+it is perfect for keeping all config in a repository, of the desired system state.
+
+Each promotion is actually a pull request to a per-environment repository.
+This repository is made and managed for you (and kept outside of the
+main application code repository), you don’t have to look at it,
+but you can extend things there should you need to.
+Specific environment repositories may have different access rules,
+or be controlled by a different team (perhaps even deploy to a different cluster).
+Some have coined the term for this as “GitOps.”
+I first came across this concept on a
+link:https://www.weave.works/blog/gitops-operations-by-pull-request[WeaveWorks blog].
+
+I’ll try and explain this one with a diagram:
+
+image::/images/jenkins-x/gitops-flow.png[GitOps Workflow, width=600]
+
+The pipeline is actually split in the middle.
+On the left is the more familiar continuous integration pipeline.
+This works on pull requests, pre-release version of things
+and is all about testing(automated and manual review).
+The source of truth for this is the configuration in the
+applications repository: branches, pull requests and so on.
+
+The right-hand side is the continuous delivery pipeline.
+This kicks in when the application is ready to be updated with a new release.
+This is the “GitOps” repo behind the scenes that controls the state of things in Kubernetes.
+A promotion on this side is a pull request, and then a merge,
+from the staging repository to the production repository.
+
+== Installing Jenkins X
+
+The jx command line has a jx install command that installs it into a Kubernetes cluster.
+
+The best experience initially is using Google’s excellent GKE service:
+
+[source]
+----
+> jx create cluster gke
+----
+
+This will ask a few questions, and go and set it all up for you in a
+cluster set aside for Jenkins X (recommended).
+Jenkins X runs entirely as services on top of a Kubernetes cluster.
+
+[source]
+----
+> jx install
+----
+
+Is designed to work with a Kubernetes cluster (if it already exists,
+recommendation is to have a cluster put aside for Jenkins X if possible).
+Amazon EKS support is coming (mostly it is around testing),
+that service is in beta/early access so it is still a work in progress,
+as is Microsoft Azures excellent AKS service.
+
+== So where is Jenkins?
+
+Good question, thanks for asking. Well, it is behind the scenes.
+As you have seen, there was no direct interaction with Jenkins,
+but it is there, running the pipelines for continuous integration and
+continuous delivery of the respective repositories, and orchestrating things with Kubernetes.
+
+If you run `jx get pipelines` you can see URLs to the various pipelines
+that have been setup for you are part of interacting with Jenkins X.
+
+By the way,
+link:https://jenkins.io/blog/2018/03/19/introducing-jenkins-x/[James Strachan has written an extensive blog on jenkins.io]
+that really explores the Jenkins X project in-depth.
+Once you finish reading this blog, take a stroll on over there and read James'.
+He also provides several ways you can get involved in the project.
+
+== What else can I do with the command line?
+
+Lots, the jx command line has built in help:
+
+`jx open`
+
+     - open apps, services or pipelines in your browser
+
+`jx activity`
+
+     - explains how things got to where they are, a history
+
+`jx get environments`
+
+     - list environments
+
+`jx get apps`
+
+     - show the state of applications, what versions are in what environments.
+
+== What’s next
+
+There is a whole lot more to this, and lots more moving parts and services
+that are set up for you that are very useful, but it is best to head over
+to link:http://jenkins-x.io/[jenkins-x.io] and have a look.
+
+This project is obviously in early stages (it is stll a Draft JEP after all) and there is lots happening.
+Check out the link:http://jenkins-x.io/community/[Jenkins X community]
+if you want to chat on slack, IRC, issues or email.
+Also, read the
+link:https://github.com/jenkinsci/jep/blob/master/jep/400/README.adoc[Jenkins Enhancement Proposal doc].
+
+CloudBees recently joined the
+link:https://www.cncf.io/[Cloud Native Computing Foundation],
+which includes a lot of important cloud native tech, including (but not only) Kubernetes.
+It will be interesting to see communities grow around continuous integration,
+continuous delivery and Kubernetes.
