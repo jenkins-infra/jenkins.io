@@ -1,0 +1,158 @@
+---
+layout: post
+title: "Jenkins X Explained Part 1 - an integrated CI/CD solution for Kubernetes"
+tags:
+- jenkins-x
+- kubernetes
+- pipeline
+author: jrawlings
+---
+
+link:http://jenkins-x.io[Jenkins X] is an opinionated platform for providing CI / CD on top of
+link:https://kubernetes.io/[Kubernetes].  
+We’ve chosen a set of core applications that we install and wire together so things work out-of-the-box, providing a 
+turn key experience. This blog aims to build on previous introductions to Jenkins X and provide a deeper 
+insight to what you get when you install Jenkins X.
+
+image::/images/jenkins-x/install/key.png[key, width=300]
+
+So what happens? After downloading the jx CLI you will now be able to create clusters with public cloud providers 
+or install onto an existing Kubernetes cluster.
+
+image::/images/jenkins-x/install/cloud-providers.png[cloud Providers, width=300]
+
+This command will create a cluster on your cloud provider of choice.
+
+[source]
+----
+> jx create cluster
+----
+
+Alternatively you can bring your own Kubernetes cluster and install Jenkins X on it:
+
+[source]
+----
+> jx install
+----
+
+That said, we’ve found that creating a new cluster on a public cloud such as GKE 
+is a lot way easier to start as we can be sure of the state of the cluster. 
+For example we know that storage, networking and loadbalancers will be working as expected. 
+Creating a cluster on GKE takes only a few minutes so it’s a great way to try things out as well as run your 
+enterprise workloads.
+
+For now lets assume we are using GKE. When `jx create cluster` has finished you will see some output in the 
+terminal that also includes the default admin password to use when logging into the core applications below. 
+There is a flag `—-default-admin-password` you can use to set this password yourself.
+
+== Accessing applications
+
+We automatically install an Nginx ingress controller running with an external loadbalancer pointing at it’s 
+Kubernetes service. We also generate all the Kubernetes Ingress rules using a golang library called 
+"link:https://github.com/jenkins-x/exposecontroller[exposecontroller]". 
+This runs as a Kubernetes Job triggered by a 
+link:https://helm.sh/[Helm] hook once any application is installed to the cluster. 
+
+Using "exposecontroller" means we can control all the ingress rules for an environment using a single set of 
+configurations, rather than each application needing to know how to expose the kubernetes service to the outside world.
+This also means we can easily switch between HTTP and HTTPS plus support intregration with projects like 
+link:https://hub.kubeapps.com/charts/stable/cert-manager[cert-manager] for auto generation of signed TLS certificates.
+
+== Environments
+
+One important point to make is Jenkins X aims to use terminology that developers are familiar with. That’s not 
+to say we are changing Kubernetes fundamentals, it’s more that if you don’t know Kubernetes concepts then we aim 
+to help you still adopt the cloud technology and pull back the curtain as you gain confidence and experience. 
+To that point, a core part of Jenkins X are "environments". An environment can have one or more applications running 
+in it. In Kubernetes term an "environment" maps to the concept of a "namespace" in code.
+
+The installation by default created three environments, this is customisable but by default we have a "dev", a "staging" 
+and a "production environment". To list, select, or switch between these environments run:
+
+[source]
+----
+> jx env
+----
+
+== Jenkins X core applications
+
+In the "dev" environment we have installed a number of core applications we believe are required at a minimum 
+to start folks off with CI/CD on Kubernetes. We can easily add to these core apps using Jenkins X addons but 
+for now lets focus on the core apps. Jenkins X comes with configuration that wires these services together,
+meaning everything works together straight away. This dramatically reduces the time to get started with Kubernetes 
+as all the passwords, environment variables and config files are all setup up to work with each other.
+
+. *Jenkins* — provides both CI and CD automation. There is an effort to decompose Jenkins over time to 
+become more cloud native and make use of Kubernetes concepts around CRDs, storage and scaling for example.
+. *Nexus* — acts as a dependency cache for Nodejs and Java applications to dramatically improve build 
+times. After an initial build of a SpringBoot application the build time is reduced from 12 mins to 4. We 
+have not yet but intend to demonstrate swapping this with Artifactory soon.
+. *Docker Registry* — an in cluster docker registry where our pipelines push application images, we will 
+soon switch to using native cloud provider registries such as Google Container Registry, Azure Container 
+Registry or Amazon Elastic Container Registry (ECR) for example.
+. *Chartmuseum* — a registry for publishing Helm charts
+. *Monocular* — a UI used for discovering and running Helm charts
+
+== Helm
+
+We learned a lot in our early days with fabric8 on Kubernetes and there were some projects from the ecosystem 
+that either weren’t around or (at the time) didn’t work with OpenShift, therefore we were restricted when 
+making some design decisions. A couple of years on and now with Jenkins X we were able to look at other OSS 
+projects that have been flourishing, so I was very happy to start looking at link:https://helm.sh/[Helm].
+Helm is a package manager for Kubernetes and allows easy installation and upgrades of applications.
+
+It was pretty clear that for Jenkins to evolve and include deployments to the cloud we should embrace Helm 
+and provide an opinionated experience that helps teams and developers. The core applications mentioned above 
+means Jenkins X provides an out of the box integrated CI/CD solution for Helm.
+
+We know that helm has limitations but with the work on 
+link:https://github.com/kubernetes-helm/community/blob/master/helm-v3/000-helm-v3.md[Helm 3], the focus of the Kubernetes 
+sig-apps group, the Kubernetes community and investment we see from key organisations such as Microsoft, we feel Helm 
+is currently the best way to install and upgrade applications on Kubernetes.
+
+== GitOps
+
+We mentioned earlier that we setup three environments by default. What this means is for the staging and production 
+environments we created:
+
+. Kubernetes namespace
+. An environment resource (link:https://kubernetes.io/docs/concepts/api-extension/custom-resources/[CustomResourceDefinition]) 
+in the dev environment which includes details of how applications are promoted to it and includes various team 
+settings.
+. A git repository that we store what applications and their versions should be present in that environment. 
+These are stored in a Helm requirements.yaml file
+. A Jenkins Pipeline job: explained in more detail below
+
+== CI/CD for Environments
+
+Having a Jenkins Pipeline Job for each environment means that Pull Requests to the git repo trigger a CI 
+job.  For now that job performs basic validation but in the future will include ‘gates’ to ensure a change to that 
+environment has passed expected checks such as QA tasks, gain enough approvals from the correct people, etc - 
+*YES* CI for environments!!
+
+Once CI checks have passed the new application or version change can be merged. Only users that have karma 
+can merge the Pull Request and therefore we get RBAC plus traceability for our environment deployments.
+
+This means every application manifest, their version and configuration including storage requirements, resource 
+needs and secrets for your environments are stored in Git repositories. Given a disaster recovery scenario this 
+is exactly what you want.
+
+Did I just say secrets in Git? Yes! We will be providing a nicer experience to helps folks get set up but we 
+ourselves encrypt our secrets and  store them in Git, then decrypt them when we come to install and upgrade.
+
+Here’s our Git repo https://github.com/jenkins-x/cloud-environments/blob/a1edcc6/env-jx-infra/secrets.yaml.
+
+We do all this with the help of a Helm wrapper called link:https://github.com/futuresimple/helm-secrets[helm secrets]. 
+I'm working on a followup blog post with examples, better explanations and how to guides + add better integration 
+with JX in the coming weeks.
+
+---
+
+== Fancy getting involved? 
+
+We mainly hangout in the link:http://jenkins-x.io/community/[jenkins-x Kubernetes slack channels] and for tips on 
+being more involved with Jenkins X take a look at our link:http://jenkins-x.io/contribute[contributing docs]
+
+If you’ve not already seen it here’s a video showing the create cluster explained in this blog.
+
+video::r8-J9Qg-p9U[youtube]
