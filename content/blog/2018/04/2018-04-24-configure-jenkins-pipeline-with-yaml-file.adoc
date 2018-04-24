@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Configure Jenkins pipeline using a YAML file"
+title: "Configuring a Jenkins Pipeline using a YAML file"
 tags:
 - jenkins
 - pipelines
@@ -8,20 +8,17 @@ tags:
 - sharedlibrary
 author: mdesanti
 ---
-==== Original Blogpost
-This post was originaly uploaded to Wolox's Medium account. You can find it https://medium.com/wolox-driving-innovation/dynamic-jenkins-pipelines-b04066371fbc[here]
-
-== Configuring a Jenkins pipeline using a YAML file
+NOTE: This guest post was originally published on Wolox's Medium account 
+link:https://medium.com/wolox-driving-innovation/dynamic-jenkins-pipelines-b04066371fbc[here].
 
 A few years ago our CTO wrote about building a
-https://medium.com/wolox-driving-innovation/ruby-on-rails-continuous-integration-with-jenkins-and-docker-compose-8dfd24c3df57[Continuous
-Integration server for Ruby On Rails using Jenkins and docker]. The
-solution has been our CI for the past years until we recently decided to
+link:https://medium.com/wolox-driving-innovation/ruby-on-rails-continuous-integration-with-jenkins-and-docker-compose-8dfd24c3df57[Continuous Integration server for Ruby On Rails using Jenkins and docker]. 
+The solution has been our CI pipeline for the past years until we recently decided to
 make an upgrade. Why?
 
 * Jenkins version was way out of date and it was getting difficult to
 upgrade
-* http://www.wolox.co[Wolox] has grown significantly over the past years
+* link:http://www.wolox.co[Wolox] has grown significantly over the past years
 and we’ve been experiencing scaling issues
 * Very few people knew how to fix any issues with the server
 * Configuring jobs was not an easy task and that made our project
@@ -43,50 +40,45 @@ multiple docker images to run (app, database, redis, etc)
 should be able to change if they want to run _npm install_ or _yarn
 install_.
 
-=== Installing Jenkins and Docker
+== Installing Jenkins and Docker
 
 Installing Jenkins is straightforward. You can visit
-https://jenkins.io/download/[Jenkins Installation page] and choose the
+link:https://jenkins.io/download/[Jenkins Installation page] and choose the
 option that best suits your needs.
 
 Here are the steps we followed to install Jenkins in AWS:
 
-....
+[source, bash]
+----
 sudo rpm — import https://pkg.jenkins.io/debian/jenkins.io.key
-
 sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins.io/redhat/jenkins.repo
-
 sudo yum install java-1.8.0 -y
-
 sudo yum remove java-1.7.0-openjdk -y
-
 sudo yum install jenkins -y
-
 sudo yum update -y
-
 sudo yum install -y docker
-....
+----
 
-=== Automatically adding projects from Github
+== Automatically adding projects from Github
 
 Adding projects automatically from Github can be achieved using the
-https://go.cloudbees.com/docs/cloudbees-documentation/cje-user-guide/index.html#github-branch-source[GitHub
-Branch Source Plugin]. It allows Jenkins to scan a GitHub organization
+link:https://plugins.jenkins.io/github-branch-source[GitHub Branch Source Plugin].
+It allows Jenkins to scan a GitHub organization
 for projects that match certain rules and add them to Jenkins
 automatically. The only constraint that all branches must meet in order
 to be added is that they contain a Jenkinsfile that explains how to
 build the project.
 
-=== Easy to change configuration
+== Easy to change configuration
 
-==== Not so easy to change configuration
+=== Not so easy to change configuration
 
 One of the biggest pains we had with our previous Jenkins was the
 difficulty of changing the steps necessary to build the project. If you
 looked at a project’s build steps, you would find something like this:
 
-....
-
+[source, bash]
+----
 #!/bin/bash +x
 set -e
 
@@ -114,45 +106,47 @@ unbuffer docker-compose --project-name=${JOB_NAME} run web $COMMAND
 COMMAND="bundle exec rubocop app spec -R --format simple"
 echo -e "\033[34mRunning: $COMMAND\033[0m"
 unbuffer docker-compose --project-name=${JOB_NAME} run -e RUBYOPT="-Ku" web $COMMAND
-....
+----
 
 And some post build steps that cleaned up the docker:
 
-....
+[source, bash]
+----
 #!/bin/bash +x
 docker-compose --project-name=${JOB_NAME} stop &> /dev/null || true &> /dev/null
 docker-compose --project-name=${JOB_NAME} rm --force &> /dev/null || true &> /dev/null
 docker stop `docker ps -a -q -f status=exited` &> /dev/null || true &> /dev/null
 docker rm -v `docker ps -a -q -f status=exited` &> /dev/null || true &> /dev/null
 docker rmi `docker images --filter 'dangling=true' -q --no-trunc` &> /dev/null || true &> /dev/null
-....
+----
 
 Although these commands are not complex, changing any of them required
 someone with permissions to modify the job and an understanding ofwhat
 needed to be done.
 
-==== Jenkinsfile to the rescue… or not
+=== Jenkinsfile to the rescue... or not
 
-With the current Jenkins version, we can take advantage of the
-https://jenkins.io/doc/book/pipeline/[pipelines] and model our build
+With the current Jenkins version, we can take advantage of 
+link:https://jenkins.io/doc/book/pipeline/[Jenkins Pipeline] and model our build
 flow in a file. This file is checked into the repository and, therefore,
 anyone with access to it can change the build steps. Yay!
 
-Jenkins’ pipelines even have support for:
+Jenkins Pipeline even has support for:
 
 * https://jenkins.io/doc/book/pipeline/docker/[Docker] and
 https://jenkins.io/doc/book/pipeline/docker/#advanced-usage-with-scripted-pipeline[multiple
 images] can be used for a build!
 * Setting environment variables with _withEnv_ and many other built -in
 functions that can be found
-https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/[here].
+link:https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/[here].
 
-This makes a perfect case for http://www.wolox.co[Wolox]. We can have
+This makes a perfect case for link:http://www.wolox.co[Wolox]. We can have
 our build configuration in a file that’s checked into the repository and
 can be changed by anyone with write access to it. However, a Jenkinsfile
 for a simple rails project would look something like this:
 
-....
+[source, groovy]
+----
 # sample Jenkinsfile. Might not compile
 node {
     checkout scm
@@ -172,7 +166,7 @@ node {
         }
     }
 }
-....
+----
 
 This file is not only difficult to read, but also difficult to change.
 It’s quite easy to break things if you’re not familiar with Groovy and
@@ -180,14 +174,15 @@ even easier if you know nothing about how Jenkins’ pipeline works.
 Changing or adding a new Docker image isn’t straightforward and might
 lead to confusion.
 
-==== Configuring Jenkins via YAML
+=== Configuring Jenkins Pipeline via YAML
 
 Personally, I’ve always envied simple configuration files for CIs and
 this time it was our chance to build CI that could be configured using a
 YAML file. After some analysis we concluded that a YAML like this one
 would suffice:
 
-....
+[source, yaml]
+----
 config:
   dockerfile: .woloxci/Dockerfile
   project_name: some-project-name
@@ -216,25 +211,27 @@ environment:
   GIT_COMMITTER_NAME: a
   GIT_COMMITTER_EMAIL: b
   LANG: C.UTF-8
-....
+----
 
 It outlines some basic configuration for the project, environment
 variables that need to be present during the run, dependentservices, and
 our build steps.
 
-=== Jenkinsfile + Shared Libraries = WoloxCI
+== Jenkinsfile + Shared Libraries = WoloxCI
 
 
 After investigating for a while about Jenkins and the pipeline, we found
 that we could extend it with
-https://jenkins.io/doc/book/pipeline/shared-libraries/[shared
-libraries]. Shared libraries are written in groovy and can be imported
+https://jenkins.io/doc/book/pipeline/shared-libraries/[shared libraries].
+Shared libraries are written in groovy and can be imported
 into the pipeline and executed when necessary.
 
-If you look carefully at this Jenkinsfile
+If you look carefully at this Jenkinsfile, 
+we see that the code is a chain of methods calls that receive a
+closure, where we execute another method passing a new closure to it.
 
-....
-
+[source, groovy]
+----
 # sample Jenkinsfile. Might not compile
 node {
     checkout scm
@@ -254,24 +251,23 @@ node {
         }
     }
 }
-....
+----
 
-We’ll see that the code is a chain of methods calls that receive a
-closure, where we execute another method passing a new closure to it.
 
-Groovy’s flexible enough to allow this same declarative code to be
+Groovy is flexible enough to allow this same declarative code to be
 created at runtime, making our dream of using a YAML to configure our
 job come true!
 
-==== Introducing Wolox-CI
+== Introducing Wolox-CI
 
-That’s how https://github.com/Wolox/wolox-ci[wolox-ci] was born- our
+That’s how link:https://github.com/Wolox/wolox-ci[wolox-ci] was born- our
 shared library for Jenkins!
 
-With https://github.com/Wolox/wolox-ci[wolox-ci], our Jenkinsfile is now
+With link:https://github.com/Wolox/wolox-ci[wolox-ci], our Jenkinsfile is now
 reduced to:
 
-....
+[source, groovy]
+----
 @Library('wolox-ci') _
 
 node {
@@ -280,12 +276,13 @@ node {
 
   woloxCi('.woloxci/config.yml');
 }
-....
+----
 
 Now it simply checks out the code and then calls wolox-ci. The library
 reads yaml file like this one
 
-....
+[source, yaml]
+----
 config:
   dockerfile: .woloxci/Dockerfile
   project_name: some-project-name
@@ -314,7 +311,7 @@ environment:
   GIT_COMMITTER_NAME: a
   GIT_COMMITTER_EMAIL: b
   LANG: C.UTF-8
-....
+----
 
 and builds the Jenkinsfile to get your job running on the fly.
 
@@ -327,15 +324,15 @@ Since we have projects in different languages we use Docker to build the
 testing environment. WoloxCI assumes there is a Dockerfile to build and
 will run all the specified commands inside the container.
 
-===== Woloxci config.yml
+=== Woloxci config.yml
 
-====== Config
+==== Config
 
 The first part of the config.yml file specifies some basic
 configuration: project’s name and Dockerfile location. The Dockerfile is
 used to build the image where the commands will be run.
 
-====== Services
+==== Services
 
 This section describes which services will be exposed to the container.
 Out of the box, WoloxCI has support for _postgresql_, _mssql_ and
@@ -349,21 +346,21 @@ and modify how the services are parsed
 
 https://github.com/Wolox/wolox-ci/blob/development/src/com/wolox/parser/ConfigParser.groovy#L76
 
-====== Steps
+==== Steps
 
 The listed commands in this section will run inside the Docker
 container. As a result, you’ll see each of the steps on the Jenkins UI.
 
 image:https://cdn-images-1.medium.com/max/2000/0*SlHf1JHAAvEvZQ74.[image]
 
-====== Environment
+==== Environment
 
 If you need some environment variables during your build, you can
 specify them here. Whatever variable you set will be available inside
 the Docker container when your commands listed in the *steps* section
 described above.
 
-=== Wrapping up
+== Wrapping up
 
 WoloxCI is still being tested with a not-so-small sample of our
 projects. The possibility of changing the build steps through a YAML
@@ -379,6 +376,6 @@ All of these improvements have reduced the time we spend maintaining
 Jenkins significantly and give us the possibility of easily scaling
 without any extra configuration.
 
-The librar is working in our CI but it still can be improved. If you would like to add any features, feel free to https://github.com/Wolox/wolox-ci[contribute]!
-
----
+This library is working in our CI but it still can be improved. 
+If you would like to add features, feel free to 
+link:https://github.com/Wolox/wolox-ci[contribute]!
