@@ -12,7 +12,6 @@ references:
 // this is a straight import of https://wiki.jenkins-ci.org/display/JENKINS/Making+your+plugin+behave+in+secured+Jenkins
 // TODO check contents and remove wiki page
 
-// TODO Include https://wiki.jenkins-ci.org/display/JENKINS/Jelly+and+XSS+prevention
 
 == Security Architecture of Jenkins
 
@@ -29,7 +28,7 @@ The key components of this mechanism are the followings:
 So the overall picture is this; various objects in Jenkins (such as jenkinsdoc:Job[], jenkinsdoc:Jenkins[], jenkinsdoc:User[], jenkinsdoc:View[], etc.) are jenkinsdoc:AccessControlled[] objects, and therefore they own ACLs.
 The code is then written in such a way that before a security-sensitive operation is performed, it checks ACL.
 
-For example, the following code is taken from the Jenkins class, which lets you shut down the JVM by requesting +/exit+.
+For example, the following code is taken from the jenkinsdoc:Jenkins[] class, which lets you shut down the JVM by requesting +/exit+.
 You can easily imagine that in a security sensitive environment you don't want random users to invoke this, so it makes sure that the caller has the "ADMINISTER" permission of the system before proceeding to do the work:
 
 ----
@@ -57,14 +56,14 @@ In all cases, this is the code you need to write.
 == What do plugins need to do?
 
 * Identify the operations in code that can be potentially security sensitive.
-  This includes anything that can change state in the server.
+  This includes anything that can change state in the server, have other side effects (like elaborate form validation `doCheck` methods), or potentially discloses protected information (like auto-completion `doAutoComplete` methods).
   These methods should perform +checkPermission+.
 * Identify the nearest +AccessControlled+ objects to check permissions with.
   If your 'this' object is already access-controlled, then that's obviously it.
   Otherwise, try to look for the nearest logical ancestor.
   If all else fails, use the +Jenkins+ singleton.
 * Identify the +Permission+ object to use.
-  If you extend from one of the +ExtensionPoint+s, they might already define some permission objects as public static final fields in them.
+  If you extend from an `ExtensionPoint`, it might already define some permission objects as public static final fields in them.
   If you are defining a sub-system of a substantial size, you might want to create new +Permission+ objects (see the end of the +View+ class for this example.) If you don't know, you can use +Jenkins.ADMINISTER+ as a starting point.
 
 With these three information, you can now insert:
