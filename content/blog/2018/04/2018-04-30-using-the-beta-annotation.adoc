@@ -1,0 +1,108 @@
+---
+layout: post
+title: 'Using new core APIs with the Beta annotation'
+tags:
+- core
+- developer
+- plugin
+author: jglick
+---
+
+This sort of slid under the radar in the middle of some bigger changes
+for the link:https://github.com/jenkinsci/jep/tree/master/jep/202[JEP-202]
+reference implementation, so I wanted to call it out now. Arguably this could
+deserve a retroactive JEP, though I would rather fold it into a JEP for 
+link:https://issues.jenkins-ci.org/browse/JENKINS-49651[JENKINS-49651] (see below).
+
+As of Jenkins 2.118, or plugin parent POM 3.7, you can mark any Java member
+(`class`, `method`, `constructor`, `field`, or I suppose also interface,
+`enum`, or `annotation`) with API visibility (`protected` or `public`) with an
+link:https://github.com/kohsuke/access-modifier/pull/11[annotation]:
+
+[source,java]
+----
+@Restricted(Beta.class)
+----
+
+The idea is to announce to potential users of the member that the API
+may still be in flux and only code prepared to keep up should be using
+it. For an example, 2.118 added a `VirtualFile.toExternalURL()` method
+that is being implemented in `artifact-manager-s3` and (pending some
+PR merges) called in `copyartifact` and `workflow-basic-steps`. We do
+not necessarily want this to be called yet by unknown parties out
+there in the Jenkins ecosystem. To enforce that, any attempt to call
+or implement `toExternalURL` will produce a build failure, unless you
+add this property to your plugin POM, as these plugins have done:
+
+[source,xml]
+----
+<useBeta>true</useBeta>
+----
+
+Why? Because there is a chance the design is wrong and it might need
+to be changed—perhaps some upcoming bug fix would demand a `boolean`
+parameter be added, for example.
+
+Under the conventional notion of Jenkins API deprecation and compatibility
+policy, once an API like this makes it into a release version, that is it—we
+might mark it `@Deprecated` but we need to maintain compatibility indefinitely,
+and find some way to migrate existing implementations / call sites.
+
+With the `@Beta` annotation, that promise is not being made. If it needs
+a `boolean` parameter for some reason, that will be added and those
+three plugins updated to match; we are not going to bother retaining
+the original overload and somehow delegating to the new one. This
+simplification of the developer workflow is important to the use cases
+of link:https://github.com/jenkins-infra/evergreen[Essentials] (JEP-3xx), and I would expect the `useBeta` mark to
+become widespread among plugins included in Essentials. Such as the situation
+where one team needs to feel
+comfortable refactoring code under its aegis freely, and the refactored result
+should be deliverable as a unit to production via the Evergreen distribution
+system.
+
+So that leaves two important questions:
+
+**First**, is the annotation
+permanent, and if not, when should it be removed? I do not think there
+is any hard policy, but the intention is that it should be removed
+once the API is in more or less widespread use and has held up. For
+this example, if people start using S3 artifacts, and especially if
+someone successfully writes an implementation of artifact storage in
+Azure that uses the API, the concept will have been reasonably proven.
+At that point we want the API to be used wherever it would make sense,
+and if there is some very belated realization that the design is not
+quite right, we accept the burden of deprecating the original and
+migrating callers compatibly.
+
+**Second**, it is fine and well to say that someone changing the signature
+of a beta `toExternalURL` is on the hook to update the three plugins
+using it, but what if a Jenkins admin (_not_ running Essentials, for
+shame) upgrades to (say) Jenkins 2.125 with the new signature but
+declines to accept the updates to those plugins (say,
+`workflow-basic-steps` 2.9) which adapt to the change? It is not
+enough to say that it is their fault for holding back on the updates
+arbitrarily; the plugin manager _offers_ you updates but does nothing
+to tell you when they are _required_, so suddenly throwing
+`NoSuchMethodError` is not a helpful response.
+
+The solution needs to be ironed out, but my expectation is to use
+link:https://issues.jenkins-ci.org/browse/JENKINS-49651[JENKINS-49651]
+for this. For example, `workflow-basic-steps` 2.8,
+using `toExternalURL()`, would have declared itself compatible with
+`Jenkins-Version: 2.118`, and thus implicitly anything newer. The
+developer doing the refactoring would also amend some 2.125 (and
+newer) core metadata to say that it conflicts with anything older than
+the 2.9 release of the plugin. The plugin manager would therefore
+block the 2.8 plugin from even being loaded on the 2.125 core; the
+admin would need to update before using it. In the case of an
+incompatible change made to a plugin API, rather than a core API, the
+UX is a little smoother since the plugin manager could just refuse to
+let you update one without the other.
+
+---
+
+If you're a plugin or core developer who is interested in using the `@Beta`
+annotations, or have questions about our motiviations, please join the
+discussion on
+link:https://groups.google.com/d/msgid/jenkinsci-dev/CANfRfr0Ngpm_f-F_BhTzHijyPse7pMVT8-oVazHrO%3Di_d7ZR4A%40mail.gmail.com[this mailing list thread].
+
