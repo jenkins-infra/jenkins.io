@@ -1,0 +1,91 @@
+---
+layout: post
+title: "Jenkins X: Announcing CVE docker image analysis with Anchore"
+tags:
+- jenkins-x
+- kubernetes
+- pipeline
+author: jrawlings
+---
+
+Ancore provides docker image analysis for user defined acceptance policies to allow automated image validation and acceptance.
+
+As developers we would like to know if a change we are proposing introduces a CVE (Common Vulnerability and Exposure),
+as an operator we would like to know what running applications are affected if a new CVE is discovered.  
+
+Now in Jenkins X pipelines, if we find the Anchore engine service running we will add the preview and release images to be analysed.
+This means we can look at any environment including previews (created from Pull Requests) to see if your application contains a CVE.
+
+=== Upgrade
+If your Jenkins X platform is older than 0.0.903
+
+[source]
+----
+> jx version
+----
+
+then first you will need to upgrade to at least 0.0.922
+
+[source]
+----
+> jx upgrade cli
+> jx upgrade platform
+----
+
+=== Install addon
+
+You can install Anchore when you are in your Jenkins X team `home` environment.
+
+[source]
+----
+> jx env dev
+> jx create addon anchore
+----
+
+This will install the engine in a seperate `anchore` namespace and create a service link in the current team `home` environment 
+so our pipeline builds can add docker images to Anchore for analysis.
+
+=== Create an application
+
+You can now create a new quickstart
+
+[source]
+----
+> jx create quickstart
+----
+
+=== List any CVEs
+
+Once the build has run you will be able to check for CVEs in any environment incluing previews created for pull requests.
+
+[source]
+----
+> jx get cve --environment staging
+----
+
+=== Demo
+
+Here's a 4 minute video that demonstrates the steps above:
+
+video::rB8Sw0FqCQk[youtube]
+
+=== Upgrading existing pipelines
+
+If you have an existing application pipeline and and want enable image analysis you can update your Jenkinsfile, in the `preview` 
+stage after the skaffold step add the line
+
+[source]
+----
+> sh "jx step validate --min-jx-version 1.2.36"
+> sh "jx step post build --image \$JENKINS_X_DOCKER_REGISTRY_SERVICE_HOST:\$JENKINS_X_DOCKER_REGISTRY_SERVICE_PORT/$ORG/$APP_NAME:$PREVIEW_VERSION"
+----
+
+In the `master` stage the add this line after the skaffold step
+
+[source]
+----
+> sh "jx step validate --min-jx-version 1.2.36"
+> sh "jx step post build --image \$JENKINS_X_DOCKER_REGISTRY_SERVICE_HOST:\$JENKINS_X_DOCKER_REGISTRY_SERVICE_PORT/$ORG/$APP_NAME:\$(cat VERSION)"
+----
+
+For any questions please find us, we mainly hang out on slack https://jenkins-x.io/community/
