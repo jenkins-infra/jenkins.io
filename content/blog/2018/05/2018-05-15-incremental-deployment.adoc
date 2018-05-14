@@ -1,0 +1,174 @@
+---
+layout: post
+title: "Automatic deployment of “incremental” commits to Jenkins core and plugins"
+tags:
+- essentials
+- developer
+author: jglick
+---
+
+A couple of weeks ago, Tyler mentioned some
+link:/blog/2018/04/27/essentials-versions-are-numbered/#developer-improvements[developer improvements in Essentials]
+that had been recently introduced:
+the ability for
+link:https://ci.jenkins.io/[ci.jenkins.io]
+builds to get deployed automatically to an “Incrementals” Maven repository,
+as described in
+link:https://github.com/jenkinsci/jep/blob/master/jep/305/README.adoc[JEP-305].
+For a plugin maintainer, you just need to
+link:https://github.com/jenkinsci/incrementals-tools/blob/master/README.md#enabling-incrementals-the-easy-way[turn on this support]
+and you are ready to both deploy individual Git commits from your repository
+without the need to run heavyweight traditional Maven releases,
+and to depend directly on similar commits of Jenkins core or other plugins.
+This is a stepping stone toward continuous delivery, and ultimately deployment, of Jenkins itself.
+
+Here I would like to peek behind the curtain a bit at how we did this,
+since the solution turns out to be very interesting for people thinking about security in Jenkins.
+I will gloss over the Maven arcana required to get the project version to look like `1.40-rc301.87ce0dd8909b`
+(a real example from the
+link:https://repo.jenkins-ci.org/incrementals/org/jenkins-ci/plugins/copyartifact/1.40-rc301.87ce0dd8909b/[Copy Artifact plugin])
+rather than the usual `1.40-SNAPSHOT`, and why this format is even useful.
+Suffice it to say that if you had enough permissions, you could run
+
+[source,bash]
+----
+mvn -Dset.changelist -DskipTests clean deploy
+----
+
+from your laptop to publish your latest commit.
+Indeed as
+link:https://github.com/jenkinsci/jep/blob/master/jep/305/README.adoc#automated-deployment-to-the-incrementals-repository[mentioned in the JEP],
+the most straightforward server setup would be to run more or less that command
+from the `buildPlugin` function called from a typical `Jenkinsfile`,
+with some predefined credentials adequate to upload to the Maven repository.
+
+Unfortunately, that simple solution did not look very secure.
+If you offer deployment credentials to a Jenkins job,
+you need to trust anyone who might configure that job (here, its `Jenkinsfile`)
+to use those credentials appropriately.
+(The `withCredentials` step will mask the password from the log file, to prevent _accidental_ disclosures.
+It in no way blocks _deliberate_ misuse or theft.)
+If your Jenkins service runs inside a protected network and works with private repositories,
+that is probably good enough.
+
+For this project, we wanted to permit incremental deployments from any pull request.
+Jenkins will refuse to run `Jenkinsfile` modifications from people
+who would not normally be able to merge the pull request or push directly,
+and those people would be more or less trustworthy Jenkins developers,
+but that is of no help if a pull request changes `pom.xml`
+or other source files used by the build itself.
+If the server administrator exposes a secret to a job,
+and it is bound to an environment variable while running some open-ended command like a Maven build,
+there is no practical way to control what might happen.
+
+The lesson here is that the unit of access control in Jenkins is the job.
+You can control who can configure a job, or who can edit files it uses,
+but you have no control over what the job _does_ or how it might use any credentials.
+For JEP-305, therefore, we wanted a way to perform deployments from builds considered as black boxes.
+This means a division of responsibility:
+the build produces some artifacts, however it sees fit;
+and another process picks up those artifacts and deploys them.
+
+This worked was tracked in
+link:https://issues.jenkins-ci.org/browse/INFRA-1571[INFRA-1571].
+The idea was to create a “serverless function” in Azure
+that would retrieve artifacts from Jenkins at the end of a build,
+perform a set of validations to ensure that the artifacts follow an expected repository path pattern,
+and finally deploy them to Artifactory using a trusted token.
+I prototyped this in Java, Tyler
+link:https://github.com/jenkins-infra/community-functions/blob/master/incrementals-publisher/README.adoc[rewrote it in JavaScript],
+and together we brought it into production.
+
+The crucial bit here is what information (or misinformation!) the Jenkins build can send to the function.
+All we actually need to know is the build URL, so the
+link:https://github.com/jenkins-infra/pipeline-library/blob/442485fc03101d4f52856ea48825a4d45acece7e/vars/infra.groovy#L227-L245[call site from Jenkins]
+is quite simple.
+When the function is called with this URL,
+it starts off by performing input validation:
+it knows what the Jenkins base URL is,
+and what a build URL from inside an organization folder is supposed to look like:
+`https://ci.jenkins.io/job/Plugins/job/git-plugin/job/PR-582/17/`, for example.
+
+The next step is to call back to Jenkins and ask it for some metadata about that build.
+While we do not trust the _build_, we trust the server that ran it to be properly configured.
+An obstacle here was that the `ci.jenkins.io` server had been configured to disable the Jenkins REST API;
+with Tyler’s guidance I was able to amend this policy to permit API requests from registered users
+(or, in the case of the Incrementals publisher, a bot).
+
+If you want to try this at home, get an
+link:https://ci.jenkins.io/me/configure[API token],
+pick a build of an “incrementalified” plugin or Jenkins core,
+and run something like
+
+[source,bash]
+----
+curl -igu <login>:<token> 'https://ci.jenkins.io/job/Plugins/job/git-plugin/job/PR-582/17/api/json?pretty&tree=actions[revision[hash,pullHash]]'
+----
+
+You will see a `hash` or `pullHash` corresponding to the _main commit_ of that build.
+(This information was added to the Jenkins REST API to support this use case in
+link:https://issues.jenkins-ci.org/browse/JENKINS-50777[JENKINS-50777].)
+The main commit is selected when the build starts
+and always corresponds to the version of `Jenkinsfile` in the repository for which the job is named.
+While a build might `checkout` any number of repositories,
+`checkout scm` always picks “this” repository in “this” version.
+Therefore the deployment function knows for sure which commit the sources came from,
+and will refuse to deploy artifacts named for some other commit.
+
+Next it looks up information about the Git repository at the folder level (again from JENKINS-50777):
+
+[source,bash]
+----
+curl -igu <login>:<token> 'https://ci.jenkins.io/job/Plugins/job/git-plugin/api/json?pretty&tree=sources[source[repoOwner,repository]]'
+----
+
+The Git repository now needs to be correlated to a list of Maven artifact paths that this component is expected to produce.
+The
+link:https://github.com/jenkins-infra/repository-permissions-updater[repository-permissions-updater]
+(RPU) tool already had a list of artifact paths used to perform permission checks on regular release deployments to Artifactory; in
+link:https://issues.jenkins-ci.org/browse/INFRA-1598[INFRA-1598]
+I extended it to also record the GitHub repository name, as can be seen
+link:https://ci.jenkins.io/job/Infra/job/repository-permissions-updater/job/master/lastSuccessfulBuild/artifact/json/github.index.json[here].
+Now the function knows that the CI build in this example may legitimately create artifacts in the `org/jenkins-ci/plugins/git/` namespace
+including `38c569094828` in their versions.
+The build is expected to have produced artifacts in the same structure as `mvn install` sends to the local repository,
+so the function downloads everything associated with that commit hash:
+
+[source,bash]
+----
+curl -sg 'https://ci.jenkins.io/job/Plugins/job/git-plugin/job/PR-582/17/artifact/**/*-rc*.38c569094828/*-rc*.38c569094828*/*zip*/archive.zip' | jar t
+----
+
+When all the artifacts are indeed inside the expected path(s),
+and at least one POM file is included (here `org/jenkins-ci/plugins/git/3.9.0-rc1671.38c569094828/git-3.9.0-rc1671.38c569094828.pom`),
+then the ZIP file looks good—ready to send to Artifactory.
+
+One last check is whether the commit has already been deployed (perhaps this is a rebuild).
+If it has not, the function uses the Artifactory REST API to atomically upload the ZIP file
+and uses the GitHub Status API to associate a message with the commit
+so that you can see right in your pull request that it got deployed:
+
+image:/images/post-images/2018-05-15/incrementals-status.png[width="1104",float="left"]
+
+One more bit of caution was required.
+Just because we successfully published some bits from some PR does not mean they should be _used_!
+We also needed a tool which lets you select the newest published version of some artifact
+_within a particular branch_, usually `master`.
+This was tracked in
+link:https://issues.jenkins-ci.org/browse/JENKINS-50953[JENKINS-50953]
+and is available to start with as a Maven command operating on a `pom.xml`:
+
+[source,bash]
+----
+mvn incrementals:update
+----
+
+This will check Artifactory for updates to relevant components.
+When each one is found, it will use the GitHub API to check whether the commit has been merged to the selected branch.
+Only matches are offered for update.
+
+Putting all this together, we have a system for continuously delivering components
+from any of the hundreds of Jenkins Git repositories
+triggered by the simple act of filing a pull request.
+Securing that system was a lot of work
+but highlights how boundaries of trust interact with CI/CD.
