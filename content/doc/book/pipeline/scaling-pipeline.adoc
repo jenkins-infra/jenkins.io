@@ -86,6 +86,14 @@ A dirty shutdown can also happen due to catastrophic operating system failures, 
 
 == Other Scaling Suggestions
 
+* Use @NonCPS-annotated functions for more complex work. This means more involved processing, logic, and transformations. This lets you leverage additional Groovy & functional features for more powerful, concise, and performant code.
+** This still runs on masters so be aware of complexity of the work, but is much faster than native Pipeline code because it doesn’t provide durability and uses a faster execution model. Still, be mindful of the CPU cost and offload to executors when the cost becomes too high.
+** @NonCPS functions can use a much broader subset of the Groovy language, such as iterators and functional features, which makes them more terse and fast to write.
+** @NonCPS functions *should not use* Pipeline steps internally, however you can store the result of a Pipeline step to a variable and use it that as the input to a @NonCPS function.
+*** *Gotcha*: It’s not guaranteed that use of a step will generate an error (there is an open RFE to implement that), but you should not rely on that behavior. You may see improper handling of exceptions.
+** While normal Pipeline is restricted to serializable local variables, @NonCPS functions can use more complex, nonserializable types internally (for example regex matchers, etc). Parameters and return types should still be Serializable, however.
+*** *Gotcha*: improper usages are not guaranteed to raise an error with normal Pipeline (optimizations may mask the issue), but it is unsafe to rely on this behavior.
+** *General Gotcha*: when using running @NonCPS functions, the actual error can sometimes be swallowed by pipeline creating a confusing error message. Combat this by using a `try/catch` block and potentially using an `echo` to plain text print the error message in the `catch`
 * *Whenever possible, run Jenkins with fast SSD-backed storage and not hard drives.  This can make a _huge_ difference.*
 * In general try to fit the tool to the job.  Consider writing short Shell/Batch/Groovy/Python scripts when running a complex process using a build agent.  Good examples include processing data, communicating interactively with REST APIs, and parsing/templating larger XML or JSON files.  The `sh` and `bat` steps are helpful to invoke these, especially with `returnStdout: true` to return the output from this script and save it as a variable (Scripted Pipeline).
 ** The Pipeline DSL is not designed for arbitrary networking and computation tasks - it is intended for CI/CD scripting.
@@ -94,3 +102,4 @@ A dirty shutdown can also happen due to catastrophic operating system failures, 
 * Consolidate sequential steps of the same type if you can, for example by using one Shell step to invoke a helper script rather than running many steps.
 * Try to limit the amount of data written to logs by Pipelines.  If you are writing several MB of log data, such as from a build tool, consider instead writing this to an external file, compressing it, and archiving it as a build artifact.
 * When using Jenkins with more than 6 GB of heap use the link:https://jenkins.io/blog/2016/11/21/gc-tuning/[suggested garbage collection tuning options] to minimize garbage collection pause times and overhead.
+
