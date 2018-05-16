@@ -1,0 +1,79 @@
+---
+layout: post
+title: "When using tags in Jenkins Pipeline"
+tags:
+- pipeline
+- git
+---
+
+One common pattern for automated releases I have seen and used relies on Git
+tags as the catalyst for a release process. The immutable nature of releases
+and the immutable nature of tags can definitely go hand in hand, but up until
+few months ago Jenkins Pipeline was not able to trigger effectively off of Git
+tags.
+
+In this post I want to briefly share how to use tags to drive behaviors in
+Jenkins Pipeline. Consider the following contrived `Jenkinsfile`, which
+contains the three basic stages of Build, Test, and Deploy:
+
+[source, groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'make package'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'make check'
+            }
+        }
+        stage('Deploy') {
+            when { tag "release-*" }
+            steps {
+                echo 'Deploying only because this commit is tagged...'
+                sh 'make deploy'
+            }
+        }
+    }
+}
+----
+
+Of particular note is the
+link:/doc/book/pipeline/syntax/#when[`when`]
+condition on the "Deploy" stage which is applying the `tag` criteria. This
+means the stage would only execute when the Pipeline has been triggered from a
+tag in Git matching the `release-*` Ant-style wildcard.
+
+In practice, this means that all pull requests, and branch-based Pipeline Runs
+result in the stage being skipped:
+
+image::/images/post-images/pipeline-tags/not-deployed.png["Not Deployed!", role=center]
+
+When I push a `release-1.0` tag, the Pipeline will then be triggerd and run the
+"Deploy" stage:
+
+image::/images/post-images/pipeline-tags/deployed.png["Deployed!", role=center]
+
+
+Out of the box, Pipelines won't trigger off of the presence of tags, which
+means that a Multibranch Pipeline must have a configuration update to know that
+it must Discover Tags.
+
+== Configuring
+
+From the configuration screen of a Multibranch Pipeline (or GitHub Organization
+Folder), Discovering tags can be enabled by adding the appropriate "Behavior"
+to the Branch Source configuration:
+
+image::/images/post-images/pipeline-tags/branch-source.png["Configuring the Multibranch Pipeline", role=center]
+
+
+---
+
+With these changes, the `Jenkinsfile` in the tagged versions of my source
+repository can now drive distinct deployment behavior which is not otherwise
+enabled in the Pipeline.
