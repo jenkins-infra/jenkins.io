@@ -22,7 +22,13 @@ Awestruct::Extensions::Pipeline.new do
                                                 '/rss.xml',
                                                 :feed_title => 'Jenkins Blog',
                                                 :template => '_ext/atom.xml.haml',
-                                                :num_entries => 20)
+                                                :num_entries => 50)
+
+  extension Awestruct::Extensions::Atomizer.new(:posts,
+                                                '/full-rss.xml',
+                                                :feed_title => 'Jenkins Blog',
+                                                :template => '_ext/atom.xml.haml',
+                                                :num_entries => 4096)
 
   extension Awestruct::Extensions::Tagger.new(:posts,
                                               '/node/index',
