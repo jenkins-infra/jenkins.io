@@ -9,29 +9,52 @@ author: abhishek_gautam
 
 === About me
 
-I am Abhishek Gautam, 3rd year student from Visvesvaraya National Institute of technology, India, Nagpur.
-
-As a person who is passionate is intrested in automation.
+I am Abhishek Gautam, 3rd year student from Visvesvaraya National Institute of
+technology, India, Nagpur. I was a member of ACM Chapter and Google student developer club of his
+college. I am passianate about automation.
 
 === Project Summary
+This is a GSoC 2018 project.
+
+This project aims to develop a Pull request Job Plugin. Users should be able to
+configure job type using YAML file which will be placed in root directory of the
+Git repository being the subject of the PR. Plugin should interact with various
+platfoms like Bitbucket, Github, Gitlab, etc whenever a pull request is created or updated.
+
+Detect the presence of certain types of the report based on a conventional location,
+and automatically publish them. If the reports are not in a conventional location,
+users could specify the location using the YAML file.
+
+==== Benefits to the community
+* Project administrators will be able to handle builds for pull requests more easily.
+* Build specifications for pull request can be written in a more readable format.
+* Build reports will be automatically published to Github, Bitbucket, ect.
+* Build status updates will be sent to git servers automatically.
+* Users will not have to deal with pipeline code.
+
+
 This plugin will be developed on the top of the MultiBranch Pipeline plugin.
 
-.This plugin will follow below steps
+.This plugin is following below steps for now
 * clone target repo
 * checkout to target branch
 * fetch the source branch
 * merge source-branch
 * call user call user script to build the repo.
-* push to target branch [if specified by user in YAML]
-* harvest results and reports and post to PR
+* push changes of PR to target branch
+* publish test reports
 
-Plugin will start above steps if and only if the pull request is will be
-mergeable to avoid merge conflicts while merging the source branch to target
-branch. The pull request is mergebale or not can also be decided by the webhook also.
+Plugin will start above steps if and only if the pull request is
+mergeable, to avoid merge conflicts while merging the source branch to target
+branch. The pull request is mergebale or not can also be decided by the payload of webhook also.
 
 https://github.com/jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo]
 
-=== Deliverables for Phase 1
+=== How to run the Plugin
+See https://github.com/jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo]
+and set credentials, owner and repository on your own and you will be good to go.
+
+=== What is avalilable now
 1. User will be able to select to use Jenkinsfile.yaml for build.
 2. Git Push step
 3. harvest results and reports [and post in the PR]
@@ -40,9 +63,16 @@ https://github.com/jenkinsci/simple-pull-request-job-plugin/blob/master/README.m
  c. archiveArtifacts()
 4. Basic interface to parse and get build specifications from YAML file.
 
+For now the plugin is bulding branches and Pull request both using Jnekinsfile.yaml.
+This will be fixed in next coding phase.
+
 === Things decided
-1. To build the plugin on the top of multibranch pipeline plugin.
-2. Convert the YAML configuration to declarative pipeline for to run the build.
+1. To build the plugin on the top of multibranch pipeline plugin. As that plugin has implementation of
+  a. Nice interface to show diffrent branch and pull requests build seperately with use of suitable plugins like Github, Bitbucket.
+  b. Detect trusted revisions in a repository.
+  c. Pblishing of build status to the repository.
+
+2. Convert the YAML configuration to declarative pipeline.
 3. User will provide path to the script relative to the root directory of the repository
   without extension (.sh or .bat) in the YAML file. The plugin will generate pipeline script to detect the
   platform and call .sh or .bat script.
@@ -53,8 +83,121 @@ https://github.com/jenkinsci/simple-pull-request-job-plugin/blob/master/README.m
     b. On non-UNIX machine “./scripts/hello.bat” will be called.
 
 === Implementations till now
-1. Git Push step: To push the changes of PR to the target branch.
-2. Basic conversion of YAML to Declarative Pipeline.
+1. Git Push step: To push the changes of PR to the target branch. This is implemented
+using git-plugin, PushCommand is used for this from git-plugin.
+2. Basic conversion of YAML to Declarative Pipeline: A class YamlToPipeline class
+is written which will load the "Jenkinsfile.yaml" and make use of PipelineSnippetGenerator class
+to generate Declarative pipeline code.
+3. Reporting of results.
+4. Plugin is using Yaml from target branch rigth now. (May be this needs some discussion, example: what if PR contains changes in Jenkinsfile.yaml)
+=== Jenkinsfile.yaml exapmle
+Write now no format has been decided for the yaml file. But for thes demo I am using below yaml Jenkinsfile
+[source,yaml]
+artifactPublishingConfig:
+    host: 192.32.52.12
+    user: user53
+    credentialId: dummyGitRepo
+agent:
+    dockerImage: maven:3.5.3-jdk-8
+    args: -v /tmp:/tmp
+testResultPaths:
+    - target/surefire-reports/*.xml
+findBugs: target/*.xml
+stages:
+    - name: First
+      scripts:
+        -   ./scripts/hello
+    - name: Build
+      scripts:
+        -   ./scripts/build
+    - name: Tests
+      scripts:
+        -   ./scripts/test
+archiveArtifacts:
+    - Jenkinsfile.yaml
+    - scripts/hello.sh
+publishArtifacts:
+    - from: Jenkinsfile.yaml
+      to: ~/archives
+    - from: scripts/hello.sh
+      to: ~/archives
+
+Below pipeline code will be generated using above yaml file.
+
+[source, groovy]
+pipeline {
+  agent {
+    docker {
+      image 'maven:3.5.3-jdk-8'
+      args '-v /tmp:/tmp'
+      alwaysPull false
+      reuseNode false
+    }
+  }
+  stages {
+    stage('First') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh './scripts/hello.sh'
+          } else {
+            bat './scripts/hello.bat'
+          }
+        }
+      }
+    }
+    stage('Build') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh './scripts/build.sh'
+          } else {
+            bat './scripts/build.bat'
+          }
+        }
+      }
+      post {
+        success {
+          archiveArtifacts artifacts: '**/target/*.jar'
+          archiveArtifacts artifacts: 'Jenkinsfile.yaml'
+          archiveArtifacts artifacts: 'scripts/hello.sh'
+        }
+      }
+    }
+    stage('Tests') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh './scripts/test.sh'
+          } else {
+            bat './scripts/test.bat'
+          }
+        }
+      }
+      post {
+        success {
+          junit 'target/surefire-reports/*.xml'
+        }
+        always {
+          findbugs pattern: 'target/*.xml'
+        }
+      }
+    }
+  }
+}
+
+=== Coding Phase 2 plans
+[start=1]
+* Decide a proper YAML format to use for Jenkinsfile.yaml
+* Create Step Configurator for SPRP plugin. https://issues.jenkins-ci.org/browse/JENKINS-51637[JENKINS-51637].
+This will enable users to use Pipeline steps in Jenkinsfile.yaml.
+* Geting rid of manual tab generation in Pipeline SnippetGenerator class.
+* Write tests for the plugin.
+
+
+=== How to reach me
+* Email: gautamabhishek46@gmail.com
+* Gitter room: https://gitter.im/jenkinsci/simple-pull-request-job-plugin
 
 === References
 
