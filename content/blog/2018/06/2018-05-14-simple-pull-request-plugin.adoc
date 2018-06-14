@@ -1,9 +1,11 @@
 ---
 layout: post
-title: "GSoC Project Intro: Simple pull request Plugin"
+title: "GSoC Project Intro: Pipeline as YAML"
 tags:
 - gsoc2018
 - plugin
+- pipeline
+- yaml
 author: abhishek_gautam
 ---
 
@@ -26,7 +28,7 @@ This is a GSoC 2018 project.
 
 This project aims to develop a Pull request Job Plugin. Users should be able to
 configure job type using YAML file placed in root directory of the
-Git repository being the subject of the PR. Plugin should interact with various
+Git repository being the subject of the PR. The plugin should interact with various
 platforms like Bitbucket, Github, Gitlab, etc whenever a pull request is created or updated.
 
 Plugin should be able to detect the presence of certain types of the report at conventional locations,
@@ -42,19 +44,20 @@ users should be able to specify the location using the YAML file.
 * Users will not have to deal with pipeline code.
 
 === Prior work
-
-. link:https://github.com/jenkinsci/travis-yml-plugin[Travis YML Plugin]: 
-  Designed to run .travis.yml as jenkins pipeline job.
-  Travis-CI does not support external pull requests hence. And jenkins environment
+[start=1]
+. link:https://github.com/Jenkinsci/travis-yml-plugin[Travis YML Plugin]:
+  Designed to run .travis.yml as Jenkins pipeline job.
+  Travis-CI does not support external pull requests. Jenkins environment
   is different than Travis and does not always make sense to use configurations
-  defined for other environment in jenkins. Also maintenance of this is slowed
+  defined for other environment in Jenkins. Also maintenance of this is slowed
   down and last commit for this plugin was on 14 Nov 2016.
-  https://github.com/jenkinsci/travis-yml-plugin/commits/master[Click here] to check.
+  https://github.com/Jenkinsci/travis-yml-plugin/commits/master[Click here] to check.
 
-. link:https://github.com/ndeloof/codeship-plugin[CodeShip Plugin]: 
+. link:https://github.com/ndeloof/codeship-plugin[CodeShip Plugin]:
   This plugin is designed to convert codeship "steps.yaml" and
   "services.yaml" to scripted pipeline code. This plugin has never been released.
 
+. Jenkins pipeline builder: This is a external non-Java-based tool, which cannot be easily converted to a Jenkins plugin.
 
 
 === Design
@@ -82,10 +85,15 @@ decided by the payload of webhook also.
 
 === How to run the Plugin
 
-See link:https://github.com/jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo]
+See link:https://github.com/Jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo]
 and set credentials, owner and repository on your own and you will be good to go.
 
-=== What is avalilable now
+==== Example branch-source configuration.
+image:/images/post-images/gsoc-simple-pull-request-plugin/branch-source-configuration.png[title="Jenkinsfile.yaml", role="center"]
+
+
+
+=== What is available now
 
 . Users are able to select to use Jenkinsfile.yaml for build.
 . Git Push step
@@ -100,7 +108,7 @@ and set credentials, owner and repository on your own and you will be good to go
 
 . To build the plugin on the top of multibranch pipeline plugin. As that plugin has implementation of
 [loweralpha]
-.. Nice interface to show diffrent branch and pull requests build seperately with use of suitable plugins like Github, Bitbucket.
+.. Nice interface to show different branch and pull requests build separately with use of suitable plugins like Github, Bitbucket.
 .. Detect trusted revisions in a repository.
 .. Publishing of build status to the repository.
 . Convert the YAML configuration to declarative pipeline.
@@ -125,42 +133,136 @@ using respective paltfroms for their repositories.
 is written which will load the "Jenkinsfile.yaml" and make use of PipelineSnippetGenerator class
 to generate Declarative pipeline code.
 . Reporting of results.
-. Plugin is using Yaml from target branch right now. (Maybe this needs some discussion, example: 
+. Plugin is using Yaml from target branch right now. (Maybe this needs some discussion, example:
 what if PR contains changes in Jenkinsfile.yaml)
-. Git Push step: To push the changes of PR to the target branch. This is implemented  
+. Git Push step: To push the changes of PR to the target branch. This is implemented
 using git-plugin, PushCommand is used for this from git-plugin. credentialId,
 branch name and repository url for intracting with Github, Bitbucket, etc
 will be taken automatically from respective plugins plugin. (Yes users have to configure in that way, you can see
-link:https://github.com/jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo])
+link:https://github.com/Jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo])
 
 === Jenkinsfile.yaml example
 
 Write now no format has been decided for the yaml file. But for this demo I am using below Jenkinsfile.yaml
+[source, yaml]
+----
+agent:
+    dockerImage: maven:3.5.3-jdk-8
+    args: -v /tmp:/tmp
 
-image:/images/post-images/gsoc-simple-pull-request-plugin/YAML.png[title="Jenkinsfile.yaml", role="center"]
+testResultPaths:
+    - target/surefire-reports/*.xml
 
-Below pipeline code will be generated using above yaml file.
+findBugs: target/*.xml
 
-image:/images/post-images/gsoc-simple-pull-request-plugin/Pipeline.png[title="Declarative Pipeline", role="center"]
+stages:
+    - name: First
+      scripts:
+        -   ./scripts/hello
+    - name: Build
+      scripts:
+        -   ./scripts/build
+    - name: Tests
+      scripts:
+        -   ./scripts/test
+
+archiveArtifacts:
+    - Jenkinsfile.yaml
+    - scripts/hello.sh
+----
+
+==== Below pipeline code will be generated using above yaml file.
+[source, groovy]
+----
+pipeline {
+  agent {
+    docker {
+      image 'maven:3.5.3-jdk-8'
+      args '-v /tmp:/tmp'
+      alwaysPull false
+      reuseNode false
+    }
+  }
+  stages {
+    stage('First') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh './scripts/hello.sh'
+          } else {
+            bat './scripts/hello.bat'
+          }
+        }
+      }
+    }
+    stage('Build') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh './scripts/build.sh'
+          } else {
+            bat './scripts/build.bat'
+          }
+        }pipeline
+      }
+      post {
+        success {
+          archiveArtifacts artifacts: '**/target/*.jar'
+          archiveArtifacts artifacts: 'Jenkinsfile.yaml'
+          archiveArtifacts artifacts: 'scripts/hello.sh'
+        }
+      }
+    }
+    stage('Tests') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh './scripts/test.sh'
+          } else {
+            bat './scripts/test.bat'
+          }
+        }
+      }
+      post {
+        success {
+          junit 'target/surefire-reports/*.xml'
+        }
+        always {
+          findbugs pattern: 'target/*.xml'
+        }
+      }
+    }
+  }
+}
+----
+==== Pipeline view in Jenkins instance
+
+image:/images/post-images/gsoc-simple-pull-request-plugin/pipeline-view.png[title="Jenkinsfile.yaml", role="center"]
+
 
 === Coding Phase 2 plans
 
 . Decide a proper YAML format to use for Jenkinsfile.yaml
-. Create Step Configurator for SPRP plugin. https://issues.jenkins-ci.org/browse/JENKINS-51637[JENKINS-51637].
+. Create Step Configurator for SPRP plugin. https://issues.Jenkins-ci.org/browse/Jenkins-51637[Jenkins-51637].
 This will enable users to use Pipeline steps in Jenkinsfile.yaml.
-. Geting rid of manual tab generation in Pipeline SnippetGenerator class.
+. Getting rid of manual tab generation in Pipeline SnippetGenerator class.
 . Write tests for the plugin.
+
+https://issues.Jenkins-ci.org/browse/Jenkins-51809[Jira Epic]
 
 
 === How to reach me
 
 * Email: gautamabhishek46@gmail.com
-* Gitter room: link:https://gitter.im/jenkinsci/simple-pull-request-job-plugin[]
+* Gitter room: link:https://gitter.im/Jenkinsci/simple-pull-request-job-plugin[]
 
 === References
 
 * link:https://docs.google.com/document/d/1cuC0AvQG3e4GCjIoCwK3J0tcJVAz1eNDKV8d_zXxlO8/edit[Initial proposal of the project]
-* link:https://github.com/jenkinsci/simple-pull-request-job-plugin[Project repository]
-* link:https://jenkins.io/projects/gsoc/2018/simple-pull-request-job-plugin/[Project page]
-* link:https://gitter.im/jenkinsci/simple-pull-request-job-plugin?utm_source=share-link&utm_medium=link&utm_campaign=share-link[Gitter chat]
-* link:https://issues.jenkins-ci.org/issues/?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20simple-pull-request-job-plugin[Bug Tracker]
+* link:https://github.com/Jenkinsci/simple-pull-request-job-plugin[Project repository]
+* link:https://Jenkins.io/projects/gsoc/2018/simple-pull-request-job-plugin/[Project page]
+* link:https://gitter.im/Jenkinsci/simple-pull-request-job-plugin?utm_source=share-link&utm_medium=link&utm_campaign=share-link[Gitter chat]
+* link:https://issues.Jenkins-ci.org/issues/?jql=project%20%3D%20Jenkins%20AND%20component%20%3D%20simple-pull-request-job-plugin[Bug Tracker]
+* https://github.com/gautamabhishek46/dummy[Demo Repository]
+* https://www.youtube.com/watch?v=qWHM8S0fzUw[14 June Phase 1 evaluation presentation vedio]
+* https://docs.google.com/presentation/d/1R63XK4Nmd5EBmMdF2rkevV1iZxjTom19XFHdgjY9qeA/edit?usp=sharing[14 June Phase 1 evaluation PPT]
