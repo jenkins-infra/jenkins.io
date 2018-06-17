@@ -1,0 +1,143 @@
+---
+layout: post
+title: "Running Jenkins with Java 10 and 11 (experimental support)"
+tags:
+- core
+- developer
+- java10
+- java11
+author: oleg_nenashev
+---
+
+As you probably know, we will have a
+link:/blog/2018/06/08/jenkins-java10-hackathon/[Jenkins and Java 10+ online hackathon] this week.
+In order to enable early adopters to try out Jenkins with new Java versions,
+we have updated Jenkins core and Docker packages.
+Starting from link:/changelog/#v2.127[Jenkins 2.127],
+weekly releases can be launched with Java 10 and Java 11 (preview).
+Although there are some known compatibility issues,
+the packages are ready for evaluation and exploratory testing.
+
+This article explains how to run Jenkins with Java 10 and 11 using Docker images and WAR files.
+It also lists known issues and provides contributor guidelines.
+
+=== Running in Docker
+
+In order to simplify testing, we have created a new
+link:https://hub.docker.com/r/jenkins/jenkins-experimental/[jenkins/jenkins-experimental]
+repository on DockerHub.
+This repository includes various Jenkins Core images, including Java 10 and Java 11 images.
+We have also set up development branches and continuous delivery flows for Jenkins core,
+so now we can deliver patches for these images without waiting for weekly releases.
+
+You can run the image simply as:
+
+```
+docker run -p 8080:8080 -p 50000:50000 jenkins/jenkins-experimental:latest-jdk10
+```
+
+The following tags are available:
+
+* `2.127-jdk10`, `2.127-jdk11` - Weekly releases packaged with Java 10 and 11
+* `latest-jdk10` - Jenkins core build from the link:https://github.com/jenkinsci/jenkins/tree/java10-support[java10-support] branch
+* `latest-jdk11` - Automatic build from the core's link:https://github.com/jenkinsci/jenkins/tree/java11-support[java11-support] branch.
+
+Java 10/11 images are fully compatible with the official
+link:https://github.com/jenkinsci/docker/blob/master/README.md[jenkins/jenkins]
+Docker image documentation,
+e.g. you can use `plugins.txt` to install plugins, mount volumes and pass extra options via environment variables.
+
+=== Running Jenkins without Docker
+
+==== Java 10
+
+1. Download Jenkins WAR for 2.127 or above
+(or build the link:https://github.com/jenkinsci/jenkins/tree/java10-support[experimental branch])
+2. Run WAR with the following command:
+
+```shell
+${JAVA10_HOME}/bin/java --add-modules java.xml.bind -jar jenkins.war \
+    --enable-future-java --httpPort=8080 --prefix=/jenkins
+```
+
+==== Java 11
+
+1. Download Jenkins WAR for 2.127 or above
+(or build the link:https://github.com/jenkinsci/jenkins/tree/java11-support[experimental branch])
+2. Download the following libraries to the same directory as jenkins.war
+** link:http://central.maven.org/maven2/javax/xml/bind/jaxb-api/2.3.0/jaxb-api-2.3.0.jar[jaxb-api-2.3.0.jar] (save as jaxb-api.jar)
+** link:http://central.maven.org/maven2/com/sun/xml/bind/jaxb-core/2.3.0.1/jaxb-core-2.3.0.1.jar[jaxb-core-2.3.0.1.jar] (save as jaxb-core.jar)
+** link:http://central.maven.org/maven2/com/sun/xml/bind/jaxb-impl/2.3.0.1/jaxb-impl-2.3.0.1.jar[jaxb-impl-2.3.0.1.jar] (save as jaxb-impl.jar)
+** https://github.com/javaee/activation/releases/download/JAF-1_2_0/javax.activation.jar[javax.activation v.1.2.0]  (save as javax.activation.jar)
+3. Run the following command:
+
+```shell
+Run Jenkins with ${JAVA11_HOME}/bin/java \
+    -p jaxb-api.jar:javax.activation.jar --add-modules java.xml.bind,java.activation \
+    -cp jaxb-core.jar:jaxb-impl.jar \
+    -jar jenkins.war --enable-future-java --httpPort=8080 --prefix=/jenkins
+```
+
+=== Current state
+
+As of June 17, we have achieved the following state:
+
+* Jenkins 2.127+ starts up successfully with
+link:http://www.oracle.com/technetwork/java/javase/10-0-1-relnotes-4308875.html[OpenJDK 10.0.1] and
+OpenJDK 11+17-Debian-2 (preview)
+* It is possible to configure and run simple Freestyle jobs
+* Jenkins agents are able to start on Java 10, to connect to the master and to execute Freestyle jobs
+* Agents can be connected using plugin:docker-plugin[Docker Plugin] and plugin:yet-another-docker-plugin[Yet Another Docker Plugin]
+* plugin:job-dsl[Job DSL plugin] works well on demo projects
+* plugin:maven-plugin[Maven Integration plugin] can build
+link:https://github.com/jenkinsci/plugin-pom[plugin-pom]-based
+Jenkins plugins when running on agents with JDK 8
+* It is possible to create plugin:cloudbees-folder[Folders] and manage items in them
+* It is possible to configure Jenkins using link:https://github.com/jenkinsci/configuration-as-code-plugin[Configuration-as-Code plugin]
+* Jenkins is able to execute Groovy scripts in _Script Console_ and
+link:https://wiki.jenkins.io/display/JENKINS/Groovy+Hook+Script[Groovy Hooks]
+
+=== Known issues
+
+So far we know about the following issues:
+
+* Pipeline crashes immediately on Java 10 and 11 (link:https://issues.jenkins-ci.org/browse/JENKINS-46602[JENKINS-46602])
+* Git Client plugin 2.7.2 cannot be installed with Java 11,
+`3.0.0-beta3` from link:/doc/developer/publishing/releasing-experimental-updates/#configuring-jenkins-to-use-experimental-update-center[Experimental Update Center] is required
+(link:https://issues.jenkins-ci.org/browse/JENKINS-51871[JENKINS-51871])
+* There are many warnings about Illegal reflective access during execution
+(linked in link:https://issues.jenkins-ci.org/browse/JENKINS-40689[JENKINS-40689]).
+** In current Java 10 and 11 releases it does not lead to failures,
+but we want to cleanup these warnings anyway
+* link:https://github.com/jenkinsci/configuration-as-code-plugin[Configuration-as-Code plugin] fails to export configurations on Java 10
+(link:https://issues.jenkins-ci.org/browse/JENKINS-51991[JENKINS-51991])
+
+We anticipate to discover and report more issues during the hackathon this week.
+
+=== Contributing
+
+If you discover incompatibilities in plugins, please
+link:https://wiki.jenkins.io/display/JENKINS/How+to+report+an+issue[report issues in our bugtracker].
+We have `java10` and `java11` labels for such issues.
+
+If you are interested to try out Jenkins with Java 10 and 11 before June 22nd,
+you may be interested to sign-up to the link:/blog/2018/06/08/jenkins-java10-hackathon/[Jenkins and Java 10+ online hackathon].
+Everybody is welcome to join, independently of their Jenkins experience and amount of time they have available.
+Exploratory testing is also within the hackathon's scope.
+During this event, please also use the `java10_hackathon` label.
+It will help us to track contributions and send folks some small "thank you" gifts for participating (details will be figured out during the hackathon).
+
+If you want to contribute patches to the core,
+please submit pull requests to link:https://github.com/jenkinsci/jenkins/tree/java10-support[java10-support] or
+link:https://github.com/jenkinsci/jenkins/tree/java11-support[java11-support] branches.
+If the patches are compatible with Java 8, we will try to upstream them to weekly releases.
+For plugin patches please create pull requests against main branches and then follow guidelines from plugin maintainers.
+If you need additional reviews and you are a member of the `jenkinsci` organization,
+feel free to mention the `@jenkinsci/java10-support` team in your PRs.
+
+=== Links:
+
+* link:https://hub.docker.com/r/jenkins/jenkins-experimental/tags/[Docker: jenkins/jenkins-experimental images]
+* link:https://issues.jenkins-ci.org/browse/JENKINS-40689[JIRA: Java 10 compatibility]
+* link:https://issues.jenkins-ci.org/browse/JENKINS-51805[JIRA: Java 11 compatibility]
+* link:/blog/2018/06/08/jenkins-java10-hackathon/[Jenkins and Java 10+ online hackathon]
