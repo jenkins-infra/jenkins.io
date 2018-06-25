@@ -1,0 +1,85 @@
+---
+:layout: post
+:title: "New API token system"
+:tags:
+- community
+- core
+- developer
+- security
+:author: wadeck
+---
+
+### Context
+
+There were two problems with the existing API token system. First, 
+reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32442[JENKINS-32442], when a user is created, automatically
+the application generates an API token for him by default. 
+This behavior increases the attack surface, in other words, 
+the users must protect their application's password but additionally the API token because they have both the same value in terms of security. 
+Often the users are not even aware of that fact and so will never use this token and worse will never regenerate new one
+(which will have the consequence of revoking the current one).
+
+Second problem, reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32776[JENKINS-32776], the tokens are stored 
+on disk in an encrypted version. 
+In terms of security this means that if you have the key, you could retrieve the plain information 
+(i.e. the token that could be put in a request to be authenticated as the user). 
+An attacker that has access to the backup of your instance will be able to take advantage of that bidirectional mechanism
+to retrieve the token and use it to impersonate the user without letting any suspect traces (completely legitimate connection), 
+like when your password is stolen.
+
+### New approach
+
+The main objective of this new system was to provide tokens that are stored only in unidirectional way on the disk,
+i.e. using a hashing algorithm (in this particular case SHA-256).
+
+First the main drawback, you will not be able to recover your tokens. 
+This only affects the tokens generated with the new system.
+All the legacy tokens are still recoverable.
+
+To mitigate completely this drawback and enforce better practices, we provide different new features with this version:
+
+* you can have multiple active API tokens are the same time, compared to the single one from before
+
+* you can name your tokens to know where they are used (and rename them after creation if desired). 
+We advice to name the token accordingly to the application / script where it will be used.
+
+* you can track the usage of your tokens.
+Every token keeps a record of the number of use and the date of the last use.
+This will allow you to better know which tokens are really used and which are no more actively required.
+When a token was created more than 6 months ago, we display the creation date in orange and when it's more than 1 year, 
+the date is in red.
+The goal is to recall the user that tokens are more secure when you regenerate them often.
+The longer a token lives, the greater the change it's going to be stolen.
+
+* you can revoke tokens.
+When you know that you are not using a token anymore, you can revoke it to reduce the attack surface to the minimum.
+
+* as we store only the hash of the token, we can display its plain value only during the creation.
+
+### How to migrate ?
+
+We thought about the instances that will upgrade to this version. 
+To let the administrators migrate their instances progressively, we provide multiple tools:
+
+* during an upgrade, the legacy behavior is kept while new system is also usable.
+
+* to let the administrators choose the pace of the migration, we added two configuration options 
+in the "Configure Global Security" page in the brand new "API Token" section.
+
+** The first one determines if a legacy token must be generated on user creation.
+By default it is enabled only in upgrade mode, otherwise (fresh installation) it is disabled.
+    
+** The second one determines if a user can create a new legacy token without having already one.
+This allow the administrator to avoid having users going back from the new system.
+By default it is enabled only in upgrade mode, otherwise (fresh installation) it is disabled.
+
+* two administrator monitors that will inform about the configuration options described above when they are enabled.
+The goal is to disabled them when you no longer have third party tools that rely on those legacy features.
+
+* an administrator monitor and its associated page, to monitor the usage of legacy tokens in your instance.
+It will show up if at least one user has still a legacy token.
+The page will display the list of users that have a legacy token, with statistics on them and 
+the capability to revoke them in batch.
+
+* on the user configuration page, the legacy token is highlighted with a warning sign 
+explaining that (s)he should revoke it and generate a new one (if needed) to increase security.
