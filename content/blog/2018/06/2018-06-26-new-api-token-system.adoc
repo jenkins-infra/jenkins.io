@@ -4,105 +4,95 @@
 :tags:
 - community
 - core
-- developer
 - security
 - upgrade
 :author: wadeck
 ---
 
-### Context
+### About API tokens
 
-An API token is an authentication mechanism that allows a tool (script, application, etc.) to impersonate the user
-in order to obtain the same permissions. 
-This is especially useful when you do not want to provide your password in plain text in script, 
-perhaps because using a centrally managed user account in AD, LDAP, PAM.
-They are not meant to replace the regular authentication when visiting the application with a browser.
-Additionally, since version 2.96, the application is no longer requesting CSRF / Crumb token when using API tokens, 
-which is a big benefit for their use.
+Jenkins API tokens are an authentication mechanism that allows a tool (script, application, etc.) to impersonate a user
+without providing the actual password for use with the Jenkins API or CLI.
+This is especially useful when your security realm is based on a central directory, like Active Directory or LDAP,
+and you don't want to store your password in scripts.
+Recent versions of Jenkins also make it easier to use the remote API when using API tokens to authenticate,
+as no CSRF tokens need to be provided even with CSRF protection enabled.
+API tokens are not meant to -- and cannot -- replace the regular password for the Jenkins UI.
 
-We addressed the following two problems with the existing API token system. 
-First, reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32442[JENKINS-32442], when a user is created, 
-the application automatically generates an API token for them by default. 
-This behavior increases the attack surface, in other words, the users must protect their password and 
-additionally the API token because they have both the same value in terms of security. 
+### Previous problems
+
+We addressed two major problems with the existing API token system in Jenkins 2.129:
+
+First, reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32442[JENKINS-32442],
+user accounts in Jenkins have an automatically generated API token by default.
+As these tokens can be used to authenticate as a given user, they increase the attack surface of Jenkins.
 
 The second problem was reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32776[JENKINS-32776]: 
-the tokens were previously stored on disk in an encrypted version. 
-In terms of security this means that if you have the key, you could retrieve the plaintext 
-(i.e. the token that could be put in a request to be authenticated as the user). 
-An attacker that has access to a backup of your instance will be able to take advantage of that recoverable format
-to retrieve the token and use it to impersonate the user without leaving any suspect traces (completely legitimate connection), 
-as if your password was stolen.
+The tokens were previously stored on disk in an encrypted form.
+This meant that they could be decrypted by unauthorized users by leveraging another security vulnerability,
+or obtained, for example, from improperly secured backups, and used to impersonate other users.
 
 ### New approach
 
-The main objective of this new system is to provide tokens that are stored in an unidirectional way on the disk,
+The main objective of this new system is to provide API tokens that are stored in an unidirectional way on the disk,
 i.e. using a hashing algorithm (in this particular case SHA-256).
 
-First a small drawback, you will not be able to recover your tokens. 
-This only affects the tokens generated with the new system.
-All the legacy tokens are still recoverable.
+While this means that you will not be able to see the actual API tokens anymore after you've created them,
+several features were added to mitigate this potential problem:
 
-We provide several new features with this version:
-
-* You can have multiple active API tokens at the same time, compared to the single one from before.
+* You can have multiple active API tokens at the same time. If you don't remember an API token's value anymore, just revoke it.
 
 * You can name your tokens to know where they are used (and rename them after creation if desired). 
-We advise to name the token according to the application / script where it will be used.
+We recommend that tokens use a name indicates where (for example the application, script, or host) where it will be used.
 
 * You can track the usage of your tokens.
 Every token keeps a record of the number of uses and the date of the last use.
 This will allow you to better know which tokens are really used and which are no longer actively required.
-When a token was created more than 6 months ago, we display the creation date in orange and when it's more than 1 year, 
-the date is in red.
-The goal is to remind the user that tokens are more secure when you regenerate them often.
-The longer a token lives, the greater the chance it's going to be stolen.
+Jenkins also encourages users to rotate old API tokens by highlighting their creation date in orange after six months, and in red after twelve months.
+The goal is to remind the user that tokens are more secure when you regenerate them often:
+The longer a token is around, perhaps passed around in script files and stored on shared drives,
+the greater the chance it's going to be accessed by someone not authorized to use it.
 
 image::/images/post-images/2018-06-26-new-api-token-system/token_usage.png[title="Token usage tracking", role="text-center", width=800, link="/images/post-images/2018-06-26-new-api-token-system/token_usage.png"]
 
-* You can revoke tokens.
-When you know that you are not using a token anymore, you can revoke it to reduce the attack surface to the minimum.
+* You can revoke API tokens.
+When you know that you are not using a given token anymore, you can revoke it to reduce the risk of it getting used by unauthorized users.
+Since you can have multiple API tokens, this allows fine-grained control over which scripts, hosts, or applications are allowed to use Jenkins as a given user.
 
-### How to migrate?
+### Migrating to new API tokens
 
-We thought about the instances that will upgrade to this version. 
-To help administrators migrate their instances progressively, we provide multiple tools:
+To help administrators migrate their instances progressively, the legacy behavior is still available, while new system is also usable.
 
-* During an upgrade, the legacy behavior is kept while new system is also usable.
+On the user configuration page, the legacy token is highlighted with a warning sign,
+explaining that users should revoke it and generate a new one (if needed) to increase security.
 
 image::/images/post-images/2018-06-26-new-api-token-system/legacy_renewal.gif[title="Legacy token renewal still possible", role="text-center", width=800, link="/images/post-images/2018-06-26-new-api-token-system/legacy_renewal.gif"]
 
-* In order to choose the pace of the migration, we added two configuration options 
-in the "Configure Global Security" page in the brand new "API Token" section.
+#### New options for administrators
 
-* On the user configuration page, the legacy token is highlighted with a warning sign 
-explaining that they should revoke it and generate a new one (if needed) to increase security.
+In order to let administrators control the pace of migration to the new API token system,
+we added two global configuration options in the "Configure Global Security" page in the brand new "API Token" section:
+
+* An option to disable the creation of legacy API tokens on user creation.
+
+* An option to disable the recreation of legacy API tokens by users, forcing them to only use the new, unrecoverable API tokens.
+
+Both options are disabled by default for new installations (the safe default), while they're enabled when Jenkins is upgraded from before 2.129.
 
 image::/images/post-images/2018-06-26-new-api-token-system/security_configuration_options.png[title="Security Configuration options", role="text-center", link="/images/post-images/2018-06-26-new-api-token-system/security_configuration_options.png"]
 
-* The first one determines if a legacy token must be generated on user creation.
-    
-* The second one determines if a user can create a new legacy token without having already one.
-This allows the administrator to avoid having users going back from the new system.
-
-* By default both options are enabled only in upgrade mode, otherwise (fresh installation) they are disabled.
-
 image::/images/post-images/2018-06-26-new-api-token-system/legacy_removal.gif[title="Remove legacy token and disable the re-creation", role="text-center", width=800, link="/images/post-images/2018-06-26-new-api-token-system/legacy_removal.gif"]
 
-* Two administrative monitors that will inform about the configuration options described above when they are enabled.
-The goal is to disable them when you no longer have third party tools that rely on those legacy features.
+#### New administrator warnings
 
-* An administrative monitor and its associated page, to monitor the usage of legacy tokens in your instance.
-It will show up if at least one user still has a legacy token.
+When upgrading to Jenkins 2.129, an administrative monitor informs admins about the new options described above, and recommend disabling them.
 
-image::/images/post-images/2018-06-26-new-api-token-system/warning_list.png[title="Administrative monitor for the users with legacy tokens", role="text-center"]
-And if you click on the link "list of impacted users", you will visit the following page:
+Another administrative warnings shows up if at least one user still has a legacy API token.
+It provides central control over legacy tokens still configured in the Jenkins instance, and allows revoking them all.
 
 image::/images/post-images/2018-06-26-new-api-token-system/monitor_screen.png[title="Legacy token monitoring page", role="text-center", width=800, link="/images/post-images/2018-06-26-new-api-token-system/monitor_screen.png"]
 
-The page will display the list of users that have a legacy token, with statistics on them and 
-the capability to revoke them in batch.
+### Summary
 
-### Conclusion
-
-With this new feature, the tokens are easier to use, more customizable and most importantly more secure. 
+Jenkins API tokens are now much more flexible: They allow and even encourage better security practices.
+We recommend you revoke legacy API tokens as soon as you can, and only use the newly introduced API tokens.
