@@ -1,0 +1,152 @@
+---
+layout: post
+title: "What's New in Declarative Pipeline 1.3: Sequential Stages"
+tags:
+- pipeline
+author: abayer
+---
+
+We have recently released version 1.3 of Declarative Pipelines, which includes a couple significant new features. We're
+going to cover these features in separate blog posts. The next post will show the new ability to restart a completed
+Pipeline run starting from a stage partway through the Pipeline, but first, let's look at the new sequential stages
+feature.
+
+== Sequential Stages
+
+In Declarative 1.2, we added link:/doc/book/pipeline/syntax#parallel[the ability to define stages to run in parallel]
+as part of the Declarative syntax. Now in Declarative 1.3, we've added another way to specify stages nested within other
+stages, which we're calling "sequential stages".
+
+=== Running Multiple Stages in a Parallel Branch
+
+One common use case may be to run a build and tests on multiple platforms. You can already do that with `parallel` stages,
+but the ability to run multiple stages in each `parallel` branch gives you more visibility into the progress of your
+Pipeline without having to check the logs to see exactly which step is currently running where, etc. You can also have
+use stage directives, including `post`, `when`, `agent`, and all the others covered in link:/doc/book/pipeline/syntax[the Pipeline Syntax reference]
+in your sequential stages, letting you control behavior for different parts of each `parallel` branch.
+
+In the example below, we are running builds on both Windows and Linux, but only want to deploy if we're on the master branch.
+
+[source, groovy]
+----
+pipeline {
+    agent none
+
+    stages {
+        stage("build and deploy on Windows and Linux") {
+            parallel {
+                stage("windows") {
+                    agent {
+                        label "windows"
+                    }
+                    stages {
+                        stage("build") {
+                            steps {
+                                bat "run-build.bat"
+                            }
+                        }
+                        stage("deploy") {
+                            when {
+                                branch "master"
+                            }
+                            steps {
+                                bat "run-deploy.bat"
+                            }
+                        }
+                    }
+                }
+
+                stage("linux") {
+                    agent {
+                        label "linux"
+                    }
+                    stages {
+                        stage("build") {
+                            steps {
+                                sh "./run-build.sh"
+                            }
+                        }
+                        stage("deploy") {
+                             when {
+                                 branch "master"
+                             }
+                             steps {
+                                sh "./run-deploy.sh"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+=== Running Multiple Stages with the Same `agent`, or `environment`, or `options`
+
+While the sequential stages feature was originally driven by users wanting to have multiple stages in a `parallel` branch,
+we've found that being able to group multiple stages together with the same `agent`, `environment`, `when`, etc has a lot
+of other uses. For example, if you are using multiple agents in your Pipeline, but would like to be sure that stages using
+the same agent use the same workspace, you can use a parent `stage` with an `agent` directive on it, and then all the stages
+inside its `stages` directive will run on the same executor, in the same workspace. Another example is that until now, you
+could only set a timeout for the entire Pipeline or an individual stage. But by using a parent `stage` with nested `stages`,
+you can define a timeout in the parent's `options` directive, and that timeout will be applied for the execution of the
+parent, including its nested stages. You may also want to conditionally control the execution of multiple stages. For example,
+your deployment process may be spread across multiple stages, and you don't want to run any of those stages unless you're on
+a certain branch or some other criteria is satisified. Now you can group all those related stages together in a parent
+`stage`, within its `stages` directive, and have a single `when` condition on that parent, rather than having to copy an
+identical `when` condition to each of the relevant stages.
+
+One of my favorite use cases is shown in the example below. In Declarative 1.2.6, we added the `input` directive for stages.
+This will pause the execution of the Pipeline until a user confirms that the Pipeline should continue, using the Scripted
+Pipeline `input` step. The `input` directive is evaluated before the stage enters its agent, if it has one specified, and
+before the stage's `when` condition, if specified, is evaluated. But if you're using a top-level agent for most of your
+stages, you're still going to be using that agent's executor while waiting for input, which can be a waste of resources.
+With sequential stages, you can instead use `agent none` at the top-level of the Pipeline, and group the stages using a common
+agent and running before the stage with the `input` directive together under a parent `stage` with the required `agent`
+specified. Then, when your Pipeline reaches the stage with `input`, it will no longer be using an agent's executor.
+
+[source, groovy]
+----
+pipeline {
+    agent none
+
+    stages {
+        stage("build and test the project") {
+            agent {
+                docker "our-build-tools-image"
+            }
+            stages {
+               stage("build") {
+                   steps {
+                       sh "./build.sh"
+                   }
+               }
+               stage("test") {
+                   steps {
+                       sh "./test.sh"
+                   }
+               }
+            }
+            post {
+                success {
+                    stash name: "artifacts", includes: "artifacts/**/*"
+                }
+            }
+        }
+
+        stage("deploy the artifacts if a user confirms") {
+            input {
+                message "Should we deploy the project?"
+            }
+            agent {
+                docker "our-deploy-tools-image"
+            }
+            steps {
+                sh "./deploy.sh"
+            }
+        }
+    }
+}
+----
+
