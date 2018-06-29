@@ -14,36 +14,36 @@
 
 An API token is an authentication mechanism that allows a tool (script, application, etc.) to impersonate the user
 in order to obtain the same permissions. 
-This is especially useful when you do not want to provide your password in plain text in script.
+This is especially useful when you do not want to provide your password in plain text in script, 
+perhaps because using a centrally managed user account in AD, LDAP, PAM.
 They are not meant to replace the regular authentication when visiting the application with a browser.
+Additionally, since version 2.96, the application is no longer requesting CSRF / Crumb token when using API tokens, 
+which is a big benefit for their use.
 
-There were two problems with the existing API token system. First, 
-reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32442[JENKINS-32442], when a user is created, 
+We addressed the following two problems with the existing API token system. 
+First, reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32442[JENKINS-32442], when a user is created, 
 the application automatically generates an API token for them by default. 
-This behavior increases the attack surface, in other words, 
-the users must protect their application's password and additionally the API token because they have both 
-the same value in terms of security. 
-Often the users are not even aware of that fact and so will never use this token and worse will never regenerate a new one
-(which will have the consequence of revoking the current one).
+This behavior increases the attack surface, in other words, the users must protect their password and 
+additionally the API token because they have both the same value in terms of security. 
 
-The second problem was reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32776[JENKINS-32776]: the tokens are stored 
-on disk in an encrypted version. 
+The second problem was reported in link:https://issues.jenkins-ci.org/browse/JENKINS-32776[JENKINS-32776]: 
+the tokens were previously stored on disk in an encrypted version. 
 In terms of security this means that if you have the key, you could retrieve the plaintext 
 (i.e. the token that could be put in a request to be authenticated as the user). 
 An attacker that has access to a backup of your instance will be able to take advantage of that recoverable format
 to retrieve the token and use it to impersonate the user without leaving any suspect traces (completely legitimate connection), 
-like when your password is stolen.
+as if your password was stolen.
 
 ### New approach
 
 The main objective of this new system is to provide tokens that are stored in an unidirectional way on the disk,
 i.e. using a hashing algorithm (in this particular case SHA-256).
 
-First the main drawback, you will not be able to recover your tokens. 
+First a small drawback, you will not be able to recover your tokens. 
 This only affects the tokens generated with the new system.
 All the legacy tokens are still recoverable.
 
-To mitigate this drawback completely and enforce better practices, we provide different new features with this version:
+We provide several new features with this version:
 
 * You can have multiple active API tokens at the same time, compared to the single one from before.
 
@@ -63,9 +63,7 @@ image::/images/post-images/2018-06-26-new-api-token-system/token_usage.png[title
 * You can revoke tokens.
 When you know that you are not using a token anymore, you can revoke it to reduce the attack surface to the minimum.
 
-* As we store only the hash of the token, we can display its plain value only during the creation.
-
-### How to migrate ?
+### How to migrate?
 
 We thought about the instances that will upgrade to this version. 
 To help administrators migrate their instances progressively, we provide multiple tools:
@@ -78,7 +76,7 @@ image::/images/post-images/2018-06-26-new-api-token-system/legacy_renewal.gif[ti
 in the "Configure Global Security" page in the brand new "API Token" section.
 
 * On the user configuration page, the legacy token is highlighted with a warning sign 
-explaining that (s)he should revoke it and generate a new one (if needed) to increase security.
+explaining that they should revoke it and generate a new one (if needed) to increase security.
 
 image::/images/post-images/2018-06-26-new-api-token-system/security_configuration_options.png[title="Security Configuration options", role="text-center", link="/images/post-images/2018-06-26-new-api-token-system/security_configuration_options.png"]
 
@@ -108,4 +106,3 @@ the capability to revoke them in batch.
 ### Conclusion
 
 With this new feature, the tokens are easier to use, more customizable and most importantly more secure. 
-In addition, following this change, we will able to bring other feature to the tokens in a more simple manner, stay tune!
