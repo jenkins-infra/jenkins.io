@@ -1,0 +1,190 @@
+---
+layout: post
+title: "Pipeline as YAML: Alpha release"
+tags:
+- gsoc2018
+- plugin
+- pipeline
+- yaml
+author: abhishek_gautam
+---
+
+=== About me
+
+I am Abhishek Gautam, 3rd year student from Visvesvaraya National Institute of
+technology, India, Nagpur. I was a member of ACM Chapter and Google student developer club of my
+college. I am passionate about automation.
+
+=== Mentors
+
+* link:https://github.com/oleg-nenashev[Oleg Nenashev] (Org Admin)
+* link:https://github.com/martinda[Martin d'Anjou]
+* link:https://github.com/kwhetstone[Kristin Whetstone]
+* link:https://github.com/grandvizier[Jeff Knurek]
+
+=== Project Summary
+
+This is a GSoC 2018 project.
+
+This project aims to develop a pull request Job Plugin. Users should be able to
+configure job type using YAML file placed in root directory of the
+Git repository being the subject of the pull request. The plugin should interact with various
+platforms like Bitbucket, Github, Gitlab, etc whenever a pull request is created or updated.
+
+Plugin detects the presence of certain types of the report at conventional locations,
+and publish them automatically. If the reports are not present at conventional location,
+can specify the location using the YAML file.
+
+==== Benefits to the community
+
+* Project administrators will be able to handle builds for pull requests more easily.
+* Build specifications for pull request can be written in a concise declarative format.
+* Build reports will be automatically published to Github, Bitbucket, etc.
+* Build status updates will be sent to git servers automatically.
+* Users will not have to deal with pipeline code.
+* If there will be no merge conflicts or build failures, the PR can be merged into target branch.
+
+=== Phase 1 blog post
+
+For information of
+
+. Design of the plugin
+. What steps this plugin follow
+. What was done in codeing Phase 1
+. How to run the plugin.
+
+Please see link:https://jenkins.io/blog/2018/06/15/simple-pull-request-plugin/[Phase 1 blog post]
+
+=== Implementations till now
+
+Alpha version of the plugin is released. It supports all features of Multi-Branch Pipeline and offers the following features.
+
+Build description is defined via YAML file stored within the SCM repo. This plugin
+will depend on GitHub plugin, Bitbucket plugin, Gitlab plugin if users will be
+using respective paltfroms for their repositories.
+
+. Conversion of YAML to Declarative Pipeline: A class YamlToPipeline
+is written which will load the "Jenkinsfile.yaml" and make use of PipelineSnippetGenerator class
+to generate Declarative pipeline code.
+. Reporting of results, only xml report types is supprted for now.
+. Use of Yaml file (Jenkinsfile.yaml) from target branch.
+. Git Push step: To push the changes of pull request to the target branch. This is implemented
+using git-plugin, PushCommand is used for this from git-plugin. credentialId,
+branch name and repository url for intracting with Github, Bitbucket, etc
+will be taken automatically from "Branch-Source" (Users have to fill thes
+details of branch source in job configuration UI). (You can see
+link:https://github.com/Jenkinsci/simple-pull-request-job-plugin/blob/master/README.md[How to run the demo])
+. StepConfigurator: To generate pipeline code for all supported steps in Jenkins. This is using
+Jenkins configuration-as-code plugin (JCasC plugin) to configure a particular step object and
+then that step object is passed to `Snippetizer.object2Groovy()` method to generate the script of that step.
+
+=== Jenkinsfile.yaml example
+
+For the phase 1 prototype demonstration, the following yaml file was used.
+Note that this format is subject to change in the next phases of the project,
+as we formalise the yaml format definition.
+[source, yaml]
+----
+#  Docket image agent example
+agent:
+ label: my_label
+ customWorkspace: path_to_workspace
+ dockerImage: maven:3-alpine
+ args: -v /tmp:/tmp
+
+  tools:
+    maven : maven_3.0.1
+    jdk : jdk8
+
+configuration:
+  # Push PR changes to the target branch if the build will be success.
+  # default value will be false
+  pushPrOnSuccess: false
+
+  prApprovers:
+    - username1
+    - username2
+    - username3
+
+# Study about the reports type. Urgent
+reports:
+  - location_of_report_1
+  - location_of_report_2
+
+environment:
+  variables:
+    variable_1: value_1
+    variable_2: value_2
+
+  # Credentials contains only two fields. credentialId must be present in the Jenkins Credentials
+  credentials:
+    - credentialId : fileCredentialId
+      variable : FILE
+
+      # Username will be accessed by LOGIN_USR and Password will be accessed by LOGIN_PSW
+    - credentialId : dummyGitRepo
+      variable : LOGIN
+
+stages:
+  - name: satge1
+    agent: any
+    steps:
+      - sh: "scripts/hello"
+      - sleep:
+          time: 2
+          unit: SECONDS
+      - sleep: 2
+      - junit:
+          testResults: "target/**.xml"
+          allowEmptyResults: true
+          testDataPublishers:
+            - AutomateTestDataPublisher
+            - JunitResultPublisher:
+                urlOverride: "urlOverride"
+    # Post section for "stage1". All Conditions which are available in Jenkins
+    # declarative pipeline are supported
+    post:
+      failure:
+        - sh: "scripts/hello"
+
+# Outer post section. Just like declarative pipeline.
+post:
+  always:
+    - sh: "scripts/hello"
+----
+
+=== Coding Phase 2 plans
+
+* [*] Decide a proper YAML format to use for Jenkinsfile.yaml
+* [*] Create Step Configurator for SPRP plugin. https://issues.jenkins-ci.org/browse/JENKINS-51637[Jenkins-51637].
+This will enable users to use Pipeline steps in Jenkinsfile.yaml.
+* [*] Automatic indentation generation in the generated Pipeline SnipperGenerator class.
+* [*] Write tests for the plugin.
+
+=== Coding Phase 3 plans
+
+. Support for webhooks.
+. Mechanism to check if pull request is approved by trusted users.
+. Support report types.
+. Conditions like when.
+. Prepare documentation.
+
+
+https://issues.jenkins-ci.org/browse/JENKINS-52452[Phase 3 Jira Epic]
+
+
+=== How to reach me
+
+* Email: gautamabhishek46@gmail.com
+* Gitter room: link:https://gitter.im/Jenkinsci/simple-pull-request-job-plugin[]
+
+=== References
+
+* link:https://docs.google.com/document/d/1cuC0AvQG3e4GCjIoCwK3J0tcJVAz1eNDKV8d_zXxlO8/edit[Initial proposal of the project]
+* link:https://github.com/Jenkinsci/simple-pull-request-job-plugin[Project repository]
+* link:https://Jenkins.io/projects/gsoc/2018/simple-pull-request-job-plugin/[Project page]
+* link:https://gitter.im/Jenkinsci/simple-pull-request-job-plugin?utm_source=share-link&utm_medium=link&utm_campaign=share-link[Gitter chat]
+* link:https://issues.Jenkins-ci.org/issues/?jql=project%20%3D%20Jenkins%20AND%20component%20%3D%20simple-pull-request-job-plugin[Bug Tracker]
+* link:https://github.com/gautamabhishek46/dummy[Demo Repository]
+* link:https://www.youtube.com/watch?v=qWHM8S0fzUw[Phase 2 Presentation video](June 14, 2018)
+* link:https://docs.google.com/presentation/d/1V3hHEHHkJlwI3sK1VTIDOvbflXMtdn_JUc9cOFIrOOQ/edit?usp=sharing[Phase 2 Presentation Slides](June 14, 2018)
