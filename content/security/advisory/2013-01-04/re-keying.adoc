@@ -11,35 +11,35 @@ To plug this hole, Jenkins 1.497 introduced a new mechanism to store secrets tha
 
 However, some jobs may not get any configuration changes in a timely fashion, and in such a situation, the corresponding configuration XML files on the disk will be potentially at risk.
 
-Therefore, Jenkins 1.497 offers a functionality to actively re-key the encrypted secrets in your entire +$JENKINS_HOME+. This process involves scanning +$JENKINS_HOME+ recursively and find secrets encrypted by using the old (and therefore possibly compromised) key. Once found, they are replaced by the same plain text encrypted by the fresh key.
+Therefore, Jenkins 1.497 offers a functionality to actively re-key the encrypted secrets in your entire `$JENKINS_HOME`. This process involves scanning `$JENKINS_HOME` recursively and find secrets encrypted by using the old (and therefore possibly compromised) key. Once found, they are replaced by the same plain text encrypted by the fresh key.
 
-Because this involves modifying data in +$JENKINS_HOME+, the administrator should consider the following trade-offs in choosing when to run this.
+Because this involves modifying data in `$JENKINS_HOME`, the administrator should consider the following trade-offs in choosing when to run this.
 
 
 == Before you start
 
 === What it does
 
-As the re-keying process finds old data and rewrites them, files are backed up to +$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/backups+. In an unlikely event that the rewrite process causes a problem down the road, you can get your original data back from this directory. Nonetheless, you may want to back up +$JENKINS_HOME+ before you run the re-keying process.
+As the re-keying process finds old data and rewrites them, files are backed up to `$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/backups`. In an unlikely event that the rewrite process causes a problem down the road, you can get your original data back from this directory. Nonetheless, you may want to back up `$JENKINS_HOME` before you run the re-keying process.
 
 The re-keying process works transparently to the running Jenkins instance. Updates of files are done atomically (by creating files in new names then rename into the original), so it will not affect the concurrent read by other parts of Jenkins. And if other parts of Jenkins so happen to be updating the same file, both will contain the data encrypted by the new key.
 
 With that said, for those who want to be extra cautious, we provided an option to schedule the re-keying operation upon the next boot. Upon the boot, Jenkins will run the re-keying operation, and resumes the normal service only after this process is complete. From outside, this will look no different from the regular prolonged startup wait screen.
 
-Once started, the re-keying process recursively looks for files with the +.xml+ extension in +$JENKINS_HOME+, which can take some time on a larger installation. To mitigate this, the recursion logic is designed to skip directories that are known not to contain any encrypted secrets. This includes "workspace", "artifacts", and "plugins".
+Once started, the re-keying process recursively looks for files with the `.xml` extension in `$JENKINS_HOME`, which can take some time on a larger installation. To mitigate this, the recursion logic is designed to skip directories that are known not to contain any encrypted secrets. This includes "workspace", "artifacts", and "plugins".
 
 === What you'll lose once you re-key
 
 Because older versions of Jenkins do not understand the new mechanism to encrypt secrets, rewritten configuration files cannot be read back by older Jenkins without loss of information. More specifically, it'll fail to load the encrypted secrets but it'll read back everything else OK.
 
-If you find yourself needing to downgrade after the re-keying operation, please restore the older files from +$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/backups+
+If you find yourself needing to downgrade after the re-keying operation, please restore the older files from `$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/backups`.
 
 
 == While you re-key
 
 The re-keying operation is idempotent, in that you can run it multiple times without causing a harm. The new key is generated as soon as you launch Jenkins 1.497, and all that the re-keying process is doing is to overwrite the data to use this new key. For this reason, you can safely rerun the re-keying operation should one fail/abort in the middle.
 
-If you start running re-keying process either in the background or during the boot, you can monitor its progress by looking at +$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/rekey.log+. For background re-keying operation, this log is visible by following the link in the "Manage Jenkins" page. The "scanning" log line is meant to be an indication of where the process currently is. It only prints one line for every 100 files scanned.
+If you start running re-keying process either in the background or during the boot, you can monitor its progress by looking at `$JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/rekey.log`. For background re-keying operation, this log is visible by following the link in the "Manage Jenkins" page. The "scanning" log line is meant to be an indication of where the process currently is. It only prints one line for every 100 files scanned.
 
 If you are in the middle of the background re-keying operation and found that you need to reboot/shutdown Jenkins, you can do so without harm. You just need to re-run the re-keying process later. The same thing applies if you are in the middle of the boot-time re-keying operation and found that you need to bring it to the operation right away. You simply kill the Jenkins process and restart. It'll come up without running another re-keying operation.
 
