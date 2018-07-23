@@ -761,6 +761,26 @@ However, if you only need to handle these types of credentials, it is
 recommended you use the relevant procedure described in the section
 <<#for-secret-text-usernames-and-passwords-and-secret-files,above>> for improved
 Pipeline code readability.
+* The use of **single-quotes** instead of  **double-quotes** to define the `script` 
+(the implicit parameter to `sh`) in Groovy above. 
+The single-quotes will cause the secret to be expanded by the shell as an environment variable.
+The double-quotes are potentially less secure as the secret is interpolated by Groovy, 
+and so typical operating system process listings (as well as Blue Ocean, 
+and the pipeline steps tree in the classic UI) will accidentally disclose it :
+```
+node {
+  withCredentials([string(credentialsId: 'mytoken', variable: 'TOKEN')]) {
+    sh /* WRONG! */ """
+      set +x
+      curl -H 'Token: $TOKEN' https://some.api/
+    """
+    sh /* CORRECT */ '''
+      set +x
+      curl -H 'Token: $TOKEN' https://some.api/
+    '''
+  }
+}
+```
 ====
 
 
