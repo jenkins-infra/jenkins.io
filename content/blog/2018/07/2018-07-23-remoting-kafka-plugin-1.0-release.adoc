@@ -1,0 +1,109 @@
+---
+layout: post
+title: "Remoting Kafka Plugin 1.0: A new method to connect agents"
+tags:
+- plugins
+- gsoc
+- gsoc2018
+- remoting
+- kafka
+author: pvtuan10
+---
+
+I am very excited to announce that we have recently released 1.0 version of https://github.com/jenkinsci/remoting-kafka-plugin[Remoting Kafka Plugin] under https://plugins.jenkins.io/remoting-kafka[Jenkins Plugin]. You can check the https://github.com/jenkinsci/remoting-kafka-plugin/blob/master/CHANGELOG.md[CHANGELOG] to see the features included in this release.
+
+=== About me
+My name is Pham Vu Tuan, I am a final year undergraduate student from Singapore. This is the first time I participate in Google Summer of Code and contribute to an open-source organization.
+
+=== Mentors
+I have GSoC mentors who help me in this project https://github.com/oleg-nenashev[Oleg Nenashev] and https://github.com/Supun94[Supun Wanniarachchi]. Besides that, I also receive great support from developers in remoting project https://github.com/dwnusbaum[Devin Nusbaum] and https://github.com/jeffret-b[Jeff Thompson].
+
+=== Overview
+Current versions of Jenkins Remoting are based on the TCP protocol. If it fails, the agent connection and the build fails as well. There are also issues with traffic prioritization and multi-agent communications, which impact Jenkins stability and scalability.
+
+This project aims to develop a plugin in order to add support of a popular message queue/bus technology (Kafka) as a fault-tolerant communication layer in Jenkins.
+
+=== Benefits to the community
+
+* Provide a new method to connect agent to master using Kafka besides existing methods such as JNLP or ssh-slaves-plugin.
+* Help to resolve the existing issues with the TCP protocol between master and agent communication in Jenkins.
+* Help to resolve traffic prioritization and multi-agent communications issue in Jenkins.
+
+=== Why Kafka?
+When planning for this project, we want to use traditional message queue system such as https://github.com/oleg-nenashev[ActiveMQ] or https://github.com/oleg-nenashev[RabbitMQ]. However, after some discussion, we decided to have a try with https://kafka.apache.org/[Kafka] with more suitable features with this project:
+
+* Kafka itself is not a queue like ActiveMQ or RabbitMQ, it is a distributed, replicated commit log. This helps to remove message delivery complexity we have in traditional queue system.
+* We need to support data streaming as a requirement, and Kafka is good at this aspect, which RabbitMQ is lack of.
+* Kafka is said to have a better scalability and good support from the development community.
+
+=== Architecture Overview
+The project consists of multiple components:
+
+* Kafka Client Library - new command transport implementation, producer and consumer client logic.
+* Remoting Kafka Plugin - plugin implementation with KafkaGlobalConfiguration, KafkaComputerLauncher and KafkaSecretManager.
+* Remoting Kafka Agent - A custom JAR agent with remoting JAR packaged together with a custom Engine implementation to setup a communication channel with Kafka. The agent is also packaged as a https://hub.docker.com/r/jenkins/remoting-kafka-agent/[Docker image] in DockerHub.
+* All the components are packaged together with Docker Compose.
+
+The below diagram is the overview of the current architecture:
+image:/images/post-images/remoting-kafka/remoting-kafka-architecture.png[title="Remoting Kafka Plugin Current Architecture", role="center"]
+
+With this design, master is not communicating with agent using direct TCP communication anymore, all the communication commands are transfered with Kafka.
+
+=== Features
+The project is now under the third coding phase and we have some features available in 1.0 release.
+
+==== 1. Kafka Global Configuration with support of credentials plugin to store secrets.
+image:/images/post-images/remoting-kafka/remoting-kafka-configuration.png[title="Remoting Kafka Plugin Global Configuration", role="center"]
+
+==== 2. Launch agent with Kafka Launcher.
+image:/images/post-images/remoting-kafka/launch-agent-kafka.png[title="Launch agent with Kafka Launcher", role="center"]
+
+==== 3. Launch agent from CLI using agent JAR with secret provided to ensure security.
+image:/images/post-images/remoting-kafka/agent-cli.png[title="Command to run agent in CLI", role="center"]
+
+==== 4. Run jobs, pipeline using Kafka agent.
+image:/images/post-images/remoting-kafka/demo-jobs.png[title="Run jobs, pipeline using Kafka agent", role="center"]
+
+==== 5. Kafka communication between master and agent.
+image:/images/post-images/remoting-kafka/kafka-commands.png[title="Kafka communication between master and agent", role="center"]
+
+Remoting operations are being executed over Kafka. In the log you may see:
+
+* Command execution (SlaveInstallerFactoryImpl.isWindows())
+* Classloading (Classloader.fetch())
+* Log streaming (Pipe.chunk())
+
+=== How to run demo
+We have setup a ready-to-fly demo for this plugin. You can try to run a demo of the plugin by following this https://github.com/jenkinsci/remoting-kafka-plugin#how-to-run-demo-of-the-plugins[instruction].
+Features in the demo:
+
+* Docker Compose starts preconfigured Master and agent instance, they connect automatically using Kafka launcher.
+* Kafka is secured and encrypted with SSL.
+* There few demo jobs in the instance so that a user can launch a job on the agent.
+* Kakfa Manager supported in localhost:9000 to support monitoring of Kafka cluster.
+
+=== Phase 2 Presentation Slides
+++++
+<center>
+    <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vTEeVbYmkmbxN4atC1W3SdkqgLxo5iBhO_VqfMkkBzE63jW2_a6l0e6pQe_VrFIsEogUIJ9mdtVDYzx/embed?start=false&loop=false&delayms=60000" frameborder="0" width="720" height="434" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</center>
+++++
+
+=== Phase 2 Presentation Video
+++++
+<center>
+  <iframe width="720" height="434" src="https://www.youtube.com/embed/tuTODhJOTBU?start=1599" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+</center>
+++++
+
+=== Links
+* https://gitter.im/jenkinsci/remoting[image:https://badges.gitter.im/jenkinsci/remoting.svg[title: "Gitter"]]
+* https://github.com/jenkinsci/remoting-kafka-plugin[GitHub Repository]
+* https://wiki.jenkins.io/display/JENKINS/Remoting+Kafka+Plugin[Wiki]
+* https://plugins.jenkins.io/remoting-kafka[Plugin Site]
+* link:/projects/gsoc/2018/remoting-over-message-bus/[Project Info]
+* link:/blog/2018/06/18/remoting-over-message-bus/[Introduction Blogpost]
+* https://docs.google.com/presentation/d/1GxkI17lZYQ6_pyAOR9sXNXq1K3LwkqjigXdxxf81VkE/edit?usp=sharing[Phase 1 Evaluation Slides]
+* https://docs.google.com/presentation/d/1TW31N-opvoFwSkD-FChhjCsXNWmeDjkecxJv8Lb6X-A/edit?usp=sharing[Phase 2 Evaluation Slides]
+* https://youtu.be/qWHM8S0fzUw[Phase 1 Evaluation Video]
+* https://youtu.be/tuTODhJOTBU[Phase 2 Evaluation Video]
