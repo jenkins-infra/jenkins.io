@@ -13,7 +13,7 @@ AWESTRUCT_USER_SITE=-P user-site --url "$(USER_SITE_URL)"
 
 # Generate everything
 all: fetch-reset prepare generate archive
-prepare: fetch depends assets
+prepare: scripts-permission fetch depends assets
 
 # Run a local dev server on localhost:4242
 run: prepare scripts/awestruct
@@ -51,6 +51,9 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-e
 	./scripts/fetch-examples
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
+
+scripts-permission:
+	chmod u+x ./scripts/groovy ./scripts/ruby ./scripts/fetch-examples ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources
 
 #######################################################
 
