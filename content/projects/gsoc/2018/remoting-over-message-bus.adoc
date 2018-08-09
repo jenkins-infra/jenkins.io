@@ -26,57 +26,121 @@ links:
   github: "jenkinsci/remoting-kafka-plugin"
 ---
 
-Current versions of Jenkins Remoting are based on the TCP protocol.
-If it fails, the agent connection and the build fails as well.
-There are also issues with traffic prioritization and multi-agent communications,
-which impact Jenkins stability and scalability.
+My name is Pham Vu Tuan, I am a final year undergraduate student from Singapore. This is the first time I participate in Google Summer of Code and contribute to an open-source organization.
 
-This project aims an update of Remoting and Jenkins in order to add support of
-a popular message queue/bus technology (RabbitMQ or Kafka) as a fault-tolerant communication layer in Jenkins.
+I have GSoC mentors who help me in this project https://github.com/oleg-nenashev[Oleg Nenashev] and https://github.com/Supun94[Supun Wanniarachchi]. Besides that, I also receive great support from developers in remoting project https://github.com/dwnusbaum[Devin Nusbaum] and https://github.com/jeffret-b[Jeff Thompson].
 
-* link:https://docs.google.com/document/d/17vmPvDtMbHT7nTKRlGReFRgOtwVImhgsETLOGPW9Rso/edit[Project Proposal]
-* link:/blog/2018/06/18/remoting-over-message-bus/[Introduction blogpost]
-* link:https://www.youtube.com/watch?v=qWHM8S0fzUw&feature=youtu.be[Phase 1 Presentation Video]
-* link:https://docs.google.com/presentation/d/1GxkI17lZYQ6_pyAOR9sXNXq1K3LwkqjigXdxxf81VkE/edit?usp=sharing[Phase 1 Presentation Slides]
-* link:https://github.com/jenkinsci/remoting-kafka-plugin/blob/master/CHANGELOG.md[Alpha version changelog]
+=== Project Overview
+Current versions of Jenkins Remoting are based on the TCP protocol. If it fails, the agent connection and the build fails as well. There are also issues with traffic prioritization and multi-agent communications, which impact Jenkins stability and scalability.
 
-=== Office hours
+This project aims to develop a plugin in order to add support of a popular message queue/bus technology (Kafka) as a fault-tolerant communication layer in Jenkins.
 
-* Every Tuesday, 02:00-03:00 PM UTC
-* Every Friday, 02:00-03:00 PM UTC
+The plugin source code can be found in https://github.com/jenkinsci/remoting-kafka-plugin[GitHub].
 
-=== Documentation
+=== Benefits to the community
+The plugin provide useful features to the community:
 
-All the notes, meeting minutes, design documentation can be found at https://drive.google.com/open?id=1-sua3rHvz84I8OZKL_3VpTlgEAMoBEHO
+* Provide a new method to connect agent to master using Kafka besides existing methods such as JNLP or ssh-slaves-plugin.
+* Help to resolve the existing issues with the TCP protocol between master and agent communication in Jenkins.
+* Help to resolve traffic prioritization and multi-agent communications issue in Jenkins.
 
-=== Timeline
+=== Why Kafka?
+* Kafka itself is not a queue like ActiveMQ or RabbitMQ, it is a distributed, replicated commit log. This helps to remove message delivery complexity we have in traditional queue system.
+* We need to support data streaming as a requirement, and Kafka is good at this aspect, which RabbitMQ is lack of.
+* Kafka is said to have a better scalability and good support from the development community.
 
-First phase:
+=== Architecture Overview
+The project consists of multiple components:
 
-* 14/05 - 18/05: Setting up project skeleton, implementation of publishers, subscribers.
-* 21/05 - 08/06: PoC - Implementation of command transport for the message bus which involves command invocation, RMI, classloading and data streaming.
-* 11/06 - 15/06: Phase 1 Evaluation
+* Kafka Client Library - new command transport implementation, producer and consumer client logic.
+* Remoting Kafka Plugin - plugin implementation with KafkaGlobalConfiguration, KafkaComputerLauncher and KafkaSecretManager.
+* Remoting Kafka Agent - A custom JAR agent with remoting JAR packaged together with a custom Engine implementation to setup a communication channel with Kafka. The agent is also packaged as a https://hub.docker.com/r/jenkins/remoting-kafka-agent/[Docker image] in DockerHub.
+* All the components are packaged together with Docker Compose.
 
-Second phase:
+The below diagram is the overview of the current architecture:
+image:/images/post-images/remoting-kafka/remoting-kafka-architecture.png[title="Remoting Kafka Plugin Current Architecture", role="center"]
 
-* 15/06 - 06/07: Phase 2 implementation.
-* 09/07 - 13/07: Phase 2 evaluation.
+With this design, master is not communicating with agent using direct TCP communication anymore, all the communication commands are transfered with Kafka.
 
-=== Objectives
+=== Phase 1 Summary
 
-First phase:
+* Setup project as a set of Docker Compose components: Kafka cluster, Jenkins master (with plugin) and a custom agent.
+* Create a PoC with command transport implementation to support Kafka, which involves of command invocation,RMI, classloading and data streaming.
+* Make necessary changes in Remoting and Core to make them extensible (if needed).
+* Make a decision whether Kafka is suitable as a final implementation.
 
-* Create a proof of concept for Remoting over Kafka.
-* Do demonstration of the PoC.
-* Define design for the final implementation.
-* Decide whether we use Kafka in the final implementation (or not).
-* Create a blogpost with a PoC introduction.
+==== Phase 1 Presentation Slides
+++++
+<center>
+    <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQgI7UtTuN53GQSE5BQQ7LLYnl8oBuydwWKrTBsIqUGfVt95fUfDu4JhTist0CsEO6mHZ-dsbPONauc/embed?start=false&loop=false&delayms=60000" frameborder="0" width="720" height="434" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</center>
+++++
 
-Second phase:
+==== Phase 1 Presentation Video
+++++
+<center>
+  <iframe width="720" height="434" src="https://www.youtube.com/embed/qWHM8S0fzUw?start=1972" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+</center>
+++++
 
-* Support security for master-agent connection:
-** Kafka authentication/authorization.
-** Agent secrets.
-* Improve Kafka producer-consumer model to ensure reliability.
-* Bug fixing.
-* Release alpha version and address feedback.
+=== Phase 2 Summary
+
+* Support security for master-agent connection.
+** Kafka authentication/authorization (https://issues.jenkins-ci.org/browse/JENKINS-51472[JENKINS-51472], https://issues.jenkins-ci.org/browse/JENKINS-51473[JENKINS-51473]).
+** Agent secrets (https://issues.jenkins-ci.org/browse/JENKINS-51470[JENKINS-51470]).
+* Improve Kafka producer-consumer model to ensure reliability (https://issues.jenkins-ci.org/browse/JENKINS-51942[JENKINS-51942]).
+* Release alpha version and address feedback (https://issues.jenkins-ci.org/browse/JENKINS-51713[JENKINS-51713]).
+
+==== Phase 2 Presentation Slides
+++++
+<center>
+    <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vTEeVbYmkmbxN4atC1W3SdkqgLxo5iBhO_VqfMkkBzE63jW2_a6l0e6pQe_VrFIsEogUIJ9mdtVDYzx/embed?start=false&loop=false&delayms=60000" frameborder="0" width="720" height="434" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</center>
+++++
+
+==== Phase 2 Presentation Video
+++++
+<center>
+  <iframe width="720" height="434" src="https://www.youtube.com/embed/tuTODhJOTBU?start=1599" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+</center>
+++++
+
+=== Phase 3 Summary
+
+* Release 1.0 version of the plugin (https://issues.jenkins-ci.org/browse/JENKINS-52483[JENKINS-52483]).
+* Support remoting-kafka-plugin with Jenkins Configuration-as-code plugin (https://issues.jenkins-ci.org/browse/JENKINS-51471[JENKINS-51471]).
+* Ready-to-fly demo setup (https://issues.jenkins-ci.org/browse/JENKINS-51711[JENKINS-51711]).
+* Basic test automation for the plugin (https://issues.jenkins-ci.org/browse/JENKINS-52540[JENKINS-52540]).
+* Add plugin implementation information to remoting documentation (https://issues.jenkins-ci.org/browse/JENKINS-52514[JENKINS-52514]).
+* Bug fixing and clean up work (https://issues.jenkins-ci.org/browse/JENKINS-52044[JENKINS-52044], https://issues.jenkins-ci.org/browse/JENKINS-52079[JENKINS-52079], https://issues.jenkins-ci.org/browse/JENKINS-52422[JENKINS-52422]).
+
+=== How to run demo of the project
+We have setup a ready-to-fly demo for this plugin. You can try to run a demo of the plugin by following this https://github.com/jenkinsci/remoting-kafka-plugin#how-to-run-demo-of-the-plugins[instruction].
+Features in the demo:
+
+* Docker Compose starts preconfigured Master and agent instance, they connect automatically using Kafka launcher.
+* Kafka is secured and encrypted with SSL.
+* There few demo jobs in the instance so that a user can launch a job on the agent.
+* Kakfa Manager supported in localhost:9000 to support monitoring of Kafka cluster.
+
+=== Future Work
+
+* Cloud API implementation (https://issues.jenkins-ci.org/browse/JENKINS-51474[JENKINS-51474]).
+* Chunking capabilities for Kafka channel (https://issues.jenkins-ci.org/browse/JENKINS-51709[JENKINS-51709]).
+* Stop bundling remoting in Remoting Kafka Agent (https://issues.jenkins-ci.org/browse/JENKINS-51944[JENKINS-51944]).
+* Consumer pooling, NIO options (https://issues.jenkins-ci.org/browse/JENKINS-52199[JENKINS-52199]).
+* Support multiple Kafka hosts to achieve fault-tolerant communication (https://issues.jenkins-ci.org/browse/JENKINS-52542[JENKINS-52542]).
+* Agent recovery to continue running jobs after disconnection to Kafka (https://issues.jenkins-ci.org/browse/JENKINS-52954[JENKINS-52954]).
+* Make Zookeeper configuration optional to support ad-hoc topics creation (https://issues.jenkins-ci.org/browse/JENKINS-52870[JENKINS-52870]).
+
+=== Useful Links
+* https://gitter.im/jenkinsci/remoting[image:https://badges.gitter.im/jenkinsci/remoting.svg[title: "Gitter"]]
+* https://github.com/jenkinsci/remoting-kafka-plugin[GitHub Repository]
+* https://wiki.jenkins.io/display/JENKINS/Remoting+Kafka+Plugin[Wiki]
+* https://plugins.jenkins.io/remoting-kafka[Plugin Site]
+* link:/projects/gsoc/2018/remoting-over-message-bus/[Project Info]
+* link:/blog/2018/06/18/remoting-over-message-bus/[Introduction Blogpost]
+* https://docs.google.com/presentation/d/1GxkI17lZYQ6_pyAOR9sXNXq1K3LwkqjigXdxxf81VkE/edit?usp=sharing[Phase 1 Evaluation Slides]
+* https://docs.google.com/presentation/d/1TW31N-opvoFwSkD-FChhjCsXNWmeDjkecxJv8Lb6X-A/edit?usp=sharing[Phase 2 Evaluation Slides]
+* https://youtu.be/qWHM8S0fzUw[Phase 1 Evaluation Video]
+* https://youtu.be/tuTODhJOTBU[Phase 2 Evaluation Video]
