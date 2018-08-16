@@ -1,0 +1,184 @@
+---
+:layout: post
+:title: "Using GitOps to manage Jenkins X with CodeShip and Terraform"
+:tags:
+- jenkinsx
+- gitops
+- kubernetes
+- terraform
+- codeship
+:author: garethjevans
+---
+
+== Using jx to create a GitOps managed Jenkins X installation with CodeShip and Terraform on GKE
+
+link:https://jenkins-x.io/[Jenkins X] is a reimagined CI/CD implementation for the Cloud which is heavily influence by the 
+link:https://puppet.com/resources/whitepaper/state-of-devops-report[State of DevOps reports] and more recently the book
+"Accelerate: The Science Behind Devops" by 
+link:https://twitter.com/nicolefv[Nicole Forsgren], 
+link:https://twitter.com/jezhumble[Jez Humble] and 
+link:https://twitter.com/RealGeneKim[Gene Kim]
+
+This post will show you how to use Jenkins X to create a GitOps managed install of Jenkins X using Codeship & Terraform 
+on GKE with a single command, and, make changes to that environment via GitOps.
+
+=== Why?
+
+GitOps is a great way of managing cloud environments.  By ensuring that all changes originate from a Git commit we have full 
+auditability into all changes made to an environment.  This approach also gives us the added benefit of being able to reconstruct 
+an environment from its git history, reducing link:https://en.wikipedia.org/wiki/Mean_time_to_recovery[MTTR].  For more information
+on using GitOps as a method of delivery, see the link:https://www.weave.works/blog/gitops-operations-by-pull-request[Weave Works Blog].
+
+=== Before you start
+
+Some of the commands that are shown here are recent additions to the Jenkins-X cli.  To make use of these you'll need to be 
+on a fairly recent version of `jx`.  I'm using:
+
+----
+jx --version
+1.3.145
+----
+
+If you need to upgrade the version of `jx`, you can use `jx upgrade cli`, or for a new installation follow the link:https://jenkins-x.io/getting-started/install[guide].
+
+You'll also need a Google Cloud Account, you can sign up for a link:https://cloud.google.com/free/[free account] which entitles 
+you to $300 of spend over a 12 month period.  The default quotas for the trial account are just enough to create a very
+minimal GKE cluster.
+
+=== The magic command...
+ 
+----
+jx create codeship
+----
+
+Whilst you can run this without any parameters, we're going to supply an organisation name rather than allowing `jx` to generate
+one for us.
+
+----
+jx create codeship -o codeship
+----
+
+image::/images/jenkins-x/codeship/create-codeship.gif[jx create codeship in action, width=900]
+
+This will perform three things:
+
+==== 1. Create a GCP service account
+
+Firstly, in order to administer the cluster, `jx` will create a Service Account on GCP 
+link:https://cloud.google.com/iam/docs/understanding-service-accounts[Service Account on GCP]. 
+We want to do this to ensure that the administration of the cluster is done with the minimum privilege possible 
+link:https://en.wikipedia.org/wiki/Principle_of_least_privilege[minimum privilege possible].  You can do this 
+via the link:https://console.cloud.google.com[GCP console] or via the `gcloud` cli tool, or you could use the 
+`jx create gke-service-account` helper command.
+
+`jx` will:
+
+. Validate you have enough permissions to create a new service account
+. If the account doesn't already exist, create a service account called `codeship`
+. Assign the appropriate permissions
+.. `roles/compute.instanceAdmin.v1`
+.. `roles/container.admin`
+.. `roles/container.clusterAdmin`
+.. `roles/container.developer`
+.. `roles/editor`
+.. `roles/iam.serviceAccountActor`
+.. `roles/storage.objectAdmin`
+. Create a service account key
+. Download the key to your home directory to a file called `codeship.key.json`
+
+==== 2. Create the organisation repository and terraform scripts
+
+The second step that `jx` performs is to create the organisation repository (we'll use GitHub for this) that will contain all
+of the terraform configuration for the environment.  In your home directory, a `.jx` folder will be created 
+if it doesn't already exist and within that, you'll see the `organisations` directory with the newly created
+`organisation-codeship` and its terraform configuration.  
+
+A `terraform.tfvars` will be create and  populated with the values supplied during the install such as 'Minimum Number of Nodes', 
+'Cluster Name' etc.
+ 
+----
+✔ ~/.jx
+$ tree organisations/organisation-codeship/
+organisations/organisation-codeship/
+├── README.md
+├── build.sh                             <- build/deploy script that codeship calls
+└── clusters
+    └── dev                              <- cluster definition 
+        └── terraform
+            ├── README.md
+            ├── main.tf                  <- main terraform cluster config file
+            ├── output.tf
+            ├── terraform.tf
+            ├── terraform.tfvars         <- terraform variable file for customisation
+            └── variables.tf
+3 directories, 8 files
+✔ ~/.jx
+----   
+
+The configuration files listed above can all be modified to tailor your cluster configuration to your needs.
+
+==== 3. Create the CodeShip build and trigger the deployment
+
+Once the terraform scripts have been created and pushed back up to the remote `organisation-codeship` repo, a CodeShip project & build
+will be created to trigger from any changes to this repository.  `jx` will prompt you for your CodeShip login details.  These details will
+not be stored anywhere and are only used to login to the CodeShip v2 api behind the scences.  This post assumes you already have a CodeShip
+account setup. If you don't have a CodeShip account, you can setup a free one link:https://app.codeship.com/registrations/new[here].
+
+If you login to the CodeShip UI you will see the newly created project:
+
+image::/images/jenkins-x/codeship/codeship-new-project.png[New CodeShip Project, width=900]
+
+By clicking on that, you will see the build is in progress.  To create a fresh cluster and install `jx` normally takes around 10-15 minutes
+the first time it is run.  When its complete, it should look something like:
+
+image::/images/jenkins-x/codeship/codeship-build-complete-expanded.png[CodeShip Build Completed, width=900]
+
+You now have a working environment deployed by Terraform & CodeShip.  By expanding the `./build.sh` section of the build, you will be able
+to see the generated admin password and urls needed to login to the environment.
+
+=== Making a 'Safe' change
+
+Now that we have a cluster deployed with Jenkins X installed and running, we can use GitOps to manage changes to the cluster.
+
+To start off we going to make a “safe change” to the cluster. A safe change is one that does not result in any destructive 
+behaviour when being applied by terraform.  In this example we are going to change the auto scaling parameters for a default node pool.
+
+. Clone the organisation repository locally
+. Create a local branch to work on `git branch -b autoscaling`
+. Edit `clusters/dev/terraform.tfvars`, change `max_node_count` to a new value
+. Commit the change and push to the `autoscaling` branch with `git push origin autoscaling`
+. Create a pull-request with `hub pull-request`
+
+Although CodeShip does not build pull requests on forked repositories, it will notice the new commit on the branch and attempt to
+validate the change is non destructive.  Feedback will be posted to the PR in GitHub stating whether it can be safely merged.
+
+When the PR is merged, CodeShip will trigger the deployment and apply the required changes to the cluster.
+
+=== Making a 'Destructive' change
+
+Lets try the same again, except this time we will change something that will force the creation of a new resource, such as 
+renaming the cluster.  For a full list of available options see the terraform 
+link:https://www.terraform.io/docs/providers/google/r/container_cluster.html[documentation].
+
+. Create a new local branch to work on `git branch -b rename-cluster`
+. Edit `clusters/dev/terraform.tfvars`, change `cluster_name` to a new value
+. Commit the change and push to the `rename-cluster` branch with `git push origin rename-cluster`
+. Create a pull-request with `hub pull-request`
+
+CodeShip will attempt to validate that the PR does not contain any destructive terraform plans, in this instance it should fail
+and post feedback, stopping a merge, to the the PR on GitHub.
+
+== Fancy a closer look?
+
+link:https://twitter.com/jdrawlings[James Rawlings], link:https://twitter.com/jstrachan/[James Strachan] and 
+link:https://twitter.com/rajdavies[Rob Davies] are going to be presenting and running workshops at 
+link:https://www.cloudbees.com/devops-world[DevOps World  | Jenkins World].  They'll also be hanging out at the Jenkins X demo 
+area so come and say hello and see what's the latest cool and exiting things to come out of Jenkins X.  Use *JWFOSS* for 30% 
+discount off registration
+
+== Want to get involved? 
+
+Jenkins X is open source, the community mainly hangs out in the 
+link:http://jenkins-x.io/community/[Jenkins X Kubernetes slack channels] and for tips on being more involved with Jenkins X 
+take a look at our link:http://jenkins-x.io/contribute[contributing docs].  We've been helping lots of folks get into open source, learn 
+new technoligies and languages like golang.  Why not get involved?
