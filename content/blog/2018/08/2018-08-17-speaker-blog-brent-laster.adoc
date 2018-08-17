@@ -1,0 +1,219 @@
+---
+layout: post
+title: "Using the Docker Global Variable in Your Jenkins Pipeline"
+tags:
+- event
+- jenkinsworld
+- jenkinsworld2018
+- pipeline
+- docker
+author: brentlaster
+---
+
+NOTE: This a guest post by Brent Laster, DevOps World | Jenkins World 2018 Speaker and author of "link:https://www.amazon.com/Jenkins-Deployment-Pipeline-Generation-Automation/dp/1491979593[Jenkins 2 – Up and Running:  Evolve Your Pipeline for Next-Generation Automation]".
+
+image:/images/conferences/devops-world-2018.jpg[DevOps World | Jenkins World 2018, float="right", link="https://www.cloudbees.com/devops-world"]
+
+More and more today, continuous delivery (CD) pipelines are making use of containers.
+In many implementations, the primary workflow/orchestration tool for CD pipelines is Jenkins.
+And the primary container orchestration tool is Docker.
+Together these two applications provide a powerful, yet simple to understand and use, model for leveraging containers in your CD pipeline.
+
+When creating a pipeline script in Jenkins, there are multiple ways to incorporate Docker into your CD pipeline.
+They include:
+
+* Manually running a predefined Docker image as a separate Jenkins agent
+* Automatically provisioning a Docker image, when needed, as a part of a “cloud” configuration
+* Referencing a “docker” global variable that can be invoked via the Jenkins DSL
+* Calling the Docker executable directly via a shell call in the Jenkins DSL
+
+For this article, we’ll focus on the third item in this list given that it provides the most flexibility and convenience for Docker use in the pipeline.
+More details on the other three can be found in the upcoming “Continuous Delivery and Containerization” workshop at Jenkins World/DevOps World 2018.
+
+First, we’ll provide some background on a couple of terms for those who may not be familiar with Jenkins 2.
+If you already are familiar with it, feel free to skip ahead to the Global Variables section.
+
+== Background
+
+When we talk about Jenkins here, we’re referring to “Jenkins 2” - a name we use to generally refer to the 2.0 and beyond versions of Jenkins.
+Jenkins 2 offers a powerful evolution of Jenkins over prior versions.
+In particular, it provides full integration for “pipeline-as-code” (PAC).
+PAC refers to being able to write your pipeline in a scripting language, much like source code for any program.
+The code you write becomes the program that defines your pipeline.
+It is also the code that gets executed when your pipeline is initiated.
+Listing 1 shows a simple example pipeline.
+Notice that this is very different from the classic way of creating pipelines in Jenkins.
+Here you are writing code - rather than the more traditional approaches, such as filling in web forms to configure a Freestyle job.
+
+[pipeline]
+----
+// Scripted Pipeline //
+node('worker') {
+    stage('Source') { // Get code
+        // Get code from our git repository
+        git 'git@diyvb2:/home/git/repositories/workshop.git'
+    }
+    stage('Compile') { // Compile and do unit testing
+        // Run gradle to execute compile and unit testing
+        sh "gradle clean compileJava test"
+    }
+}
+// Declarative //
+----
+Listing 1: Example Jenkins 2 pipeline
+
+
+The language that we write the Jenkins pipeline code in is a Domain-Specific Language (DSL).
+You can think of it as the “programming language” for Jenkins pipelines.
+There are two variants of it.
+The style we saw in figure 1 is called “scripted syntax”.
+It is a mixture of elements from the Groovy programming language and special Jenkins “steps”.
+The Jenkins steps are provided by the plugins that are installed in the current system.
+A built-in tool called the Snippet Generator provides a wizard interface to allow users to pick the step and options they want.
+Then, the user can click on a button to have Jenkins automatically generate the correct DSL code in the large text box (figure 1).
+The DSL code can be copied from there and pasted into the pipeline script.
+
+.The Snippet Generator
+image::/images/post-images/2018-08-17/figure1.png[The Snippet Generator, 800]
+
+
+A second type of syntax is called “declarative syntax.”  We won’t go into detail on it here.
+But it is a much more structured syntax that focuses on having users declare what they want in a pipeline, rather than writing the logic to make it happen.
+
+== Global Variables
+
+In addition to the steps that are provided by plugins, additional functionality for pipelines can be provided by global variables.
+The simplest way to think of a global variable is as an object with methods that can be invoked on it.
+Several of these are built in to Jenkins, such as the Docker global variable.
+Others can be created by users as part of the structure of a shared source code repository called a “shared pipeline library.”
+
+To get a list of the global variables that are currently available to your Jenkins instance, you can go to the Snippet Generator screen.
+Immediately below the box for the generated pipeline script is a section titled Global Variables.
+There, within the small print, is a link to get to the actual section (figure 2).
+
+.Link to Global Variables Reference section.
+image::/images/post-images/2018-08-17/figure2.png[Link to Global Variables Reference section]
+
+
+Clicking on that link takes us to a list of currently available Global Variables.
+If you have the Docker Pipeline Plugin installed, you will see one at the top for Docker. (Figure 3).
+
+
+.Docker global variable specifics.
+image::/images/post-images/2018-08-17/figure3.png[Docker global variable specifics, 800]
+
+
+Broadly, the docker global variable includes methods that can be applied to the Docker application, Docker images, and Docker containers.
+
+We’ll focus first on a couple of the Docker image methods as shown in figure 4.
+
+.Key methods for getting a Docker image.
+image::/images/post-images/2018-08-17/figure4.png[Key methods for getting a Docker image]
+
+
+There are multiple ways you can use these methods to create a new image.
+Listing 2 shows a basic example of assigning and pulling an image using the image method.
+
+[source, groovy]
+----
+myImage = docker.image("bclaster/jenkins-node:1.0")
+myImage.pull()
+----
+Listing 2: Assigning a image to a variable and pulling it down.
+
+This can also be done in a single statement as shown in listing 3.
+
+[source, groovy]
+----
+docker.image("bclaster/jenkins-node:1.0").pull()
+----
+Listing 3: Shorthand version of previous call.
+
+You can also download a Dockerfile and build an image based on it.(See listing 4.)
+
+[source, groovy]
+----
+node() {
+    def myImg
+    stage ("Build image") {
+        // download the dockerfile to build from
+        git 'git@diyvb:repos/dockerResources.git'
+
+        // build our docker image
+        myImg = docker.build 'my-image:snapshot'
+    }
+}
+----
+Listing 4: Pipeline code to download a Dockerfile and build an image from it.
+
+Figure 5 shows the actual output from running that “Build image” stage.
+Note that the docker.build step was translated into an actual Docker build command.
+
+.Actual Docker output from running the download and build
+image::/images/post-images/2018-08-17/figure5.png[Actual Docker output from running the download and build]
+
+
+== The Inside Command
+
+Another powerful method available for the Docker global variable is the inside method.
+When executed, this method will do the following:
+
+. Get an agent and a workspace to execute on
+. If the Docker image is not already present, pull it down
+. Start the container with that image
+. Mount the workspace from Jenkins
+. Execute the build steps
+
+Mounting the workspace means that the Jenkins workspace will appear as a volume inside the container.
+And it will have the same file path.
+So, things running in the container will have direct access to the same location.
+However, this can only be done if the container is running on the same underlying system - such that it can directly access the path.
+
+In terms of executing the build steps, the inside method acts as a scoping method.
+This means that the environment it sets up is in effect for any statement that happens within its scope (within the block under it bounded by {}).
+The practical application here is that any pipeline “sh” steps (a call to the shell to execute something) are automatically run in the container.
+Behind the scenes, this is done by wrapping the calls with “docker exec”.
+
+When executed, the calls with the global variable are translated (by Jenkins) into actual Docker call invocations.
+Listing 5 shows an example of using this in a script, along with the output from the first invocation of the “inside” method.
+You can see in the output the docker commands that are generated from the inside method call.
+
+[source, groovy]
+----
+    stage ("Get Source") {
+        // run a command to get the source code download
+        myImg.inside('-v /home/git/repos:/home/git/repos') {
+            sh "rm -rf gradle-greetings"
+            sh "git clone --branch test /home/git/repos/gradle-greetings.git"
+        }
+    }
+    stage ("Run Build") {
+        myImg.inside() {
+            sh "cd gradle-greetings && gradle -g /tmp clean build -x test"
+        }
+    }
+----
+Listing 5: Example inside method usage.
+
+
+.Example inside method Docker command output.
+image::/images/post-images/2018-08-17/figure6.png[Example inside method Docker command output, 800]
+
+Once completed, the inside step will stop the container,
+get rid of the storage, and create a record that this image was used for the build.
+That record facilitates image traceability, updates, etc.
+
+As you can see, the combination of using the Docker “global variable” and its “inside” method provide a simple and powerful way to spin up and work with containers in your pipeline.
+In addition, since you are not having to make the direct Docker calls, you can invoke steps like sh within the scope of the inside method, and have them executed by Docker transparently.
+
+As we mentioned, this is only one of several ways you can interact with Docker in your pipeline code.
+To learn about the other methods and get hands-on practice, join me at DevOps World/Jenkins World in San Francisco or Nice for the workshop “Continuous Delivery and Containerization – Leveraging Jenkins 2 and Docker”.
+Hope to see you there!
+
+[WARNING]
+--
+Join the Jenkins project at
+link:https://www.cloudbees.com/devops-world[Jenkins World] on September 16-19th,
+register with the code `JWFOSS` for a 30% discount off your pass.
+--
+
