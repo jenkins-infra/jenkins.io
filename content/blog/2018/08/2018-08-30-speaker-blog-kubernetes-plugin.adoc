@@ -1,0 +1,91 @@
+---
+layout: post
+title: "Effectively using Kubernetes plugin with Jenkins"
+tags:
+- kubernetes
+- jenkinsworld
+- jenkinsworld2018
+author: tanskann
+---
+
+NOTE: This is a guest blog by Niklas Tanskanen, consultant at
+link:http://eficode.com[Eficode].
+
+image::/images/jenkins-x/logo.svg[Jenkins X, float="right", width=200]
+
+link:https://kubernetes.io[Kubernetes], the container orchestration platform is rapidly becoming popular. There are more and more workloads that you can run on top of Kubernetes. It's becoming an enabling layer of your Hyper-convergenced infrastructure.
+
+If you set up Kubernetes as a Cloud provider in Jenkins, you'll get a very powerful couple for running your workloads.
+To do that, you can simply install
+link:https://plugins.jenkins.io/kubernetes[Kubernetes plugin].
+Kubernetes is able to run your Jenkins workloads as long as they are run in container.
+And containers are an awesome way if your workload is a build, because you can pack all your application and OS dependencies in a container and then run it anywhere!
+
+Let's imagine that you have been running a Kubernetes cluster setup in your organisation for a while now.
+First it was all about proof of concept but now its becoming more popular within your developers and you have to think about scaling and orchestration.
+Resource quotas are a part of that and every responsible operator should set those up both in both development and production clusters.
+Otherwise people will be lazy and just reserve all the resources of your cluster without actually using those resources for anything.
+By introducing quotas into your cluster, you can control how many resources should each namespace have.
+
+Quotas are a mature feature of Kubernetes already.
+You have the possibility to create very fine grained quotas for different hardware resources, whenever it's fast disk, GPUs or CPU time.
+You can also specify multiple scopes of quota per one namespace.
+For example, you can have a quota for workloads that are to be run to the infinity like web servers or databases.
+Or have quota for workloads that are short lived like builds or test automation runs.
+
+
+[cols="*", options="header"]
+.Scopes
+|===
+| Scope | Description
+
+| `Terminating`
+| Match pods where `.spec.activeDeadlineSeconds >= 0`
+
+| `NotTerminating`
+| Match pods where `.spec.activeDeadlineSeconds is nil`
+
+| `BestEffort`
+| Match pods that have best effort quality of service.
+
+| `NotBestEffort`
+| Match pods that do not have best effort quality of service.
+
+|===
+
+
+== Different scopes of Kubernetes quota
+
+Since Jenkins is all about running short workloads, you should aim for the `Terminating` scope of quota.
+But how do you specify workloads in Jenkins so that correct scope is used?
+
+If you were to do this in Kubernetes, you have to specify `.spec.activeDeadlineSeconds`.
+The same field can also be specified by the Kubernetes plugin when you are specifying a Pod Template.
+
+
+.Specifying `.spec.activeDeadlineSeconds` in the Kubernetes plugin
+image::/images/post-images/2018-08-30/time-deadline.png[width=800]
+
+Same configuration is available in the `Jenkinsfile` as well if you don't like static configurations.
+
+[source, groovy]
+----
+podTemplate(label: 'maven', activeDeadlineSeconds: 180, containers: [
+    containerTemplate(name: 'maven', image: 'maven:3.5.4-jdk-10-slim')
+  ]) {
+  // maven magic
+}
+----
+
+image::/images/conferences/devops-world-2018.jpg[DevOps World | Jenkins World 2018, float="right", link="https://www.cloudbees.com/devops-world"]
+
+This was just a small sample of features of the Kubernetes plugin in Jenkins. For more, be sure to check out our
+link:http://sched.co/FD6E[talk] where we share more of how you can utilise Kubernetes with Jenkins!
+
+
+[WARNING]
+--
+Come see Niklas Tanskanen and many other Jenkins experts and contributors at
+link:https://www.cloudbees.com/devops-world[Jenkins World] on September 16-19th,
+register with the code `JWFOSS` for a 30% discount off your pass.
+--
