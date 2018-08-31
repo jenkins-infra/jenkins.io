@@ -9,11 +9,226 @@ author: kohsuke
 
 Kohsuke here. This is a message for my fellow Jenkins developers.
 
-Jenkins has been on an amazing run, but in part because we've been so good at solving a certain class of problems, the fact that we've been unable to solve other classes of problems are getting more pronounced. I believe we are trapped in a local optimum, and losing appeal to people who fall outside of our traditional sweet spot.
+Jenkins has been on an amazing run, but I believe we are trapped in a local optimum, and losing appeal to people who fall outside of our traditional sweet spot.
+We need to take on new efforts to solve this. One is “cloud native Jenkins” that creates a flavor of Jenkins that runs well on Kubernetes.
+The other is “gear shift”, where we take an evolutionary line from the current Jenkins 2, but with breaking changes in order to gain higher development speed.
 
-I say it's time we tackle these problems head on. I've been talking to various folks, and I think we need to take on two initiatives. One is what I call "Cloud Native Jenkins," and the other is to insert a jolt in Jenkins. As CTO of CloudBees, we are committed to solving these problems, but this will not succeed without your participation and us collaborating.
+I say it's time we tackle these problems head on. I've been talking to various folks, and I think we need to take on two initiatives.
+One is what I call "Cloud Native Jenkins," and the other is to insert a jolt in Jenkins.
 
-Please read on https://docs.google.com/document/d/1yE9kOtlhc2vQByS6P-WgPFPu0vOG0Myb8PtqTsUxZMY/edit[my full write-up], or watch the video below. Slides I've used are https://drive.google.com/open?id=160LjRKw42XXuXT2n4j8BLCzsSL5z2m2_[here].
+Some of you have already seen the presentation I posted on the Jenkins YouTube channel.  In this post, I'll expand on that with some additional details.
 
+.Jenkins: Shifting Gears Presentation (https://drive.google.com/open?id=160LjRKw42XXuXT2n4j8BLCzsSL5z2m2_[Slides])
 video::CgasN3icZp0[youtube, width=640, height=360]
+
+== Our Amazing Success
+
+Our project has been an amazing success over the past 10+ years, thanks to you all. What started as my hobby project became a huge community that boasts thousands of contributors and millions of users.
+When I think about what enabled this amazing journey, I can think of several magic sauces:
+
+* **Extensible:**
+  the ability to take the system, or a portion of the system, then build on top of it to achieve what you need, without anyone else’s permission.
+  Here, I’m not talking about the specific technical mechanism of Guice, extension point, etc, but rather I’m talking more broadly about the governance, culture, distribution mechanism, and so on.
+* **General purpose:**
+  At the base level, Jenkins can be used for any kind of automation around the area of software development.
+  This matched the reality of the software engineering world well.
+  Combined with extensibility, this general purpose system that is Jenkins can specialize into any domain, much like Linux and JetBrains IDEs.
+* **Community:**
+  Together we created a community where different people push envelopes in different directions and share the fruits with others.
+  This meant everyone can benefit from somebody else’s work, and great ideas and best practices spread more quickly.
+
+== Our Challenges
+
+The way we set up our community meant that collectively we were able to work toward solving certain kinds of problems locally and organically, such as Android application development, new UX, more expressive pipeline description language, ...
+
+But at the same time, the incremental, autonomous nature of our community made us demonstrably unable to solve certain kinds of problems.
+And after 10+ years, these unsolved problems are getting more pronounced, and they are taking a toll — segments of users correctly feel that the community doesn’t get them, because we have shown an inability to address some of their greatest difficulties in using Jenkins.
+And I know some of those problems, such as service instability, matter to all of us.
+
+In a way, we are stuck in a local optimum, and that is a dangerous place to be when there is growing competition from all sides.
+So we must solve these problems to ensure our continued relevance and popularity in the space.
+
+Solving those problems starts with correctly understanding them, so let’s look at those.
+
+=== Service Instability
+
+CI/CD service was once a novelty and a nice-to-have.
+Today, it is very much a mission critical service, in no small part because of us!
+Increasingly, people are running bigger and bigger workloads, loading up more and more plugins, and expect higher and higher availability.
+
+Admins today are unable to meet that heightened expectation using Jenkins easily enough.
+A Jenkins instance, especially a large one, requires too much overhead just to keep it running.
+It’s not unheard of that somebody restarts Jenkins every day.
+
+Admins expect errors to be contained and not impact the entire service.
+They expect Jenkins to defend itself better from issues such as pipeline execution problems, run-away processes, over resource consumption so that they don’t have to constantly babysit the service.
+
+Every restart implies degraded service for the software delivery teams where they have to wait longer for their builds to start or complete.
+
+=== Brittle Configuration
+
+Every Jenkins admin must have been burnt at least once in the past by making changes that have caused unintended side effects.
+By “changes,” I’m talking about installing/upgrading plugins, tweaking job settings, etc.
+
+As a result, too many admins today aren’t confident that they can make changes safely.
+They fear that their changes might cause issues for their software delivery teams, that those teams will notice regressions before they do, and that they may not be able to back out somes changes easily.
+It feels like touching a Jenga tower for them, even when a change is small.
+
+Upgrading Jenkins and plugins is an important sub case of this, where admins often do not have understanding of the impact.
+This decreases the willingness to upgrade, which in turn makes it difficult for the project to move forward more rapidly, and instead we get trapped with the long tail of compatibility burden.
+
+=== Assembly Required
+
+I’ve often described Jenkins as a bucket full of LEGO blocks — you can build any car you want, but everyone first has to assemble their own car in order to drive one.
+
+As CI/CD has gone mainstream, this is no longer OK.
+People want something that works out of the box, something that gets people to productivity within 5 clicks in 5 minutes.
+Too many choices are confusing users, and we are not helping them toward “the lit path.”
+Everyone feels uncertain if they are doing the right thing, contributors are spread thin, and the whole thing feels a bit like a Frankenstein.
+
+This is yet another problem we can’t solve by “writing more plugins.”
+
+=== Reduced Development Velocity
+
+This one is a little different from others that our users face, but nonetheless a very important one, because it impacts our ability to expand and sustain the developer community, and influences how fast we can solve challenges that our users face.
+
+Some of these problems are not structural and rather just a matter of doing it (for example, Java 11 upgrade), but there are some problems here that are structural.
+
+I think the following ones are the key ones:
+
+* As a contributor, a change that spans across multiple plugins is difficult.
+  Tooling gets in the way, users might not always upgrade a group of changes together, reviewing changes is hard.
+* As a contributor, the tests that we have do not give me enough confidence to ship code.
+  Not enough of them run automatically, coverage is shallow, and there just isn’t anything like production workload of real users/customers.
+
+These core problems create other downstream problems, for example:
+
+* As a non-regular contributor, what I think of as a small and reasonable change takes forever and a 100 comments going back & forth to get in. I get discouraged from ever doing it again.
+* As a regular contributor, I feel people are throwing crap over the wall, and if they cause problems after a release, I’m on the hook to clean up that mess.
+* As a user, I get a half-baked change that wreaks havoc, which results in loss of their confidence to Jenkins, an even slower pace of change, etc. This is a vicious cycle as it makes us even more conservative, and slow down the development velocity.
+
+== Path Forward
+
+In the past, my frustration and regret is that we couldn’t take on an effort of this magnitude.
+But that is NO MORE!
+As CTO of CloudBees, I’m excited that these challenges are important enough for CloudBees now that we want to solve these efforts within the Jenkins project.
+
+I’ve been talking to many of you, and there are a number of existing efforts going on that touch this space already.
+From there, the vision emerged is that we organize around two key efforts:
+
+* Cloud Native Jenkins: a general purpose CI/CD engine that runs on Kubernetes, and embraces a fundamentally different architecture and extensibility mechanism.
+* Jolt in Jenkins: continue the incremental trajectory of Jenkins 2 today, but with renegotiated “contract” with users to gain what we really need, such as faster pace of development and better stability.
+
+=== Cloud Native Jenkins
+
+In order to solve these problems that we can’t solve incrementally,
+I’m proposing the “Cloud Native Jenkins” sub-project in the context of the Cloud Native SIG with Carlos, who is the leader of this SIG.
+
+We don’t have all the answers, that’s something we’ll discuss and figure out collectively, but based on numerous conversations with various folks, I think there are many clear pieces of puzzles.
+
+==== Kubernetes as the Runtime
+
+Just like Java was the winning server application platform in the early 2000s, today, Kubernetes is the dominant, winning platform.
+Cloud Native Jenkins should embrace the paradigm this new platform encourages. For example,
+Serverless / function-as-a-service build execution (ala Jenkinsfile runner) that are isolated.
+Various pieces of functionalities deployed as separate microservices.
+Services interacting through Kubernetes CRDs in order to promote better reuse and composability.
+These are the design principles that enable highly desirable properties like infinite scalability, pay-as-you-go cost model, immutability, zero down time operability, etc.
+
+==== New Extensibility Mechanism
+
+We need to introduce a new mechanism of extensibility in order to retain the magic sauces, and continue our incredible ecosystem.
+For example, microservice or container-based extensibility avoids the service instability problem (ala Knative builder and the userspace-scm work.) Pipeline shared libraries is another example that concretely shows how extensibility mechanism can go beyond plugin, though it hasn’t fully flourished as one just yet.
+
+==== Data on Cloud Managed Data Services
+
+The long-term data storage must be moved from the file system to data services backed by cloud managed services, in order to achieve high availability and horizontal scalability, without burdening admins with additional operational responsibilities.
+
+==== Configuration as Code
+
+Jenkins Configuration as Code has been incredibly well received, in part because it helps to solve some of the brittle configuration problems. In Cloud Native Jenkins, JCasC must play a more central role, which in turn also helps us reduce the surface area for Blue Ocean to cover by eliminating many configuration screens.
+
+==== Evergreen
+
+Jenkins Evergreen is another well received effort that’s already underway, which aims to solve the brittleness problem and developer velocity problem. This is a key piece of the puzzle that allows us to move faster without throwing users under the bus.
+
+==== Secure by Default Design
+
+Over the past years, we’ve learned that several different areas of Jenkins codebase, such as Remoting, are inherently prone to security vulnerabilities because of their design. Cloud Native Jenkins must address those problems by flipping those to “secure by design.”
+
+==== Following Footsteps of Jenkins X
+
+Jenkins X has been pioneering the use of Jenkins on Kubernetes for a while now, and it has been very well received, too.
+So naturally, a part of the aim of Cloud Native Jenkins is to grow and morph Jenkins into a shape that really works well for Jenkins X.
+Cloud Native Jenkins will be the general purpose CI/CD engine that runs on Kubernetes, which Jenkins X uses to create an opinionated CD experience for developing cloud native apps.
+
+==== All The Same Good Things, with New Foundation
+
+And then on top of these foundations, we need to rebuild or transplant all the good things that people love about Jenkins today, and all the good things people expect, such as:
+
+* Great “batteries included” onboarding experience for new users, where we are present in all the marketplaces, 5 clicks to get going and easy integration with key services.
+* Modern lovable UX in the direction of front-end web apps that Blue Ocean pioneered.
+* General purpose software that is useful for all sorts of software development.
+
+==== Cloud Native Jenkins MVP
+As I wrote, a number of good efforts are already ongoing today. Thus in order to get this effort off the ground, I believe the first MVP that we aim toward is pretty clear, which is to build a function-as-a-service style Jenkins build engine  that can be used underneath Jenkins X.
+
+Cloud Native Jenkins MVP combines the spirits of Jenkins Pipeline, Jenkins Evergreen, Jenkinsfile Runner, and Jenkins Configuration as Code.
+It consists of:
+
+* Webhook receiver: a service that receives webhooks from GitHub and triggers a build engine.
+* Build Engine: take Jenkinsfile Runner and evolve it so that it can run as a “function” that carries out a pipeline execution, with some CasC sprinkled together in order to control Jenkins configuration and plugins  used. This way, Jenkinsfile works as-is for the most part.
+* Continuously delivered through Evergreen: It allows us to solve the combinatorial version explosion problem, allow us to develop changes that span multiple plugins faster, and develop changes more confidently. Of all the projects out there, ours should be the community that believes in the value of Continuous Delivery and Evergreen is how we bring continuous delivery to the development of Cloud Native Jenkins itself.
+
+This solves some of the key challenges listed above that are really hard to achieve today, so it’s already incredibly useful.
+
+The catch is that this MVP has no GUI. There’s no Blue Ocean UI to look at. No parsing of test reports, no build history. It uses no persistent volumes, it keeps no record of builds. The only thing permanent at the end of a build is whatever data is pushed out from Jenkins Pipeline, such as images pushed to a Docker registry, email notifications, and GitHub commit status updates.  Load of other features in Jenkins will not be available here.
+
+This is not that far from how some sophisticated users are deploying Jenkins today. All in all, I think this is the right trade off for the first MVP. As you can see, we have most of the pieces already.
+
+From here, the build engine will get continuously more polished and more cloud native, other services will get added to regain features that were  lost, new extensibility will get introduced to reduce the role of current in-VM plugins, and so on.
+
+=== Jolt in Jenkins
+
+Cloud Native Jenkins is a major effort and in particular initially it’s not usable for everyone; it only targets a subset of Jenkins functionalities, and it requires a platform whose adoption is still limited today.
+So in parallel, we need to continue the incremental evolution of Jenkins 2, but in an accelerated speed. Said differently, we need to continue to serve the majority of production workload on Jenkins 2 today, but we are willing to break some stuff to gain what we really need, such as faster pace of development and better stability, in ways that were previously not possible. This requires us injecting a jolt in Jenkins.
+
+==== Release Model Change
+
+The kind of jolts that we need will almost certainly means we need to renegotiate the expectation around new releases with our users.
+My inspiration source is what happened to the development of Java SE. It changed the release model and started moving faster, by shedding off more pieces faster, in ways that they haven’t done before.
+Again, Jenkins Evergreen is the key piece that achieves this without throwing users under a bus, for the reasons I described in the Cloud Native MVP above.
+
+==== Compatibility
+
+This jolt is aimed to put us on a different footing, one where our current “forever compatibility” expectation does not hold. If that requires us to use a new major version number, such as Jenkins 3, or new major version number every N months, I’m open to that.
+
+Of course, whatever move we do has to make sense to users. The accelerated pace of value delivery needs to justify any inconvenience we put on users, such as migration, breaking changes, and so on.
+
+In practice, what that means is that we need to be largely compatible. We have to protect users’ investment into their existing job definitions as much as possible. We continue to run freestyle jobs, etc...
+
+==== Ingredients
+
+Other proposals CloudBees is putting forward with the intent to staff the effort are:
+* **Configuration as Code:** accelerate that and make it a more central  part of Jenkins.
+* **Developer experience improvements** through buildpack style auto-detection of project types.
+* **Continued evolution of Jenkins Pipeline**
+** There’s an effort going on to remove CPS execution of Pipeline and isolate any failures during pipeline execution.
+** Continue to evolve Jenkins Pipeline toward the sweet spot that works well with the Cloud Native Jenkins effort.
+** Continued tactical bug-by-bug improvements of Pipeline.
+* **Evergreen:** I already talked about this above.
+* **Plugin spring cleaning:** let’s actively guide users more toward the sweet spot of Jenkins and reduce our feature surface area, so that we can focus our contributors’ effort to important parts of Jenkins. I expect this to be a combination of governance and technical efforts.
+* **Table stakes service integration:** let’s look at what kind of tablestake tool/service integrations today’s user need, and see if we are meeting/exceeding the competition. Where we fall short, let’s add/reimplement what are needed.
+
+==== UI Effort
+
+The Web UI will be likely done differently in Cloud Native Jenkins, as its own app and not a plugin in Jenkins. JCasC will also play a bigger role in Cloud Native Jenkins, reducing UI surface area from Jenkins.
+
+Given that, CloudBees will reconsider where to spend its effort in Blue Ocean. The current work where parts of Blue Ocean are made reusable as NPM modules is one example that aligns well with this new vision.
+
+== Conclusion
+
+This document lays out the key directions and approaches in a broad stroke, which I discussed with a number of you in the past. Hopefully, this gives you the big picture of how I envision where to move Jenkins forward, not just as the creator of Jenkins but as the CTO of CloudBees, who employs a number of key contributors to the Jenkins project.
+
+
 
