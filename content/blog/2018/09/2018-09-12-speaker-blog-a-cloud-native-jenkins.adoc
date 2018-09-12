@@ -1,0 +1,127 @@
+---
+layout: post
+title: "Speaker blogpost: A Cloud Native Jenkins"
+tags:
+- jenkinsworld
+- jenkinsworld2018
+- cloud-native
+- pluggable-storage
+- jenkinsfile-runner
+author: oleg_nenashev
+---
+
+image::/images/conferences/devops-world-2018.jpg[DevOps World | Jenkins World 2018, float="right", link="https://www.cloudbees.com/devops-world"]
+
+A few months ago I published a
+link:/blog/2018/07/30/introducing-cloud-native-sig/[blog post] about
+link:/sigs/cloud-native/[Cloud Native Special Interest Group (SIG)]
+and ongoing projects related to Cloud Native Jenkins.
+Next week we will be presenting at DevOps World | Jenkins World together with Carlos Sanchez and Jesse Glick,
+so I would like to provide a heads up for
+link:https://devopsworldjenkinsworld2018.sched.com/event/F9NT/a-cloud-native-jenkins[our talk: “A Cloud Native Jenkins”].
+
+In our talk, we will focus on the following topics: Pluggable Storage,
+our ephemeral Jenkins masters experiments,
+and tools which may be used to implement single-shot masters.
+
+== Pluggable Storage
+
+Pluggable storage is one of the major areas we have been working on over the last few months.
+There are a number of parallel stories which are summarized on
+link:/sigs/cloud-native/pluggable-storage/[this page].
+There has been significant progress in the areas of artifact storage, build logging and configuration storage.
+A number of Jenkins Enhancement Proposals were submitted and accepted,
+and there are plugin releases and prototypes for these stories.
+
+During our talk we will discuss the current status of these stories and future plans.
+In particular, we will cover the following areas and reference implementations:
+
+* Storing all your artifacts transparently, e.g. in a cloud service blob store like AWS S3.
+** plugin:artifact-manager-s3[Artifact Manager for S3 Plugin] is an implementation we have recently released
+* Providing credentials from an external location.
+** plugin:kubernetes-credentials-provider[Kubernetes Credentials Provider] is one of the existing implementations for Kubernetes secrets
+* Sending and retrieving the build logs from a cloud service.
+** We are working on reference implementations for link:https://github.com/jenkinsci/pipeline-log-fluentd-cloudwatch-plugin[AWS CloudWatch Logs] and
+link:https://github.com/jenkinsci/external-logging-elasticsearch-plugin[Elasticsearch]
+* Storing configuration data in external storage like Kubernetes Resources and SQL database
+* Storing test results externally, e.g. in an SQL database or a specialized Test Management System
+
+There are existing plugins for the areas above, but there is a difference in approach we have taken.
+Instead of creating new custom steps we extend Jenkins architecture in a way that the storage becomes *transparent* to users.
+For example, with plugin:artifact-manager-s3[Artifact Manager for S3 Plugin] common _Archive Artifacts_ steps
+work transparently with Remote storage, as well as Jenkins Pipeline's `stash()`/`unstash()` steps.
+
+The reference implementations intentionally use different technologies so that we cover more scenarios.
+We regularly discuss the implementations in the link:/sigs/cloud-native/[Cloud Native SIG],
+and we would appreciate your feedback.
+
+== Ephemeral Jenkins masters research
+
+Want something new?
+Several days ago Kohsuke Kawaguchi, the creator of Jenkins, posted the
+link:/blog/2018/08/31/shifting-gears/[Jenkins: Shifting Gears] article to summarize the plan for Jenkins evolution.
+Cloud Native Jenkins is a critical part of this plan, and it is not “just Jenkins X”.
+There are various architectural changes in Jenkins required to make this vision happen,
+and we plan to work on these changes in the Cloud Native SIG.
+
+In our presentation, we will talk about our experiment with ephemeral Jenkins and single-shot masters.
+In this story we are creating a headless single-shot master which starts in a container,
+executes a Pipeline build and pushes all the results to remote storage so that the container can just be deleted after completion.
+Such a master bundles plugins and self-configuration logic using “Configuration as Code”,
+so that it can start executing Pipelines in just a few seconds.
+Once packaged, it can be invoked from CLI as simply as...
+
+    docker run --rm -v $PWD/demo/Jenkinsfile:/workspace/Jenkinsfile onenashev/cwp-jenkinsfile-runner-demo
+
+or, in Kubernetes:
+
+    kubectl create configmap jenkinsfile --from-file=demo/Jenkinsfile
+    kubectl create -f demo/kubernetes.yaml
+
+Such a single-shot master could also be made a part of a Cloud Native Jenkins system.
+Standard event handlers like Prow can invoke the builds on webhooks and report results back,
+so that the single-shot master can be used to build pull requests or to run Continuous Delivery flows.
+Extra agents could also be connected to the master on-demand, using the Kubernetes plugin or sidecar containers.
+
+image::/images/post-images/2018-09-12-cloud-native-jenkins/single-shot-master-schema.png[Single-shot master concept, link="https://www.cloudbees.com/devops-world"]
+
+== Tools
+
+In order to make this experiment possible, we used a toolchain based on
+Docker,
+link:https://github.com/kohsuke/jenkinsfile-runner[Jenkinsfile Runner],
+link:https://github.com/jenkinsci/configuration-as-code-plugin[Configuration as Code Plugin] (JCasC), and a
+links:https://github.com/jenkinsci/custom-war-packager[Custom WAR Packager tool] which glues all the things together.
+
+*Custom WAR Packager* is a new tool which takes various configurations (YAML specification defining core version, list of plugins, system properties, Groovy Hooks, JCasC YAMLs)...
+and then bundles everything as a ready-to-fly WAR file or Docker image.
+Starting from version *1.2*, Custom WAR Packager also supports packaging Jenkinsfile Runner images as an experimental feature.
+I will do a separate blogpost about this new tool later,
+but there is already some documentation a number of link:https://github.com/jenkinsci/custom-war-packager#demo[demos] in the project’s repo.
+
+== Our demo
+
+Yes, we will have a demo! We will show a single-shot master running with Pluggable storage implementations for AWS environments (Amazon S3, AWS CloudWatch, EKS, etc.),
+which executes Jenkins Pipelines for Maven projects and provisions agents in Kubernetes on-demand.
+
+The demo has to be published yes, but you can already find a more simple Jenkinsfile Runner demo
+link:https://github.com/jenkinsci/custom-war-packager/tree/master/demo/jenkinsfile-runner[here].
+
+== Want to know more?
+
+The upcoming link:https://www.cloudbees.com/devops-world[DevOps World | Jenkins World conferences]
+are heavily packed with talks related to Cloud Native Jenkins,
+including war stories and presentations on projects like Jenkins X and Jenkins Evergreen.
+It is a great chance to get more information about using Jenkins in cloud environments.
+
+If you are a Jenkins contributor or just want to become a contributor,
+also join the link:https://jenkins.io/blog/2018/07/25/contributor-summit/[Contributor Summit] (Sep 17 in US and Oct 23 in Nice) or visit the Jenkins community booth in the Exhibition hall.
+At the Contributor Summit on Sep 17 we will also have a face-to-face Cloud Native SIG meeting.
+Feel free to contribute to the agenda link:https://docs.google.com/document/d/1Hw1mpXSpH8BAe2YK5SrCfFuHQLRf__KnjDBK_SbhGls/edit[here].
+
+[WARNING]
+--
+Come meet Carlos, Jesse, Oleg, and other Cloud Native SIG members at
+link:https://www.cloudbees.com/devops-world[Jenkins World] on September 16-19th in San Francisco and on October 22-25 in Nice.
+register with the code `JWFOSS` for a 30% discount off your pass.
+--
