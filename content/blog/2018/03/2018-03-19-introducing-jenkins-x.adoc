@@ -1,0 +1,202 @@
+---
+layout: post
+title: "Introducing Jenkins X: a CI/CD solution for modern cloud applications on Kubernetes"
+tags:
+- jenkins-x
+- kubernetes
+- pipeline
+author: jstrachan
+---
+
+We are excited to share and invite the community to join us on a project we’ve been thinking about over the last few months called http://jenkins-x.io[Jenkins X] which extends the Jenkins ecosystem to solve the problem of automating CI/CD in the cloud.
+
+== Background
+
+The last few years have seen massive changes in the software industry:
+
+* use of immutable container images for distributing software which are smaller, easier to work with and lead to cheaper infrastructure costs than VMs alone (approx 20% less on average)
+* https://kubernetes.io/[Kubernetes] has become the defacto way of installing, upgrading, operating and managing containers at scale on any public or hybrid cloud
+** 2018 is the year all the major public clouds, operating system vendors and PaaS offerings support https://kubernetes.io/[Kubernetes] natively
+** we now have an open source industry standard for distributing, installing and managing applications on any cloud!
+* increased adoption of microservices and cloud native applications leading to massive increase in the number of components which require CI/CD along with increased release frequency
+* improvements in DevOps practices coming from the community such as the https://puppet.com/blog/2017-state-devops-report-here[State of DevOps Report] which show the approach of high performing teams
+** increasingly many businesses now realise that to compete you have to deliver value quickly via software
+** teams need to become high performing if the business is to succeed
+
+All of this adds up to an increased demand for teams to have a solution for cloud native CI/CD with lots of automation!
+
+== Introducing Jenkins X
+
+image:/images/jenkins-x/logo.svg[Jenkins X Logo,width=200,role="right"]
+http://jenkins-x.io[Jenkins X] is a project which rethinks how developers should interact with CI/CD in the cloud with a focus on making development teams productive through automation, tooling and DevOps best practices.
+
+http://jenkins-x.io[Jenkins X] is open source and we invite you to give us feedback and to contribute to the project.
+
+
+=== Whats the big deal?
+
+For many years Jenkins has been capable of doing pretty much anything in the CI/CD space; the challenge has always been figuring out how to get the right plugins, configuration and code to work together in your `Jenkinsfile`.
+
+For me the big deal about Jenkins X is as a developer you can type one command http://jenkins-x.io/developing/create-spring/[jx create] or http://jenkins-x.io/developing/import/[jx import] and get your source code, git repository and application created, automatically built and deployed to Kubernetes on each Pull Request or git push with full CI/CD complete with Environments and Promotion via GitOps!
+
+Developers and teams don't have to spend time figuring out how to package software as docker images, create the Kubernetes YAML to run their application on kubernetes, create Preview environments or even learn how to implement CI/CD pipelines with declarative pipeline-as-code `Jenkinsfiles`. It's all automated for you out of the box! So you can focus instead on delivering value!
+
+At the same time, Jenkins X doesn't hide anything. If you do want to hack the `Dockerfile`, `Jenkinsfile` or Helm charts for your apps or their environments then go right ahead - those are all available versioned in git with the rest of your source code with full CI/CD on it all. GitOps FTW!
+
+Jenkins X automates CI/CD and DevOps best practices for you - so you can become a faster performing team! Let your butler do more work for you!
+
+== Demo
+
+Here's a https://www.youtube.com/watch?v=kPes3rvT1UM[demonstration of Jenkins X] running on GKE:
+
+video::kPes3rvT1UM[youtube, width=853, height=480]
+
+'''
+
+You can check out http://jenkins-x.io/demos/[more demos here].
+
+== Jenkins X Features
+
+Now lets walk through the features of Jenkins X that we showed in the demo:
+
+=== Automated CI/CD Pipelines
+
+Create http://jenkins-x.io/developing/create-spring/[new Spring Boot projects],  http://jenkins-x.io/developing/create-quickstart/[new quickstarts]  or http://jenkins-x.io/developing/import/[import existing source code] quickly into Jenkins X via the http://jenkins-x.io/commands/jx/[jx command line tool] and:
+
+* get a Pipeline automatically setup for you that implements best practice CI/CD features:
+** creates a `Jenkinsfile` for defining the CI/CD pipelines through declarative pipeline-as-code
+** creates a `Dockerfile` for packaging the application up as an immutable container image (for applications which generate images)
+** creates a https://docs.helm.sh/developing_charts/#charts[Helm chart] for deploying and running your application on https://kubernetes.io/[Kubernetes]
+* ensures your code is in a git repository (e.g. GitHub) with the necessary webhooks to trigger the Jenkins CI/CD pipelines on push events
+* triggers the first release pipeline to promote your application to your teams _Staging_ Environment
+
+Then on each Pull Request:
+
+* a CI pipeline is triggered to build your application and run all the tests ensuring you keep the master branch in a ready to release state
+* your Pull Request is deployed to a Preview Environment (more on this later)
+
+When a Pull Request is merged to the master branch the Release pipeline is triggered to create a new release:
+
+* a new semantic version number is generated
+* the source code is modified for the new version (e.g. _pom.xml_ files get their _<version>_ elements modified) and then tagged in git
+* new versioned artifacts are published including:
+** docker image, helm chart and any language specific artifacts (e.g. _pom.xml_ and jar files for Java, npm packages for node or binaries for go etc)
+* the new version is promoted to http://jenkins-x.io/about/features/#environments[Environments] (more on this later)
+
+
+=== Environment Promotion via GitOps
+
+In Jenkins X each team gets their own http://jenkins-x.io/about/features/#environments[environments]. The default environments are _Staging_ and _Production_ but teams can create as many environments as they wish and call them whatever they prefer.
+
+An Environment is a place to deploy code and each Environment maps to a separate https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/[namespace in Kubernetes] so they are isolated from each other and can be managed independently.
+
+We use something called _GitOps_ to manage environments and perform http://jenkins-x.io/about/features/#promotion[promotion]. This means that:
+
+* Each environment gets its own git repository to store all the environment specific configuration together with a list of all the applications and their version and configuration.
+* Promotion of new versions of applications to an environment results in:
+
+** a Pull Request is created for the configuration change that triggers the CI pipeline tests on the Environment along with code review and approval
+** once the Pull Request is merged the release pipeline for the environment which updates the applications running in that environment by applying the helm chart metadata from the git repository.
+
+Environments can be configured to either promote _automatically_ as part of a release pipeline or they can use _manual_ promotion.
+
+The defaults today are for the _Staging_ environment to use automatic promotion; so all merges to master are automatically promoted to Staging. Then the _Production_ environment is configured to use manual promotion; so you choose when do promote.
+
+However it is easy to change the  configuration of how many environments you need and how they are configured via the http://jenkins-x.io/commands/jx_create_environment/[jx create environment] and http://jenkins-x.io/commands/jx_edit_environment/[jx edit environment] commands
+
+
+=== Preview Environments
+
+Jenkins X lets you create http://jenkins-x.io/about/features/#preview-environments[Preview Environments] for Pull Requests. Typically this happens automatically in the Pull Request Pipelines when a Pull Request is submitted but you can also perform this manually yourself via the http://jenkins-x.io/developing/preview/[jx preview] command.
+
+The following happens when a Preview Environment is created:
+
+* a new http://jenkins-x.io/about/features/#environments[Environment] of kind `Preview` is created along with a https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/[kubernetes namespace] which show up the http://jenkins-x.io/commands/jx_get_environments/[jx get environments] command along with the http://jenkins-x.io/developing/kube-context/[jx environment and jx namespace commands] so you can see which preview environments are active and switch into them to look around
+* the Pull Request is built as a preview docker image and chart and deployed into the preview environment
+* a comment is added to the Pull Request to let your team know the preview application is ready for testing with a link to open the application. So in one click your team members can try out the preview!
+
+image::/images/jenkins-x/intro/pr-comment.png[Issue Comment, width=800]
+
+This is particularly useful if you are working on a web application or REST endpoint; it lets your team interact with the running Pull Request to help folks approve changes.
+
+=== Feedback
+
+If the commit comments reference issues (e.g. via the text `fixes #123`) then Jenkins X pipelines will generate release notes like those of https://github.com/jenkins-x/jx/releases[the jx releases].
+
+Also, as the version associated with those new commits is promoted to `Staging` or `Production`, you will get automated comments on each fixed issue that the issue is now available for review in the corresponding environment along with a link to the release notes and a link to the app running in that environment. e.g.
+
+image::/images/jenkins-x/intro/issue-comment.png[Issue Comment, width=800]
+
+
+
+== Getting started
+
+Hopefully you now want to give Jenkins X a try. One of the great features of Jenkins is that it's super easy to get started: install Java, download a war and run via `java -jar jenkins.war`.
+
+With Jenkins X we've tried to follow a similarly simple experience. One complication is that Jenkins X has more moving pieces than a single JVM; it also needs a Kubernetes cluster :)
+
+First you need to http://jenkins-x.io/getting-started/install/[download and install the jx command line tool] so its on your `PATH`.
+
+Then you need to run a single command to http://jenkins-x.io/getting-started/create-cluster/[create a new Kubernetes cluster and install Jenkins X] (in this example, on GKE).
+
+[source]
+----
+jx create cluster gke
+----
+
+Today we support creating Kubernetes clusters and installing Jenkins X on Amazon (AWS), Google (GKE), Microsoft Azure, and even locally using minikube.
+We plan to support AWS EKS soon.
+
+At the time of this writing the easiest cloud to get started with is Google's GKE so we recommend you start there unless you already use AWS or Azure. Amazon and Microsoft are working hard to make Kubernetes clusters as easy to create and manage as they are on GKE.
+
+All the public clouds have a free tier so you should be able to spin up a Kubernetes cluster and install Jenkins X for a few hours then tear it down and it should be cheaper than a cup of coffee (probably free!). Just remember to tear down the cluster when you are done!
+
+Here's a https://youtu.be/ELA4tytdFeA[demo of creating a kuberentes cluster and installing Jenkins X]:
+
+video::ELA4tytdFeA[youtube, width=853, height=480]
+
+'''
+
+If you really don't want to use the public cloud, you can http://jenkins-x.io/getting-started/install-on-cluster/[install Jenkins X on an existing kubernetes cluster] (if it has RBAC enabled!). Or, if you can https://github.com/kubernetes/minikube[install and run minikube], then you should be able to http://jenkins-x.io/getting-started/create-cluster/[install Jenkins X on it as well].
+
+
+== Relationship between Jenkins and Jenkins X
+
+Jenkins is the core CI/CD engine within Jenkins X. So Jenkins X is built on the massive shoulders of Jenkins and its awesome community.
+
+We are https://github.com/jenkinsci/jep/tree/master/jep/400[proposing Jenkins X as a sub project] within the Jenkins foundation as Jenkins X has a different focus: automating CI/CD for the cloud using Jenkins plus other open source tools like Kubernetes, Helm, Git, Nexus/Artifactory etc.
+
+Over time we are hoping Jenkins X can help drive some changes in Jenkins itself to become more cloud native, which will benefit the wider Jenkins community in addition to Jenkins X.
+
+== Please join us!
+
+So I hope the above has given you a feel for the vision of where we are heading with Jenkins X and to show where we are today. The project is still very young, we have https://github.com/jenkins-x/jx/issues[lots to do] and we are looking for more input on where to go next and what to focus on. We're also working on high level http://jenkins-x.io/contribute/roadmap[roadmap].
+
+To make Jenkins X a success we'd love you to get involved, http://jenkins-x.io/getting-started/[try it out] and http://jenkins-x.io/community/[give us feedback in the community]! We love contributions whether its email, chat, issues or even better Pull Requests ;).
+
+If you're thinking of contributing here's some ideas:
+
+* http://jenkins-x.io/community/[Give us feedback]. What could we improve? Anything you don't like or you think is missing?
+* Help http://jenkins-x.io/contribute/documentation/[improve the documentation] so its more clear how to get started and use Jenkins X
+* http://jenkins-x.io/developing/create-quickstart/#adding-your-own-quickstarts[Add your own quickstarts] so the Jenkins X community can easily bootstrap new projects using your quickstart. If you work on an open source project is there a good quickstart we could add to Jenkins X?
+* If you'd like to http://jenkins-x.io/contribute/development/[contribute to the code] then try browse the https://github.com/jenkins-x/jx/issues[current issues].
+** we have marked issues https://github.com/jenkins-x/jx/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22[help wanted] or https://github.com/jenkins-x/jx/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22[good first issue] to save you hunting around too much
+** in particular we would love help on getting Jenkins X https://github.com/jenkins-x/jx/issues?q=is%3Aopen+is%3Aissue+label%3Awindows[working well on windows] or the https://github.com/jenkins-x/jx/issues?q=is%3Aissue+is%3Aopen+label%3Aintegrations[integrations] with cloud services, git providers and issues trackers
+** for more long term goals we've the http://jenkins-x.io/contribute/roadmap[roadmap]
+** we could always use more test cases and to improve test coverage!
+
+To help get faster feedback we are using Jenkins X as the CI/CD platform to develop Jenkins X itself. For example Jenkins X creates https://github.com/jenkins-x/jx/releases[all the releases and release notes]. We'll talk more about https://github.com/jenkins-x/updatebot[UpdateBot] in a future blog post but you can see all the https://github.com/pulls?q=is%3Apr+archived%3Afalse+user%3Ajenkins-x+label%3Aupdatebot+is%3Aclosed[automated pull requests generated] in the various Jenkins X pipelines via https://github.com/jenkins-x/updatebot[UpdateBot] pushing version changes from upstream dependencies into downstream repositories.
+
+Note that the Jenkins community tends to use IRC for chat and the Kubernetes community uses Slack, so Jenkins X has rooms for http://jenkins-x.io/community/[both IRC and slack] depending on which chat technology you prefer - as the Jenkins X community will be working closely with both the Jenkins community and the various Kubernetes communities (Kubernetes, Helm, Skaffold, Istio et al).
+
+One of the most rewarding things about open source is being able to learn from others in the community. So I'm hoping that even if you are not yet ready to use Kubernetes in your day job or are not yet interested in automating your Continuous Delivery - that you'll at least consider taking a look at Jenkins X, if for no other reason than to help you learn more about all these new ideas, technologies and approaches!
+
+Thanks for listening and I'm looking forward to http://jenkins-x.io/community/[seeing you in the community].
+
+
+== Links
+
+* https://github.com/jenkinsci/jep/tree/master/jep/400[Jenkins X JEP proposal]
+* http://jenkins-x.io/[Jenkins X website]
+* http://jenkins-x.io/getting-started/[Getting Started Guide]
+* http://jenkins-x.io/demos/[Demos]

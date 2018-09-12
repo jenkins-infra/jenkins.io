@@ -1,0 +1,155 @@
+---
+layout: post
+title: "Moving from buddybuild to Jenkins for Android Developers"
+tags:
+- android
+- plugins
+author: orrc
+---
+
+Last week, buddybuild — a hosted continuous integration service focused on mobile apps — announced that it had been link:https://www.buddybuild.com/blog/buddybuild-is-now-part-of-apple[acquired by Apple], and consequently its complete Android offering, along with its free tier for iOS users, will be discontinued at the beginning of March.
+
+This was a fairly undesirable way to start 2018 for buddybuild's Android users and, with less than two months to find an alternative, many took to Twitter to simultaneously link:https://twitter.com/K4KYA/status/948465314047635456[congratulate buddybuild on their acquisition], and commiserate with others who have to find a new way to build and test their app.
+
+While Jenkins is usually deployed as a self-hosted solution (with over link:http://stats.jenkins.io/[150k installs]), rather than a hosted service like buddybuild, we thought this would be a good time to highlight — thanks to the link:https://plugins.jenkins.io/[rich plugin ecosystem] of Jenkins — some of the possibilities offered to Android developers by Jenkins.
+
+=== Common workflows
+Android projects are fundamentally no different from how other types of software development projects might make use of a Continuous Integration & Continuous Delivery system (CI/CD) such as Jenkins: Android developers will collaborate using a source control management system (SCM) such as plugin:git[Git] or plugin:mercurial[Mercurial]; they will create Pull Requests, which should be automatically verified; they expect to get feedback on test failures and code quality (e.g. via email or Slack); and they should be able to easily deploy new versions of their app to beta testers or end users.
+
+To this end, Jenkins lets you define your link:/doc/book/pipeline/[build and deployment pipelines] in a structured and auditable fashion (via `Jenkinsfile`), supports a multitude of SCMs, while the link:/doc/tutorials/build-a-multibranch-pipeline-project/[multibranch Pipeline] feature automatically creates new Jenkins jobs for every new Pull Request in your repository, and cleans them up as branches get merged.  The link:/projects/blueocean/[Blue Ocean user interface] ties these features together in a clean, modern UI.
+
+[.boxshadow]
+image:/images/post-images/2018-01-08/blue-ocean-screenshot.png[alt="Blue Ocean build screenshot",role=center]
+
+=== Building Android Apps
+To build an Android app, you need the Java development tools (JDK), which Jenkins can link:https://wiki.jenkins.io/display/JENKINS/Tool+Auto-Installation[automatically install] for you, plus the Android SDK, which you can also install on individual build agents using a link:https://wiki.jenkins.io/display/JENKINS/Tool+Auto-Installation[tool installer], or you can use a link:https://docker.com/[Docker container] with the Android SDK Tools preinstalled, for example.
+
+Then, you can use your SCM plugin of choice to fetch your source code, and build the app using the Android Gradle Plugin via the link:https://docs.gradle.org/4.4.1/userguide/gradle_wrapper.html[Gradle Wrapper] — in most cases this is as simple as running `./gradlew assembleDebug`.
+
+Once your app has been built and packaged into a `.apk` file, you can use the link:/doc/pipeline/steps/workflow-basic-steps/#code-archive-code-archive-artifacts[`archiveArtifacts`] build step, storing the APK, enabling colleagues to download APKs directly from Jenkins, so that they can try out the latest build.
+
+=== Testing Android Apps
+The Android SDK supports two types of test: unit tests, which run on the JVM, and instrumentation tests, which have to run on an Android device or emulator.  Both types of test can be executed using Jenkins and, since the Android Gradle Plugin writes the test results to disk in JUnit XML format, the plugin:junit[JUnit Plugin] for Jenkins can be used to parse the results, enabling you see a test report, and to be notified of test failures.
+
+Compiling and executing the unit tests for your app is as simple as adding another build step which runs `./gradlew testDebugUnitTest`.
+
+Similarly, instrumentation tests can be compiled and executed via the `connectedDebugAndroidTest` task in Gradle.  However, before you do this, you should ensure that an Android device is connected to your Jenkins build agent, or you can make use of the plugin:android-emulator[Android Emulator Plugin] to automatically download, create, and start an emulator for you during a build.  There are also plugins for cloud testing services such as link:https://github.com/jenkinsci/aws-device-farm-plugin[AWS Device Farm].
+
+Once you have finished executing the tests, you can use the link:/doc/pipeline/steps/junit/#code-junit-code-archive-junit-formatted-test-results[`junit`] step to analyse the results: `+junit '**/TEST-*.xml'+`.
+
+=== Static Analysis
+Similar to other Java or Kotlin projects, you can scan your codebase using static analysis tools like FindBugs or Checkstyle.  Once again, Jenkins has plugin:analysis-core[analysis plugins] which can parse the output of these tools, and present you with the results and trend graphs, or optionally flag the build as unstable or failed if too many problems have been detected.
+
+The Android SDK provides a further useful static analysis tool called link:https://developer.android.com/studio/write/lint.html[Lint].  The output of this tool can be parsed by the plugin:android-lint[Android Lint Plugin], which will analyse the issues found, and provide you with a detailed report within Jenkins.  This functionality was link:https://www.youtube.com/watch?v=Erd2k6EKxCQ&t=53m32s[demonstrated by the Android Tools Team] at the Google I/O conference a few years back.
+
+=== Securely signing and deploying Android apps
+In order to distribute an Android app, it needs to be signed with a private key, which you should keep safe (losing it means you won't be able to publish updates to your app!), and as secure as possible.
+
+Instead of developers having to keep the signing keystore on their development machines, you can securely store the keystore and/or its passphrase on Jenkins using the plugin:credentials[Credentials Plugin].  This avoids having to hardcode the passphrase into your `build.gradle`, or have it otherwise checked into your SCM.
+
+The Credentials Plugin allows you to store secrets in Jenkins — which will be stored encrypted on disk when not in use — and those secrets can temporarily be made available during a build, either as a file in the build workspace, or exposed as an environment variable.
+
+You can use such environment variables in a `signingConfig` block within your `build.gradle`, or you can make use of the plugin:android-signing[Android Signing Plugin] to sign your APK for you.
+
+Once you have your production-ready APK built and signed, you can automatically upload it to Google Play using the plugin:google-play-android-publisher[Google Play Android Publisher plugin].  The benefit of using this plugin is that it supports multiple APK upload, expansion files, uploading of ProGuard mapping files, promotion of builds from alpha, to beta, to production — and once again, your Google Play credentials are securely stored on Jenkins thanks to integration with the Credentials Plugin.
+
+=== Sample Pipeline
+Here's a straightforward example of a `Jenkinsfile` defining a pipeline to build, test, and optionally deploy an Android app, from a multibranch Pipeline job.
+It requires the Pipeline, JUnit, Android Lint, Google Play Android Publisher, and Mailer plugins to be installed.
+
+.Jenkinsfile
+[source,groovy]
+----
+pipeline {
+  agent {
+    // Run on a build agent where we have the Android SDK installed
+    label 'android'
+  }
+  options {
+    // Stop the build early in case of compile or test failures
+    skipStagesAfterUnstable()
+  }
+  stages {
+    stage('Compile') {
+      steps {
+        // Compile the app and its dependencies
+        sh './gradlew compileDebugSources'
+      }
+    }
+    stage('Unit test') {
+      steps {
+        // Compile and run the unit tests for the app and its dependencies
+        sh './gradlew testDebugUnitTest testDebugUnitTest'
+
+        // Analyse the test results and update the build result as appropriate
+        junit '**/TEST-*.xml'
+      }
+    }
+    stage('Build APK') {
+      steps {
+        // Finish building and packaging the APK
+        sh './gradlew assembleDebug'
+
+        // Archive the APKs so that they can be downloaded from Jenkins
+        archiveArtifacts '**/*.apk'
+      }
+    }
+    stage('Static analysis') {
+      steps {
+        // Run Lint and analyse the results
+        sh './gradlew lintDebug'
+        androidLint pattern: '**/lint-results-*.xml'
+      }
+    }
+    stage('Deploy') {
+      when {
+        // Only execute this stage when building from the `beta` branch
+        branch 'beta'
+      }
+      environment {
+        // Assuming a file credential has been added to Jenkins, with the ID 'my-app-signing-keystore',
+        // this will export an environment variable during the build, pointing to the absolute path of
+        // the stored Android keystore file.  When the build ends, the temporarily file will be removed.
+        SIGNING_KEYSTORE = credentials('my-app-signing-keystore')
+
+        // Similarly, the value of this variable will be a password stored by the Credentials Plugin
+        SIGNING_KEY_PASSWORD = credentials('my-app-signing-password')
+      }
+      steps {
+        // Build the app in release mode, and sign the APK using the environment variables
+        sh './gradlew assembleRelease'
+
+        // Archive the APKs so that they can be downloaded from Jenkins
+        archiveArtifacts '**/*.apk'
+
+        // Upload the APK to Google Play
+        androidApkUpload googleCredentialsId: 'Google Play', apkFilesPattern: '**/*-release.apk', trackName: 'beta'
+      }
+      post {
+        success {
+          // Notify if the upload succeeded
+          mail to: 'beta-testers@example.com', subject: 'New build available!', body: 'Check it out!'
+        }
+      }
+    }
+  }
+  post {
+    failure {
+      // Notify developer team of the failure
+      mail to: 'android-devs@example.com', subject: 'Oops!', body: "Build ${env.BUILD_NUMBER} failed; ${env.BUILD_URL}"
+    }
+  }
+}
+----
+
+### Not just for Android
+While buddybuild concentrated on Android and iOS apps, thanks to the link:https://wiki.jenkins.io/display/JENKINS/Distributed+builds[distributed build agent architecture] of Jenkins, you can automate any type of project.
+
+For example, you can expand the capabilities of Jenkins by adding macOS (or Windows, Linux, BSD…) agents; you can dynamically spin up agents on plugin:ec2[AWS EC2 instances], plugin:azure-vm-agents[Microsoft Azure VMs], or plugin:azure-container-agents[Azure Container Instances]; you can create agents using plugin:vsphere-cloud[VMware], and so on.
+
+### Conclusion
+Thousands of Jenkins instances are already using the various Android-related plugins, and Pipeline along with the Blue Ocean User Interface make using Jenkins simpler than it's ever been.
+
+Give Jenkins a try for building your Android projects, check out the link:/doc/tutorials/[tutorials], and get in touch via the link:/mailing-lists/[users' mailing list], or link:/chat/[IRC].
+
+Finally, as with Jenkins itself, all link:https://plugins.jenkins.io/[plugins] distributed are link:https://github.com/jenkinsci[open-source], so feel free to link:/participate/[contribute]!

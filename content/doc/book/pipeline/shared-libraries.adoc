@@ -2,14 +2,17 @@
 layout: section
 title: Extending with Shared Libraries
 ---
+ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
 :email: jenkinsci-docs@googlegroups.com
 :sectanchors:
-:imagesdir: /doc/book/resources
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
 :hide-uri-scheme:
 :toc:
+endif::[]
 
 = Extending with Shared Libraries
 
@@ -153,7 +156,7 @@ import com.mycorp.pipeline.somelib.UsefulClass
 ====
 For Shared Libraries which only define Global Variables (`vars/`), or a
 `Jenkinsfile` which only needs a Global Variable, the
-link:http://groovy-lang.org/objectorientation.html#_annotation[annotation]
+link:http://groovy-lang.org/objectorientation.html#\_annotation[annotation]
 pattern `@Library('my-shared-library') _` may be useful for keeping code
 concise. In essence, instead of annotating an unnecessary `import` statement,
 the symbol `_` is annotated.
@@ -341,6 +344,8 @@ package org.foo;
 def checkOutFrom(repo) {
   git url: "git@github.com:jenkinsci/${repo}"
 }
+
+return this
 ----
 
 Which can then be called from a Scripted Pipeline:
@@ -354,7 +359,7 @@ z.checkOutFrom(repo)
 This approach has limitations; for example, it prevents the declaration of a
 superclass.
 
-Alternately, a set of `steps` can be passed explicitly to a library class, in a
+Alternately, a set of `steps` can be passed explicitly using `this` to a library class, in a
 constructor, or just one method:
 
 [source,groovy]
@@ -376,7 +381,7 @@ in the example below, can properly suspend and resume in Jenkins.
 [source,groovy]
 ----
 @Library('utils') import org.foo.Utilities
-def utils = new Utilities(steps)
+def utils = new Utilities(this)
 node {
   utils.mvn 'clean package'
 }
@@ -412,57 +417,52 @@ node {
 === Defining global variables
 
 Internally, scripts in the `vars` directory are instantiated on-demand  as
-singletons. This allows multiple methods or properties to be defined in a
-single `.groovy` file which interact with each other, for example:
+singletons. This allows multiple methods to be defined in a
+single `.groovy` file for convenience.  For example:
 
+.vars/log.groovy
 [source,groovy]
 ----
-// vars/acme.groovy
-def setName(value) {
-    name = value
+def info(message) {
+    echo "INFO: ${message}"
 }
-def getName() {
-    name
-}
-def caution(message) {
-    echo "Hello, ${name}! CAUTION: ${message}"
+
+def warning(message) {
+    echo "WARNING: ${message}"
 }
 ----
 
-In the above, `name` is not referring to a field (even if you write it as `this.name`!),
-but to an entry created on demand in a `Script.binding`.
-To be clear about what data you intend to store and of what type,
-you can instead provide an explicit class declaration
-(the class name should match the file basename, and Pipeline steps can
-only be invoked if `steps` or `this` is passed to the class or method,
-as with classes in `src` described above):
-
+.Jenkinsfile
 [source,groovy]
 ----
-// vars/acme.groovy
-class acme implements Serializable {
-    private String name
-    def setName(value) {
-        name = value
-    }
-    def getName() {
-        name
-    }
-    def caution(message) {
-        echo "Hello, ${name}! CAUTION: ${message}"
+@Library('utils') _
+
+log.info 'Starting'
+log.warning 'Nothing to do!'
+----
+
+Declarative Pipeline does not allow global variable usage outside of a `script`
+directive
+(link:https://issues.jenkins-ci.org/browse/JENKINS-42360[JENKINS-42360]).
+
+.Jenkinsfile
+[source,groovy]
+----
+@Library('utils') _
+
+pipeline {
+    agent none
+    stage ('Example') {
+        steps {
+             script { // <1>
+                 log.info 'Starting'
+                 log.warning 'Nothing to do!'
+             }
+        }
     }
 }
 ----
-
-The Pipeline can then invoke these methods which will be defined on the
-`acme` object:
-
-[source,groovy]
-----
-acme.name = 'Alice'
-echo acme.name /* prints: 'Alice' */
-acme.caution 'The queen is angry!' /* prints: 'Hello, Alice. CAUTION: The queen is angry!' */
-----
+<1> `script` directive required to access global variables in Declarative Pipeline.
 
 [NOTE]
 ====
@@ -471,7 +471,14 @@ Reference_ (under _Pipeline Syntax_) after Jenkins loads and uses that library
 as part of a successful Pipeline run.
 ====
 
-=== Defining steps
+.Avoid preserving state in global variables
+[WARNING]
+====
+Avoid defining global variables with methods that interact or preserve state.
+Use a static class or instantiate a local variable of a class instead.
+====
+
+=== Defining custom steps
 
 Shared Libraries can also define global variables which behave similarly to
 built-in steps, such as `sh` or `git`. Global variables defined in Shared
@@ -537,18 +544,11 @@ tested in the same way, so we might write a step named
 [source,groovy]
 ----
 // vars/buildPlugin.groovy
-def call(body) {
-    // evaluate the body block, and collect configuration into the object
-    def config = [:]
-    body.resolveStrategy = Closure.DELEGATE_FIRST
-    body.delegate = config
-    body()
-
-    // now build, based on the configuration provided
+def call(Map config) {
     node {
         git url: "https://github.com/jenkinsci/${config.name}-plugin.git"
-        sh "mvn install"
-        mail to: "...", subject: "${config.name} plugin build", body: "..."
+        sh 'mvn install'
+        mail to: '...', subject: "${config.name} plugin build", body: '...'
     }
 }
 ----
@@ -561,11 +561,13 @@ the resulting `Jenkinsfile` will be dramatically simpler:
 [pipeline]
 ----
 // Script //
-buildPlugin {
-    name = 'git'
-}
+buildPlugin name: 'git'
 // Declarative not yet implemented //
 ----
+
+There is also a “builder pattern” trick using Groovy’s `Closure.DELEGATE_FIRST`,
+which permits `Jenkinsfile` to look slightly more like a configuration file than a program,
+but this is more complex and error-prone and is not recommended.
 
 === Using third-party libraries
 
@@ -621,3 +623,53 @@ library sources will not be checked out again.)
 
 _Replay_ is not currently supported for trusted libraries.
 Modifying resource files is also not currently supported during _Replay_.
+
+=== Defining Declarative Pipelines
+
+Starting with Declarative 1.2, released in late September, 2017, you can define
+Declarative Pipelines in your shared libraries as well. Here's an example,
+which will execute a different Declarative Pipeline depending on whether the
+build number is odd or even:
+
+[source,groovy]
+----
+// vars/evenOrOdd.groovy
+def call(int buildNumber) {
+  if (buildNumber % 2 == 0) {
+    pipeline {
+      agent any
+      stages {
+        stage('Even Stage') {
+          steps {
+            echo "The build number is even"
+          }
+        }
+      }
+    }
+  } else {
+    pipeline {
+      agent any
+      stages {
+        stage('Odd Stage') {
+          steps {
+            echo "The build number is odd"
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+[source,groovy]
+----
+// Jenkinsfile
+@Library('my-shared-library') _
+
+evenOrOdd(currentBuild.getNumber())
+----
+
+Only entire `pipeline`s can be defined in shared libraries as of this time.
+This can only be done in `vars/*.groovy`, and only in a `call` method. Only one
+Declarative Pipeline can be executed in a single build, and if you attempt to
+execute a second one, your build will fail as a result.

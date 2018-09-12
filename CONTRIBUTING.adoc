@@ -1,8 +1,59 @@
+:toc:
+:toclevels: 3
+
+
 = Contributing to jenkins.io
 
-:toc:
+toc::[]
+
+== Getting Started
+
+To contribute to this repository you will
+link:https://guides.github.com/activities/forking/[fork this repository],
+push changes to a branch in your fork, and then
+link:https://help.github.com/articles/creating-a-pull-request-from-a-fork/[create as a pull request]
+from that branch to the `master` branch of this repository.
+Forking only needs to be done once, after which you can push changes to your fork
+using the GitHub website file editor or from a local clone, as described below.
+
+
+[[forking]]
+=== Creating a fork
+
+Creating a fork, aka link:https://guides.github.com/activities/forking/[forking],
+makes a personal copy of another repository.
+Any changes you make in your fork of the repository will not show up on the website
+until they are merged (via pull request) to the `master` branch of this repository.
+If you are unfamiliar with how to create a fork or how forks work, see the
+link:link:https://guides.github.com/activities/forking/[GitHub tutorial on forking].
+
+=== Using GitHub to edit files
+
+GitHub makes it easy to add, edit, or delete individual files via their website's
+link:https://help.github.com/articles/editing-files-in-your-repository/[File Editor].
+This has the advantage of using the file editor is that GitHub will automatically fork (if needed),
+push the changes to a branch, and open a pull request for you.
+It also means you don't need to have a local clone of your fork.
+The disadvantage is that you can't verify you changes locally before creating the PR,
+it only works on one file at a time, and your changes are lost if you close or navigate away from the page.
+
+=== Using a local clone
+
+We generally recommend making changes in a
+link:https://help.github.com/articles/cloning-a-repository-from-github/[local clone] of your fork.
+This requires some additional tools and storage on your local machine,
+and you will need a bit more technical knowledge of how to use those tools.
+However, this will allow you work on multiple files as part of a single set of changes.
+You'll save your changes in a local branch and then <<building, build and review>> them locally.
+When they are ready you will push your changes to your your fork and submit a pull request from there.
 
 == Building
+
+This project uses GNU/Make and Docker in order to generate the fully statically
+generated link:https://jenkins.io[jenkins.io] web site. The key tool for
+converting source code into the site is the
+link:http://awestruct.org[Awestruct] static site generator,
+which is downloaded automatically as part of the build process.
 
 Ensure you have GNU/Make and Docker available on your machine:
 
@@ -11,22 +62,29 @@ Ensure you have GNU/Make and Docker available on your machine:
 
 Docker must be version 17.04 or greater.
 
-=== Instructions
+[[make-targets]]
+=== `make` Targets
 
-This project uses GNU/Make and Docker in order to generate the fully statically
-generated link:https://jenkins.io[jenkins.io] web site. The key tool for
-converting source code into the site is the
-link:http://awestruct.org[Awestruct] static site generator.
+Run `make` to run a full build, or `make <target>` using one of the targets below
+to achieve specific results.
 
-==== Make Targets
+* *all* (default target) will run a full build of the site, including
+  `prepare`, `generate`, and `archive`. This will also download and regenerate external resources.
+* *clean* will remove all build output and dependencies in preparation for a full rebuild.
+* *prepare* will download external dependencies and resources necessary to
+  build the site. As an optimization to make iterating on content locally more pleasant,
+  dependencies and resources will not be downloaded again unless the `clean` target is called first.
+  The exeception being `all` will download and regenerate external resources
+  (but not download dependencies which are more bandwidth intensive).
+* *generate* will run `site` and `pdfs`.
+* *site* will explicitly generate static website files.
+* *pdfs* will explicitly generate new PDFs
+* *run* will run a live-reloading development server on
+  link:http://localhost:4242/[localhost:4242].
+* *user-site* will publish the `jenkins.io` website to your own "GitHub Pages".
+  While useful for review purposes this has some known issues and limitations.
+  See <<user-site>> for details.
 
-* *make prepare* will download external dependencies and files necessary to
-  build the site. It is recommended that this be executed at least once before
-  authoring new content. This target is not a dependency of `run` or `generate`
-  as an optimization to make iterating on content locally more pleasant.
-* *make run* will run a live-reloading development server on
-  link:http://localhost:4242/[localhost:4242]
-* *make pdfs* will explicitly generate new PDFs
 
 == Editing content
 
@@ -34,13 +92,60 @@ The majority of what is considered "legacy" content is almost entirely under
 `content/blog`. These files represent structured around the date the original
 stories were written in Drupal.
 
+Most content on this site is written up in the AsciiDoc markup language.
+
+
+==== Why AsciiDoc?
+
+Generally speaking, all documentation should be written in
+link:http://asciidoctor.org/docs/what-is-asciidoc/[AsciiDoc]. While most open
+source contributors are familiar with
+link:https://en.wikipedia.org/wiki/Markdown[Markdown], it has limitations which
+make writing in-depth documentation with it problematic. Markdown, as opposed to
+link:https://guides.github.com/features/mastering-markdown/[GitHub flavored
+Markdown], does not have support for denoting what language source code might be
+written in. AsciiDoc supports this natively with the "source code" block:
+
+[source, asciidoc]
+----
+[source, asciidoc]
+\----
+This is where I would _cite_ some highlighted AsciiDoc code
+\----
+----
+
+AsciiDoc has a number of other features which can make authoring of
+documentation easier, such as the
+"link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/#admon-bl[admonition blocks]"
+which help call out specific sections, such as:
+
+[source, asciidoc]
+----
+NOTE: This is a notice that you should pay attention to!
+
+CAUTION: This is a common mistake!
+----
+
+Becomes:
+
+NOTE: This is a notice that you should pay attention to!
+
+CAUTION: This is a common mistake!
+
+
+There are too many other helpful macros and formatting options to list here, so
+it is recommended that you refer to the
+link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference[quick reference]
+to become more familiar with what is available.
+
+
 === Adding a blog post
 
 In order to add a new blog post, create a new file ending in **.adoc** (for
 link:http://asciidoctor.org[Asciidoctor]) in the appropriate
-`content/blog/<year>/<month>` directory with the full date and a *lower-case* title for
-your post. In effect, if you're writing a post that you want to title "Hello
-World" on January 1st, 1970, you would create the file:
+`content/blog/<year>/<month>` directory with the full date and a *lower-case*
+title for your post. In effect, if you're writing a post that you want to title
+"Hello World" on January 1st, 1970, you would create the file:
 `content/blog/1970/01/1970-01-01-hello-world.adoc`.
 
 In that file you need to enter some meta-data in the following format:
@@ -71,8 +176,14 @@ Tags must not contain spaces.
 Tags should be short, generally one or two words.
 Tags containing multiple words should squash all the words together,
 as in "continuousdelivery" or "jenkinsworld2017".
-Dashes are allowed but should be avoided unless describing a topic that contains dashes,
-such as a plugin name that contains dashes.
+Dashes are allowed but should be avoided unless describing a topic that contains
+dashes, such as a plugin name that contains dashes.
+To see tags people have used before:
+
+[source,sh]
+----
+egrep -h '^- [^ ]+$' content/blog/*/*/*.adoc | sort | uniq -c
+----
 
 The `author` attribute will map your
 GitHub name to author information, if this is your first time adding a blog
@@ -94,105 +205,184 @@ This is an *AsciiDoc* formatted bio, but it is completely optional!
 
 Only the `name:` and `github:` sections are mandatory.
 
+You may also add an avatar image file for yourself in `content/images/avatars/`
+with the file named `yourgithubname.jpg`.
+You can use an image file with one of the following extensions:
+`.bmp`, `.gif`, `.ico`, `.jpg`, `.jpeg`, `.png`, `.svg`.
+
 Once your author file is defined, you can return to your blog post file
 (`1970-01-01-hello-world.adoc`), finish creating the "front matter" and then
 write your blog post!
 
 Once you have everything ready, you may
-link:https://help.github.com/articles/creating-a-pull-request/[create a pull request]
-containing your additions.
+link:https://help.github.com/articles/creating-a-pull-request/[create a pull
+request] containing your additions.
 
-TIP: If you're unfamiliar with the AsciiDoc syntax, please consult this link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/[handy quick reference guide].
+TIP: If you're unfamiliar with the AsciiDoc syntax, please consult this
+link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/[handy quick
+reference guide].
+
 
 === Adding documentation
 
-This repository holds the central documentation for the Jenkins project. The
-documentation can be broken down into three categories:
+This repository holds the central documentation for the Jenkins project, which
+can be broken down into three categories:
 
-. *Knowledge-base/Handbook* - rich and in-depth documentation, separated into
-  chapters covering a topic area, conceptually similar to the
-  link:https://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/[FreeBSD Handbook]
-. *Getting Started guides* - topic-specific, progressive documentation walking
-  the reader through the topic
+. *Jenkins User Documentation* - for people who want to _use_ Jenkins's existing
+  functionality and plugin features. The documentation model that the content is
+  based on is described in Daniele Procida's blog post
+  "link:https://www.divio.com/en/blog/documentation/[What nobody tells you about
+  documentation]". Refer to the
+  <<jenkins-user-documentation,Jenkins User Documentation>> section below for
+  details on how this content is structured.
+. *Extend Jenkins Documentation* - this documentation is for people who want to
+  _extend_ the functionality of Jenkins by developing their own Jenkins plugins.
+  Like the Jenkins User Documentation (above), the content is based on the same
+  link:https://www.divio.com/en/blog/documentation/[documentation model]. The
+  content for this set of documentation is written up as a combination of
+  `.haml` and `.adoc` files located in the
+  link:content/doc/developer[`content/doc/developer/`]
+  directory. Read more about adding pages to this documentation in
+  <<adding-a-stand-alone-page,Adding a stand-alone-page>>.
 . *Solution pages* - topic-specific destination pages providing a high-level
   overview of a topic with links into getting started guides, handbook chapters,
-  relevant plugins and multimedia related to the topic
-
-==== Why AsciiDoc?
-
-Generally speaking, all documentation should be written in
-link:http://asciidoctor.org/docs/what-is-asciidoc/[AsciiDoc]. While most open
-source contributors are familiar with
-link:https://en.wikipedia.org/wiki/Markdown[Markdown] it has limitations which
-make writing in-depth documentation with it problematic.Markdown, as opposed to
-link:https://guides.github.com/features/mastering-markdown/[GitHub flavored Markdown],
-does not have support for denoting what language source code might be
-written in. AsciiDoc supports this natively with the "source code" block:
-
-[source, asciidoc]
-----
-[source, asciidoc]
-\----
-This is where I would _cite_ some highlighted AsciiDoc code
-\----
-----
-
-AsciiDoc has a number of other features which can make authoring of
-documentation easier, such as the
-"link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/#admon-bl[admonition blocks]"
-which help call out specific sections, such as:
-
-[source, asciidoc]
-----
-NOTE: This is a notice that you should pay attention to!
-
-CAUTION: This is a common mistake!
-----
-
-Becomes:
-
-NOTE: This is a notice that you should pay attention to!
-
-CAUTION: This is a common mistake!
+  relevant plugins and multimedia related to the topic. Be aware that some of
+  this content might already be present in the Jenkins User / Extend Jenkins
+  Documentation.
 
 
-There are too many other helpful macros and formatting options to list here, so it
-is recommended that you refer to the link:asciidoctor.org/docs/asciidoc-syntax-quick-reference[quick reference]
-to become more familiar with what is available.
+==== Jenkins User Documentation
+
+The Jenkins User Documentation consists of the following parts:
+
+* *Tutorials* - these are step-by-step guides that teach users relatively new to
+  Continuous Integration (CI) / Continuous Delivery (CD) concepts about how to
+  implement their project (of a particular tech stack) in Jenkins. A tutorial's
+  content is based on the "tutorial" description in Daniele Procida's blog post
+  "link:https://www.divio.com/en/blog/documentation/[What nobody tells you about
+  documentation]". Read more about
+  <<adding-a-tutorial-page,Adding a Tutorial page>>.
+* *How-to guides* - these are short guides consisting of procedures to get the
+  reader started with specific/common use-case scenarios. They could also be
+  guides that assist with overcoming commonly encountered issues - thereby
+  behaving as a form of knowledgebase article. A how-to guide's content goes
+  beyond the more general scope of a topic in the User Handbook, but these
+  guides do not hand-hold or teach the reader using very specific scenarios
+  (e.g. forking a given repo), as the *Tutorials* do. A how-to guide's content
+  is based on the "how-to guide" description in Daniele Procida's blog post
+  "link:https://www.divio.com/en/blog/documentation/[What nobody tells you about
+  documentation]". While there are currently no "how-to guides" yet, this
+  section will be added when good candidate guides arise.
+* *User Handbook* - rich and in-depth documentation, separated into chapters,
+  each of which covers a given topic/feature of Jenkins. This is conceptually
+  and structurally similar to the
+  link:https://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/[FreeBSD
+  Handbook]. The User Handbook covers the fundamentals on how to use Jenkins as
+  well as content which is not explained in the *Tutorials* or *How-to Guides*
+  (above). This content is based predominantly on the "reference" description in
+  Daniele Procida's blog post
+  "link:https://www.divio.com/en/blog/documentation/[What nobody tells you about
+  documentation]" blog post, with appropriate "discussion"- (i.e.
+  background/overview material) and general "how-to guide"- (i.e. specific to
+  the chapter/topic in question) like material. Read more about
+  <<adding-user-handbook-content,Adding User Handbook content>>.
+* *Resources*:
+** The Pipeline Syntax Reference is a link to the published
+   link:content/doc/book/pipeline/syntax.adoc[syntax.adoc]
+   reference page in the *User Handbook*.
+** The Pipeline Steps Reference consists of Asciidoc files which are
+   auto-generated from content within the relevant Pipeline plugin source code.
+   Therefore, to contribute to this content, you need to edit the relevant
+   plugin's source code.
+* *Recent Tutorial Blog Posts* - these are a list of the most recently
+  published blog posts presented as tutorials (and tagged with the *tutorial*
+  tag).
+* *Guided Tour* (Deprecated) - This part of the documentation is
+  being decommissioned in favor of the *Tutorials* and *How-to guides*
+  parts, both of which focus more on teaching people how to use Jenkins
+  or helping people with specific use-cases. Once all the
+  content from the *Guided Tour* is sufficiently captured in
+  those other parts, this part will be removed. +
+  Unless existing content in the *Guided Tour* needs to be updated
+  because it is incorrect or misleading (perhaps as a result of a Jenkins
+  update), avoid making additional contributions to this part.
 
 
-==== Adding a Handbook chapter
+==== Adding a Tutorial page
 
-The different chapters for the Handbook are located in the `content/doc/book/` directory
-and generally speaking each `.adoc` file represents a single chapter of the book.
-Chapters are automatically surfaced on the Handbook home page (provided by
-`content/doc/book.html.haml`).
+A tutorial is presented on its own page, each of which is written up as an
+`.adoc` file located in the link:content/doc/tutorials[`content/doc/tutorials/`]
+directory. If an `.adoc` file name begins with a underscore (e.g.
+link:content/doc/tutorials/_prerequisites.adoc[`content/doc/tutorials/_prerequisites.adoc`]),
+this means that the content is used as an
+link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/#include-files[Asciidoc
+inclusion] on another page.
 
-==== Adding a Getting Started Guide
 
-Unlike Handbook chapters, Getting Started Guides should be directed, that is to
-say: the sentence "Getting Started with X" should make sense. "Getting Started
-with Jenkins on Windows", "Getting Started with Pipeline", "Getting Started with
-Access Control".
+==== Adding a How-to guide page
 
-These getting started guides can be placed in `content/doc/` in a directory that
-is most appropriate for the topic, and the directory should contain the `.adoc`
-file for the Getting Started Guide, as well as any supplementary images or other
-assets to accompany
-the guide.
+This section will be completed when the first (or first set of) "how-to guides"
+are written up.
 
-TIP: Writing a Getting Started Guide while authoring a Handbook chapter on the
-subject can help ensure your Getting Started Guide can cite more detailed
-documentation for how/why certain features exist, or provide a useful reference
-point for "advanced" features.
+
+==== Adding User Handbook content
+
+The different chapters for the Handbook are located in the
+link:content/doc/book[`content/doc/book/`] directory.
+
+To add a chapter:
+
+. Add a new subdirectory (within this directory) whose name reflects your
+  chapter title.
+. Specify this subdirectory's name as a new entry in the
+  link:content/doc/book/_book.yml[`content/doc/book/_book.yml`] file. The
+  position of the entry in this file determines the order in which the chapter
+  appears in the User Handbook.
+. Create an `index.adoc` file within the subdirectory you created above. Feel
+  free to copy another chapter's `index.adoc` content as a template/starting
+  point. The content on this page should be an overview (i.e. "discussion"
+  material) about the subject of this chapter (e.g. some big new Jenkins
+  feature). +
+  Once you do this, the chapters will automatically surface on the User Handbook
+  home page
+  (provided by
+  link:content/doc/book/index.html.haml[`content/doc/book/index.html.haml`]),
+  which will automatically appear https://jenkins.io/doc/book/[here] (and in the
+  TOC on the left of this page) when accepted. +
+  Once you do add some topics to this chapter page as well as additional pages
+  of topics within a chapter (see below), it's recommended that you link to
+  these topics from within the overview (to help readers find this information).
+
+To add a page (i.e. "section") within a chapter:
+
+. Within the relevant chapter subdirectory, create a new `.adoc` file whose name
+  reflects your page title. Feel free to copy another section's `.adoc` content
+  as a template/starting point.
+. Specify this `.adoc` file's name as a new entry in a `_chapter.yml` file
+  within this directory. Feel free to copy an empty `_chapter.yml` file from
+  another subdirectory/chapter (e.g. from the `glossary` directory). The
+  position of the entry in this file determines the order in which the page
+  appears within the chapter. +
+  Once you do this, the pages will automatically surface on the User Handbook
+  home page
+  (provided by
+  link:content/doc/book/index.html.haml[`content/doc/book/index.html.haml`]),
+  which will automatically appear https://jenkins.io/doc/book/[here] (and the
+  TOC on the left of this page) when accepted. +
+  The content on this page should be predominantly "reference" material about
+  the subject of page (e.g. more detailed information about a specific aspect
+  of the big new feature). These pages may contain appropriate "discussion"- and
+  "how-to guide"-like material (i.e. overviews and procedures) relevant to the
+  subject to make the content more useful.
 
 
 ==== Adding a Solution page
 
-Solution pages are somewhat *special* insofar that they are not generally AsciiDoc files,
-but rather link:http://haml.info[Haml] templates. All the solution pages are located
-in the `content/solutions/` directory hierarchy, with some data provided for the solution
-pages in `content/_data/solutions/`.
+Solution pages are somewhat *special* insofar that they are not generally
+AsciiDoc files, but rather link:http://haml.info[Haml] templates. All the
+solution pages are located in the link:content/solutions[`content/solutions/`]
+directory hierarchy, with some data provided for the solution pages in
+link:content/_data/solutions[`content/_data/solutions/`].
 
 IMPORTANT: The naming of Solution page template (`pipeline.html.haml`) must
 match the data file in `content/_data/solutions`, e.g. `pipeline.yml`
@@ -205,21 +395,117 @@ presentations and links to documentation.  A page "Jenkins for C/C++" would
 still be relatively specific, and could easily include a section for Visual
 C++/Windows specific content.
 
+=== Adding an event
+
+To add an event to the Jenkins event calendar, create a file in the
+`https://github.com/jenkins-infra/jenkins.io/tree/master/content/_data/events[content/_data/events/]`
+folder of this repo.
+
+To create a file in this folder using the GitHub web editor,
+link:https://github.com/jenkins-infra/jenkins.io/new/master/content/_data/events[open this page in a new tab].
+
+Name the file using the pattern `<DATE>-<CITY><OPTIONAL_ID>.adoc`:
+
+* DATE -
+  The is the date of the event written as `YYYY-MM-DD`.
+  For a multi-day event, use the starting day.
+* CITY -
+  The name of the city in lowercase letters without modifiers/accents
+  (only the characters "a - z") and using dashes instead of spaces.
+  For an online JAM, the city name should be "online".
+* OPTIONAL_ID -
+  If there is more than one event in the same city on a specific day,
+  add an OPTIONAL_ID as a dash and a number (1-9).
+
+Example: `content/_data/events/2017-08-28-munchen.adoc`
+
+Example: `content/_data/events/2016-12-01-san-francisco-1.adoc`
+
+Example: `content/_data/events/2016-12-01-san-francisco-2.adoc`
+
+Then, in that file put the following:
+
+[source, asciidoc]
+----
+---
+name: "<EVENT_NAME>"
+date: "<DATE_TIME>"
+link: "<LINK>"
+---
+
+<DESCRIPTION>
+----
+
+* EVENT_NAME - The name of the event.  
+  Note, this is not _subject_ of the event, but the _name_. Example: "Seattle JAM", "Jenkins World 2017".
+  If the event is location specific or could be confused with other events, disambiguate it by including. 
+  Basically, take a look at the events list on 
+  link:https://jenkins.io/events/[] as though you were trying to choose events you would go to. 
+  "August JAM" is not specific enough, but "Jenkins World 2017" is.
+* DATE_TIME - The date and time of the event in the format: `YYYY-MM-DDTHH:MM:00`.
+  The time should be when the event occurs in the local time zone and always using 24-hour format.
+  For online JAMs, use Pacific Time.
+* LINK - a link to a page with more event information.  For meetup
+* DESCRIPTION - A description of the event in asciidoc format.
+  This may include the name and bio of the speakers, the subjects to be presented,
+  links to related content, or any other information that seems relevant.
++
+The description may be written in a local language for the event,
+  and using any unicode characters desired.
+  If not written in a language understood by the submitter of the event,
+  the submitter must do due diligence to make sure what is being posted is appropriate content -
+  either by asking someone for help or using translation software.
+
+Examples:
+
+.content/_data/events/2017-08-28-san-francisco.adoc
+[source, asciidoc]
+----
+---
+name: "Jenkins World 2017"
+date: "2017-08-28T09:00:00"
+link: "http://www.cvent.com/events/jenkins-world-2017/event-summary-1d623ea19a4a4af58e9a207ff0f020db.aspx"
+---
+
+Jenkins World is THE event for everything Jenkins - community, CloudBees, ecosystem, and DevOps.
+----
+
+.content/_data/events/2017-06-13-seattle.adoc
+[source, asciidoc]
+----
+---
+title: "Seattle JAM"
+date: "2017-06-13T18:00:00"
+link: "https://www.meetup.com/Seattle-Jenkins-Area-Meetup/events/240428203/"
+---
+
+Zero to Continuous Delivery with Jenkins Blue Ocean
+
+Presenter: Kohsuke Kawaguchi
+----
+
+If using the GitHub UI to create this file,
+commit the file using the "Create a new branch for this commit and start a pull request" option.
+If working via a local clone, commit the change, push to a branch, and start a PR as usual.
+
 === Adding a stand-alone page
 
 Encouraged formats:
 
-* link:http://asciidoctor.org[Asciidoctor] (basic content creation) (link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/[AsciiDoc syntax quick reference])
-* link:http://haml.info[Haml] (more advanced/custom page) (link:http://haml.info/docs/yardoc/file.REFERENCE.html[Haml syntax reference]
+* link:http://asciidoctor.org[Asciidoctor] (basic content creation)
+  (link:http://asciidoctor.org/docs/asciidoc-syntax-quick-reference/[AsciiDoc
+  syntax quick reference])
+* link:http://haml.info[Haml] (more advanced/custom page)
+  (link:http://haml.info/docs/yardoc/file.REFERENCE.html[Haml syntax reference])
 
-Adding a new page is as easy as adding a a new file to the `content/`
-directory. It is important to keep in mind that the filename you choose *will
-be the URL of your page*, so ensure you have a *lower-case* and useful
-filename.
+Adding a new page is as easy as adding a a new file to the
+link:content/[`content/`] directory. It is important to keep in mind that the
+filename you choose *will be the URL of your page*, so ensure you have a
+*lower-case* and useful filename.
 
 
-The `content/index.html.haml` page is one such example of a special-case,
-standalone page.
+The link:content/index.html.haml[`content/index.html.haml`] page is one such
+example of a special-case, standalone page.
 
 
 ==== Clean URLs
@@ -230,14 +516,42 @@ would create the directory `content/my-clean-url` and if I were creating an
 Asciidoc file, I would then create the file `content/my-clean-url/index.adoc`.
 (Advanced Haml users would create `content/my-clean-url/index.html.haml`).
 
+[[user-site]]
+== Deploying jenkins.io on GitHub pages
 
-== Deploying on GitHub pages
+There is rudimentary support for publishing the `jenkins.io` website to your own
+link:https://help.github.com/articles/configuring-a-publishing-source-for-github-pages/#enabling-github-pages-to-publish-your-site-from-master-or-gh-pages[GitHub Pages]
+for demonstration purposes. This feature is useful if you want to show reviewers
+what your changes will actually look like on the production website,
+without reviewers needing to fetch and build those changes locally.
 
-There is rudimentary (as in if it doesn't work, you're on your own) support for
-publishing the static site to GitHub Pages for demonstration purposes using the
-link:http://awestruct.org/auto-deploy-to-github-pages/#awestruct-deployer[Awestruct Deployer].
+To generate your site from local changes:
 
-This requires adding a
-link:http://awestruct.org/profiles/[profile]
- to `content/_config/site.yml` for your fork, and manually operating
- `awestruct`
+. Make changes in a local branch (for example, `my_branch_name`).
+. Run the command `make user-site GITHUB_USER=<your_username>`,
+  replacing `<your_username>` with your GitHub user name. This will regenerate
+  the site based on your changes and push it to `origin/gh-pages` (of your
+  `jenkins.io` fork on GitHub). +
+  **NOTE**: If your local `gh-pages` or `origin/gh-pages` branches don't exist,
+  these will be created automatically.
+. Assuming this process completes successfully (it might initially take a
+  while), your changes will be visible to anyone under
+  `https://<your_username>.github.io/jenkins.io/my_branch_name`.
+
+For example, if my user name were `jenkinscontributor` and I were working
+locally in a branch called `siteredesign`, I would run the command
+`make user-site GITHUB_USER=jenkinscontributor`. When done, people would be able
+to see the site with my `siteredesign` branch changes at the URL
+`https://jenkinscontributor.github.io/jenkins.io/siteredesign`.
+
+
+[WARNING]
+====
+"Rudimentary support" (above) means there are a number of known issues and if
+anything doesn't work, you're on your own.
+
+Known issues/limitations:
+
+* Images and other internal site links that use _absolute_ path references
+  (as opposed to _relative_ paths) will appear broken or "not found".
+====

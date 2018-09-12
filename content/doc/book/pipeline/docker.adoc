@@ -2,13 +2,16 @@
 layout: section
 title: Using Docker with Pipeline
 ---
+ifdef::backend-html5[]
 :description:
 :author:
 :email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
-:imagesdir: /doc/book/resources
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
 :hide-uri-scheme:
+endif::[]
 
 = Using Docker with Pipeline
 
@@ -79,7 +82,7 @@ v7.4.0
 [Pipeline] }
 ----
 
-==== Caching data for containers
+=== Caching data for containers
 
 Many build tools will download external dependencies and cache them locally for
 future re-use. Since containers are initially created with "clean" file
@@ -217,6 +220,7 @@ pipeline {
         }
     }
 }
+// Script //
 ----
 
 
@@ -267,7 +271,9 @@ node {
      * In order to communicate with the MySQL server, this Pipeline explicitly
      * maps the port (`3306`) to a known port on the host machine.
      */
-    docker.image('mysql:5').withRun('-p 3306:3306') { c ->
+    docker.image('mysql:5').withRun('-e "MYSQL_ROOT_PASSWORD=my-secret-pw" -p 3306:3306') { c ->
+        /* Wait until mysql service is up */
+        sh 'while ! mysqladmin ping -h0.0.0.0 --silent; do sleep 1; done'
         /* Run some tests which require MySQL */
         sh 'make check'
     }
@@ -283,7 +289,11 @@ link:https://docs.docker.com/engine/userguide/networking/default_network/dockerl
 ----
 node {
     checkout scm
-    docker.image('mysql:5').withRun { c ->
+    docker.image('mysql:5').withRun('-e "MYSQL_ROOT_PASSWORD=my-secret-pw"') { c ->
+        docker.image('mysql:5').inside("--link ${c.id}:db") {
+            /* Wait until mysql service is up */
+            sh 'while ! mysqladmin ping -hdb --silent; do sleep 1; done'
+        }
         docker.image('centos:7').inside("--link ${c.id}:db") {
             /*
              * Run some tests which require MySQL, and assume that it is
@@ -365,6 +375,41 @@ node {
 }
 ----
 
+The `build()` method builds the `Dockerfile` in the current directory by 
+default. This can be overridden by providing a directory path 
+containing a `Dockerfile` as the second argument of the `build()` method, for example:
+
+[source,groovy]
+----
+node {
+    checkout scm
+    def testImage = docker.build("test-image", "./dockerfiles/test") // <1>
+
+    testImage.inside {
+        sh 'make test'
+    }
+}
+----
+<1> Builds `test-image` from the Dockerfile found at `./dockerfiles/test/Dockerfile`.
+
+It is possible to pass other arguments to 
+link:https://docs.docker.com/engine/reference/commandline/build/[docker build]
+by adding them to the second argument of the `build()` method.
+When passing arguments this way, the last value in the that string must be 
+the path to the docker file.
+
+This example overrides the default `Dockerfile` by passing the `-f`
+flag:
+
+[source,groovy]
+----
+node {
+    checkout scm
+    def dockerfile = 'Dockerfile.test'
+    def customImage = docker.build("my-image:${env.BUILD_ID}", "-f ${dockerfile} ./dockerfiles") // <1>
+}
+----
+<1> Builds `my-image:${env.BUILD_ID}` from the Dockerfile found at `./dockerfiles/Dockerfile.test`. 
 
 === Using a remote Docker server
 
@@ -459,7 +504,7 @@ node {
         def customImage = docker.build("my-image:${env.BUILD_ID}")
 
         /* Push the container to the custom Registry */
-        customImage.pusH()
+        customImage.push()
     }
 }
 ----

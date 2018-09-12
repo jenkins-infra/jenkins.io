@@ -4,10 +4,11 @@
 def projectProperties = [
     [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
 ]
+def imageName = 'jenkinsciinfra/jenkinsio'
 
 if (!env.CHANGE_ID) {
     if (env.BRANCH_NAME == null) {
-        projectProperties.add(pipelineTriggers([cron('H/30 * * * *')]))
+        projectProperties.add(pipelineTriggers([cron('H/30 * * * *'), pollSCM('H/5 * * * *')]))
     }
 }
 
@@ -48,9 +49,8 @@ try {
             checkout scm
         }
 
-
         stage('Build site') {
-            /* If the slave can't gather resources and build the site in 60 minutes,
+            /* If the agent can't gather resources and build the site in 60 minutes,
             * something is very wrong
             */
             timeout(60) {
@@ -59,11 +59,8 @@ try {
                     set -o nounset
                     set -o pipefail
                     set -o xtrace
-                    make all | tee build.log
-                    if [[ -n "$( grep --fixed-strings WARNING build.log | grep --fixed-strings --invert-match user-handbook.adoc )" ]] ; then
-                        echo "Failing build due to warnings in log output" >&2
-                        exit 1
-                    fi
+
+                    make all
 
                     illegal_htaccess_content="$( find content -name '.htaccess' -type f -exec grep --extended-regexp --invert-match '^(#|ErrorDocument)' {} \\; )"
                     if [[ -n "$illegal_htaccess_content" ]] ; then
@@ -72,6 +69,18 @@ try {
                         exit 1
                     fi
                     '''
+            }
+        }
+
+        def container
+        stage('Build docker image'){
+            timestamps {
+                dir('docker'){
+                    /* Only update docker tag when docker files change*/
+                    def imageTag = sh(script: 'tar cf - docker | md5sum', returnStdout: true).take(6)
+                    echo "Creating the container ${imageName}:${imageTag}"
+                    container = docker.build("${imageName}:${imageTag}")
+                }
             }
         }
 
@@ -86,19 +95,21 @@ try {
         /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
         */
         if (env.BRANCH_NAME == null) {
-            stage('Deploy site') {
-                /* This Credentials ID is from the `site-deployer` account on
-                * ci.jenkins-ci.org
-                *
-                * Watch https://issues.jenkins-ci.org/browse/JENKINS-32101 for updates
-                */
-                sshagent(credentials: ['site-deployer']) {
-                    sh 'ls build/archives'
-                    sh 'echo "put build/archives/*.zip archives/" | sftp -o StrictHostKeyChecking=no site-deployer@eggplant.jenkins.io'
+            stage('Publish on Azure') {
+                /* -> https://github.com/Azure/blobxfer
+                Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
+                withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
+                    sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+                }
+            }
+            stage('Publish docker image') {
+                infra.withDockerCredentials {
+                    timestamps { container.push() }
                 }
             }
         }
     }
+
 }
 catch (exc) {
     echo "Caught: ${exc}"
@@ -110,6 +121,9 @@ catch (exc) {
               to: recipient,
          replyTo: recipient,
             from: 'noreply@ci.jenkins.io'
+
+    /* Rethrow to fail the Pipeline properly */
+    throw exc
 }
 
 // vim: ft=groovy

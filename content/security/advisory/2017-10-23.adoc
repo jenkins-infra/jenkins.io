@@ -1,0 +1,125 @@
+---
+layout: simplepage
+title: Jenkins Security Advisory 2017-10-23
+section: security
+kind: plugins
+---
+
+This advisory announces vulnerabilities in these Jenkins plugins:
+
+* plugin:uno-choice[Active Choices] (uno-choice)
+* plugin:build-publisher[Build-Publisher]
+* plugin:depgraph-view[Dependency Graph Viewer]
+* plugin:global-build-stats[global-build-stats]
+* plugin:jenkins-multijob-plugin[Multijob]
+* plugin:scp[SCP publisher]
+
+== Description
+
+
+=== Persisted Cross-Site Scripting vulnerability in Active Choices plugin
+*SECURITY-470 / CVE-2017-1000386*
+
+Active Choices plugin allowed users with Job/Configure permission to provide arbitrary HTML to be shown on the _Build With Parameters_ page through the _Active Choices Reactive Reference Parameter_ type.
+This could include, for example, arbitrary JavaScript.
+
+Active Choices now sanitizes the HTML inserted on the _Build With Parameters_ page if and only if the script is executed in a sandbox.
+As unsandboxed scripts are subject to administrator approval, it is up to the administrator to allow or disallow problematic script output.
+
+[NOTE]
+====
+Sandboxed Groovy scripts for _Active Choices Reactive Reference Parameter_ will no longer emit HTML that is considered unsafe, such as `<script>` tags. This may result in behavior changes on _Build With Parameters_ forms, such as missing elements.
+
+To resolve this issue, Groovy scripts emitting HTML will need to be configured to run outside the script security sandbox, possibly requiring separate administrator approval in _In-Process Script Approval_.
+====
+
+=== Cross-Site Request Forgery (CSRF) and Reflected Cross-Site Scripting vulnerability in global-build-stats plugin
+*SECURITY-50 / CVE-2017-1000389*
+
+Some URLs provided by global-build-stats plugin returned a JSON response that contained request parameters.
+These responses had the `Content Type: text/html`, so could have been interpreted as HTML by clients, resulting in a potential reflected cross-site scripting vulnerability.
+
+Additionally, some URLs provided by global-build-stats plugin that modify data did not require `POST` requests to be sent, resulting in a potential cross-site request forgery vulnerability.
+
+Affected URLs now specify the correct `Content-Type` for JSON responses, and require that requests be sent via `POST`.
+
+
+=== Missing permission checks in Dependency Graph Viewer plugin
+*SECURITY-57 / CVE-2017-1000388*
+
+Dependency Graph Viewer plugin did not perform permission checks for the API endpoint that modifies the dependency graph, allowing anyone with Overall/Read permission to modify this data.
+
+Dependency graph modification now requires that users have the permission to configure all jobs involved in the operation.
+
+
+=== Build-Publisher plugin stores Jenkins credentials unencrypted on disk, round-trips in unencrypted form
+*SECURITY-378 / CVE-2017-1000387*
+
+Build-Publisher plugin stores credentials to other Jenkins instances in the file `hudson.plugins.build_publisher.BuildPublisher.xml` in the Jenkins master home directory.
+These credentials were stored unencrypted, allowing anyone with local file system access to access them.
+
+Additionally, the credentials were also transmitted in plain text as part of the configuration form.
+This could result in exposure of the credentials through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+Build-Publisher Plugin now encrypts the credentials on disk, and only transmits their encrypted form to users viewing the configuration form.
+
+
+=== Missing permission check in Multijob plugin Resume Build action
+*JENKINS-36333 / CVE-2017-1000390*
+
+Multijob plugin did not check permissions in the Resume Build action, allowing anyone with Job/Read permission to resume the build.
+
+Multijob plugin 1.26 introduced a permission check requiring Overall/Administer. This was lowered to Job/Build in version 1.27.
+
+
+=== SCP publisher plugin stores credentials unencrypted on disk, round-trips in unencrypted form
+*SECURITY-374*
+
+SCP publisher plugin stores SSH credentials in the file `be.certipost.hudson.plugin.SCPRepositoryPublisher.xml` in the Jenkins master home directory.
+These credentials are stored unencrypted, allowing anyone with local file system access to access them.
+
+Additionally, the credentials are also transmitted in plain text as part of the configuration form.
+This could result in exposure of credentials through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+As of publication of this advisory, there is no fix.
+
+
+== Severity
+
+* SECURITY-50: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N[medium]
+* SECURITY-57: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N[medium]
+* SECURITY-374: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N[medium]
+* SECURITY-378: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N[medium]
+* SECURITY-470: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N[medium]
+* JENKINS-36333: link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N[medium]
+
+
+== Affected versions
+* Active Choices Plugin up to and including 1.5.3
+* Build-Publisher Plugin up to and including 1.21
+* Dependency Graph Viewer Plugin up to and including 0.12
+* global-build-stats Plugin up to and including 1.4
+* Multijob Plugin up to and including 1.25
+* All versions of SCP publisher plugin
+
+== Fix
+* Active Choices Plugin should be updated to version 2.0
+* Build-Publisher Plugin should be updated to version 1.22
+* Dependency Graph Viewer Plugin should be updated to version 0.13
+* global-build-stats Plugin should be updated to version 1.5
+* Multijob Plugin should be updated to version 1.26
+
+These versions include fixes to the vulnerabilities described above.
+All prior versions are considered to be affected by these vulnerabilities unless otherwise indicated.
+
+As of publication of this advisory, there is no fix available for SCP publisher plugin.
+
+== Credit
+
+The Jenkins project would like to thank the reporters for discovering and link:/security/#reporting-vulnerabilities[reporting] these vulnerabilities:
+
+* *Daniel Beck, CloudBees Inc.* for SECURITY-470
+* *Eddie Allan* for SECURITY-50
+* *Kenichi Maehashi* for SECURITY-57
+* *Lars Hupel* for SECURITY-246 (fixed as JENKINS-36333)
+* *Steve Marlowe <smarlowe@cisco.com> of Cisco ASIG* for SECURITY-378

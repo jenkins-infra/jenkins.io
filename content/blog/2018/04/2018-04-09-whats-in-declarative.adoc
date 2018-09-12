@@ -1,0 +1,164 @@
+---
+layout: post
+title: "The new things arriving in Declarative Pipeline!"
+tags:
+- pipeline
+- declarative
+author: abayer
+---
+
+Last week we released the latest version of Declarative Pipelines, version
+1.2.8. With that out, we thought now would be a good time to introduce you to
+the new features and options that have been added to Declarative since the
+beginning of 2018. These are all available _now_ in the Update Center, with
+version 1.2.8.
+
+image:/images/post-images/declarative-1.2.8/directive-generator-link.png[Accessing the new Declarative Directive Generator, role=right]
+
+== Declarative Directive Generator
+
+This is something we're really happy about - if you go to the "Pipeline Syntax"
+link from your Pipeline's page in Jenkins, you'll see a couple new links on the
+left, including "Declarative Directive Generator". The Directive Generator is
+much like the Snippet Generator that's been in Pipeline for a couple years now,
+but where the Snippet Generator is just for filling out a form for a step and
+generating the Pipeline code that configuration maps to, the Directive
+Generator is built to help you write your Declarative Pipeline directives, like
+`agent`, `options`, `stage`, and more!
+
+This is the first release to include the Directive Generator, and it's
+definitely going to see more polish going forward, but we think it should be
+quite helpful for you already. We'll be putting up another blog post looking at
+the Directive Generator in more detail in the near future.
+
+== New `when` conditions
+
+We've added a number of new `when` conditions, providing you more control over
+whether your stages get executed.
+
+* `equals` - Compares two values - strings, variables, numbers, booleans - and
+  returns true if they're equal. I'm honestly not sure how we missed adding
+  this earlier! You can do "not equals" comparisons using the `not { equals ...
+  }` combination too.
+* `changeRequest` - In its simplest form, this will return true if this
+  Pipeline is building a change request, such as a GitHub pull request. You can
+  also do more detailed checks against the change request, allowing you to ask
+  "is this a change request against the master branch?" and much more.
+* `buildingTag` - A simple condition that just checks if the Pipeline is
+  running against a tag in SCM, rather than a branch or a specific commit
+  reference.
+* `tag` - A more detailed equivalent of `buildingTag`, allowing you to check
+  against the tag name itself.
+
+In addition, we've added a new option to `when`: `beforeAgent`. This allows you
+to specify that the `when` conditions should be evaluated before entering the
+`agent` for the `stage`, rather than the normal behavior of evaluating `when`
+conditions after entering the `agent`. When `beforeAgent true` is specified,
+you will not have access to the `agent`'s workspace, but you can avoid
+unnecessary SCM checkouts and waiting for a valid `agent` to be available. This
+can speed up your Pipeline's execution in some cases.
+
+image::/images/post-images/declarative-1.2.8/directive-generator.png[Using the new Declarative Directive Generator, role=center]
+
+== New `post` conditions
+
+The `changed` condition has always been a bit confusing, and to be
+honest, it wasn't our best work. `changed` will fire any time the current run's
+status is different than the previous run's status - whether the current run is
+healthier than the previous one, or the other way around. That's...not actually
+very useful. So now we've added two new `post` conditions that should provide
+you with a lot more value than `changed` has.
+
+* `fixed` - This will check to see if the current run is successful, and if the
+  previous run was either failed or unstable.
+* `regression` - This will check to see if the current run's status is worse
+  than the previous run's status. So if the previous run was successful, and
+  the current run is unstable, this will fire and its block of steps will
+  execute. It will also run if the previous run was unstable, and the current
+  run is a failure, etc.
+
+== New `options`
+
+The `options` directive in Declarative can contain a number of different kinds
+of configuration: traditional Jenkins job properties, like `buildDiscarder`,
+wrapper steps to execute the entire Pipeline within, like `timeout`, and
+Declarative-specific options that can switch from some default behaviors of
+Declarative execution. We've added two new Declarative-specific options in the
+last few releases.
+
+* `checkoutToSubdirectory` - Allows you to override the location that the
+  automatic SCM checkout will use. Using `checkoutToSubdirectory("foo")`, your
+  Pipeline will checkout your repository to `"$WORKSPACE/foo"`, rather than the
+  default of `"$WORKSPACE"`.
+* `newContainerPerStage` - If you're using a top-level `docker` or `dockerfile`
+  `agent`, and want to ensure that each of your stages run in a fresh container
+  of the same image, you can use this option. Any `stage` without its own
+  `agent` specified will run in a new container using the image you've
+  specified or built, on the same computer and with access to the same
+  workspace.
+
+== Stage options
+
+Sometimes, you may only want to disable automatic checkout of your repository,
+using the `skipDefaultCheckout(true)` option, for one specific stage in your
+Pipeline. Or perhaps you want to have a `timeout` that covers an entire
+`stage`, including time spent waiting for a valid `agent`, `post` condition
+execution, or the new `input` directive for stages (see further down for more
+details on that!). To make those things possible, we've added a new `options`
+direction to `stage`. You can use a subset of the top-level `options` content
+in a `stage`'s `options` - wrapper steps, and Declarative-specific options that
+are marked as legal in a `stage`.
+
+== Input
+
+You've always been able to run the `input` step inside a `stage`'s `steps`
+block, but we've found that approach can lose out on some of the value that the
+`input` step provides.
+
+To help with that, we've added a new `input` directive
+to `stage`, with the same parameters as the `input` step. When you use the
+`stage` `input` directive rather than using the step directly, any parameters
+you've specified for the `input` will be made available in the `stage`'s
+environment, meaning you can reference parameters from the `input` in `when`
+conditions, or in `environment` variables.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            input {
+                message "Should we continue?"
+                ok "Yes, we should."
+                submitter "alice,bob"
+                parameters {
+                    string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+                }
+            }
+            steps {
+                echo "Hello, ${PERSON}, nice to meet you."
+            }
+        }
+    }
+}
+// Script //
+----
+
+
+Also, the `input` directive is evaluated before you enter any `agent` specified
+on this `stage`, so if you are using a top-level `agent none` and each `stage`
+has its own `agent` specified, you can avoid consuming an executor while
+waiting for the `input` to be submitted.
+
+Lastly, you can use `timeout` in the `stage` `options`, as
+mentioned above, to time-out the `input` if too much time has passed without a
+response.
+
+---
+
+
+I hope you find these new features and options for Declarative Pipelines
+helpful, and I look forward to the rest of 2018 as we continue to invest and
+improve in link:/doc/book/pipeline[Jenkins Pipeline]!

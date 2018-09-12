@@ -1,0 +1,143 @@
+---
+layout: post
+title: "Overhaul of Manage Jenkins page"
+tags:
+- jenkins
+- ui
+- restyling
+- upgrade
+author: recena
+---
+
+== Overview
+
+Recently some UI improvements around the Manage Jenkins page have been introduced. The visual changes are very subtle but behind them, there are interesting benefits.
+
+Some of the goals that we have tried to achieve:
+
+* Applying a https://en.wikipedia.org/wiki/Semantic_HTML[semantic HTML]
+* Removing the `<table>` tag usage for implementing layouts and content structures. Read this https://www.hotdesign.com/seybold[article] if you want to know reasons and/or arguments.
+* Small re-styling focused on spacing, margins, composition, etc..
+* Accessibility
+
+In order to provide a quick overview of the visual changes, let's take a look at these screenshots.
+
+=== System tray with administrative messages (before)
+
+image:/images/post-images/2018-01-15-JENKINS-43786/JENKINS-43786_3-before.png[role="center"]
+
+=== System tray with administrative messages (after)
+
+image:/images/post-images/2018-01-15-JENKINS-43786/JENKINS-43786_2.png[role="center"]
+
+=== Manage Jenkins page (before)
+
+image:/images/post-images/2018-01-15-JENKINS-43786/JENKINS-43786_4-before.png[role="center"]
+
+=== Manage Jenkins page (after)
+
+image:/images/post-images/2018-01-15-JENKINS-43786/JENKINS-43786_1.png[role="center"]
+
+Information about how this change can affect the current implementations of https://jenkins.io/doc/developer/extensions/jenkins-core/#administrativemonitor[Administrative Monitors] can be found in the following section
+
+== For core developers
+
+Let's use a real example for showing how this proposal works.
+
+This is the original UI implementation of `HudsonHomeDiskUsageMonitor.java`:
+
+[source,html]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <div class="warning">
+    <form method="post" action="${rootURL}/${it.url}/act" name="${it.id}">
+      <div style="float:right">
+        <f:submit name="yes" value="${%Tell me more}"/>
+        <f:submit name="no" value="${%Dismiss}"/>
+      </div>
+      ${%blurb(app.rootDir)}
+    </form>
+  </div>
+</j:jelly>
+----
+
+And this is the proposed change:
+
+[source,html]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+<div class="alert alert-warning">
+  <form method="post" action="${rootURL}/${it.url}/act" name="${it.id}">
+    <f:submit name="yes" value="${%Tell me more}"/>
+    <f:submit name="no" value="${%Dismiss}"/>
+  </form>
+  ${%blurb(app.rootDir)}
+</div>
+</j:jelly>
+----
+
+Some highlights:
+
+* No more ad hoc UI compositions
+* No more custom CSS classes when Jenkins project is already using https://getbootstrap.com[Bootstrap] for many different things
+* Based on https://getbootstrap.com/docs/3.3/components/#alerts[Bootstrap Alert]
+
+All administrative monitors defined in Jenkins core have been adapted as part of this proposal.
+
+== For plugin developers
+
+No changes are _really_ needed, but we do recommend you to adapt your plugins to this proposal so Jenkins users have a better user experience.
+
+Taking into account that you want to keep backward compatibility, you will need some changes.
+
+In your implementation of https://jenkins.io/doc/developer/extensions/jenkins-core/#administrativemonitor[Administrative Monitor], add this helper method:
+
+[source,java]
+----
+/**
+ * This method can be removed when the baseline is updated to 2.103
+ *
+ * @return If this version of the plugin is running on a Jenkins version where JENKINS-43786 is included.
+ */
+ @Restricted(DoNotUse.class)
+ public boolean isTheNewDesignAvailable() {
+    if (Jenkins.getVersion().isNewerThan(new VersionNumber("2.103"))) {
+        return true;
+    }
+    return false;
+}
+----
+
+In your view (a.k.a. Jelly file or Groovy file):
+
+[source,html]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+
+<j:if test="${!it.isTheNewDesignAvailable}">
+<div class="warning">
+  <p>SSH Host Key Verifiers are not configured for all SSH slaves on this Jenkins instance. This could leave these slaves open to man-in-the-middle attacks. <a href="${rootURL}/computer/">Update your slave configuration</a> to resolve this.</p>
+</div>
+</j:if>
+
+<j:if test="${it.isTheNewDesignAvailable}">
+<div class="alert alert-warning">
+    SSH Host Key Verifiers are not configured for all SSH slaves on this Jenkins instance. This could leave these slaves open to man-in-the-middle attacks. <a href="${rootURL}/computer/">Update your slave configuration</a> to resolve this.
+</div>
+</j:if>
+
+</j:jelly>
+----
+
+If you don't want to keep a _strict_ backward compatibility, the impact is minimal. In fact, you can see an https://github.com/jenkinsci/github-plugin/pull/177#issuecomment-337266953[example] on GitHub Plugin.
+
+Some helpful references:
+
+* https://issues.jenkins-ci.org/browse/JENKINS-43786[JIRA issue] where the proposal was tracked
+* https://github.com/jenkinsci/jenkins/pull/2857[Pull Request] with the change in Jenkins core. You can find several screenshots
+* https://github.com/jenkinsci/ssh-slaves-plugin/pull/70[Pull Request] for adapting SSH Slave Plugin
+
+Do not hesitate to https://github.com/recena[ping me] if you decide to adapt your Administrative Monitors.

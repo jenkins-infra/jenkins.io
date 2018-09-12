@@ -1,0 +1,182 @@
+---
+layout: simplepage
+title: Jenkins Security Advisory 2017-10-11
+section: security
+kind: core and plugins
+---
+
+This advisory announces multiple vulnerabilities in Jenkins (weekly and LTS), and these plugins:
+
+* plugin:maven-plugin[Maven Plugin]
+* plugin:swarm[Swarm Plugin] Client
+* link:https://wiki.jenkins-ci.org/display/JENKINS/Hudson+Speaks!+Plugin[Speaks! Plugin]
+
+== Description
+
+=== Arbitrary shell command execution on master by users with Agent-related permissions
+*SECURITY-478 / CVE-2017-1000393*
+
+Users with permission to create or configure agents in Jenkins could configure a _launch method_ called _Launch agent via execution of command on master_.
+This allowed them to run arbitrary shell commands on the master node whenever the agent was supposed to be launched.
+
+Configuration of this launch method now requires the _Run Scripts_ permission typically only granted to administrators.
+
+[NOTE]
+====
+A known limitation of this fix is that users without the _Run Scripts_ permission are no longer able to configure agents with this launch method at all, even if the launch method remains unchanged.
+
+A future release of Jenkins will move this launch method into a separate plugin.
+That plugin will depend on Script Security Plugin to secure this field and restore the ability of users without the _Run Scripts_ permission to configure an agent with this launch method.
+====
+
+=== Jenkins core bundled vulnerable version of the commons-fileupload library
+*SECURITY-490 / CVE-2017-1000394*
+
+Jenkins bundled a version of the commons-fileupload library with the denial-of-service vulnerability known as CVE-2016-3092.
+
+The fix for that vulnerability has been backported to the version of the library bundled with Jenkins.
+
+
+=== "User" remote API disclosed users' email addresses
+*SECURITY-514 / CVE-2017-1000395*
+
+Information about Jenkins user accounts is generally available to anyone with Overall/Read permissions via the `/user/(username)/api` remote API.
+This included e.g. Jenkins users' email addresses if the plugin:mailer[Mailer Plugin] is installed.
+
+The remote API now no longer includes information beyond the most basic (user ID and name) unless the user requesting it is a Jenkins administrator or the user themselves.
+
+
+=== Jenkins core bundled vulnerable version of the commons-httpclient library
+*SECURITY-555 / CVE-2017-1000396*
+
+Jenkins bundled a version of the commons-httpclient library with the vulnerability link:http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2012-6153[CVE-2012-6153] that incorrectly verified SSL certificates, making it susceptible to man-in-the-middle attacks.
+
+This library is widely used as a transitive dependency in Jenkins plugins.
+
+The fix for CVE-2012-6153 was backported to the version of commons-httpclient that is bundled in core and made available to plugins.
+
+
+
+=== Maven Plugin bundled vulnerable version of the commons-httpclient library
+*SECURITY-557 / CVE-2017-1000397*
+
+Maven Plugin bundled a version of the commons-httpclient library with the vulnerability link:http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2012-6153[CVE-2012-6153] that incorrectly verified SSL certificates, making it susceptible to man-in-the-middle attacks.
+
+Maven Plugin 3.0 no longer has a dependency on commons-httpclient.
+
+
+
+=== Swarm Plugin Client bundled vulnerable version of the commons-httpclient library
+*SECURITY-597 / CVE-2017-1000402*
+
+Swarm Plugin Client bundled a version of the commons-httpclient library with the vulnerability link:http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2012-6153[CVE-2012-6153] that incorrectly verified SSL certificates, making it susceptible to man-in-the-middle attacks.
+
+The fix for CVE-2012-6153 was backported to the version of commons-httpclient bundled in Swarm Plugin Client.
+
+IMPORTANT:
+Please note that Swarm Plugin Client needs to be updated independently from the plugin.
+Updating just the plugin will not resolve the security vulnerability.
+
+
+=== "Computer" remote API disclosed information about inaccessible jobs
+*SECURITY-611 / CVE-2017-1000398*
+
+The remote API at `/computer/(agent-name)/api` showed information about tasks (typically builds) currently running on that agent.
+This included information about tasks that the current user otherwise has no access to, e.g. due to lack of Job/Read permission.
+
+This has been fixed, and the API now only shows information about accessible tasks.
+
+
+
+=== "Queue Item" remote API disclosed information about inaccessible jobs
+*SECURITY-618 / CVE-2017-1000399*
+
+The remote API at `/queue/item/(ID)/api` showed information about tasks in the queue (typically builds waiting to start).
+This included information about tasks that the current user otherwise has no access to, e.g. due to lack of Job/Read permission.
+
+This has been fixed, and the API endpoint is now only available for tasks that the current user has access to.
+
+
+
+=== "Job" remote API disclosed information about inaccessible upstream/downstream jobs
+*SECURITY-617 / CVE-2017-1000400*
+
+The remote API at `/job/(job-name)/api` contained information about upstream and downstream projects.
+This included information about tasks that the current user otherwise has no access to, e.g. due to lack of Job/Read permission.
+
+This has been fixed, and the API now only lists upstream and downstream projects that the current user has access to.
+
+
+
+=== Form validation for password fields was sent via GET
+*SECURITY-616 / CVE-2017-1000401*
+
+The Jenkins default form control for passwords and other secrets, `<f:password/>`, supports form validation (e.g. for API keys).
+The form validation AJAX requests were sent via GET, which could result in secrets being logged to a HTTP access log in non-default configurations of Jenkins, and made available to users with access to these log files.
+
+Form validation for `<f:password/>` is now always sent via POST, with the password in the request body, which is typically not logged.
+
+
+
+=== Arbitrary code execution vulnerability in Speaks! Plugin
+*SECURITY-623 / CVE-2017-1000403*
+
+This plugin allows users with Job/Configure permission to run arbitrary Groovy code inside the Jenkins JVM, effectively elevating privileges to Overall/Run Scripts.
+
+As of publication of this advisory, there is no fix.
+
+
+
+== Severity
+
+* SECURITY-478: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]*
+* SECURITY-490: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H[high]*
+* SECURITY-514: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-555: *link:https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?name=CVE-2012-6153&vector=(AV:N/AC:M/Au:N/C:N/I:P/A:N)[medium]*
+* SECURITY-557: *link:https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?name=CVE-2012-6153&vector=(AV:N/AC:M/Au:N/C:N/I:P/A:N)[medium]*
+* SECURITY-597: *link:https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?name=CVE-2012-6153&vector=(AV:N/AC:M/Au:N/C:N/I:P/A:N)[medium]*
+* SECURITY-611: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-616: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:L/AC:H/PR:L/UI:R/S:U/C:L/I:N/A:N[low]*
+* SECURITY-617: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-618: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N[medium]*
+* SECURITY-623: *link:http://www.first.org/cvss/calculator/3.0#CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H[high]*
+
+
+
+== Affected versions
+
+* Jenkins weekly up to and including 2.83
+* Jenkins LTS up to and including 2.73.1
+* Maven Plugin up to and including 2.17
+* All versions of Speaks! Plugin
+* Swarm Plugin (Client) up to and including 3.4
+
+
+== Fix
+
+* Jenkins weekly should be updated to 2.84
+* Jenkins LTS should be updated to 2.73.2
+* Maven Plugin should be updated to 3.0
+* Swarm Plugin (Client) should be updated to 3.5
+
+These versions include fixes to the vulnerabilities described above.
+All prior versions are affected by these vulnerabilities unless otherwise indicated.
+
+As of publication of this advisory, there is no fix available for Speaks! Plugin.
+Its distribution has been suspended.
+
+
+== Credit
+
+The Jenkins project would like to thank the reporters for discovering and link:/security/#reporting-vulnerabilities[reporting] these vulnerabilities:
+
+* *Ananthapadmanabhan S R* for SECURITY-514
+* *Ben Walding, CloudBees, Inc.* for SECURITY-616
+* *Daniel Beck, CloudBees, Inc.* for SECURITY-478, SECURITY-611, SECURITY-623
+* *Jesse Glick, CloudBees, Inc.* for SECURITY-617, SECURITY-618
+
+
+
+== Other Resources
+
+* link:/blog/2017/10/11/security-updates/[Announcement blog post]

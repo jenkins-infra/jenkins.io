@@ -5,10 +5,13 @@ section: security
 ---
 
 :ruby
+  require 'asciidoctor'
   advisories_dir = File.expand_path(File.dirname(__FILE__) + '/advisory')
   pages_by_path = site.pages.map { |p| [p.source_path, p] }.to_h
   adocs = Dir.glob(File.join(advisories_dir, '*.{ad,adoc}'))
   years = adocs.select { |it| it =~ /(20\d\d)/ }.map { |it| /(20\d\d)/.match(it)[1] }.uniq.sort
+
+  Plugin = Struct.new(:name, :title)
 
 .container
   .row
@@ -27,7 +30,28 @@ section: security
             - advisories.sort.reverse_each do |advisory|
               - page = pages_by_path[advisory]
               %li
-                %a{:href => page.url}
+                %a{:href => expand_link(page.url)}
                   = page.title
-                  - if page.kind
+                  - if year.to_i < 2018
                     = "(#{page.kind})"
+                - if page.issues and year.to_i >= 2018 or page.index_details
+                  %br
+                  %small
+                    - if page.index_details
+                      = Asciidoctor.convert page.index_details, safe: :safe
+                    - else
+                      %ul
+                        - if page.core
+                          %li
+                            Affects Jenkins Core
+                        - plugins = page.issues.collect { |issue| issue.plugins }.flatten.keep_if { |p| p }.collect { |p| Plugin.new(p.name, p.title) }.uniq.sort { |x,y| (site._generated[:update_center].plugins[x.name]&.title&.downcase || x.name&.downcase) <=> (site._generated[:update_center].plugins[y.name]&.title&.downcase || y.name&.downcase) }
+                        - if plugins.size > 0
+                          %li
+                            %span{:style => 'white-space: nowrap;'}
+                              Affects Plugins:
+                            - plugins.each_with_index do | plugin, idx |
+                              - if site._generated[:update_center].plugins[plugin.name]
+                                %a{:href => 'https://plugins.jenkins.io/' + plugin.name, :style => 'white-space: nowrap; padding: 2px;'}
+                                  = site._generated[:update_center].plugins[plugin.name].title
+                              - else
+                                = plugin.title || plugin.name

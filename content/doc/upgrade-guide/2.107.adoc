@@ -1,0 +1,102 @@
+---
+layout: documentation
+title:  Jenkins Upgrade Guide
+notitle: true
+---
+
+== Upgrading to Jenkins LTS 2.107.x
+
+Each section covers the upgrade from the previous LTS release, the section on 2.107.1 covers the upgrade from 2.89.4.
+
+=== Upgrading to Jenkins LTS 2.107.3
+
+==== Jenkins user database no longer allows user signup with unsafe characters
+
+link:/security/advisory/2018-05-09/#SECURITY-786[SECURITY-786]
+
+The Jenkins user database now restricts user names for user signup.
+Only alphanumeric, dash, and underscore characters are allowed.
+
+To change what user names are legal, set the system property `hudson.security.HudsonPrivateSecurityRealm.ID_REGEX` to a regular expression that any legal user name must match.
+
+
+=== Upgrading to Jenkins LTS 2.107.2
+
+No notable changes requiring upgrade notes.
+
+=== Upgrading to Jenkins LTS 2.107.1
+
+==== Whitelist for Remoting and XStream (JEP-200)
+
+https://jenkins.io/blog/2018/03/15/jep-200-lts/[Announcement from Mar 15],
+link:https://issues.jenkins-ci.org/browse/JENKINS-47736[JENKINS-47736],
+https://github.com/jenkinsci/jep/blob/master/jep/200/README.adoc[JEP-200 proposal and design]
+
+To prevent further security issues related to unsafe deserialization of Java objects, we switched to a whitelist for Remoting (the communication library mostly used between agents and master) and XStream (the XML serialization library).
+This change means that only classes considered to be safe to (de)serialize will now be (de)serialized.
+
+See https://jenkins.io/blog/2018/03/15/jep-200-lts/#for-jenkins-administrators[the announcement blog post] for update guidelines.
+Many plugins require updates to be compatible with this new restriction (link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[list]),
+please read the guide carefully.
+
+==== XML files are now stored as XML 1.1
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-48463[JENKINS-48463],
+link:https://issues.jenkins-ci.org/browse/JENKINS-50126[JENKINS-50126]
+
+Jenkins now creates XML 1.1 files to be more accepting of unusual contents.
+The XML processing instruction in those XML files will now indicate the version 1.1 instead of 1.0 as before:
+
+  <?xml version="1.1" encoding="UTF-8" ?>
+
+This change may result in Jenkins refusing to load or parse malformed files differently from previous releases:
+For example, we have received a report (JENKINS-50126) that it now refuses to load XML files from disk that do not start with an XML processing instruction, but instead with a line break (empty line).
+
+Previous versions of Jenkins cannot read XML 1.1 files, so downgrading Jenkins to an earlier release will result in errors.
+In many cases, it _should_ be sufficient to just replace `1.1` with `1.0` to make them readable again, but note that downgrades of Jenkins are generally unsupported.
+
+==== Updating Jenkins jobs and views by XML now resets unspecified fields
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-21017[JENKINS-21017]
+
+In previous releases, updating jobs and views by XML left fields at their old value if not defined in the new XML file that the job or view is being updated with.
+This long-standing bug has now been fixed, and Jenkins will reset unspecified fields to their default value, instead of retaining the previously defined value.
+This impacts the Remote API (`POST config.xml`), the CLI (`update-job` and similar commands), and any plugins using the same mechanisms, such as Job DSL Plugin.
+
+==== CSRF crumb no longer required when authenticating using API token
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-22474[JENKINS-22474]
+
+It is no longer necessary to provide a CSRF crumb when sending an HTTP request with `Basic` authentication that provides the authenticating user's API token in place of a password.
+// Included here so those for whom this prevented enabling CSRF crumbs can finally do this.
+
+==== Known issues
+
+This is a list of confirmed regressions introduced in this release.
+
+// TODO: post known regressions for all releases?
+// JENKINS-48770 - introduced in 2.89
+// JENKINS-48821 is not needed here as it was introduced in 2.89.x due to backport
+// JENKINS-49588 - unconfirmed, maybe introduced in 2.107
+* link:https://issues.jenkins-ci.org/browse/JENKINS-49392[JENKINS-49392]:
+  Some job configuration forms may fail to load if plugin:violations[Violations Plugin] is installed.
+* link:https://issues.jenkins-ci.org/browse/JENKINS-47736[JENKINS-47736]:
+  Some link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by fix for JEP-200]
+  may be not fixed yet.
+** Check the linked page for the up-to-date state and workarounds.
+
+// TODO Unsure this change is notable enough. Thoughts?
+//==== Unbounded polling threads
+//
+//link:https://github.com/jenkinsci/jenkins/pull/3258[PR 3258]
+//
+//In previous releases, Jenkins allowed an unbounded number of SCM polling threads by default.
+//This could impact stability, as sometimes hundreds of threads would be blocked by SCM polling.
+//
+//Instances which previously had allowed an unbounded number of SCM polling threads will now use the default of 10.
+//It is no longer possible to use a value outside the range of 10 (minimum, inclusive) and 100 (maximum, inclusive).
+
+// TODO Unsure: Update SSHD Module 2.0 to 2.4 to update Apache Mina SSHD Core from 1.6.0 to 1.7.0
+
+// TODO Unsure due to lack of demonstrated use case: --paramsFromStdIn
+// TODO Unsure whether hudson.lifecycle.ExitLifecycle is notable enough

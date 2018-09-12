@@ -1,14 +1,17 @@
 ---
 layout: section
 ---
+ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
 :email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
-:imagesdir: /doc/book/resources
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
 :hide-uri-scheme:
+endif::[]
 
 = Jenkins CLI
 
@@ -243,6 +246,15 @@ Generally no special system configuration need be done to enable HTTP-based CLI 
 If you are running Jenkins behind an HTTP(S) reverse proxy,
 ensure it does not buffer request or response bodies.
 
+[WARNING]
+====
+The HTTP(S) connection mode of the CLI in Jenkins 2.54 and newer does not work
+correctly behind an Apache HTTP reverse proxy server using mod_proxy. Workarounds include using
+a different reverse proxy such as Nginx or HAProxy, or using the SSH connection
+mode where possible. See
+link:https://issues.jenkins-ci.org/browse/JENKINS-47279[JENKINS-47279].
+====
+
 ==== SSH connection mode
 
 Authentication is via SSH keypair.
@@ -336,3 +348,53 @@ java.io.IOException: No X-Jenkins-CLI2-Port among [X-Jenkins, null, Server, X-Co
         at hudson.cli.CLI.<init>(CLI.java:132)
         ... 3 more
 ----
+
+====== Server key did not validate
+
+You may get the error below and find a log entry just below that concerning `mismatched keys`:
+
+[source]
+----
+org.apache.sshd.common.SshException: Server key did not validate
+    at org.apache.sshd.client.session.AbstractClientSession.checkKeys(AbstractClientSession.java:523)
+    at org.apache.sshd.common.session.helpers.AbstractSession.handleKexMessage(AbstractSession.java:616)
+    ...
+----
+
+This means your SSH configuration does not recognize the public key presented by the server.
+It's often the case when you run Jenkins in dev mode and multiple instances
+of the application are run under the same SSH port over time.
+
+In a development context, access your `~/.ssh/known_hosts` (or in `C:/Users/<your_name>/.ssh/known_hosts` for Windows)
+and remove the line corresponding to your current SSH port (e.g. `[localhost]:3485`).
+In a production context, check with the Jenkins administrator if the public key of the server changed recently.
+If so, ask the administrator to do the the steps described above.
+
+====== UsernameNotFoundException
+
+If your client displays a stacktrace that looks like:
+
+[source]
+----
+org.acegisecurity.userdetails.UsernameNotFoundException: <name_you_used>
+    ...
+----
+
+This means your SSH keys were recognized and validated against the stored users but the username is not valid for the security realm your application is using at the moment.
+This could occur when you were using the Jenkins database initially, configured your users, and then switched to another security realm (like LDAP, etc.) where the defined users do not exist yet.
+
+To solve the problem, ensure your users exist in your configured security realm.
+
+====== Troubleshooting logs
+
+To get more information about the authentication process:
+
+. Go into *Manage Jenkins* > *System Log* > *Add new log recorder*.
+. Enter any name you want and click on *Ok*.
+. Click on *Add*
+. Type `org.jenkinsci.main.modules.sshd.PublicKeyAuthenticatorImpl` (or type `PublicKeyAuth` and then select the full name)
+. Set the level to *ALL*.
+. Repeat the previous three steps for `hudson.model.User`
+. Click on *Save*
+
+When you try to authenticate, you can then refresh the page and see what happen internally.
