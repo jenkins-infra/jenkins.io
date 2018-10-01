@@ -1,0 +1,247 @@
+---
+:layout: post
+:title: "Jenkins & Java 10+. Tech Notes"
+:tags:
+- events
+- community
+- developer
+- java10
+- java11
+- hardcore
+:author: oleg_nenashev
+---
+
+On June 18-22 we had a
+link:/blog/2018/06/08/jenkins-java10-hackathon/[Jenkins & Java 10 Online Hackathon].
+
+:toc:
+
+### Quick summary
+
+Below you can see the great infographics created by Tracy Miranda:
+
+image:/images/events/java10-hackathon/infographics.png[Java 10 hackathon inforgraphics, role=center, float=right]
+
+Here are also some slides and video from the closedown meeting we had:
+
+++++
+<center>
+    <iframe src="https://docs.google.com/presentation/d/e/2PACX-1hWWa6mYv86Kn8Ulu7uGlRJ9h2XTHlvHolO9CeRnnvcI/embed?start=false&loop=false" frameborder="0" width="720" height="434" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</center>
+++++
+
+++++
+<center>
+  <iframe width="720" height="434" src="https://www.youtube.com/embed/1ZX9qA0AZjM" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+</center>
+++++
+
+Below I would like to provide more technical insights about Java 10+ support in Jenkins.
+
+[[packaging]]
+### Jenkins core and packaging
+
+Later we have also created special packaging for BlueOcean.
+It bundles all required patches in plugins,
+so you can just run the following command to get started:
+
+If you want to try it out, you can use a new `jenkins/jenkins-experimental:blueocean-jdk10`
+image we have created.
+
+```
+docker run -p 8080:8080 -p 50000:50000 jenkins/jenkins-experimental:blueocean-jdk10
+```
+
+If you want to try more complex scenarios, see the
+link:/blog/2018/06/17/running-jenkins-with-java10-11/[Running Jenkins with Java 10 and 11 blogpost]
+and link:https://docs.google.com/document/d/1ed6wFOlq4cWrSL6UkCSzFbaY80AT-sk8ncB4Fz5QXyM/edit#heading=h.8lwu94cr28ig[List of Required patches].
+
+[[pipeline]]
+### Pipeline Support
+
+Before the hackathon started, Pipeline was not working with Jenkins at all.
+It was crashing immediately, an it was a showstopper for all kinds of Pipeline testing.
+That's why it was the team's top priority during the first to days.
+
+**ASM**.
+because Jenkins Bytecode Compatibility Transformer didn't support Java 9+ class model.
+So, we have started from updating ASM in the core to ASM 6.2.
+It allowed to launch the "Hello, world!" Pipeline quickly
+(see link:TODO[my tweet]),
+but more complex Pipeline were still failing when Jenkins was trying
+to persist the context on the disk.
+
+**Serialization**.
+So the next step for us was to update JBoss Remoting being used in _Pipeline: Support_ plugin.
+Before the update Jenkins was using a fork with few custom patches created
+by Kohsuke and Jesse Glick at some point.
+All these patches have been upstreamed, so we were able to remove the
+custom fork and to update to the most recent upstream version.
+Apparently other serialization engines (XStream, Jackson Databind)
+were working fine without any updates.
+
+After the patches in Remoting we have got pretty complex Pipelines working,
+including building Jenkins plugins when running masters on Java 10:
+
+image:/images/post-images/2018-06-19-java10-hackathon-day-2/successful-pipeline.png[Successful Pipeline on Java 10, role=center]
+
+In addition to the patches above, we had to update Jenkins core to
+Groovy 2.4.12 in order to support Declarative Pipeline
+
+//TODO.
+
+Over two days we have got from the "Pipeline Crashes Immediately"
+state to the situation when the most of key Pipeline features are operational,
+including Scripted and Declarative Pipeline, Blue Ocean, shared libraries and
+dozens of plugins being used in the Jenkins plugin build flow.
+
+[[devtools]]
+### Development Tools
+
+Albeit being succesfull,
+updates for Pipeline highlighted two major issues problems
+in our development tools:
+
+**Problem 1**: Multi-release JARs support.
+In order to get support of Java 10 and 11, we had to update JBoss Remoting
+to a version which is built using the multi-release JAR tooling in newer JDKs.
+This is a great engine which allows adopting newer Java APIs while retaining compatibility with Java versions.
+It is fully transparent to Java 8 (which is good),
+but it was not fully transparent for our development tools.
+Some of the Maven plugins just started crashing.
+
+**Problem 2**: We do not have test automation for Java 10 support.
+So we cannot really test our patches reliably.
+And again, our development tools in standard parent POMs do not support that.
+
+So, after a good progress with Pipeline,
+a number of contributors focused on development tools to get some
+progress and estimations in the area.
+
+In order to officially support Java 10 in the Jenkins automation server,
+we obviously need to set up some build and test automation in order to ensure
+that
+
+* Devin Nusbaum explored plugin startup issues we had with JDK 11ea+17
+  and confirmed that we need to upgrade our images to JDK 11ea+18
+* Sam van Oort and Devin Nusbaum are working on getting plugin build and test flows
+when using JDK 10 with Maven
+* Nicolas de Loof is working on cleaning up Illegal reflective access warnings in Jenkins components,
+using the new link:https://github.com/ndeloof/fields[Fields] micro-library
+* Olivier Lamy and Nicolas de Loof are updating the
+link:https://www.mojohaus.org/animal-sniffer/[Animal Sniffer] plugin for Maven
+to make it compatible with Java 9 and above
+* Kohsuke Kawaguchi has released a repackaged version of link:https://asm.ow2.io/[ASM 6.2] we use in the project
+* Last but not least, Liam Newman and Tracy Miranda helped us a lot to run the meetings
+ and to get this hackathon organized
+
+There are also other contributors working on exploratory testing and reporting
+defects they discover.
+See link:https://docs.google.com/document/d/1ed6wFOlq4cWrSL6UkCSzFbaY80AT-sk8ncB4Fz5QXyM/edit#heading=h.g8c0opr42807[our status doc]
+for the full list.
+
+[[exploratory-testing]]
+### Exploratory Testing
+
+Last but not least, we had a lot of exploratory testing performed
+during the project.
+It was required to discover as many compatibility issues as possible.
+
+* Gianpaolo Macario adopted the Java 10 experimental images in his
+link:https://github.com/gmacario/easy-jenkins[easy-jenkins] project.
+After the Pipeline patches we did on the first days,
+* Sam Van Oort has executed Pipeline smoke tests on his Pipeline performance testing setup.
+It helped to discover some new metaspace memory leaks happening
+in Script Security and Pipeline plugins after the Groovy upgrade
+we needed for the Declarative Pipeline support on Java 10
+
+I would say that
+exploratory testing probably was the most boring part of the hackathon.
+After first patches for Pipeline compatibility, everything was working really smoothly in our tests.
+We have reported few issues, but generally everything was working much
+better than we anticipated.
+Even old (and sometimes link:TODO["evil"]) plugins passed the initial testing.
+
+Until we perform full automated test suites on Java 10 and 11,
+it is hard to say for sure that there is no compat issues,
+but current results give us confidence that Java 10 and 11 support is something achievable.
+
+[[java-compatibility]]
+### Java Compatibility
+
+Apart from the patches described above,
+we have spent some time to explore options to enhance Java compatibility
+in the releases.
+
+#### JavaEE Modules
+
+In Java 9+ some of Java components have been detached to modules.
+In particular `javax.xml.bind` (aka JAXB) and `java.activation` has been detached in Java 9
+and then removed from Java distribution in Java 11 early access.
+
+Jenkins uses them in the core and plugins,
+so it will refuse to startup with default options.
+In order to overcome it in the Java 10/11 preview packages for Jenkins,
+we updated Docker packages and provided guidelines.
+
+During the discussion with OpenJDK project Jigsaw leaders,
+it appeared that our use-cases were quite unexpected,
+because these modules are expected to be used in Java EE only.
+Common web containers like Apache Tomcat are still offering modules
+OOTB, so there should be no problem when running Jenkins there as common WARs.
+But... Jenkins WAR also supports independent execution thanks
+to Extras Executable WAR and embedded Jetty.
+
+We still want to offer the portable Jenkins experience when the service can be started
+with a minimal command-line like `java -jar jenkins.war --httpPort=8080`.
+Although we can do it for Java 10 by declaring module dependencies,
+for Java 11 LTS we will have to bundle JAXB somehow
+
+#### Illegal Reflective Access
+
+This issue is probably a nemesis for any complex Java application
+using reflection and especially object serialization
+(e.g. Jackson Databind).
+
+In some cases Java logic needs to access private methods and fields directly,
+and in such case the code can escalate permissions using `setAccessible(true)`
+method from reflection API.
+It was a widely used approach in pre-Java9 world,
+but in Java 9 that approach was considered as illegal (JEP-TODO).
+In Java 9 early access versions this was enforced, but then it has been reverted.
+So currently there
+
+[[next-steps]]
+### What's next?
+
+After the hackathon I went dark for a while in order to process the hackathon
+results and to come up with a plan regarding Java 10 and 11 support in
+official Jenkins releases.
+I have created a Jenkins Enhancement Proposal
+which have been accepted as draft last Friday.
+Now this proposal is listed as link:https://github.com/jenkinsci/jep/tree/master/jep/211[JEP-211].
+
+In order to follow-up on the topic,
+together with other contributors we have started a new
+link:/sigs/platform[Platform Special Interest Group].
+This special interest group will offer a venue for all kinds of platform support discussions:
+Java, Operating Systems, Architectures, Docker, Packaging, Web Containers, etc.
+The plan in link:https://github.com/jenkinsci/jep/tree/master/jep/211[JEP-211] will be one of the first topics to be discussed in this SIG.
+
+We also know about many potential issues we will need to address in Jenkins:
+Illegal Reflective Access cleanup, Java Web Start removal from Java 10,
+`Signal` API deprecation, Groovy 3.0, etc., etc.
+Although they are not in the scope in the JEP,
+we will welcome contributions in these areas.
+
+### My takeaways
+
+Well, if you have reached this line, you may think it was difficult to support Java 10+.
+Actually, it was not.
+
+### Links
+
+* link:https://groups.google.com/forum/#!topic/jenkinsci-dev/FdCvQlscl_I[Developer mailing list]
+* link:https://docs.google.com/document/d/1ed6wFOlq4cWrSL6UkCSzFbaY80AT-sk8ncB4Fz5QXyM/edit[Hackathon sync-up document]
+* link:/blog/2018/06/17/running-jenkins-with-java10-11/[Running Jenkins with Java 10 and 11]
+* link:https://www.meetup.com/ru-RU/Jenkins-online-meetup/events/251804751/[Jenkins Online Meetup page]
