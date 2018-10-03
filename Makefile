@@ -98,8 +98,8 @@ $(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*")
 	mkdir -p $(ASSETS_DIR)/anchor-js/
 	cp node_modules/anchor-js/*.js $(ASSETS_DIR)/anchor-js/
 	mkdir -p $(ASSETS_DIR)/ionicons
-	cp -R node_modules/ionicons/css $(ASSETS_DIR)/ionicons
-	cp -R node_modules/ionicons/fonts $(ASSETS_DIR)/ionicons
+	cp -R node_modules/ionicons/dist/css $(ASSETS_DIR)/ionicons
+	cp -R node_modules/ionicons/dist/fonts $(ASSETS_DIR)/ionicons
 	@touch $(BUILD_DIR)/assets
 
 #######################################################
