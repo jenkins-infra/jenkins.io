@@ -45,15 +45,19 @@ fetch: $(BUILD_DIR)/fetch
 fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
-$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-examples scripts/fetch-external-resources | $(OUTPUT_DIR)
+$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-external-resources content/_tmp | $(OUTPUT_DIR)
 	./scripts/groovy pull
 	./scripts/groovy scripts/release.rss.groovy 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
-	./scripts/fetch-examples
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
 
-scripts-permission:
-	chmod u+x ./scripts/groovy ./scripts/ruby ./scripts/fetch-examples ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources
+scripts-permission: $(BUILD_DIR)/scripts-permission
+
+$(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources | $(OUTPUT_DIR)
+	chmod u+x $?
+	@touch $(BUILD_DIR)/scripts-permission
+
+
 
 #######################################################
 
@@ -63,20 +67,20 @@ scripts-permission:
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
 # update dependencies information
-update: depends
+update: clean depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
 # when we pull dependencies also pull docker image
 # without this images can get stale and out of sync from CI system
-$(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby | $(OUTPUT_DIR)
+$(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch $(BUILD_DIR)/ruby
 
 # when we pull dependencies also pull docker image
 # without this images can get stale and out of sync from CI system
-$(BUILD_DIR)/node: package.json package-lock.json scripts/node | $(OUTPUT_DIR)
+$(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
 	./scripts/node npm install
 	@touch $(BUILD_DIR)/node
@@ -121,10 +125,23 @@ archive: generate
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
+node_modules:
+	mkdir -p node_modules
+
+vendor/gems:
+	mkdir -p vendor/gems
+
+content/_tmp:
+	mkdir -p vendor/gems
+
 clean:
 	rm -rf vendor/gems
 	rm -rf $(BUILD_DIR)
-	rm -rf node_modules/
+	rm -rf node_modules
+	rm -rf content/_tmp
+	rm -f content/doc/developer/extensions/*.adoc
+	rm -f content/doc/pipeline/steps/*.adoc
+
 #######################################################
 
 .PHONY: all archive assets clean depends \
