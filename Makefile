@@ -134,13 +134,10 @@ vendor/gems:
 content/_tmp:
 	mkdir -p vendor/gems
 
+# this clean will remove any ignored files and directories
+# but leave any changed or untracked files alone.
 clean:
-	rm -rf vendor/gems
-	rm -rf $(BUILD_DIR)
-	rm -rf node_modules
-	rm -rf content/_tmp
-	rm -f content/doc/developer/extensions/*.adoc
-	rm -f content/doc/pipeline/steps/*.adoc
+	git clean -Xfd
 
 #######################################################
 
