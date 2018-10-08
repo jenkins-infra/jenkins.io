@@ -128,17 +128,8 @@ archive: generate
 # Miscellaneous tasks
 #######################################################
 # build targets for directories
-$(OUTPUT_DIR):
-	mkdir -p $(OUTPUT_DIR)
-
-node_modules:
-	mkdir -p node_modules
-
-vendor/gems:
-	mkdir -p vendor/gems
-
-content/_tmp:
-	mkdir -p vendor/gems
+$(OUTPUT_DIR) node_modules vendor/gems content/_tmp:
+	mkdir -p $@
 
 # clean -Xfd removes any ignored files and directories
 # but leave any changed or untracked files alone.
