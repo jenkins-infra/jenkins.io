@@ -51,6 +51,8 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-e
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
 
+# Ensure scripts are marked +x
+# chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
 $(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources | $(OUTPUT_DIR)
@@ -66,13 +68,15 @@ $(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node 
 #######################################################
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
-# update dependencies information
+# update dependencies to latest within the allowed version ranges
+# When we update we also clean ensure build output includes only dependencies.
 update: clean depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
 # when we pull dependencies also pull docker image
 # without this images can get stale and out of sync from CI system
+# If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
@@ -80,6 +84,7 @@ $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 
 # when we pull dependencies also pull docker image
 # without this images can get stale and out of sync from CI system
+# If the dev deletes node_modules independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
 	./scripts/node npm install
@@ -122,6 +127,7 @@ archive: generate
 
 # Miscellaneous tasks
 #######################################################
+# build targets for directories
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
@@ -134,7 +140,7 @@ vendor/gems:
 content/_tmp:
 	mkdir -p vendor/gems
 
-# this clean will remove any ignored files and directories
+# clean -Xfd removes any ignored files and directories
 # but leave any changed or untracked files alone.
 clean:
 	git clean -Xfd
