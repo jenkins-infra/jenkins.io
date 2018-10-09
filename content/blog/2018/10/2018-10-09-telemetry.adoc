@@ -1,0 +1,57 @@
+---
+layout: post
+title: >
+  Improving Jenkins Release Quality using Uplink Telemetry
+tags:
+- core
+author: daniel-beck
+---
+
+One of the major strengths of Jenkins is its customizability and extensibility.
+With its plugin ecosystem and long list of (possibly hidden) options, Jenkins can be used for a wide range of use cases.
+
+The downside of all this flexibility is that, not knowing how people use Jenkins, we mostly rely on issues filed in our bug tracker to know when things go wrong.
+And over the years, quite a few things have gone wrong.
+The worst of these have been security fixes have had unintended side effects.
+Unlike regular changes, it's not really feasible to roll back security fixes, so users have sometimes had to choose between security and functionality.
+But even changes developed in the open, such as the introduction of link:/blog/2018/01/13/jep-200/[JEP-200], haven't gone as smoothly as we hoped.
+link:/blog/2018/08/31/shifting-gears/[With big changes in the works], it's more important than ever for us to have a better idea how Jenkins is used, so that we can deliver major changes safely.
+
+link:/projects/evergreen/[Jenkins Evergreen] solves this to some degree by being always connected to the Jenkins project and reporting back telemetry (mostly errors) allowing us to quickly react and provide fixes.
+But that project is still pretty new, and its goal of being a more standardized Jenkins does not represent the breadth of configurations of the general user base.
+
+## Uplink telemetry
+
+So we recently extended the existing, very limited anonymous usage statistics by adding a simple, extensible telemetry reporting client.
+We're calling it _Uplink telemetry_, based on the name of https://github.com/jenkins-infra/uplink/[the service it reports its data to].
+It made its debut in Jenkins 2.143.
+
+Uplink telemetry is designed to collect data in _trials_, which are defined as:
+
+* a well defined set of technical data with a specific purpose
+* a start and end date of the collection
+
+Detailed information explaining the scope and purpose of currently active trials is available in the inline help for the usage statistics control in the global configuration.
+
+image::/images/post-images/2018-10-09/telemetry.png[Screenshot of detailed Uplink telemetry trial description in the Jenkins inline help, role=center]
+
+Of course, opting out of anonymous usage statistics there also disables the submission of Uplink telemetry.
+And while Uplink trials report a per-instance UUID to help with collation (e.g. removal of duplicate submissions), that UUID is exclusively used for this purpose, and independent of all other properties of an instance.
+This prevents us from correlating reported data with specific instances.
+These measures are in place to strike a balance between the need to understand how Jenkins is used and respecting users' privacy.
+
+## Improving Jenkins through real-world data
+
+We're already created our first trial.
+Jenkins 2.143 includes a trial to gather information about how how common it is for instances to use Java system properties to disable (parts of) security fixes.
+Every time we publish a security fix we're not completely certain is safe to apply for everyone, we add another of these options -- just in case.
+As you can imagine, quite a few of these hidden options exist.
+Until now, user feedback in our issue tracker was the only way we could estimate the need for any of these options.
+With Uplink, Jenkins will report that information to us.
+
+The trial is scheduled to run for the next six weeks, enough to hopefully gather this information from a large number of users of both LTS and weekly releases.
+Our hope is that we will be able to remove some of these options entirely, as they might not be needed after all.
+For others, we might need to consider elevating them to supported features, or finding better solutions obviating the need for them.
+
+In the future, I will publish of some of what we have learned from the first trial running through Uplink telemetry.
+I look forward to Jenkins continuing to improve with real-world data informing our future decisions.
