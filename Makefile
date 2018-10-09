@@ -45,15 +45,21 @@ fetch: $(BUILD_DIR)/fetch
 fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
-$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-examples scripts/fetch-external-resources | $(OUTPUT_DIR)
+$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-external-resources content/_tmp | $(OUTPUT_DIR)
 	./scripts/groovy pull
 	./scripts/groovy scripts/release.rss.groovy 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
-	./scripts/fetch-examples
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
 
-scripts-permission:
-	chmod u+x ./scripts/groovy ./scripts/ruby ./scripts/fetch-examples ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources
+# Ensure scripts are marked +x
+# chmod only runs on these scripts during fresh build or when one of these scripts changes.
+scripts-permission: $(BUILD_DIR)/scripts-permission
+
+$(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources | $(OUTPUT_DIR)
+	chmod u+x $?
+	@touch $(BUILD_DIR)/scripts-permission
+
+
 
 #######################################################
 
@@ -62,21 +68,24 @@ scripts-permission:
 #######################################################
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
-# update dependencies information
-update: depends
+# update dependencies to latest within the allowed version ranges
+# When we update we also clean ensure build output includes only dependencies.
+update: clean depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
 # when we pull dependencies also pull docker image
 # without this images can get stale and out of sync from CI system
-$(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby | $(OUTPUT_DIR)
+# If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
+$(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch $(BUILD_DIR)/ruby
 
 # when we pull dependencies also pull docker image
 # without this images can get stale and out of sync from CI system
-$(BUILD_DIR)/node: package.json package-lock.json scripts/node | $(OUTPUT_DIR)
+# If the dev deletes node_modules independent of other changes, the build reinstalls it.
+$(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
 	./scripts/node npm install
 	@touch $(BUILD_DIR)/node
@@ -118,13 +127,15 @@ archive: generate
 
 # Miscellaneous tasks
 #######################################################
-$(OUTPUT_DIR):
-	mkdir -p $(OUTPUT_DIR)
+# build targets for directories
+$(OUTPUT_DIR) node_modules vendor/gems content/_tmp:
+	mkdir -p $@
 
+# clean -Xfd removes any ignored files and directories
+# but leave any changed or untracked files alone.
 clean:
-	rm -rf vendor/gems
-	rm -rf $(BUILD_DIR)
-	rm -rf node_modules/
+	git clean -Xfd
+
 #######################################################
 
 .PHONY: all archive assets clean depends \
