@@ -17,7 +17,7 @@ and link:https://github.com/jenkinsci/jenkinsfile-runner[Jenkinsfile Runner] bun
 This tool allows packaging Jenkins, plugins, and configurations in a ready-to-fly distribution.
 Custom WAR packager is a part of the Ephemeral Jenkins master toolchain
 which we presented in our link:/blog/2018/09/12/speaker-blog-a-cloud-native-jenkins/[A Cloud Native Jenkins] blogpost.
-This toolchain is already used in link:https://jenkins-x.io[Jenkins X] to package single-shot masters.
+This toolchain is already used in link:https://jenkins-x.io[Jenkins X] to package link:https://github.com/jenkins-x/jenkins-x-serverless[serverless images].
 
 In this blogpost I will show some common use-cases for Custom WAR Packager.
 
@@ -53,8 +53,8 @@ Everything is managed by a YAML configuration file:
 image::/images/post-images/2018-10-15-cwp/cwp_flow.png[Custom WAR Packager build flow]
 
 The tool supports various types of inputs.
-List of plugins can be passed via YAML itself, pom.xml, or a BOM file from jep:309[].
-Custom WAR Packager supports not only there released versions,
+The list of plugins can be passed via YAML itself, `pom.xml`, or a BOM file from jep:309[].
+Custom WAR Packager supports not only released versions,
 but also builds deployed to the link:/blog/2018/05/15/incremental-deployment/[Incremental repository] (CD flow for Jenkins core and plugins - jep:305[]) and
 even direct builds by Git or directory path specifications.
 It allows building packages from any source, without waiting for official releases.
@@ -101,17 +101,17 @@ plugins:
       # Git
       git: https://github.com/jglick/workflow-job-plugin.git
       commit: 18d78f305a4526af9cdf3a7b68eb9caf97c7cfbc
-  # ...
-systemProperties: {
-    jenkins.model.Jenkins.slaveAgentPort: "9000",
-    jenkins.model.Jenkins.slaveAgentPortEnforce: "true"}
+  # etc.
+systemProperties:
+    jenkins.model.Jenkins.slaveAgentPort: "9000"
+    jenkins.model.Jenkins.slaveAgentPortEnforce: "true"
 groovyHooks:
   - type: "init"
     id: "initScripts"
     source:
       dir: src/main/groovy
 casc:
-  - id: "initScripts"
+  - id: "jcasc"
     source:
       dir: casc.yml
 ```
@@ -122,7 +122,7 @@ In order to do the Docker packaging, Custom WAR Packager uses the official
 link:https://hub.docker.com/r/jenkins/jenkins/[jenkins/jenkins]
 Docker images or other images using the same format.
 During the build the WAR file just gets replaced by the one built by the tool.
-It means that **ALL** image features are available for such custom builds: `plugins.txt`, Java options, additional webhooks, etc., etc.
+It means that **ALL** image features are available for such custom builds: `plugins.txt`, Java options, Groovy hooks, etc., etc.
 
 ```yaml
 
@@ -162,7 +162,7 @@ docker run --rm -v $PWD/Jenkinsfile:/workspace/Jenkinsfile acmeorg/jenkinsfile-r
 When we started working on Ephemeral (aka "single-shot") masters in the Cloud Native SIG,
 there was an idea to use Custom WAR Packager and other existing tools (Jenkinsfile Runner, Jenkins Configuration as Code, etc.) to implement it.
 It would be possible to just replace Jenkins core JAR and add plugins to Jenkinsfile Runner, but it is not enough.
-To be efficient, Jenkinsfile Runner images should startup *FAST*, really fast.
+To be efficient, Jenkinsfile Runner images should start up *FAST*, really fast.
 In the build flow implementation we used some experimental options available in Jenkins and Jenkinsfile Runner, including classloader precaching, plugin unarchiving, etc, etc.
 With such patches Jenkins starts up in few seconds with configuration-as-code and dozens of bundled plugins.
 
