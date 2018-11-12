@@ -1,0 +1,283 @@
+---
+layout: post
+title: "The Silence of the Lambs: Inspecting binaries with Jenkins"
+tags:
+- devops
+- devsecops
+- security
+- vulnerabilities
+- compliance
+- twistlock
+author: michaelhuettermann
+---
+
+[NOTE]
+====
+This is a guest post by link:https://github.com/michaelhuettermann[Michael Hüttermann].
+====
+
+In a past blog post,
+link:/blog/2017/04/18/continuousdelivery-devops-sonarqube/[Delivery Pipelines, with Jenkins 2, SonarQube, and Artifactory],
+we talked about pipelines which result in binaries for development versions, and in
+link:/blog/2017/07/05/continuousdelivery-devops-artifactory/[Delivery pipelines, with Jenkins 2: how to promote Java EE and Docker binaries toward production],
+we examined ways to consistently promote applications toward production. In this blog post, I continue on both by discussing more details on security related quality gates
+and bringing this together with the handling of Docker images.
+
+== Use case: Foster security on given, containerized business application
+
+Security is an overloaded term with varying meaning in different contexts. For this contribution, I consider security as the sum of rules regarding vulnerabilities
+(Common Vulnerability and Exposure, CVE), in binaries. In a past blog post, we've identified SonarQube already, as a very helpful tool to identify flaws
+in source code, particularly concerning reliability (bugs), vulnerabilities (security, e.g. CWE, that is common weakness enumaration, and OWASP, that is the Open Web Application Security Project), and
+maintainability (code smells). Now it is a good time to add another tool to the chain, that is Twistlock, for inspection binaries for security issues.
+Features of Twistlock include
+
+* Compliance and vulnerability management, transitively
+* Runtime defense
+* Cloud-native CI/CD support
+* Broad coverage of supported artifact types and platforms
+* API, dashboards, and Jenkins integration, with strong configuration options
+
+The underlying use case can be derived from several real-world security initiatives, in enterprises, based on given containerized applications. In practice, it is not a surprise that after adding such new
+quality gates, you identify historically grown issues. However, there are many good reasons to do so. You don't need any Word documents to check any governance criteria manually, rather
+execution and reporting are done automatically and also part of the actions are taken automatically. And above all, of course, your application is quality assured regarding known vulnerability issues, aligned with
+the DevOps approach: development is interested in quick feedback whether their change would introduce any vulnerabilities, and operations is interested in insights whether and
+how running applications are affected if a new CVE is discovered.
+
+
+[TIP]
+====
+The term DevSecOps was coined to explicitely add security concerns to DevOps.
+In my opinion, security is already inherent part of DevOps.
+Thus, there is no strong reason to introduce a new word. Surely, new words are catchy.
+But they have limits.
+Or have you ever experienced NoDev, the variant of DevOps where features are suddenly falling from the sky and deployed to production automatically?
+====
+
+Conceptually, container inspection is now part of the delivery pipeline and Twistlock processing is now triggered once we have produced our Docker images, see below, in order to get
+fast feedback.
+
+image:/images/post-images/jenkins-devsecops/01.png[role=center, title="The delivery pipeline, failing the quality gate of inspecting Docker image."]
+
+
+Software is staged over different environments by configuration, without rebuilding. All changes go through the entire staging process, although defined
+exception routines may be in place, for details see Michael Hüttermann, _Agile ALM_ (Manning, 2012). The staged software consists of all artifacts which
+make up the release, consistently, including the business application, test cases, build scripts, Chef cookbooks, Dockerfiles, Jenkins files to build all
+that in a self-contained way, for details see Michael Hüttermann, _DevOps for Developers_ (Apress, 2012).
+
+[NOTE]
+====
+This blog post covers sample tools. Please note, that there are also alternative tools available, and the best target architecture is aligned with concrete requirements and given basic
+conditions. Besides that, the sample toolchain is derived from couple of real world success stories, designed and implemented in the field. However, this blog post
+simplifies and abstracts them in order to stay focussed while discussing the primitives of delivery units. For example, aggregating multiple Docker images with ASCII files, does not change the
+underlying primitives and their handlings. For more information on all parts of the blog post, please consult the respective documentation, good books or attend fine conferences. Or go to the extremes: talk to your colleagues.
+====
+
+In our sample process, we produce a web application that is packaged in a Docker image. The produced Docker images are distributed only if the dedicated quality gate passes.
+A quality gate is a stage in the overall pipeline and a sum of defined commitments, often
+called requirements, the unit of work must pass. In our case, the quality gate comprises inspection of produced binaries and it fails if vulnerabilities of severity 'critical' are found.
+We can configure Twistlock according to our requirements. Have a look how we've integrated it into our Jenkins pipeline, with focus on detecting vulnerabilities.
+
+
+.Jenkinsfile (excerpt): Twistlock inspection triggered
+[source, groovy]
+----
+stage('Twistlock: Analysis') { // <1>
+    String version = new File("${workspace}/version.properties").text.trim() // <2>
+    println "Scanning for version: ${version}"
+    twistlockScan ca: '', cert: '', compliancePolicy: 'critical', \
+        dockerAddress: 'unix:///var/run/docker.sock', \
+        ignoreImageBuildTime: false, key: '', logLevel: 'true', \
+        policy: 'critical', repository: 'huttermann-docker-local.jfrog.io/michaelhuettermann/alpine-tomcat7', \ // <3>
+        requirePackageUpdate: false, tag: "$version", timeout: 10
+}
+
+stage('Twistlock: Publish') { // <4>
+    String version = new File("${workspace}/version.properties").text.trim()
+    println "Publishing scan results for version: ${version}"
+    twistlockPublish ca: '', cert: '', \
+        dockerAddress: 'unix:///var/run/docker.sock', key: '', \
+        logLevel: 'true', repository: 'huttermann-docker-local.jfrog.io/michaelhuettermann/alpine-tomcat7', tag: "$version", \
+        timeout: 10
+}
+----
+<1> Twistlock inspection as part of the sequence of stages in Jenkinsfile
+<2> Nailing down the version of the to be inspected image, dynamically
+<3> Configuring analysis including vulnerability severity level
+<4> Publishing the inspection results to Twistlock console, that is the dashboard
+
+Now let's start with the first phase to bring our application in shape again, that is gaining insight about the security related flaws.
+
+== Phase 1: Gain insights about security related flaws
+
+After we've introduced the new quality gate, it failed, see image above. As integration with other tools, Jenkins is the automation engine and does provide helpful context information,
+however, those cannot replace features and data the dedicated, triggered tool does offer. Thus, this is the moment to switch to the dedicated tool, that is Twistlock. Opening
+the dashboard, we can navigate to the Jenkins build jobs, that is the specific run of the build, and the respective results of the Twistlock analysis. What we see now is a list
+of vulnerabilities, and we need to fix those of severity _critical_ in order to pass the quality gate, and get our changes again toward production. The list shows entries of
+type _jar_, that is a finding in a binary as part of the Docker image, in our case the WAR file we've deployed to a web container (Tomcat), and of type _OS_, those are issues of the underlying image itself, the
+operating system, either part of the base image, or as a package added/changed in our Dockerfile.
+
+image:/images/post-images/jenkins-devsecops/02.png[role=center, title="Twistlock findings: overview."]
+
+We can now easily zoom in and examine the vulnerabilities of the Docker layers. This really helps to structure work and identify root causes. Since, typically,
+a Docker image extends a Docker base image, the findings in the base image are shown on the top, see next screenshot, grouped by severity.
+
+image:/images/post-images/jenkins-devsecops/03.png[role=center, title="Twistlock also displays the vulnerabilities according to Docker layers. Findings based on the base image are listed at the top."]
+
+Other Docker layers were added to the base image, and those can add vulnerabilities too. In our case, the packaged WAR file obviously contains a vulnerability. The next image shows how we examine that finding, while this time
+expanding the Twistlock wizard (that is the plus sign) to directly see the list of found vulnerabilities.
+
+image:/images/post-images/jenkins-devsecops/04.png[role=center, title="Twistlock recursively inspects embedded binaries auch as the WAR with its libraries. Here the wizard is expanded showing all vulnerabilities of this layer.
+On the right side, we can move over the different sections of our Dockerfile."]
+
+Finding and visualizing the issues are a very good first step, and we've even made those findings actionable, so we now have to take action and address them.
+
+== Phase 2: Address the findings
+
+To address the findings, we need to split our initiative into two parts:
+
+. Fixing the critical vulnerabilities related to the Docker image (in our case largely the base image)
+. Fixing the critical vulnerabilities related to the embedded deployment unit (in our case the WAR)
+
+Let's proceed bottom up, first coping with the Docker base image.
+
+[NOTE]
+====
+This is an easy example covering multiple scenarios particularly identifying and fixing vulnerabilities in transitive binaries, i.e. binaries contained in
+other binaries, e.g. a Docker image containing a WAR file that in turn contains libraries. To expand this vertical feasibility spike, you can easily add
+more units of each layer, or add more abstractions, however, the idea can always be nailed down to the primitives, covered in this blog post.
+====
+
+Let's now have a look at the used Docker image by looking at the used Dockerfile.
+
+.Dockerfile: The Dockerfile based on Alpine, running OpenJDK 8
+[source]
+----
+FROM openjdk:8-jre-alpine // <1>
+LABEL maintainer "michael@huettermann.net"
+
+# Domain of your Artifactory. Any other storage and URI download link works, just change the ADD command, see below.
+ARG ARTI
+ARG VER
+
+# Expose web port
+EXPOSE 8080
+
+# Tomcat Version
+ENV TOMCAT_VERSION_MAJOR 9 // <2>
+ENV TOMCAT_VERSION_FULL  9.0.6
+
+# Download, install, housekeeping
+RUN apk add --update curl &&\  // <3>
+  apk add bash &&\
+  #apk add -u libx11 &&\  // <4>
+  mkdir /opt &&\
+  curl -LO ${ARTI}/list/generic-local/apache/org/tomcat/tomcat-${TOMCAT_VERSION_MAJOR}/v${TOMCAT_VERSION_FULL}/bin/apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz &&\
+  gunzip -c apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz | tar -xf - -C /opt &&\
+  rm -f apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz &&\
+  ln -s /opt/apache-tomcat-${TOMCAT_VERSION_FULL} /opt/tomcat &&\
+  rm -rf /opt/tomcat/webapps/examples /opt/tomcat/webapps/docs &&\
+  apk del curl &&\
+  rm -rf /var/cache/apk/*
+
+# Download and deploy the Java EE WAR
+ADD http://${ARTI}/list/libs-release-local/com/huettermann/web/${VER}/all-${VER}.war /opt/tomcat/webapps/all.war // <5>
+
+RUN chmod 755 /opt/tomcat/webapps/*.war
+
+# Set environment
+ENV CATALINA_HOME /opt/tomcat
+
+# Start Tomcat on startup
+CMD ${CATALINA_HOME}/bin/catalina.sh run
+----
+<1> Base image ships OpenJDK 8, on Alpine
+<2> Defined version of web container
+<3> Applying some defined steps to configure Alpine, according to requirements
+<4> Updating package itself would address one vulnerability already
+<5> Deploying the application
+
+By checking available versions of the official OpenJDK Alpine image, we see that there's a newer version 8u181 which we could use.
+We can zoom in and study release notes and contents, or we just pragmatically switch the base image to a more recent version. Often it is a good idea
+to upgrade versions regularly, in defined intervals. This leads to the following change in the Dockerfile.
+
+.Dockerfile (excerpt): The Dockerfile based on Alpine, running OpenJDK 8u181
+[source]
+----
+FROM openjdk:8u181-jre-alpine // <1>
+LABEL maintainer "michael@huettermann.net"
+----
+<1> Base image is now OpenJDK 8u181, on Alpine
+
+There are more options available to fix the issues, but let's proceed to the second part, the vulnerabilities in the deployment unit.
+
+Before we push this change to GitHub, we also address the vulnerability issue in the deployment unit, that is __jetty-io__. Here we are a bit unsure about
+why, in this specific use case, the library is used. To retrieve more information about dependencies, we run a _dependency:tree_ command on our Maven
+based project. We now see that jetty-io is transitively referenced by _org.seleniumhq.selenium:htmlunit-driver_. We can surely discuss why this is a compile
+dependency and the libraries are shipped as part of the WAR, but let's consider this to be given according to requirements, thus we must take special attention now
+to version 2.29.0 of the specific library.
+
+image:/images/post-images/jenkins-devsecops/05.png[role=center, title="Inspecting the dependency structure, with the used build tool"]
+
+Also here we can browse release notes and content (particularly how those libs are built themselves), and come to the conclusion to
+switch from the used version, that is _2.29.0_, to a newer version of _htmlunit-driver_, that is _2.31.1_.
+
+.pom.xml (excerpt): Build file
+[source, xml]
+----
+    <dependencies> // <1>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>3.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId> // <2>
+            <artifactId>htmlunit-driver</artifactId>
+            <version>2.31.1</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.7</version>
+        </dependency>
+----
+<1> Part of the underlying POM defining dependencies
+<2> Definition of the dependency, causing the vulnerability finding; we use a newer version now
+
+OK, now we are done. We push the changes to GitHub, and our GitHub webhook directly triggers the workflow. This time the quality gate passes, so it
+looks like our fixes did address the root causes and eliminated those with the configured threshold severity.
+
+image:/images/post-images/jenkins-devsecops/06.png[role=center, title="Part of the delivery pipeline, showing the quality gate passed and Docker image inspected without findings of severity CRITICAL"]
+
+Finally, after running through our entire workflow, that is made up of different pipelines, our inspected and quality assured container does successfully
+run in our production runtime environment, that is on Oracle Cloud.
+
+image:/images/post-images/jenkins-devsecops/07.png[role=center, title="The quality assured Docker container runs in the Oracle Cloud."]
+
+Crisp, isn't it?
+
+== Summary
+
+This closes our quick walkthrough of how to inject security related quality gates into a Jenkins based delivery pipeline.
+We've discussed some concepts and how this can look like with sample tools.
+In the center of our efforts, we used Jenkins, the swiss army knife of automation.
+We enriched our ecosystem by integrating couple of platforms and tools, above all Twistlock.
+After this tasty appetizer you are ready to assess your own delivery pipelines,
+concepts and tools, and to possibly invest even more attention to security.
+
+== References
+* link:http://huettermann.net/alm/['Agile ALM', Manning, 2011]
+* link:http://huettermann.net/devops/['DevOps for Developers', Apress, 2012]
+* link:https://www.docker.com/[Docker, the standard to develop and ship set of changes]
+* link:https://hub.docker.com/_/openjdk/[Docker images, shipping OpenJDK]
+* link:https://cloud.oracle.com/en_US/containers[Oracle Cloud Infrastructure, for containers]
+* link:https://alpinelinux.org/[Alpine Linux]
+* link:https://www.sonarqube.org/[SonarQube, the language/platform agnostic Continuous Inspection tool]
+* link:https://www.twistlock.com/[Twistlock, the container security platform]
+* link:https://github.com/michaelhuettermann/sandbox/tree/master/all/[Sources on GitHub]
+* link:https://de.wikipedia.org/wiki/American_Standard_Code_for_Information_Interchange[ASCII, commonly used standard to work on primitives, such as Docker (and their aggregations)]
+* link:https://en.wikipedia.org/wiki/Common_Vulnerabilities_and_Exposures[Common Vulnerabilities and Exposures]
+* link:https://youtu.be/jBGFjFc6Jf8?t=1427[Holistic pipelines, Live 15-minute Jenkins Demos, Part 1, on YouTube]
+* link:https://youtu.be/rS_pchiwGdM?t=95[Holistic pipelines, Live 15-minute Jenkins Demos, Part 2, on YouTube]
+* link:/blog/2017/04/18/continuousdelivery-devops-sonarqube/[Delivery Pipelines, with Jenkins 2, SonarQube, and Artifactory]
+* link:/blog/2017/07/05/continuousdelivery-devops-artifactory/[Delivery pipelines, with Jenkins 2: how to promote Java EE and Docker binaries toward production]
