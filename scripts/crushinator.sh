@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-FILENAME=$1
+TARGETPATH=$1
 
-if [ -z "$FILENAME" ]; then
-    echo "Need a filename as the first argument"
+if [ -z "$TARGETPATH" ]; then
+    echo "Need a filename or directory as the first argument"
     exit 1;
 fi;
 
@@ -14,13 +14,13 @@ if [ $? -ne 0 ]; then
     exit 1;
 fi;
 
-if [ -d "./$FILENAME" ]; then
-    find . -ipath "./$FILENAME/*" -and -name *.png -exec pngcrush -ow -noforce -reduce {} ";"
+if [ -d "$TARGETPATH" ]; then
+    find "$TARGETPATH" -name *.png -exec pngcrush -ow -noforce -reduce {} ";"
 else
-    pngcrush -ow -noforce -reduce "$FILENAME"
+    pngcrush -ow -noforce -reduce "$TARGETPATH"
 fi;
 
 if [ $? -ne 0 ]; then
-    echo "Error crushing ${FILENAME}"
+    echo "Error crushing ${TARGETPATH}"
     exit 1;
 fi;
