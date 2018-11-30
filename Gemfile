@@ -21,3 +21,5 @@ end
 group :pdfs do
   gem 'asciidoctor-pdf', '1.5.0.alpha.15'
 end
+
+gem "concurrent-ruby", "~> 1.1"
