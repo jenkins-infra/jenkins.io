@@ -299,7 +299,7 @@ that are run upon the completion of a Pipeline's or stage's run (depending on
 the location of the `post` section within the Pipeline). `post` can support any of
 of the following <<post-conditions, post-condition>> blocks: `always`,
 `changed`, `fixed`, `regression`, `aborted`, `failure`, `success`,
-`unstable`, and `cleanup`. These condition blocks allow the execution
+`unstable`, `unsuccessful`, and `cleanup`. These condition blocks allow the execution
 of steps inside each condition depending on the completion status of
 the Pipeline or stage. The condition blocks are executed in the order
 shown below.
@@ -341,6 +341,9 @@ run has a "success" status, typically denoted by blue or green in the web UI.
 `unstable`:: Only run the steps in `post` if the current Pipeline's or stage's
 run has an "unstable" status, usually caused by test failures, code violations,
 etc. This is typically denoted by yellow in the web UI.
+`unsuccessful`:: Only run the steps in `post` if the current Pipeline's or stage's
+run has not a "success" status. This is typically denoted in the web UI depending
+on the status previously mentioned
 `cleanup`:: Run the steps in this `post` condition after every other
 `post` condition has been evaluated, regardless of the Pipeline or
 stage's status.
@@ -558,7 +561,7 @@ disable branch indexing triggers for this job only.
 preserveStashes:: Preserve stashes from completed builds, for use with
 stage restarting. For example: `options { preserveStashes() }` to
 preserve the stashes from the most recent completed build, or `options
-{ preserveStashes(5) }` to preserve the stashes from the five most
+{ preserveStashes(buildCount: 5) }` to preserve the stashes from the five most
 recent completed builds.
 
 quietPeriod:: Set the quiet period, in seconds, for the Pipeline, overriding the global default.
@@ -1114,6 +1117,9 @@ anyOf:: Execute the stage when at least one of the nested conditions is true.
 Must contain at least one condition.
 For example: `when { anyOf { branch 'master'; branch 'staging' } }`
 
+triggeredBy:: Execute the stage when the current build has been triggered by the param given.
+For example: ` when { triggeredBy 'SCMTrigger' }`
+
 ===== Evaluating `when` before entering the `stage`'s `agent`
 
 By default, the `when` condition for a `stage` will be evaluated after
@@ -1328,14 +1334,40 @@ pipeline {
 // Script //
 ----
 
+.`triggeredBy`
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                triggeredBy "TimerTrigger"
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
+----
+
 === Sequential Stages
 
 Stages in Declarative Pipeline may declare a list of nested stages to be run
 within them in sequential order. Note that a stage must have one and only one of
-`steps`, `parallel`, or `stages`, the last for sequential stages. The stages
-within `stages` in a stage cannot contain further `parallel` or `stages`
-themselves, but they do allow use of all other functionality of a stage, including
-`agent`, `tools, `when`, etc.
+`steps`, `parallel`, or `stages`, the last for sequential stages. It is not
+possible to nest a `parallel` block within a `stage` directive if that `stage`
+directive is nested within a `parallel` block itself. However, a `stage`
+directive within a `parallel` block can use all other functionality of a `stage`,
+including `agent`, `tools`, `when`, etc.
 
 [[sequential-stages-example]]
 ==== Example
@@ -1362,16 +1394,30 @@ pipeline {
                 FOR_SEQUENTIAL = "some-value"
             }
             stages {
-               stage('In Sequential 1') {
-                   steps {
-                       echo "In Sequential 1"
-                   }
-               }
-               stage('In Sequential 2') {
-                   steps {
-                       echo "In Sequential 2"
-                   }
-               }
+                stage('In Sequential 1') {
+                    steps {
+                        echo "In Sequential 1"
+                    }
+                }
+                stage('In Sequential 2') {
+                    steps {
+                        echo "In Sequential 2"
+                    }
+                }
+                stage('Parallel In Sequential') {
+                    parallel {
+                        stage('In Parallel 1') {
+                            steps {
+                                echo "In Parallel 1"
+                            }
+                        }
+                        stage('In Parallel 2') {
+                            steps {
+                                echo "In Parallel 2"
+                            }
+                        }
+                    }
+                }
             }
         }
     }
