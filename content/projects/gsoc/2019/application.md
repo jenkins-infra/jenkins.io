@@ -88,13 +88,13 @@ In our community we are interested in more contributors in both Jenkins core and
 * Students will cooperate with Jenkins community during the project. Org Admins will provide an introductory training (community overview, code-of-conduct, etc.), then mentors will help students to establish contacts with experts from the community
 * We will ensure that students are around in public chats and other communication channels during the “working days”
 * Students will be encouraged to present proofs-of-concept of their projects on public Jenkins Developer meetings and in blog posts
-* Students will be involved into all standard processes in our community (inc. pull requests, code reviews, IRC discussions,test automation for their projects, documentation development, etc.).
-* Students will be participating in Jenkins Governance Meetings (https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda). 
+* Students will be involved into all standard processes in our community (including pull requests, code reviews, IRC/Gitter discussions, test automation for their projects, documentation development, etc.).
+* Students may be participating in Jenkins Governance Meetings (https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda). 
 * The Jenkins project has an active blog, and students will be encouraged to use this to give updates to the wider community.
 
 #### How will you keep students involved with your community after GSoC?
 
-* There will be a [Jenkins World conference](https://www.cloudbees.com/jenkinsworld/home) in USA in September 2018. We plan sponsoring successful students to go to this or other Jenkins-focused conference & contributor summit.The projects will be also presented at the [Jenkins Online Meetup](https://www.meetup.com/Jenkins-online-meetup/).
+* There will be a [Jenkins World conference](https://www.cloudbees.com/jenkinsworld/home) in USA in August 2019. We plan sponsoring successful students to go to this or other Jenkins-focused conference & contributor summit.The projects will be also presented at the [Jenkins Online Meetup](https://www.meetup.com/Jenkins-online-meetup/).
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course). Public presentations will attract attention, and the students will be periodically contacted by users.
 * Students will be also advised to present their projects at local Jenkins Area Meetups (https://jenkins.io/projects/jam)
 * Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/). The students will be visible in the community even after the main GSoC phase.
