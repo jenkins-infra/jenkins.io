@@ -70,7 +70,7 @@ In our community we are interested in more contributors in both Jenkins core and
 * Mentors bring their own project, and they are expected to have a high interest in it
 * Mentors will be directly involved into student selection and interview processes so they will establish connection with successful students early
 * We do not require mentors to be experts in the code base, because we expect students to work with other community members.
-* We will conduct Weekly meetings between mentors and org admins to sync-up on progress and any issues.
+* Starting from Dec 2018 we conduct [weekly meetings](https://jenkins.io//projects/gsoc/#office-hours) between mentors and org admins to sync-up on progress and any issues:
 * As org admins we will be monitoring mentor/student interaction starting from the application phase. If something goes wrong, as org admins we will jump in and/or find additional mentors
 * There will be a private communication channel between org admins and mentors.
 
@@ -79,7 +79,7 @@ In our community we are interested in more contributors in both Jenkins core and
 * During the Community Bonding phase mentors will share their expertise in order to define realistic project plans, design document, and effort estimations.
 * The student project milestones will be discussed and confirmed between mentors and students. Milestones will be aligned with student evaluations and will have clear expectations set up.
 * Mentors will set up regular meetings with students (at least twice per week) in order to sync-up on projects. We will also recommend having retrospectives with students after evaluations.
-* Mentors should be available to questions. They should also provide a periodic feedback on the progress of the project and on the performance of particular students (1x1).
+* Mentors should be available for questions. They should also provide a periodic feedback on the progress of the project and on the performance of particular students (1x1).
 * We will set up weekly public office-hours with students (or two meetings if time-zones require it) and private ones between mentors and org admins to sync-up
 * We will be requiring a daily push to branches so that the students always show the progress and keep changes atomic.
 * During the coding period, mentors will participate in the code reviews of their student and report to org admins if the project stalls.
@@ -106,7 +106,7 @@ Yes, in 2016 and 2018
 2016: 1/5 (3 students have been failed due to major undisclosed time commitments, which impacted the project quality at the first coding phase)
 
 #### If your org has applied for GSoC before but not been accepted, select the years
-2009, 2017 (I thought 2017 too)
+2009, 2017
 
 #### If you are a new organization to GSoC, is there a Google employee or previously participating organization who will vouch for you? If so, please enter their name, contact email, and relationship to your organization. (optional)
 
