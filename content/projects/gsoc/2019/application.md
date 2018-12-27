@@ -47,7 +47,7 @@ Participating in Google Summer of Code is a serious commitment requiring an almo
 If it may overlap with your study and other commitments, we recommend to think twice before applying.
 
 If you have any questions about the application process, 
-please feel free to contact us via the “jenkinsci-gsoc-orgs@googlegroups.com” mailing list.
+please feel free to contact us via the mailing list or the chat.
 
 #### Proposal tags (max - 10)
 
@@ -114,7 +114,7 @@ They should also provide a periodic feedback on the progress of the project and 
 
 #### How will you keep students involved with your community after GSoC?
 
-* There will be a [Jenkins World conference](https://www.cloudbees.com/jenkinsworld/home) in USA in August 2019. 
+* There will be a [DevOps World - Jenkins World conference](https://www.cloudbees.com/jenkinsworld/home) in USA in August 2019 and then in Europe in Dec 2019. 
   We plan sponsoring successful students to go to this or other Jenkins-focused conference & contributor summit.
   The projects will be also presented at the [Jenkins Online Meetup](https://www.meetup.com/Jenkins-online-meetup/).
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course). 
