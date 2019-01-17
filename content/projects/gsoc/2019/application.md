@@ -20,7 +20,8 @@ Please feel free to contribute to it by proposing pull requests against the page
   * java
   * groovy
   * javascript
-  * react
+  * docker
+  * kubernetes
 * Topic Tags (max 5)
   * continuous integration
   * continuous delivery
@@ -29,6 +30,7 @@ Please feel free to contribute to it by proposing pull requests against the page
 * Ideas list: https://jenkins.io/projects/gsoc/2019/project-ideas/ 
 * Primary open-source license: MIT License
 * Category: Programming Languages and Development tools
+* Logo: https://wiki.jenkins.io/download/attachments/2916393/logo-title.png
 
 #### Short description
 
@@ -68,14 +70,16 @@ please feel free to contact us via the mailing list or the chat.
 
 #### Proposal tags (max - 10)
 
-* new feature
 * user experience
 * plugins
 * performance
-* plugin developer tools
+* developer tools
 * electronic design automation
-* Web UI
+* web interfaces
 * REST API
+* cloud technologies
+* containers
+* configuration-as-code
 
 #### Contents
 
@@ -106,7 +110,11 @@ We hope this will help us to improve student/mentor experience and overall resul
 * We do not require mentors to be experts in the code base, because we expect students to work with other community members.
 * Starting from Dec 2018 we conduct [weekly meetings](https://jenkins.io//projects/gsoc/#office-hours) between mentors and org admins to sync-up on progress and any issues:
 * As org admins we will be monitoring mentor/student interaction starting from the application phase. If something goes wrong, as org admins we will jump in and/or find additional mentors
-* There will be a private communication channel between org admins and mentors.
+
+
+<!-- DOES NOT FIT the form size
+* There will be a private communication channel between org admins and mentors. 
+-->
 
 #### How will you help your students stay on schedule to complete their projects?
 
@@ -119,7 +127,10 @@ We hope this will help us to improve student/mentor experience and overall resul
 They should also provide a periodic feedback on the progress of the project and on the performance of particular students (1x1).
 * We will set up weekly public office-hours with students (or two meetings if time-zones require it) and private ones between mentors and org admins to sync-up
 * We will be requiring a daily push to branches so that the students always show the progress and keep changes atomic.
+
+<!-- DOES NOT FIT form size 
 * During the coding period, mentors will participate in the code reviews of their student and report to org admins if the project stalls.
+-->
 
 #### How will you get your students involved in your community during GSoC? 
          
@@ -141,7 +152,7 @@ They should also provide a periodic feedback on the progress of the project and 
   Public presentations will attract attention, and the students will be periodically contacted by users.
 * Students will be also advised to present their projects at local Jenkins Area Meetups (https://jenkins.io/projects/jam)
 * Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/). 
-  The students will be visible in the community even after the main GSoC phase.
+  The students will be visible in the community even after GSoC
 
 #### Has your org been accepted as a mentoring org in Google Summer of Code before?
 Yes, in 2016 and 2018
