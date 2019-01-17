@@ -15,28 +15,45 @@ Please feel free to contribute to it by proposing pull requests against the page
 
 ### Organization Profile
 
-* Tagline (up to 80 symbols): Jenkins is an open-source automation server
-* Technology tags: java, groovy, javascript
-* Topic Tags: continuous integration, continuous delivery, developer tools, devops
+* Tagline (up to 80 symbols): Open-source automation server for building great things at any scale
+* Technology tags (max 5): 
+  * java
+  * groovy
+  * javascript
+  * react
+* Topic Tags (max 5)
+  * continuous integration
+  * continuous delivery
+  * developer tools
+  * devops
 * Ideas list: https://jenkins.io/projects/gsoc/2019/project-ideas/ 
+* Primary open-source license: MIT License
+* Category: Programming Languages and Development tools
 
 #### Short description
 
-Jenkins is the open source automation server. 
+Jenkins is an open source automation server. 
 Built primarily in Java, it provides hundreds of plugins to support building, testing, deploying and automating virtually any project.
 
 #### Long description (Markdown)
 
-[Jenkins](https://jenkins.io/), originally founded in 2006 as "Hudson", is one of the leading automation servers available. 
+[Jenkins](https://jenkins.io/), originally founded in 2006 as "Hudson", is one of the leading automation servers. 
+Jenkins' motto is "Build great things at any scale".
 Using an extensible, plugin-based architecture developers have created hundreds of plugins to adapt Jenkins to a multitude of build, test, and deployment automation workloads. 
 Jenkins core is open-source ([MIT License](http://www.opensource.org/licenses/mit-license.php))
 
 The project has about 400 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc. 
-In total we have around 2000 different components including plugins, libraries, and various utilities. 
-The main languages in the project are Java, Groovy and JavaScript, but we also have components written in other languages.
+In total we have more than 2000 components including plugins, libraries, and various utilities. 
+The main languages in the project are Java, Groovy and JavaScript, 
+but we also have components written in other languages (Go, C/C++, C#, etc.).
+Jenkins project also includes multiple 
+[sub-projects](https://jenkins.io/projects/) (including [Jenkins X](https://jenkins-x.io/), 
+[Configuration-as-Code](https://jenkins.io/projects/jcasc/) 
+and [Remoting](https://jenkins.io/projects/remoting/)) and 
+[special interest groups](https://jenkins.io/sigs/).
+These projects and SIGs participate in GSoC as a part of the Jenkins project.
 
 This year we invite students to join the Jenkins community and to work together on Jenkins plugins in order to improve Jenkins user experience and reliability.
-
 
 #### Proposal process:
 
@@ -57,6 +74,8 @@ please feel free to contact us via the mailing list or the chat.
 * performance
 * plugin developer tools
 * electronic design automation
+* Web UI
+* REST API
 
 #### Contents
 
@@ -71,12 +90,12 @@ please feel free to contact us via the mailing list or the chat.
 In our community we are interested in more contributors in both Jenkins core and more than 1,000 of existing plugins. 
 We consider Google Summer of Code as an opportunity to find new contributors and students interested in software development automation (continuous integration and continuous delivery). 
 For us it is also a great opportunity to get existing contributors more involved into the community work. 
-We have previously participated in GSoC 2016 and got much experience from it, especially regarding the student selection process. 
-We also learned our lesson in 2017, we were able to attract more mentors interested in the project. 
+We have previously participated in GSoC 2016/2018 and got much experience from it, especially regarding the student selection process. 
 We hope this will help us to improve student/mentor experience and overall results this year.
 
 #### How many potential mentors have agreed to participate?
-6-10
+
+20+
 
 #### How will you keep mentors engaged with their students?
 
@@ -102,7 +121,8 @@ They should also provide a periodic feedback on the progress of the project and 
 * We will be requiring a daily push to branches so that the students always show the progress and keep changes atomic.
 * During the coding period, mentors will participate in the code reviews of their student and report to org admins if the project stalls.
 
-#### How will you get your students involved in your community during GSoC?          
+#### How will you get your students involved in your community during GSoC? 
+         
 * Students will cooperate with Jenkins community during the project. 
   Org Admins will provide an introductory training (community overview, code-of-conduct, etc.), 
   then mentors will help students to establish contacts with experts from the community
@@ -136,9 +156,23 @@ Yes, in 2016 and 2018
 
 EMPTY
 
+#### What year was your project started?
+
+2006
+
+#### Where does your source code live
+
+https://github.com/jenkinsci/ ,
+https://github.com/jenkins-x/ ,
+https://github.com/jenkins-infra/
+
 #### Are you part of a foundation/umbrella organization?
 Yes, Software in the Public Interest, Inc. (http://spi-inc.org) a 501 (c) (3) non-profit organization
 
 #### Anything else we should know (optional)?
 
-EMPTY
+There is a probability that Jenkins project migrates from SPI to Linux Foundation this year
+[ongoing discussion](https://groups.google.com/d/msg/jenkinsci-dev/1w57jl3K4S4/OFDYSEfXEwAJ). 
+GSoC org admins closely monitor this topic, 
+and we will make sure to notify GSoC Support team if this migration impacts the organization payment process.
+
