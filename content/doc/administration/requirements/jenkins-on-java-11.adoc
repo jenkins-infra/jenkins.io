@@ -1,0 +1,71 @@
+---
+layout: documentation
+title: Running Jenkins on Java 11
+---
+
+If you need to upgrade the JVM version used to run Jenkins from Java 8 to Java 11, please link:/doc/administration/requirements/upgrade-java-guidelines[follow this guidelines].
+
+NOTE: At this moment, it is not required to upgrade the JVM version in order to run a Jenkins core more recent than `2.155`.
+
+Since Jenkins `2.155`, it is possible to run Jenkins with Java 11.
+However, it was greatly simplified since version `2.163`. 
+For the sake of simplicity, we will describe next how to run Jenkins on Java 11 with the most recent version of Jenkins.
+
+== Running Jenkins with Docker
+
+The easiest way to run Jenkins on Java 11 is to use the Docker image.
+Since the weekly release `2.155`, each weekly releases were also packaged on a Java 11 ready Docker image.
+All these images are based on the official link:https://hub.docker.com/r/_/openjdk/[openjdk:11-jdk] image maintained by the Docker Community.
+
+You can choose these Java 11 based images by using the `jdk11` tag (for the latest weekly release) or by suffixing the tag to use with `-jdk11` (eg. `2.163-jdk11`).
+
+This is the command to use, in order to start a Jenkins running on Java 11: 
+
+[source, shell]
+----
+docker pull jenkins/jenkins:jdk11
+docker run --rm -ti \
+  -p 8080:8080 -p 50000:50000
+  -v jenkins-home:/var/jenkins_home \
+  jenkins/jenkins:jdk11
+----
+
+== Running Jenkins with Java
+
+It is also possible to run Jenkins using the `java` command.
+At the time those lines are writen, the support of Java 11 is a opt-in.
+It means that it's a feature we need to activate when Jenkins is started.
+
+To do so, we have two options:
+
+* using the `--enable-future-java` option on the `jenkins.war` binary
+* using the `ENABLE_FUTURE_JAVA=true` environment variable.
+
+NOTE: the `--enable-future-java` option is part of the Jenkins configuration. 
+It needs to be after the `-jar jenkins.jar`.
+
+Also, because some plugins are using classes in the package `java.sql`, which is not public since Java 9, we need to open this module with the `java` parameter `--add-modules java.sql`.
+
+Starting Jenkins would be:
+
+[source, shell]
+----
+java \
+  --add-modules java.sql \
+  -jar jenkins.war \
+  --enable-future-java
+----
+
+== Discovering issues with Java 11
+
+Since June 2018 to February 2019, the community performed many exploratory tests to try to discover as many issues related to Java 11 as possible.
+The result of this is that the community solved a lot of problem before anouncing the support of Java 11 by Jenkins.
+However, it is still possible that some plugins are not yet compatible with Java 11.
+
+In order to track this, we have created a new link:https://wiki.jenkins.io/display/JENKINS/Known+Java+11+Compatibility+issues[Known Java 11 Compatibility Issues] Wiki page.
+
+If you discover any Java 11 incompatibilities, please link:https://wiki.jenkins.io/display/JENKINS/How+to+report+an+issue[report issues in our bugtracker].
+Please set `java11-compatibility` labels for such issues so that they automatically appear on the Wiki page and get triaged.
+
+For the security issues please use the standard link:https://jenkins.io/security/#reporting-vulnerabilities[vulnerability reporting process].
+Although we will be fixing Java 11 specific issues in public while it is in the preview, following the security process will help us to investigate impact on Java 8 users.
