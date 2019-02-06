@@ -27,6 +27,7 @@ Please feel free to contribute to it by proposing pull requests against the page
   * continuous delivery
   * developer tools
   * devops
+  * automation
 * Ideas list: https://jenkins.io/projects/gsoc/2019/project-ideas/ 
 * Primary open-source license: MIT License
 * Category: Programming Languages and Development tools
