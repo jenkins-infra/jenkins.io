@@ -103,7 +103,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 
 #### How will you keep mentors engaged with their students?
 
-* Each student project will have at least 2+ mentors AND org admin advisor assigned to the project.
+* Each student project will have at least 2+ mentors AND an org admin advisor assigned to the project.
 * Mentors are expected to be accomplished Jenkins contributors, who are passionate about the community/mentorship work.
 * Mentors bring their own project, and they are expected to have a high interest in it
 * Mentors will be directly involved into student selection and interview processes so they will establish connection with successful students early
@@ -138,10 +138,12 @@ They should also provide a periodic feedback on the progress of the project and 
   Org Admins will provide an introductory training (community overview, code-of-conduct, etc.), 
   then mentors will help students to establish contacts with experts from the community
 * We will ensure that students are around in public chats and other communication channels during the “working days”
-* Students will be encouraged to present proofs-of-concept of their projects on public Jenkins Developer meetings and in blog posts
+* Projects will handled under an umbrella of
+  [SIGs](https://jenkins.io/sigs) or [sub-projects](https://jenkins.io/projects)
+  so that there is a number of non-mentor stakeholders and early adopters
 * Students will be involved into all standard processes in our community (including pull requests, code reviews, IRC/Gitter discussions, test automation for their projects, documentation development, etc.).
-* Students may be participating in Jenkins Governance Meetings (https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda). 
-* The Jenkins project has an active blog, and students will be encouraged to use this to give updates to the wider community.
+* Students will be participating in sub-project/SIG meetings and presenting their work there on a regular basis
+* Students will be encouraged to give updates to the wider community in the Jenkins blog
 
 #### How will you keep students involved with your community after GSoC?
 
