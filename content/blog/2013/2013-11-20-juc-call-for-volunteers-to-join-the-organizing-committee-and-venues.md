@@ -13,7 +13,7 @@ This is a guest post from Alyssa Tong, who drives JUC organizations around the w
 
 <hr>
 
-If you missed JUC Palo Alto on Oct 23, 2013 the [videos are now available](http://www.cloudbees.com/jenkins/juc2013/juc2013-palo-alto-abstracts.cb). 
+If you missed JUC Palo Alto on Oct 23, 2013 the [videos are now available](https://www.cloudbees.com/jenkins/juc2013/juc2013-palo-alto-abstracts.cb). 
 
 We are off to planning JUC 2014. It is hard to believe this will be the 4th annual JUC in the Bay Area. The growth in the Jenkins community since the first JUC is astounding. 
 

@@ -9,7 +9,7 @@
 - video
 :author: daniel-beck
 ---
-[Kubernetes](http://kubernetes.io/) is an open-source project by Google that provides a platform for managing Docker containers as a cluster. In their own words:
+[Kubernetes](https://kubernetes.io/) is an open-source project by Google that provides a platform for managing Docker containers as a cluster. In their own words:
 
 > Kubernetes is an open source orchestration system for Docker containers. It handles scheduling onto nodes in a compute cluster and actively manages workloads to ensure that their state matches the users declared intentions. Using the concepts of "labels" and "pods", it groups the containers which make up an application into logical units for easy management and discovery.
 
@@ -24,6 +24,6 @@ Several new Jenkins plugins allow you to make use of Kubernetes and these servic
 
 For a more in-depth look at how you can use Kubernetes with Jenkins, check out these posts on the CloudBees blog by Tracy Kennedy:
 
-* [Orchestrating deployments with Jenkins Workflow and Kubernetes](http://blog.cloudbees.com/2015/07/orchestrating-deployments-with-jenkins.html)
-* [On-demand Jenkins slaves with Kubernetes and the Google Container Engine](http://blog.cloudbees.com/2015/07/on-demand-jenkins-slaves-with.html)
-* [Clustering Jenkins with Kubernetes in the Google Container Engine](http://blog.cloudbees.com/2015/07/clustering-jenkins-with-kubernetes-in.html)
+* [Orchestrating deployments with Jenkins Workflow and Kubernetes](https://blog.cloudbees.com/2015/07/orchestrating-deployments-with-jenkins.html)
+* [On-demand Jenkins slaves with Kubernetes and the Google Container Engine](https://blog.cloudbees.com/2015/07/on-demand-jenkins-slaves-with.html)
+* [Clustering Jenkins with Kubernetes in the Google Container Engine](https://blog.cloudbees.com/2015/07/clustering-jenkins-with-kubernetes-in.html)

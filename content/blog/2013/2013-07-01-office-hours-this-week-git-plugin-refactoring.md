@@ -11,7 +11,7 @@
 This Wednesday's [Jenkins office hours](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours) is all about the Git plugin refactoring that's going on.
 
 <div style="float:right; margin:1em">
-<img  width="250" src="http://git-scm.com/images/logos/2color-lightbg@2x.png"/>
+<img  width="250" src="https://git-scm.com/images/logos/2color-lightbg@2x.png"/>
 </div>
 
 [Git plugin](https://wiki.jenkins-ci.org/display/JENKINS/Git+Plugin) is one of the most popular plugins out there, and it's been around for quite some time. Combine that with the fact that there are so many different ways to use Git, it was inevitable that Git plugin became quite a capable but complex plugin over time. It has more than a dozen options and switches, and it was becoming harder to use and harder to maintain.
