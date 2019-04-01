@@ -10,10 +10,10 @@
 :author: rtyler
 ---
 Over the past few weeks there has been a vibrant discussion happening on the
-[jenkinsci-dev@](http://groups.google.com/group/jenkinsci-dev/topics) mailing
+[jenkinsci-dev@](https://groups.google.com/group/jenkinsci-dev/topics) mailing
 list as to what "[Jenkins
 2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0)" means.  While
-Jenkins does not currently adhere to [semantic versioning](http://semver.org/),
+Jenkins does not currently adhere to [semantic versioning](https://semver.org/),
 the change of a major version number does indicate a major milestone for the community.
 
 Project founder, [Kohsuke Kawaguchi](https://github.com/kohsuke) presented his

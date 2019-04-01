@@ -8,10 +8,10 @@
 - javaone
 :author: rtyler
 ---
-**Editor's note:** *This is a **very** rough set of notes from [Kohsuke Kawaguchi's](http://twitter.com/kohsukekawa) presentation at JavaOne 2010.*
+**Editor's note:** *This is a **very** rough set of notes from [Kohsuke Kawaguchi's](https://twitter.com/kohsukekawa) presentation at JavaOne 2010.*
 
 
-<a href="http://www.flickr.com/photos/hudsonlabs/5008629375/" title="Kohsuke talks to a packed room at #JavaOne by hudson.labs, on Flickr"><img src="http://farm5.static.flickr.com/4083/5008629375_6f603b6093_m.jpg" width="180" height="240" alt="Kohsuke talks to a packed room at #JavaOne" align="right"/></a>
+<a href="https://www.flickr.com/photos/hudsonlabs/5008629375/" title="Kohsuke talks to a packed room at #JavaOne by hudson.labs, on Flickr"><img src="https://farm5.static.flickr.com/4083/5008629375_6f603b6093_m.jpg" width="180" height="240" alt="Kohsuke talks to a packed room at #JavaOne" align="right"/></a>
 
 Kohsuke takes the stage, asks "who uses's Hudson" the majority of
 audience raises their hands
