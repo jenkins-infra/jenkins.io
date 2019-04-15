@@ -8,7 +8,7 @@
 - core
 :author: rtyler
 ---
-<img src="http://agentdero.cachefly.net/continuousblog/images/jenkinsCIA.jpg" alt="Agent L. Jenkins" align="right"/>
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/jenkinsCIA.jpg" alt="Agent L. Jenkins" align="right"/>
 
 For years, we've been hearing about *covert* installations of Jenkins by groups
 of developers within larger companies. Rogue engineers, frustrated by the lack

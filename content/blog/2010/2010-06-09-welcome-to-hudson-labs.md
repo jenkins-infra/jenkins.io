@@ -14,7 +14,7 @@
 
 ### What is Hudson Labs?
 
-As you may have [read in April](http://www.hudson-labs.org/content/kohsuke-leaves-sun), Kohsuke left Oracle to found [InfraDNA](http://www.infradna.com/), a company specializing around Hudson. The departure meant the Hudson community would no longer have access to some of the hardware and services that Kohsuke had accumulated over the years working on Hudson at Sun Microsystems. While we are still happily part of the [Java.net](http://java.net/) community, we've recognized the need for some community-owned resources and Hudson Labs was born.
+As you may have [read in April](https://jenkins.io/content/kohsuke-leaves-sun), Kohsuke left Oracle to found [InfraDNA](https://web.archive.org/web/20100612130510/http://infradna.com/), a company specializing around Hudson. The departure meant the Hudson community would no longer have access to some of the hardware and services that Kohsuke had accumulated over the years working on Hudson at Sun Microsystems. While we are still happily part of the [Java.net](https://java.net/) community, we've recognized the need for some community-owned resources and Hudson Labs was born.
 
 Over the past couple months, a group within the Hudson community, "infra" (short for "infrastructure"), has been working to get machines set up and build the foundation for a more open Hudson project infrastructure.
 
@@ -23,12 +23,12 @@ Over the past couple months, a group within the Hudson community, "infra" (short
 <!--break-->
 ##### Builds
 
-One of the first tasks we set upon when building out Hudson Labs was to start improving the build and release process of Hudson by moving as much of it into a [public Hudson instance](http://ci.hudson-labs.org). Building Hudson itself, plugins and dependencies of the Hudson project, the Hudson Labs instance will help improve the reliability of the Hudson ecosystem across the board, and should serve as a useful tool for core and plugin developers.
+One of the first tasks we set upon when building out Hudson Labs was to start improving the build and release process of Hudson by moving as much of it into a [public Hudson instance](https://ci.hudson-labs.org). Building Hudson itself, plugins and dependencies of the Hudson project, the Hudson Labs instance will help improve the reliability of the Hudson ecosystem across the board, and should serve as a useful tool for core and plugin developers.
 
 
 ##### Mirroring
 
-Thanks to the great team over at the [Oregon State University Open Source Lab](http://www.osuosl.org) (<a id="aptureLink_oz4HIIQKJD" href="http://twitter.com/osuosl">OSUOSL</a>), we've been able to build out [mirroring infrastructure](http://ftp.osuosl.org/pub/hudson/) for Hudson to provide fast access to native packages and wars alike. Currently the OSUOSL only has mirrors inside the continental United States, so we're reaching out to friends in Asia and Europe to extend the mirroring system.
+Thanks to the great team over at the [Oregon State University Open Source Lab](https://www.osuosl.org) (<a id="aptureLink_oz4HIIQKJD" href="https://twitter.com/osuosl">OSUOSL</a>), we've been able to build out [mirroring infrastructure](https://ftp.osuosl.org/pub/hudson/) for Hudson to provide fast access to native packages and wars alike. Currently the OSUOSL only has mirrors inside the continental United States, so we're reaching out to friends in Asia and Europe to extend the mirroring system.
 
 ##### Information
 

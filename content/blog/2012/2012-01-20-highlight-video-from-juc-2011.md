@@ -12,4 +12,4 @@ A slick highlight video from the [Jenkins User Conference, 2011](/content/jenkin
 
 I've embedded the video below, enjoy!
 
-<center><iframe width="560" height="315" src="http://www.youtube.com/embed/_l9OgJc4_-w" frameborder="0" allowfullscreen></iframe></center>
+<center><iframe width="560" height="315" src="https://www.youtube.com/embed/_l9OgJc4_-w" frameborder="0" allowfullscreen></iframe></center>
