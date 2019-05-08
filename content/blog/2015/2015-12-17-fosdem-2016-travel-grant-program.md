@@ -8,7 +8,7 @@
 - cia
 :author: rtyler
 ---
-<img src="https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/>
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/>
 
 While we are gearing up for [FOSDEM 2016](https://fosdem.org/2016/) early next year in Brussels, I wanted to remind the Jenkins community about our [Travel Grant Program](https://wiki.jenkins-ci.org/display/JENKINS/Travel+Grant+Program). We're a little late on mentioning it, but the board has allocated the money to help Jenkins contributors travel to Brussels to participate in FOSDEM and the Jenkins Contributor Summit which we will be hosting the day after, Feb 1st, which we'll discuss more in a later blog post.
 

@@ -15,6 +15,6 @@
 
 <p>The survey will close at the end of September and, if you participate, you'll get to see the results first. CloudBees is sponsoring the survey and as an added incentive for us to fill it out, CloudBees has pitched in a $100 Amazon gift card (thanks CloudBees!). Information you submit is only going to be used by the community and not by CloudBees. So please take the survey and let your voice be heard.</p>
 
-<p><a href="http://blog.cloudbees.com/2015/09/jenkins-community-survey-your-chance-to.html">Finally, there are laws that govern prize giveaways like this and CloudBees has put up terms and conditions for this.</a></p>
+<p><a href="https://blog.cloudbees.com/2015/09/jenkins-community-survey-your-chance-to.html">Finally, there are laws that govern prize giveaways like this and CloudBees has put up terms and conditions for this.</a></p>
 
 <p><h2><a href="https://www.surveymonkey.com/s/Jenkins2015">Take the survey here</a></h2></p>

@@ -21,7 +21,7 @@ Earlier today we received numerous reports about a previously undisclosed "[zero
 
 The attack is mounted through the [Jenkins CLI](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+CLI) subsystem, so the work-around is to remove/disable the CLI support inside of the running Jenkins server.
 
-Using the following Groovy script you can disable the attack vector in your Jenkins installations by navigating to “Manage Jenkins” and then to “Script Console”, or just go to `+http://your-jenkins-installation/script+`. This only addresses the current running Jenkins process, in order to make the workaround persist between restarts of the Jenkins server, add the script below to `$JENKINS_HOME/init.groovy.d/cli-shutdown.groovy` (create the directory if necessary, and the file).
+Using the following Groovy script you can disable the attack vector in your Jenkins installations by navigating to “Manage Jenkins” and then to “Script Console”, or just go to `+https://your-jenkins-installation/script+`. This only addresses the current running Jenkins process, in order to make the workaround persist between restarts of the Jenkins server, add the script below to `$JENKINS_HOME/init.groovy.d/cli-shutdown.groovy` (create the directory if necessary, and the file).
 
 ---
 
@@ -52,7 +52,7 @@ The latest version of this script can be found [in this GitHub repository](https
 As previously announced on the [jenkinsci-advisories](https://groups.google.com/d/forum/jenkinsci-advisories) mailing list we’re preparing a security release for this upcoming Wednesday which will include patches for both the latest and LTS lines of Jenkins core. The Jenkins Security team is working to include a fix for this previously undisclosed exploit in or before this planned security release.
 
 
-If you have questions about this exploit, join us in the [#jenkins channel on Freenode](http://webchat.freenode.net/?channels=%23jenkins&uio=d4) or ask on the [jenkinsci-users@ mailing list](https://groups.google.com/d/forum/jenkinsci-users).
+If you have questions about this exploit, join us in the [#jenkins channel on Freenode](https://webchat.freenode.net/?channels=%23jenkins&uio=d4) or ask on the [jenkinsci-users@ mailing list](https://groups.google.com/d/forum/jenkinsci-users).
 
 
 For security researchers and hobbyists, if you believe you have found a security vulnerability in Jenkins, we have some disclosure guidelines [on this wiki page](https://wiki.jenkins-ci.org/display/JENKINS/Security+Advisories) which will help us mitigate any discovered issues as quickly and safely as possible.
