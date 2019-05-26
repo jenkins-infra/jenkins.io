@@ -42,7 +42,7 @@ xml.feed(xmlns:"http://www.w3.org/2005/Atom") {
 
   json.releaseHistory.reverse().subList(0,30).each { i ->
     i.releases.each { r ->
-      if (r.gav) {
+      if (r.gav && r.title) {
         entry {
           s = (first[toGA(r.gav)] == r.gav) ? " (new)" : ""
           title("${r.title} ${r.version}${s}")
