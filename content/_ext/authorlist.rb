@@ -1,14 +1,13 @@
 require 'awestruct/page'
 
-# The SolutionPage helper will set up the solution page short-links for
-# marketing purposes under /s/$foo
+# Based heavily on the Tagger extension:
+# https://github.com/awestruct/awestruct/blob/master/lib/awestruct/extensions/tagger.rb 
 #
-# The pages are equivalent
 class AuthorList
    module AuthorLink
      def author_link(string)
        #replace accents with unaccented version, go lowercase and replace and space with dash
-       "/node/authors/" + string.to_s.urlize({:convert_spaces=>true})
+       "/blog/authors/" + string.to_s.urlize({:convert_spaces=>true})
      end
    end      
    
