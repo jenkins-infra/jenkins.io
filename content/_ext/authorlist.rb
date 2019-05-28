@@ -44,7 +44,11 @@ class AuthorList
           
        paginator = Awestruct::Extensions::Paginator.new( @tagged_items_property, @input_path, options )
        primary_page = paginator.execute( site )
-       primary_page.author = author.to_s
+       current_page = primary_page
+       while current_page do
+         current_page.author = author.to_s
+         current_page = current_page.send(@tagged_items_property).next_page
+       end
        author.primary_page = primary_page
        site.send( "#{@tagged_items_property}_authors=", ordered_authors )
        author.pages.each {|p| primary_page.dependencies.add_dependency(p)}
