@@ -1,0 +1,123 @@
+---
+title: Securely implementing form validation
+layout: developerguide
+---
+
+This guide looks at form validation from a security point of view:
+What are the considerations for securing form validation, and how can they be best implemented?
+
+First, let's look at a typical form field defined in Jelly, and its validation method in the object's descriptor.
+This forms the basis for the rest of this guide.
+
+[source, xml]
+----
+<f:entry field="foo">
+  <f:textbox />
+</f:entry>
+----
+
+[source, java]
+----
+public FormValidation doCheckFoo(@QueryParameter String value) {
+  if (Util.fixEmptyAndTrim(value) == null) {
+    return FormValidation.error("foo cannot be empty");
+  }
+  return FormValidation.ok();
+}
+----
+
+Stapler routing and Jenkins behavior will result in this method being routed at a URL like `/descriptorByName/f.q.ClassName/checkFoo`.
+This URL will contain a minimal HTML snippet with a form validation message (if present) based on the presence and value of the `value` query parameter.
+
+=== Potential Security Issues
+
+==== Returning Private Information
+
+By default, any user with Overall/Read access can access form validation methods like the example method above.
+Some form validation methods could be used to infer private information, and as such may need to be protected from unauthorized access.
+
+If a form validation method is supposed to only be accessible to users with specific permissions, a permission check should be added.
+
+==== Side Effects
+
+Form validation can become quite complex and have side effects.
+For example, Jenkins might evaluate a Groovy script passed as parameter, or access a URL passed as parameter.
+These behaviors could be exploited to result in arbitrary code execution and server-side request forgery, respectively.
+
+Ensuring that form validation code such as this is protected with appropriate permission checks, it might not be enough:
+link:https://en.wikipedia.org/wiki/Cross-site_request_forgery[Cross-site request forgery] is an attack on users with the necessary privileges and exploits the trust Jenkins has in these legitimate users' web browsers.
+Protecting from these attacks requires that form validation methods with side effects only accept `POST` requests.
+
+=== Implementing Form Validation
+
+==== Checking permissions
+
+To check for global permissions like `Administer`, add a call to `Jenkins#checkPermission`. Note that Overall/Read permission is always implied (unless you specifically implement jenkinsdoc:UnprotectedRootAction[]).
+
+[source, java]
+----
+public FormValidation doCheckFoo(@QueryParameter String value) {
+  Jenkins.get().checkPermission(Jenkins.ADMINISTER); // or Jenkins.getInstance() on older core baselines
+  if (Util.fixEmptyAndTrim(value) == null) {
+    return FormValidation.error("foo cannot be empty");
+  }
+  return FormValidation.ok();
+}
+----
+
+If a different jenkinsdoc:AccessControlled[]'s permissions are to be checked, as the form validation depends on the context in which the method is invoked (e.g. when writing a build step and validation depends on the identity of the item), you may need to add an jenkinsdoc:AncestorInPath[`@AncestorInPath`] annotated parameter to get to the necessary context.
+
+[source, java]
+----
+public FormValidation doCheckFoo(@QueryParameter String value, @AncestorInPath Item item) {
+  if (item == null) { // no context
+    return FormValidation.ok();
+  }
+  item.checkPermission(Item.CONFIGURE);
+
+  if (Util.fixEmptyAndTrim(value) == null) {
+    return FormValidation.error("foo cannot be empty");
+  }
+  return FormValidation.ok();
+}
+----
+
+==== Protecting from CSRF
+
+Stapler web methods, like form validation, can be invoked using any HTTP verb by default.
+This can be used by malicious users to attack an application by way of its legitimate users:
+Cross-site request forgery is the result of a web application (Jenkins) trusting legitimate users' browser.
+
+To prevent this, Jenkins includes CSRF protection that requires actions with side effects (POST requests) to submit a user-specific secret, called a _crumb_.
+To ensure this protection is relevant, web methods with side effects need to reject requests not sent via POST.
+There are two options to achieve this in general:
+
+* staplerdoc:org.kohsuke.stapler.verb.POST[`POST`] limits processing to just the POST verb, and all other verbs will receive a 404 response. This is recommended approach for form validation methods.
+* staplerdoc:org.kohsuke.stapler.interceptor.RequirePOST[`RequirePOST`] is the older (and more common) approach. It will show a form allowing users to resubmit the request using POST if they used a different verb. This is mostly useful for simple API actions.
+
+Applying this protection is as simple as adding the annotation to the method:
+
+[source, java]
+----
+@POST
+public FormValidation doCheckFoo(@QueryParameter String value) {
+  if (Util.fixEmptyAndTrim(value) == null) {
+    return FormValidation.error("foo cannot be empty");
+  }
+  return FormValidation.ok();
+}
+----
+
+Most form validation methods are invoked using HTTP GET, however, so the form needs to be adapted as well.
+A notable exception to this is `f:validateButton`, which is always submitted using HTTP POST.
+
+The Jenkins form Jelly controls support the `checkMethod` attribute, which, if set to `post`, will result in form validation being invoked via HTTP POST.
+
+[source, xml]
+----
+<f:entry field="foo">
+  <f:textbox checkMethod="post" />
+</f:entry>
+----
+
+NOTE: Some form controls don't declare the `checkMethod` attribute. It should still work, but it might be highlighted as an error in your IDE.

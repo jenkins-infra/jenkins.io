@@ -1,0 +1,48 @@
+---
+title: Making Objects Accessible via Stapler
+layout: developersection
+references:
+- url: /security/advisory/2018-12-05/#SECURITY-595
+  title: SECURITY-595 security fix
+---
+
+Before Jenkins 2.138.4 and 2.154, most objects in Jenkins were accessible through the basic Stapler routing rules discussed in link:../routing[Routing Requests].
+Starting in Jenkins 2.138.4 and 2.154, this is further restricted to address several security issues.
+
+## Identifying problems
+
+When the SECURITY-595 fix prevents access to a URL, a warning message is written to the Jenkins log that looks similar to the following:
+
+----
+WARNING: New Stapler routing rules result in the URL "/example" no longer being allowed. If you consider it safe to use, add the following to the whitelist: "method hudson.model.Hudson doExample". Learn more: https://jenkins.io/redirect/stapler-routing
+----
+
+Administrators can follow the instructions to make the method or field work on their specific instance, but ideally the component is changed to prevent the problem in the first place.
+
+### Known problematic code patterns
+
+The following code patterns are known to result in problems related to routing getters and fields:
+
+* Getters and fields declaring a generic type, such as `Object`. Jenkins now looks at the declared (return) type to determine routability before invoking the method, and if the declared (return) type does not appear to be relevant, the getter or field will not be considered.
+* Getters and fields declaring a `Collection` type or any subclass from the Java collections framework.
+  While Stapler has support for indexed `List` and `Map` entry access, this does not apply to Jenkins releases with the SECURITY-595 fix.
+* Getters or fields declaring a (return) type that itself does not appear to be routable, but has a getter or field declaring a (return) type that would be considered routable.
+  In a chain of getter/field accesses like `/foo/bar/baz/`, every element needs to appear relevant to Stapler.
+* Types that only provide Jelly/Groovy views, even `index.jelly`, but don't have methods or fields that appear routable.
+
+## Solving the problem
+
+Starting from Jenkins 2.138.4 and 2.154, Jenkins recognizes the following annotations:
+
+* `@StaplerAccessibleType` on a class or interface will make getters and fields declaring this class, any subclass, or any implementing class as (return) type routable.
+  This is used on `ModelObject` in Jenkins core to make a great number of relevant types accessible via Stapler.
+* `@StaplerDispatchable` on a method or field will make the annotated element routable, even if its signature or (return) type would otherwise prevent access.
+
+Specific recommendations for known problems are listed below.
+
+* Do not declare an `Object` return type, or something similarly generic, but the specific `RoutableType` you're returning.
+* Return `RoutableType[]` instead of `List<RoutableType>`
+* If the return type is defined in your component, annotate it `@StaplerAccessibleType`.
+  You may need to add a dependency to the `io.jenkins.stapler:io.jenkins.stapler` library to make this annotation available.
+* If the return type is not defined in your component, annotate the method or field `@StaplerDispatchable`.
+  You may need to add a dependency to the `io.jenkins.stapler:jenkins-stapler-support` library to make this annotation available.

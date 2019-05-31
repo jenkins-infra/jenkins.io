@@ -1,0 +1,178 @@
+---
+layout: post
+title: "New design, UX and extensibility digest for login page et. al."
+tags:
+- core
+- developer
+- ux
+author: scherler
+---
+
+This blog post gives an introduction to the new design for the login and signup forms and Jenkins is (re)starting pages introduced in Jenkins 2.128.
+The first part of the blog post is an introduction to the new design and UX for Jenkins users.
+The later part is talking about extensibility in a more technical manner, aimed at plugin developers.
+
+
+== Overview
+
+The recent changes to some core pages provide new design and UX and further dropping all external dependencies to prevent
+any possible malicious javascript introduced by third party libraries.
+To be clear, this never was an issue with previous releases of Jenkins, but having read https://hackernoon.com/im-harvesting-credit-card-numbers-and-passwords-from-your-site-here-s-how-9a8cb347c5b5[this article], this author believes that the article has good points and leading by example may raise awareness of data protection.
+
+This meant to drop the usage of the jelly layout lib (aka `xmlns:l="/lib/layout"`) and as well the page decorators it
+supported. However there is a new `SimplePageDecorator` extension point (discussed below) which can be used to modify the look and feel for the login and sign up page.
+
+The following pages have given a new design:
+
+- Jenkins is (re)starting pages
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_1_a.png[role="center"]
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_1_b.png[role="center"]
+
+- Login
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_2.png[role="center"]
+
+- Sign up
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_3.png[role="center"]
+
+
+== UX enhancement
+
+Form validation has changed to give inline feedback about data validation errors in the same form.
+
+- Login
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_4.png[role="center"]
+
+- Sign up
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_5.png[role="center"]
+
+The above image shows that the validation is now done on all input fields instead of before breaking on the
+first error found, which should lead to fewer retry cycles.
+
+Instead of forcing the user to repeat the password, the new UX introduces the possibility to display the password in
+clear text. Further a basic password strength meter indicates password strength to the user while she enters the password.
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_6.png[role="center"]
+
+== Customizing the UI
+
+NOTE: The re-/starting screens do not support the concept of decorators very well, hence the decision to not support them for these pages.
+
+The SimplePageDecorator is the key component for customization and uses three different files to
+allow overriding the look and feel of the login and signup pages.
+
+- `simple-head.jelly`
+- `simple-header.jelly`
+- `simple-footer.jelly`
+
+All of the above `SimplePageDecorator` Jelly files are supported in the *login* page. The following snippet is a minimal excerpt
+of the login page, showing how it makes use of `SimplePageDecorator`.
+
+[source,html]
+----
+
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" >
+  <j:new var="h" className="hudson.Functions"/>
+  <html>
+    <head>
+      <!-- css styling, will fallback to default implementation -->
+      <st:include it="${h.simpleDecorator}" page="simple-head.jelly" optional="true"/>
+    </head>
+    <body>
+      <div class="simple-page" role="main">
+        <st:include it="${h.simpleDecorator}" page="simple-header.jelly" optional="true"/>
+      </div>
+      <div class="footer">
+        <st:include it="${h.simpleDecorator}" page="simple-footer.jelly" optional="true"/>
+      </div>
+    </body>
+  </html>
+</j:jelly>
+----
+
+The *sign-up* page only supports the simple-head.jelly:
+
+[source,html]
+----
+
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" >
+  <j:new var="h" className="hudson.Functions"/>
+  <html>
+    <head>
+      <!-- css styling, will fallback to default implementation -->
+      <st:include it="${h.simpleDecorator}" page="simple-head.jelly" optional="true"/>
+    </head>
+  </html>
+</j:jelly>
+----
+
+== SimplePageDecorator - custom implementations
+
+NOTE: Have a look at https://plugins.jenkins.io/login-theme[Login Theme Plugin], which allows you to
+configure your own custom content to be injected into the new login/sign-up page.
+
+To allow easy customisation the decorator only implements one instance by the principal "first-come-first-serve".
+If jenkins finds an extension of the `SimplePageDecorator` it will use the Jelly files provided by that plugin.
+Otherwise Jenkins will fall back to the default implementation.
+
+[source,java]
+----
+@Extension
+public class MySimplePageDecorator extends SimplePageDecorator {
+   public String getProductName() {
+     return "MyJenkins";
+   }
+}
+----
+
+NOTE: The above will take override over the default because the default implementation has a very low ordinal (`@Extension(ordinal=-9999)`)
+If you have competing plugins implementing `SimplePageDecorator`, the implementation with the highest ordinal will be used.
+
+As a simple example, to customize the logo we display in the login page, create a `simple-head.jelly` with the following content:
+
+[source,html]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+  <link rel="stylesheet" href="${resURL}/css/simple-page.css" type="text/css" />
+  <link rel="stylesheet" href="${resURL}/css/simple-page.theme.css" type="text/css" />
+  <style>
+    .simple-page .logo {
+        background-image: url('${resURL}/plugin/YOUR_PLUGIN/icons/my.svg');
+        background-repeat: no-repeat;
+        background-position: 50% 0;
+        height: 130px;
+    }
+  </style>
+  <link rel="stylesheet" href="${resURL}/css/simple-page-forms.css" type="text/css" />
+</j:jelly>
+----
+
+To customize the login page further, create a `simple-header.jelly` like this:
+
+[source,html]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+  <div id="loginIntro">
+    <div class="logo"> </div>
+    <h1 id="productName">Welcome to ${it.productName}!</h1>
+  </div>
+</j:jelly>
+----
+
+For example, I used this technique to create a prototype of a login page for a CloudBees product I am working on:
+
+image:/images/post-images/2018-06-27-JENKINS-50447/JENKINS-50447_7.png[role="center"]
+
+== Conclusion
+
+We hope you like the recent changes to some core pages and as well the new design and UX. We further hope you feel enabled to
+customize the look and feel to adopt your needs with the `SimplePageDecorator`.

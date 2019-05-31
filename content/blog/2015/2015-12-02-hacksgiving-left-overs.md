@@ -14,7 +14,7 @@
 Last week we hosted our first [Hacksgiving](https://wiki.jenkins-ci.org/display/JENKINS/Hacksgiving+2015) event, a two-day virtual hackathon with a number of recorded sessions and plenty of pull requests submitted, [I](https://github.com/rtyler) would say it was a success! I would like to thank everybody who took the time to watch, chat and present in the Hacker Hangout. 
 
 
-<center><img src="https://agentdero.cachefly.net/continuousblog/hacksgiving-platter.png"/></center>
+<center><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/hacksgiving-platter.png"/></center>
 
 
 Now that everybody has had time to recover from the turkey and travel, we have some videos of the sessions sliced out and ready for publication.

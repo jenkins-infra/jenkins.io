@@ -1,0 +1,158 @@
+---
+layout: documentation
+title:  Jenkins Upgrade Guide
+notitle: true
+---
+
+== Upgrading to Jenkins LTS 2.138.x
+
+Each section covers the upgrade from the previous LTS release, the section on 2.138.1 covers the upgrade from 2.121.3.
+
+=== Upgrading to Jenkins LTS 2.138.4
+
+[#SECURITY-1072]
+==== Migration of user records
+
+link:/security/advisory/2018-12-05/#SECURITY-1072[SECURITY-1072]
+
+After applying this upgrade, Jenkins will migrate the user records to a slightly different storage format that uses a central index to map user IDs to directory names.
+This is a backwards incompatible change, so older releases of Jenkins will not be able to deal with the new storage format.
+We strongly recommend taking a full backup of at least the `$JENKINS_HOME/users/` directory before upgrading.
+
+If Jenkins crashes or is killed during startup, the migration may be incomplete, possibly making a subset of user records unavailable.
+To determine whether this is the case, check for the existence of the file `$JENKINS_HOME/users/users.xml`.
+If it does not exist, but user directories have been renamed as described below, the migration was interrupted.
+In such cases, if no backup is available, we recommend checking the Jenkins system log and using the information in it to restore directories to their previous names.
+The log entries look similar to the following message:
+
+----
+INFO: Migrating user 'admin' from 'users/admin/' to 'users/admin_6635238516816951048/'
+----
+
+In this case, rename the directory `$JENKINS_HOME/users/admin_6635238516816951048/` to `$JENKINS_HOME/users/admin/` while Jenkins is not running.
+Repeat this for all other user directories listed in the log.
+Doing all of the above will undo the partial migration.
+Jenkins will re-run it on the next startup.
+
+If Jenkins needs to be downgraded after an update and successfully applied user directory migration, do all of the above and additionally delete the `$JENKINS_HOME/users/users.xml` file.
+This reverts the migration and restored all user records to a format compatible with Jenkins 2.138.3 and earlier.
+
+IMPORTANT: Please note that downgrading Jenkins is not generally supported, and may fail for reasons unrelated to this migration.
+
+
+[#SECURITY-595]
+==== New restrictions on HTTP request routing
+
+link:/security/advisory/2018-12-05/#SECURITY-595[SECURITY-595]
+
+A design flaw in the Stapler web framework allowed accessing fields and invoking methods that were not intended to be invoked this way by accessing specific URLs.
+link:/security/advisory/2018-12-05/#SECURITY-595[For further details, see the security advisory].
+
+As a side effect of this security fix, some HTTP requests will no longer work as before.
+This typically results in `HTTP 404 Not Found` responses, although a very small subset of requests will be successful, but the response will simply be different than it would have been before the fix was applied.
+Whenever either happens, Jenkins write a message similar to the following to the Jenkins system log:
+
+----
+WARNING: New Stapler routing rules result in the URL "/example" no longer being allowed. If you consider it safe to use, add the following to the whitelist: "method hudson.model.Hudson doExample". Learn more: https://jenkins.io/redirect/stapler-routing
+----
+
+If this happens due to legitimate use of the Jenkins UI, the affected signature can be added to the list of approved signatures.
+To do this, run the following command in the Jenkins script console as administrator:
+
+----
+jenkins.security.stapler.StaticRoutingDecisionProvider.get().add('method hudson.model.Hudson doExample')
+----
+
+This will create a file called `stapler-whitelist.txt` in the Jenkins home directory, and add the specified entry.
+This file can also be modified manually, but the following script needs to be executed afterwards to apply any changes if Jenkins is already running:
+
+----
+jenkins.security.stapler.StaticRoutingDecisionProvider.get().reload()
+----
+
+We track known affected plugins and their status in link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+the+SECURITY-595+fix[the Jenkins wiki].
+
+=== Upgrading to Jenkins LTS 2.138.3
+
+No notable changes requiring upgrade notes.
+
+=== Upgrading to Jenkins LTS 2.138.2
+
+==== Security hardening to prevent XSS vulnerabilities
+
+A security hardening to prevent cross-site scripting vulnerabilities from being exploitable was applied to views in Jenkins.
+This can in rare cases result in views having some content escaped twice (typically resulting in visible HTML entities).
+
+We consider these effects to be a bug in plugins that either opt out of the default test suite, or use outdated toolchains.
+We track known affected plugins and their status on https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+2018-10-10+Stapler+security+hardening[the Jenkins wiki].
+
+As a temporary workaround, this hardening can be disabled by setting the system property `org.kohsuke.stapler.jelly.CustomJellyContext.escapeByDefault` to `false`.
+
+==== Warning logged on first startup after upgrade
+
+https://issues.jenkins-ci.org/browse/JENKINS-53998[JENKINS-53998]
+
+When starting Jenkins 2.138.2 for the first time, a warning like the following might be logged if the plugin:jobConfigHistory[Job Config History Plugin] is installed in a version older than 2.19.
+
+----
+Oct 10, 2018 2:27:17 PM hudson.ExtensionFinder$GuiceFinder$FaultTolerantScope$1 error
+WARNING: Failed to instantiate Key[type=jenkins.telemetry.Correlator, annotation=[none]]; skipping this component
+com.google.inject.ProvisionException: Unable to provision, see the following errors:
+
+1) Tried proxying jenkins.telemetry.Correlator to support a circular dependency, but it is not an interface.
+----
+
+This does not appear to result in further problems.
+Subsequent restarts of Jenkins will no longer log this warning.
+
+==== Security hardening impacts use of GitHub OAuth Plugin
+
+https://issues.jenkins-ci.org/browse/JENKINS-54031[JENKINS-54031]
+
+A security hardening in 2.138.2 and 2.146 can result in problems accessing jobs with plugin:github-oauth[GitHub OAuth Plugin] due to a bug in the plugin.
+
+As a workaround, it is possible to temporarily disable part of the security hardening by setting the https://wiki.jenkins.io/display/JENKINS/Features+controlled+by+system+properties[Java system properties] `hudson.model.AbstractItem.skipPermissionCheck` and `hudson.model.Run.skipPermissionCheck` to `true`.
+
+IMPORTANT: Please see the link:/security/advisory/2018-12-05/#SECURITY-595[description of SECURITY-595 in the 2018-12-05 security advisory] for important information about this workaround.
+
+=== Upgrading to Jenkins LTS 2.138.1
+
+==== New login and user signup pages
+
+link:/blog/2018/06/27/new-login-page/[Announcement blog post],
+https://issues.jenkins-ci.org/browse/JENKINS-50447[JENKINS-50447]
+
+The login and user signup pages have been redesigned.
+As a side effect, existing `PageDecorator` implementations will not be used on the redesigned pages.
+
+See the link:/blog/2018/06/27/new-login-page/[announcement blog post] for further information.
+
+
+==== New API token system
+
+link:/blog/2018/07/02/new-api-token-system/[Announcement blog post],
+https://issues.jenkins-ci.org/browse/JENKINS-32442[JENKINS-32442],
+https://issues.jenkins-ci.org/browse/JENKINS-32776[JENKINS-32776]
+
+The per-user API tokens that allow access to the HTTP remote API have been redesigned:
+API tokens can now be created and revoked, and are stored in a non-recoverable format.
+
+See the link:/blog/2018/07/02/new-api-token-system/[announcement blog post] for further information.
+
+
+==== Disabled deprecated agent protocols
+
+https://issues.jenkins-ci.org/browse/JENKINS-48480[JENKINS-48480]
+
+The deprecated Jenkins CLI Protocol versions 1 and 2, and Java Web Start Agent Protocol versions 1, 2, and 3 have been disabled.
+
+If you still use these protocols (e.g. remoting-based CLI, or old `slave.jar` files on agents), you need to re-enable these protocols after upgrade, or upgrade the clients.
+The same recommendations as in link:https://jenkins.io/doc/upgrade-guide/2.121/#remoting-update[the 2.121.x upgrade guide for remoting changes] apply here.
+
+==== Require GNU C Library 2.7 or above on Unix systems
+
+jira:JENKINS-52771[]
+
+Starting from this version, Jenkins requires link:https://www.gnu.org/software/libc/[GNU C Library] version 2.7 or above.
+It makes some Linux distributions unsupported, in particular RHEL 5 and CentOS 5.
+See jira:JENKINS-53924[] and jira:JENKINS-53832[] for more info.

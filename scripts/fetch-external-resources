@@ -7,6 +7,7 @@
 require 'faraday'
 require 'faraday_middleware'
 require 'fileutils'
+require 'json'
 require 'uri'
 require 'yaml'
 require 'zip'
@@ -24,6 +25,12 @@ RESOURCES = [
     'content/_tmp/latestLTSCore.txt',
     nil,
     nil
+  ],
+  [
+    'https://github.com/jenkinsci/pipeline-examples/archive/master.zip',
+    'content/_tmp/pipeline-examples-master.zip',
+    nil,
+    'content/_tmp/examples'
   ],
   [
     'https://ci.jenkins.io/job/Infra/job/pipeline-steps-doc-generator/job/master/lastSuccessfulBuild/artifact/allAscii.zip',
@@ -68,6 +75,7 @@ class Fetcher
   # process a list of resources and generate files from them
   def process(resources)
     failures = []
+    puts "Fetching external resources:"
 
     resources.each do |origin, destination, frontmatter, zip_dest|
       response = fetch_resource(origin)
@@ -84,11 +92,19 @@ class Fetcher
           f.write(frontmatter.to_yaml)
           f.write("---\n")
         end
-        f.write(response.body)
+
+        puts "Writing #{destination}"
+        if destination.include? ".yml"
+          puts "Converting JSON to YAML"
+          f.write(YAML.dump(JSON.load(response.body)))
+        else
+          f.write(response.body)
+        end
       end
 
       #if downloading a zip file, extract it
-      if origin.include? ".zip"
+      if zip_dest
+        puts "Unzipping to #{zip_dest}"
         Zip.on_exists_proc = true
 
         FileUtils.mkdir_p zip_dest

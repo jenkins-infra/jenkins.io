@@ -1,0 +1,144 @@
+---
+:layout: post
+:title: "Using Jenkins X DevPods for development"
+:tags:
+- jenkinsx
+- developer
+:author: michaelneale
+---
+
+I use macOS day to day, and often struggle to keep my devtools up to date.
+This isn't any fault of packaging or tools, more just that I get tired of seeing the beachball:
+
+image:/images/post-images/2018-06-21-devpods/beachball.png[title="beachball", role="center"]
+
+The demands on dev machines grow, developers are now working across a more diverse
+set of technologies than just a JVM or a single scripting language these days.
+
+This keeping up to date is a drag on time (and thus money).
+There are lots of costs involved with development, and I
+link:https://www.cloudbees.com/blog/dont-install-kubernetes[have written about]
+about the machine cost for development (how using something like GKE can be much
+cheaper than buying a new machine) but there is also the cost of a developer’s time.
+Thankfully, there are ways to apply the same smarts here to save time as well as money.
+ And time is money, or money is time?
+
+
+Given all the work done in automating the detection and installation of required
+tools, environments, and libraries that goes on when you run ‘jx import’ in
+link:https://jenkins.io/projects/jenkins-x[Jenkins X],
+it makes sense to also make those available for development time,
+and the concept of “DevPods” was born.
+
+_The `pod` part of the name comes from the Kubernetes concept of pods (but you don’t have to know about Kubernetes or pods to use Jenkins X. There is a lot to Kubernetes but Jenkins X aims to provide a developer experience that doesn’t require you to understand it)._
+
+Why not use Jenkins X from code editing all the way to production,
+before you even commit the code or open a pull request?
+All the tools are there, all the environments are there, ready to use (as they are used at CI time!).
+
+This rounds out the picture: Jenkins X aims to deal with the whole lifecycle for you,
+from ideas/issues, change requests, testing, CI/CD, security and compliance verification,
+rollout and monitoring. So it totally makes sense to include the actual dev time tools.
+
+If you have an existing project, you can create a DevPod by running (with the jx command):
+
+[source, bash]
+----
+jx create devpod
+----
+
+
+This will _detect_ what type of project is (using build packs) and create a DevPod
+for you with all the tools pre-installed and ready to go.
+
+
+Obviously, at this point you want to be able to make changes to your app and try it out.
+Either run unit tests in the DevPod, or perhaps see some dev version of the app running in your browser (if it is a web app).
+Web-based code editors have been a holy grail for some time, but never have quite taken off in the mainstream of developers (despite there being excellent ones out there, most developers prefer to develop on their desktop).
+Ironically, the current crop of popular editors are based around
+link:https://github.com/electron/electron[“electron”] which is actually a web technology stack,
+but it runs locally (Visual Studio Code is my personal favourite at the moment),
+in fact Visual Studio Code has a Jenkins X extension (but you don’t have to use it):
+
+
+image:/images/post-images/2018-06-21-devpods/jx-tools.png[title="jx tools", role="center"]
+
+To get your changes up to the Dev Pod, in a fresh shell run (and leave it running):
+
+[source, bash]
+----
+jx sync
+----
+
+This will watch for any changes locally (say you want to edit files locally on your desktop)
+and sync them to the Dev Pod.
+
+Finally, you can have the Dev Pod automatically deploy an “edit” version of the
+app on every single change you make in your editor:
+
+[source, bash]
+----
+jx create devpod --sync --reuse
+./watch.sh
+----
+
+The first command will create or reuse an existing Dev Pod and open a shell to it,
+then the _watch_ command will pick up any changes, and deploy them to your “edit” app.
+You can keep this open in your browser, make a change, and just refresh it.
+You don’t need to run any dev tools locally, or any manual commands in the Dev Pod to do this, it takes care of that.
+
+You can have many DevPods running (jx get devpods), and you could stop them at the end of the day (jx delete devpod), start them at the beginning, if you like (or as I say: keep them running in the hours between coffee and beer). A pod uses resources on your cluster, and as the Jenkins X project fleshes out its support for dev tools (via things like VS Code extensions) you can expect even these few steps to be automated away in the near future, so many of the above instructions will not be needed!
+
+
+### End-to-end experience
+
+So bringing it all together, let me show a very wide (you may need to zoom out) screen shot of this workflow:
+
+image:/images/post-images/2018-06-21-devpods/end-end.png[title="end to end", role="center"]
+
+
+From `Left` to `Right`:
+
+* I have my editor (if you look closely, you can see the Jenkins X extension showing the state of apps,
+  pipelines and the environments it is deployed to).
+* In the middle I have jx sync running, pushing changes up to the cloud from the editor,
+  and also the ‘watch’ script running in the DevPod. This means every change I make in my editor,
+  a temporary version of the app (and its dependencies are deployed).
+* On the right is my browser open to the “edit” version of the app.
+  Jenkins X automatically creates an “edit” environment for live changes,
+  so if I make a change to my source on the left, the code is synced,
+  build/tested and updated so I can see the change on the right
+  (but I didn’t build anything locally, it all happens in the DevPod on Jenkins X).
+
+_On visual studio code: The Jenkins X extension for visual studio code can automate the creation of devpods and syncing for you. Expect richer support soon for this editor and others._
+
+
+### Explaining things with pictures
+
+To give a big picture of how this hangs together:
+
+image:/images/post-images/2018-06-21-devpods/picture.png[title="big picture", role="center"]
+
+In my example, GitHub is still involved, but I don’t push any changes back to it until I am happy with the state of my “edit app” and changes.
+I run the editor on my local workstation and jx takes care of the rest.
+This gives a tight feedback loop for changes. Of course, you can use any editor you like,
+and build and test changes locally (there is no requirement to use DevPods to make use of Jenkins X).
+
+Jenkins X comes with some ready to go environments: development, staging and production (you can add more if you like).
+These are implemented as Kubernetes namespaces to avoid the wrong app things talking to the wrong place.
+The development environment is where the dev tools live: and this is also where the DevPods can live!
+This makes sense as all the tools are available, and saves the hassle of you having slightly different
+versions of tools on your local workstation than what you are using in your pipeline.
+
+DevPods are an interesting idea, and at the very least a cool name!
+There will be many more improvements/enhancements in this area, so keep an eye out for them.
+They are a work in progress, so do check the documentation page for better ways to use them.
+
+Some more reading:
+
+* Docs on link:https://jenkins-x.io/developing/devpods/[DevPods] on jenkins-x.io
+* The link:https://github.com/jenkins-x/vscode-jx-tools[Visual Studio Code extension]
+  for Jenkins X (what a different world: an open source editor by Microsoft!)
+* James Strachan’s link:https://jenkins-x.io/demos/devoxx-uk-2018/[great intro]
+  to Jenkins X talk at Devoxx-UK also   includes a DevPod demo
+

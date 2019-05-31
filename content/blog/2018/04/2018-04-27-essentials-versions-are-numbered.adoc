@@ -1,0 +1,115 @@
+---
+layout: post
+title: "Jenkins Essentials: The days of versions are numbered"
+tags:
+- evergreen
+author: rtyler
+---
+
+TIP: _Jenkins Essentials_ has been renamed to _Jenkins **Evergreen**_ since this was written.
+
+A couple weeks ago, I
+link:/blog/2018/04/06/jenkins-essentials/[wrote about the Jenkins Essentials]
+effort, on which we've been making steady progress. Personally, the most
+exciting challenge of this project is defining the machinery to drive
+link:/blog/2018/04/06/jenkins-essentials/#auto-update[automatic updates]
+of Jenkins Essentials, which viewed from a high level, are _classic_ continuous
+delivery challenges.
+
+In this post, I wanted to dive into a bit of the gritty details of how we're
+going to be delivering Jenkins Essentials with automatic updates, which has
+some really interesting requirements for the development of Jenkins itself.
+
+image:/images/logos/magician/256.png[Jenkins Essentials, role="right"]
+
+The traditional Jenkins core and plugin development workflow involves a
+developer working on changes for some amount of time, then when they're ready,
+they "create a release" which typically involves publishing artifacts to our
+Artifactory, and then on a timer (typically every 15 minutes) the Update Center will
+re-generate a file called `update-center.json`. Once the new Update Center has
+been generated, it is published and consumed by Jenkins installations within
+24 hours. Of course, only after Jenkins administrators recognize that there is
+an update available, can they install it. All in all, it can take quite a long
+time from when a developer publishes a release, to when it is successfully used
+by an end-user.
+
+
+With our desire to make Jenkins Essentials updates seamless and automatic, the
+status quo clearly was not going to work. Our shift in thinking has required a
+couple simultaneous efforts to make this more continuously delivered approach
+viable.
+
+
+== Developer Improvements
+
+Starting from the developer's workflow,
+link:https://github.com/jglick[Jesse Glick]
+has been working on publishing "incremental builds" of artifacts into a
+link:https://github.com/jenkins-infra/iep/tree/master/iep-009[special Maven repository]
+in Artifactory. Much of his work is described in the very thorough
+link:https://github.com/jenkinsci/jep/tree/master/jep/305[Jenkins Enhancement Proposal 305].
+This support, which is _now live_ on
+link:https://ci.jenkins.io/blue/[ci.jenkins.io]
+allows plugin developers to publish versioned changes from _pull requests_ and
+_branches_ to the `incrementals` repository. Not only does this make it much
+easier for Jenkins Essentials to deliver changes closer to the `HEAD` of
+`master` branches, it also unlocks lots of flexibility for Jenkins developers
+who coordinate changes across matrices of plugins and core, as occasionally is
+necessary for Jenkins Pipeline, Credentials, Blue Ocean, and a number of other
+foundational components of a modern Jenkins install.
+
+In a follow-up blog post, Jesse is going to go into much more detail on some of
+the access control and tooling changes he had to solve to make this
+incrementals machinery work.
+
+
+Of course, incremental builds are only a piece of the puzzle, with those
+artifacts, Jenkins Essentials has to be able to do something useful with them!
+
+
+== Update Improvements
+
+The number one requirement, from my perspective, for the automatically updated
+distribution is that it is **safe**. "Safe" means that a user doesn't need to
+be involved in the update process, and if something goes wrong, the
+instance recovers without the user needing to do anything to remediate a
+"bad code deploy."
+
+In my previous post on the subject, I mentioned Baptiste's work on
+link:https://github.com/jenkinsci/jep/tree/master/jep/302[Jenkins Enhancement
+Proposal 302] which describes the "data safety" system for safely applying
+updates, and in case of failure, rolling back.
+
+The next obvious question is "what's failure?" which Baptiste spent some time
+exploring and implementing in two more designs:
+
+. link:https://github.com/jenkinsci/jep/tree/master/jep/304[JEP-304: Essentials Client Error Telemetry Logging]
+. link:https://github.com/jenkinsci/jep/tree/master/jep/306[JEP-306: Essentials Instance Client Health Checking]
+
+
+On the server side, of which there is substantial work for Jenkins Essentials,
+these concepts integrate with the concept of an
+link:https://github.com/jenkinsci/jep/blob/master/jep/307[Update Lifecycle]
+between the server and client. In essence, the server side must be able to
+deliver the right updates to the right clients, and avoid delivering tainted
+updates (those with known problems) to clients. While this part of the work is
+still on-going, tremendous progress has been made over the past couple weeks
+in ensuring that updates can be safely, securely, and automatically delivered.
+
+With the ability to identify "bad code deploys", and having a mechanism for
+safely rolling back, not only does Jenkins Essentials allow seamless
+updates, but it enables Jenkins developers to deliver features and bugfixes
+_much_ more quickly than our current distribution model allows.
+
+---
+
+
+While Jenkins Essentials does not have a package ready for broad consumption
+yet, we're rapidly closing in on the completion of our first milestone which
+ties all of these automatic update components together and builds the
+foundation for continuous delivery of all subsequent improvements.
+
+You can follow our progress in the
+link:https://github.com/jenkins-infra/evergreen[jenkins-infra/evergreen]
+repository, or join us in our
+link:https://gitter.im/jenkins-infra/evergreen[Gitter chat]!

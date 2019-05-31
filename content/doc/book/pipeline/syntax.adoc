@@ -66,7 +66,8 @@ with the following exceptions:
 * A property reference statement is treated as no-argument method invocation. So for
   example, input is treated as input()
 
-You can use the link://../getting-started#directive-generator[Declarative Directive Generator]
+You can use the
+link:../getting-started/#directive-generator[Declarative Directive Generator]
 to help you get started with configuring the directives and sections in your
 Declarative Pipeline.
 
@@ -125,7 +126,7 @@ accept Docker-based Pipelines, or on a node matching the optionally defined
 which may contain arguments to pass directly to a `docker run` invocation, and
 an `alwaysPull` option, which will force a `docker pull` even if the image
 name is already present.
- For example: `agent { docker 'maven:3-alpine' }` or
+For example: `agent { docker 'maven:3-alpine' }` or
 +
 [source,groovy]
 ----
@@ -134,6 +135,22 @@ agent {
         image 'maven:3-alpine'
         label 'my-defined-label'
         args  '-v /tmp:/tmp'
+    }
+}
+----
++
+`docker` also optionally accepts a `registryUrl` and `registryCredentialsId` parameters
+which will help to specify the Docker Registry to use and its credentials.
+For example:
++
+[source,groovy]
+----
+agent {
+    docker {
+        image 'myregistry.com/node'
+        label 'my-defined-label'
+        registryUrl 'https://myregistry.com/'
+        registryCredentialsId 'myPredefinedCredentialsInJenkins'
     }
 }
 ----
@@ -160,9 +177,28 @@ agent {
         dir 'build'
         label 'my-defined-label'
         additionalBuildArgs  '--build-arg version=1.0.2'
+        args '-v /tmp:/tmp'
     }
 }
 ----
++
+`dockerfile` also optionally accepts a `registryUrl` and `registryCredentialsId` parameters
+which will help to specify the Docker Registry to use and its credentials.
+For example:
++
+[source,groovy]
+----
+agent {
+    dockerfile {
+        filename 'Dockerfile.build'
+        dir 'build'
+        label 'my-defined-label'
+        registryUrl 'https://myregistry.com/'
+        registryCredentialsId 'myPredefinedCredentialsInJenkins'
+    }
+}
+----
+
 
 ===== Common Options
 
@@ -197,6 +233,10 @@ on a new node entirely.
 +
 This option is valid for `docker` and `dockerfile`, and only has an effect when
 used on an `agent` for an individual `stage`.
+
+args:: A string. Runtime arguments to pass to `docker run`.
++
+This option is valid for `docker` and `dockerfile`.
 
 [[agent-example]]
 ===== Example
@@ -247,7 +287,7 @@ pipeline {
 ----
 <1> Defining `agent none` at the top-level of the Pipeline ensures that
 <<../glossary#executor, an Executor>> will not be assigned unnecessarily.
-Using `agent none` also forces each `stage` section contain its own `agent` section.
+Using `agent none` also forces each `stage` section to contain its own `agent` section.
 <2> Execute the steps in this stage in a newly created container using this image.
 <3> Execute the steps in this stage in a newly created container using a different image
 from the previous stage.
@@ -258,10 +298,11 @@ The `post` section defines one or more additional <<declarative-steps,steps>>
 that are run upon the completion of a Pipeline's or stage's run (depending on
 the location of the `post` section within the Pipeline). `post` can support any of
 of the following <<post-conditions, post-condition>> blocks: `always`,
-`changed`, `fixed`, `regression`, `aborted`, `failure`, `success`, and `unstable`.
-These condition blocks allow the execution of steps inside each condition
-depending on the completion status of the Pipeline or stage.
-The condition blocks are executed in the order shown below. 
+`changed`, `fixed`, `regression`, `aborted`, `failure`, `success`,
+`unstable`, `unsuccessful`, and `cleanup`. These condition blocks allow the execution
+of steps inside each condition depending on the completion status of
+the Pipeline or stage. The condition blocks are executed in the order
+shown below.
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -297,6 +338,12 @@ run has a "success" status, typically denoted by blue or green in the web UI.
 `unstable`:: Only run the steps in `post` if the current Pipeline's or stage's
 run has an "unstable" status, usually caused by test failures, code violations,
 etc. This is typically denoted by yellow in the web UI.
+`unsuccessful`:: Only run the steps in `post` if the current Pipeline's or stage's
+run has not a "success" status. This is typically denoted in the web UI depending
+on the status previously mentioned
+`cleanup`:: Run the steps in this `post` condition after every other
+`post` condition has been evaluated, regardless of the Pipeline or
+stage's status.
 
 [[post-example]]
 ===== Example
@@ -415,13 +462,7 @@ depending on where the `environment` directive is located within the Pipeline.
 
 This directive supports a special helper method `credentials()` which can be
 used to access pre-defined Credentials by their identifier in the Jenkins
-environment. For Credentials which are of type "Secret Text", the
-`credentials()` method will ensure that the environment variable specified
-contains the Secret Text contents. For Credentials which are of type "Standard
-username and password", the environment variable specified will be set to
-`username:password` and two additional environment variables will be
-automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respectively.
-
+environment. 
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -435,8 +476,30 @@ automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respectively.
 | Inside the `pipeline` block, or within `stage` directives.
 |===
 
+===== Supported Credentials Type
+
+Secret Text:: 
+the environment variable specified will be set to the Secret Text content
+Secret File::
+the environment variable specified will be set to the location of the File
+file that is temporarily created
+Username and password:: 
+the environment variable specified will be set to `username:password` and two
+additional environment variables will be automatically defined: `MYVARNAME_USR`
+and `MYVARNAME_PSW` respectively.
+SSH with Private Key:: 
+the environment variable specified will be set to the location of the SSH key 
+file that is temporarily created and two additional environment variables may
+be automatically defined: `MYVARNAME_USR` and `MYVARNAME_PSW` (holding the 
+passphrase).
+
+[NOTE]
+====
+Unsupported credentials type causes the pipeline to fail with the message: `org.jenkinsci.plugins.credentialsbinding.impl.CredentialNotFoundException: No suitable binding handler could be found for type <unsupportedType>.`
+====
+
 [[environment-example]]
-===== Example
+===== Examples
 
 [pipeline]
 ----
@@ -467,6 +530,37 @@ given environment variables to steps within the `stage`.
 can be used to access pre-defined Credentials by their identifier in the
 Jenkins environment.
 
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Username/Password') {
+            environment {
+                SERVICE_CREDS = credentials('my-prefined-username-password')
+            }
+            steps {
+                sh 'echo "Service user is $SERVICE_CREDS_USR"'
+                sh 'echo "Service password is $SERVICE_CREDS_PSW"'
+                sh 'curl -u $SERVICE_CREDS https://myservice.example.com'
+            }
+        }
+        stage('Example Username/Password') {
+            environment {
+                SSH_CREDS = credentials('my-prefined-ssh-creds')
+            }
+            steps {
+                sh 'echo "SSH private key is located at $SSH_CREDS"'
+                sh 'echo "SSH user is $SSH_CREDS_USR"'
+                sh 'echo "SSH passphrase is $SSH_CREDS_PSW"'
+            }
+        }
+    }
+}
+// Script //
+----
+
 ==== options
 
 The `options` directive allows configuring Pipeline-specific options from
@@ -492,35 +586,50 @@ as `buildDiscarder`, but they may also be provided by plugins, such as
 buildDiscarder:: Persist artifacts and console output for the specific number
 of recent Pipeline runs. For example: `options { buildDiscarder(logRotator(numToKeepStr: '1')) }`
 
+checkoutToSubdirectory:: Perform the automatic source control checkout
+in a subdirectory of the workspace. For example: `options { checkoutToSubdirectory('foo') }`
+
 disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
 be useful for preventing simultaneous accesses to shared resources, etc. For
 example: `options { disableConcurrentBuilds() }`
+
+disableResume:: Do not allow the pipeline to resume if the master restarts.
+For example: `options { disableResume() }`
+
+newContainerPerStage:: Used with `docker` or `dockerfile` top-level
+agent. When specified, each stage will run in a new container instance
+on the same node, rather than all stages running in the same container instance.
 
 overrideIndexTriggers:: Allows overriding default treatment of branch indexing triggers.
 If branch indexing triggers are disabled at the multibranch or organization label, `options { overrideIndexTriggers(true) }`
 will enable them for this job only. Otherwise, `options { overrideIndexTriggers(false) }` will
 disable branch indexing triggers for this job only.
 
+preserveStashes:: Preserve stashes from completed builds, for use with
+stage restarting. For example: `options { preserveStashes() }` to
+preserve the stashes from the most recent completed build, or `options
+{ preserveStashes(buildCount: 5) }` to preserve the stashes from the five most
+recent completed builds.
+
+quietPeriod:: Set the quiet period, in seconds, for the Pipeline, overriding the global default.
+For example: `options { quietPeriod(30) }`
+
+retry:: On failure, retry the entire Pipeline the specified number of times.
+For example: `options { retry(3) }`
+
 skipDefaultCheckout:: Skip checking out code from source control by default in
 the `agent` directive. For example: `options { skipDefaultCheckout() }`
 
 skipStagesAfterUnstable:: Skip stages once the build status has gone to UNSTABLE. For example: `options { skipStagesAfterUnstable() }`
 
-checkoutToSubdirectory:: Perform the automatic source control checkout
-in a subdirectory of the workspace. For example: `options { checkoutToSubdirectory('foo') }`
-
-newContainerPerStage:: Used with `docker` or `dockerfile` top-level
-agent. When specified, each stage will run in a new container instance
-on the same node, rather than all stages running in the same container instance.
-
 timeout:: Set a timeout period for the Pipeline run, after which Jenkins should
 abort the Pipeline. For example: `options { timeout(time: 1, unit: 'HOURS') }`
 
-retry:: On failure, retry the entire Pipeline the specified number of times.
-For example: `options { retry(3) }`
-
 timestamps:: Prepend all console output generated by the Pipeline run with the
 time at which the line was emitted. For example: `options { timestamps() }`
+
+parallelsAlwaysFailFast:: Set failfast true for all subsequent parallel stages in the pipeline.
+For example: `options { parallelsAlwaysFailFast() }`
 
 [[options-example]]
 ===== Example
@@ -623,8 +732,15 @@ see the <<parameters-example>> for its specific usage.
 
 string:: A parameter of a string type, for example: `parameters { string(name: 'DEPLOY_ENV', defaultValue: 'staging', description: '') }`
 
+text:: A text parameter, which can contain multiple lines, for example: `parameters { text(name: 'DEPLOY_TEXT', defaultValue: 'One\nTwo\nThree\n', description: '') }`
+
 booleanParam:: A boolean parameter, for example: `parameters { booleanParam(name: 'DEBUG_BUILD', defaultValue: true, description: '') }`
 
+choice:: A choice parameter, for example: `parameters { choice(name: 'CHOICES', choices: ['one', 'two', 'three'], description: '') }`
+
+file:: A file parameter, which specifies a file to be submitted by the user when scheduling a build, for example: `parameters { file(name: 'FILE', description: 'Some file to upload') }`
+
+password:: A password parameter, for example: `parameters { password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'A secret password') }`
 
 [[parameters-example]]
 ===== Example
@@ -636,11 +752,29 @@ pipeline {
     agent any
     parameters {
         string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+
+        choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
+
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+
+        file(name: "FILE", description: "Choose a file to upload")
     }
     stages {
         stage('Example') {
             steps {
                 echo "Hello ${params.PERSON}"
+
+                echo "Biography: ${params.BIOGRAPHY}"
+
+                echo "Toggle: ${params.TOGGLE}"
+
+                echo "Choice: ${params.CHOICE}"
+
+                echo "Password: ${params.PASSWORD}"
             }
         }
     }
@@ -711,6 +845,84 @@ pipeline {
 }
 // Script //
 ----
+
+[[cron-syntax]]
+==== Jenkins cron syntax
+The Jenkins cron syntax follows the syntax of the 
+link:https://en.wikipedia.org/wiki/Cron[cron utility] (with minor differences).
+Specifically, each line consists of 5 fields separated by TAB or whitespace:
+
+[%header,cols=5*]
+|===
+|MINUTE
+|HOUR
+|DOM
+|MONTH
+|DOW
+
+|Minutes within the hour (0–59)
+|The hour of the day (0–23)
+|The day of the month (1–31)
+|The month (1–12)
+|The day of the week (0–7) where 0 and 7 are Sunday.
+|===
+
+To specify multiple values for one field, the following operators are
+available. In the order of precedence,
+
+* `*` specifies all valid values
+* `M-N` specifies a range of values
+* `M-N/X` or `*/X` steps by intervals of `X` through the specified range or whole valid range
+* `A,B,...,Z` enumerates multiple values
+
+To allow periodically scheduled tasks to produce even load on the system,
+the symbol `H` (for “hash”) should be used wherever possible.
+For example, using `0 0 * * *` for a dozen daily jobs
+will cause a large spike at midnight.
+In contrast, using `H H * * *` would still execute each job once a day,
+but not all at the same time, better using limited resources.
+
+The `H` symbol can be used with a range. For example, `H H(0-7) * * *`
+means some time between 12:00 AM (midnight) to 7:59 AM.
+You can also use step intervals with `H`, with or without ranges.
+
+The `H` symbol can be thought of as a random value over a range,
+but it actually is a hash of the job name, not a random function, so that
+the value remains stable for any given project.
+
+Beware that for the day of month field, short cycles such as `*/3`
+or `H/3` will not work consistently near the end of most months,
+due to variable month lengths.  For example, `*/3`j will run on the
+1st, 4th, …31st days of a long month, then again the next day of
+the next month.  Hashes are always chosen in the 1-28 range, so
+`H/3` will produce a gap between runs of between 3 and 6 days at
+the end of a month.  (Longer cycles will also have inconsistent
+lengths but the effect may be relatively less noticeable.)
+
+Empty lines and lines that start with `#` will be ignored as comments.
+
+In addition, `@yearly`, `@annually`, `@monthly`,
+`@weekly`, `@daily`, `@midnight`,
+and `@hourly` are supported as convenient aliases.
+These use the hash system for automatic balancing.
+For example, `@hourly` is the same as `H * * * *` and could mean at any time during the hour.
+`@midnight` actually means some time between 12:00 AM and 2:59 AM.
+
+[[cron-syntax-examples]]
+.Jenkins cron syntax examples
+[cols=1]
+|===
+|every fifteen minutes (perhaps at :07, :22, :37, :52)
+|`triggers{ cron('H/15 * * * *') }`
+|every ten minutes in the first half of every hour (three times, perhaps at :04, :14, :24)
+|`triggers{ cron('H(0-29)/10 * * * *') }`
+|once every two hours at 45 minutes past the hour starting at 9:45 AM and finishing at 3:45 PM every weekday.
+|`triggers{ cron('45 9-16/2 * * 1-5') }`
+|once in every two hours slot between 9 AM and 5 PM every weekday (perhaps at 10:38 AM, 12:38 PM, 2:38 PM, 4:38 PM)
+|`triggers{ cron('H H(9-16)/2 * * 1-5') }`
+|once a day on the 1st and 15th of every month except December
+|`triggers{ cron('H H 1,15 1-11 *') }`
+|===
 
 ==== stage
 
@@ -895,26 +1107,26 @@ changelog:: Execute the stage if the build's SCM changelog contains a given regu
 for example: `when { changelog '.*^\\[DEPENDENCY\\] .+$' }`
 
 changeset:: Execute the stage if the build's SCM changeset contains one or more files matching the given string or glob.
-Example: `when { changeset "**/*.js" }`
+Example: `+when { changeset "**/*.js" }+`
 +
 By default the path matching will be case insensitive, this can be turned off with the `caseSensitive` parameter,
 for example: `when { changeset glob: "ReadMe.*", caseSensitive: true }`
 
 changeRequest:: Executes the stage if the current build is for a "change request"
 (a.k.a. Pull Request on GitHub and Bitbucket, Merge Request on GitLab or Change in Gerrit etc.).
-When no parameters are passed the stage runs on every change request, 
-for example: `when { changeRequest() }`. 
+When no parameters are passed the stage runs on every change request,
+for example: `when { changeRequest() }`.
 +
-By adding a filter attribute with parameter to the change request, 
+By adding a filter attribute with parameter to the change request,
 the stage can be made to run only on matching change requests.
-Possible attributes are 
-`id`, `target`, `branch`, `fork`, `url`, `title`, `author`, `authorDisplayName`, and `authorEmail`. 
+Possible attributes are
+`id`, `target`, `branch`, `fork`, `url`, `title`, `author`, `authorDisplayName`, and `authorEmail`.
 Each of these corresponds to
 a `CHANGE_*` environment variable, for example: `when { changeRequest target: 'master' }`.
 +
-The optional parameter `comparator` may be added after an attribute 
-to specify how any patterns are evaluated for a match: 
-`EQUALS` for a simple string comparison (the default), 
+The optional parameter `comparator` may be added after an attribute
+to specify how any patterns are evaluated for a match:
+`EQUALS` for a simple string comparison (the default),
 `GLOB` for an ANT style path glob (same as for example `changeset`), or
 `REGEXP` for regular expression matching.
 Example: `when { changeRequest authorEmail: "[\\w_-.]+@example.com", comparator: 'REGEXP' }`
@@ -933,11 +1145,11 @@ Example: `when { tag "release-*" }`.
 If an empty pattern is provided the stage will execute if the `TAG_NAME` variable exists
 (same as `buildingTag()`).
 +
-The optional parameter `comparator` may be added after an attribute 
-to specify how any patterns are evaluated for a match: 
-`EQUALS` for a simple string comparison, 
+The optional parameter `comparator` may be added after an attribute
+to specify how any patterns are evaluated for a match:
+`EQUALS` for a simple string comparison,
 `GLOB` (the default) for an ANT style path glob (same as for example `changeset`), or
-`REGEXP` for regular expression matching. 
+`REGEXP` for regular expression matching.
 For example: `when { tag pattern: "release-\\d+", comparator: "REGEXP"}`
 
 not:: Execute the stage when the nested condition is false.
@@ -952,7 +1164,15 @@ anyOf:: Execute the stage when at least one of the nested conditions is true.
 Must contain at least one condition.
 For example: `when { anyOf { branch 'master'; branch 'staging' } }`
 
-===== Evaluating `when` before entering the `stage`'s `agent`
+triggeredBy:: Execute the stage when the current build has been triggered by the param given.
+For example:
+
+* `when { triggeredBy 'SCMTrigger' }` 
+* `when { triggeredBy 'TimerTrigger' }`
+* `when { triggeredBy 'UpstreamCause' }`
+* `when { triggeredBy  cause: "UserIdCause", detail: "vlinde" }`
+
+===== Evaluating `when` before entering `agent` in a `stage`
 
 By default, the `when` condition for a `stage` will be evaluated after
 entering the `agent` for that `stage`, if one is defined. However, this can
@@ -960,6 +1180,12 @@ be changed by specifying the `beforeAgent` option within the `when`
 block. If `beforeAgent` is set to `true`, the `when` condition will be
 evaluated first, and the `agent` will only be entered if the `when`
 condition evaluates to true.
+
+===== Evaluating `when` before the `input` directive
+
+By default, the when condition for a stage will be evaluated before the input, if one is defined.
+However, this can be changed by specifying the `beforeInput` option within the when block. If `beforeInput` is set to true,
+the when condition will be evaluated first, and the input will only be entered if the when condition evaluates to true.
 
 [[when-example]]
 ===== Examples
@@ -1129,18 +1355,142 @@ pipeline {
 }
 // Script //
 ----
+
+.`beforeInput`
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                beforeInput true
+                branch 'production'
+            }
+            input {
+                message "Deploy to production?"
+                id "simple-input"
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
+----
+
+.`triggeredBy`
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                triggeredBy "TimerTrigger"
+            }
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+// Script //
+----
+
+=== Sequential Stages
+
+Stages in Declarative Pipeline may declare a list of nested stages to be run
+within them in sequential order. Note that a stage must have one and only one of
+`steps`, `parallel`, or `stages`, the last for sequential stages. It is not
+possible to nest a `parallel` block within a `stage` directive if that `stage`
+directive is nested within a `parallel` block itself. However, a `stage`
+directive within a `parallel` block can use all other functionality of a `stage`,
+including `agent`, `tools`, `when`, etc.
+
+[[sequential-stages-example]]
+==== Example
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent none
+    stages {
+        stage('Non-Sequential Stage') {
+            agent {
+                label 'for-non-sequential'
+            }
+            steps {
+                echo "On Non-Sequential Stage"
+            }
+        }
+        stage('Sequential') {
+            agent {
+                label 'for-sequential'
+            }
+            environment {
+                FOR_SEQUENTIAL = "some-value"
+            }
+            stages {
+                stage('In Sequential 1') {
+                    steps {
+                        echo "In Sequential 1"
+                    }
+                }
+                stage('In Sequential 2') {
+                    steps {
+                        echo "In Sequential 2"
+                    }
+                }
+                stage('Parallel In Sequential') {
+                    parallel {
+                        stage('In Parallel 1') {
+                            steps {
+                                echo "In Parallel 1"
+                            }
+                        }
+                        stage('In Parallel 2') {
+                            steps {
+                                echo "In Parallel 2"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+// Script //
+----
+
 === Parallel
 
 Stages in Declarative Pipeline may declare a number of nested stages within
-them, which will be executed in parallel. Note that a stage must have one and
-only one of either `steps` or `parallel`. The nested stages cannot contain
-further `parallel` stages themselves, but otherwise behave the same as
-any other `stage`. Any stage containing `parallel` cannot contain `agent` or
-`tools`, since those are not relevant without `steps`.
+a `parallel` block, which will be executed in parallel. Note that a stage must
+have one and only one of `steps`, `stages`, or `parallel`. The nested stages
+cannot contain further `parallel` stages themselves, but otherwise behave the
+same as any other `stage`, including a list of sequential stages within `stages`.
+Any stage containing `parallel` cannot contain `agent` or `tools`, since those
+are not relevant without `steps`.
 
 In addition, you can force your `parallel` stages to all be aborted when one
 of them fails, by adding `failFast true` to the `stage` containing the
-`parallel`.
+`parallel`. Another option for adding `failfast` is adding an option to the
+pipeline definition: `parallelsAlwaysFailFast()`
 
 [[parallel-stages-example]]
 ==== Example
@@ -1178,12 +1528,87 @@ pipeline {
                         echo "On Branch B"
                     }
                 }
+                stage('Branch C') {
+                    agent {
+                        label "for-branch-c"
+                    }
+                    stages {
+                        stage('Nested 1') {
+                            steps {
+                                echo "In stage Nested 1 within Branch C"
+                            }
+                        }
+                        stage('Nested 2') {
+                            steps {
+                                echo "In stage Nested 2 within Branch C"
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 // Script //
+----
+.`parallelsAlwaysFailFast`
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    options {
+        parallelsAlwaysFailFast()
+    }
+    stages {
+        stage('Non-Parallel Stage') {
+            steps {
+                echo 'This stage will be executed first.'
+            }
+        }
+        stage('Parallel Stage') {
+            when {
+                branch 'master'
+            }
+            parallel {
+                stage('Branch A') {
+                    agent {
+                        label "for-branch-a"
+                    }
+                    steps {
+                        echo "On Branch A"
+                    }
+                }
+                stage('Branch B') {
+                    agent {
+                        label "for-branch-b"
+                    }
+                    steps {
+                        echo "On Branch B"
+                    }
+                }
+                stage('Branch C') {
+                    agent {
+                        label "for-branch-c"
+                    }
+                    stages {
+                        stage('Nested 1') {
+                            steps {
+                                echo "In stage Nested 1 within Branch C"
+                            }
+                        }
+                        stage('Nested 2') {
+                            steps {
+                                echo "In stage Nested 2 within Branch C"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}// Script //
 ----
 
 [[declarative-steps]]
@@ -1352,5 +1777,5 @@ making it an ideal choice for power-users and those with more complex
 requirements. As the name implies, Declarative Pipeline encourages a
 declarative programming model.
 footnoteref:[declarative, link:https://en.wikipedia.org/wiki/Declarative_programming[Declarative Programming]]
-Whereas Scripted Pipelines follow a more imperative programming model..
+Whereas Scripted Pipelines follow a more imperative programming model.
 footnoteref:[imperative, link:https://en.wikipedia.org/wiki/Imperative_programming[Imperative Programming]]

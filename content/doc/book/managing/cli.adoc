@@ -35,15 +35,13 @@ client, a `.jar` file distributed with Jenkins.
 [WARNING]
 ====
 Use of the CLI client distributed with Jenkins 2.53 and older and Jenkins LTS 2.46.1 and older
-is **not recommended** for security reasons:
-while there are no currently known vulnerabilities,
-several have been reported and patched in the past,
-and the Jenkins Remoting protocol it uses is inherently vulnerable to remote code execution bugs,
-even “preauthentication” exploits (by anonymous users able to physically access the Jenkins network).
+is **not recommended** for security reasons.
 
 The client distributed with Jenkins 2.54 and newer and Jenkins LTS 2.46.2 and newer
 is considered secure in its default (`-http`) or `-ssh` modes,
 as is using the standard `ssh` command.
+
+Jenkins 2.165 and newer no longer supports the old (`-remoting`) mode in either the client or server.
 ====
 
 [[ssh]]
@@ -57,7 +55,7 @@ inspect the headers returned on a Jenkins URL, for example:
 
 [source]
 ----
-% curl -Lv https://JENKINS_URL/login 2>&1 | grep 'X-SSH-Endpoint'
+% curl -Lv https://JENKINS_URL/login 2>&1 | grep -i 'x-ssh-endpoint'
 < X-SSH-Endpoint: localhost:53801
 %
 ----
@@ -218,12 +216,12 @@ Summaries of other general options can be displayed by running the client with n
 
 === Client connection modes
 
-There are three basic modes in which the 2.54+ / 2.46.2+ client may be used, selectable by global option:
-`-http`; `-ssh`; and `-remoting`.
+There are two basic modes in which the client may be used, selectable by global option:
+`-http` and `-ssh`.
 
 ==== HTTP connection mode
 
-This is the default mode as of 2.54 and 2.46.2, though you may pass the `-http` option explicitly for clarity.
+This is the default mode, though you may pass the `-http` option explicitly for clarity.
 
 Authentication is preferably with an `-auth` option, which takes a `username:apitoken` argument.
 Get your API token from `/me/configure`:
@@ -242,13 +240,35 @@ You can also precede the argument with `@` to load the same content from a file:
 java -jar jenkins-cli.jar [-s JENKINS_URL] -auth @/home/kohsuke/.jenkins-cli command ...
 ----
 
+[WARNING]
+====
+For security reasons the use of a file to load the authentication credentials is the recommended authentication way.
+====
+
+An alternative authentication method is to configure environment variables in a similar way as the `$JENKINS_URL`
+is used.
+The `username` can be specified via the environment variable `$JENKINS_USER_ID` while the `apitoken` can
+be specified via the variable `$JENKINS_API_TOKEN`.
+Both variables have to be set all at once.
+
+[source]
+----
+export JENKINS_USER_ID=kohsuke
+export JENKINS_API_TOKEN=abc1234ffe4a
+java -jar jenkins-cli.jar [-s JENKINS_URL] command ...
+----
+
+In case these environment variables are configured you could still override the authentication method using different 
+credentials with the `-auth` option, which takes preference over them.
+
+
 Generally no special system configuration need be done to enable HTTP-based CLI connections.
 If you are running Jenkins behind an HTTP(S) reverse proxy,
 ensure it does not buffer request or response bodies.
 
 [WARNING]
 ====
-The HTTP(S) connection mode of the CLI in Jenkins 2.54 and newer does not work
+The HTTP(S) connection mode of the CLI does not work
 correctly behind an Apache HTTP reverse proxy server using mod_proxy. Workarounds include using
 a different reverse proxy such as Nginx or HAProxy, or using the SSH connection
 mode where possible. See
@@ -272,84 +292,12 @@ If Jenkins is behind an HTTP reverse proxy, this will not generally work,
 so run Jenkins with the system property `-Dorg.jenkinsci.main.modules.sshd.SSHD.hostName=ACTUALHOST`
 to define a hostname or IP address for the SSH endpoint.
 
-==== Remoting connection mode
-
-This was the only mode supported by clients downloaded from a pre-2.54 / pre-2.46.2 Jenkins server
-(prior to the introduction of the `-remoting` option).
-Its use is deprecated for security and performance reasons.
-That said, certain commands or command modes can _only_ run in Remoting mode,
-typically because the command functionality involves running server-supplied code on the client machine.
-
-This mode is disabled on the server side for new installations of 2.54+ and 2.46.2.
-If you must use it, and accept the risks, it may be enabled in <<security, Configure Global Security>>.
-
-Authentication is preferably via SSH keypair.
-A `login` command and `--username` / `--password` command (note: *not global*) options are also available;
-these are discouraged since they cannot work with a non-password-based security realm,
-certain command arguments will not be properly parsed if anonymous users lack overall or job read access,
-and saving human-chosen passwords for use in scripts is considered insecure.
-
-Note that there are two transports available for this mode: over HTTP, or over a dedicated TCP socket.
-If the <<security#jnlp-tcp-port, TCP port is enabled>> and seems to work, the client will use this transport.
-If the TCP port is disabled, or such a port is advertised but does not accept connections
-(for example because you are using an HTTP reverse proxy with a firewall),
-the client will automatically fall back to the less efficient HTTP transport.
-
-===== Common Problems with the Remoting-based client
+=== Common Problems with the CLI client
 
 There are a number of common problems that may be experienced when running the
 CLI client.
 
-====== Operation timed out
-
-Check that the HTTP or TCP port is opened if you are using a firewall on your
-server.  You can configure its value in Jenkins configuration. By default it is
-set to use a random port.
-
-[source]
-----
-% java -jar jenkins-cli.jar -s JENKINS_URL help
-Exception in thread "main" java.net.ConnectException: Operation timed out
-    at java.net.PlainSocketImpl.socketConnect(Native Method)
-    at java.net.PlainSocketImpl.doConnect(PlainSocketImpl.java:351)
-    at java.net.PlainSocketImpl.connectToAddress(PlainSocketImpl.java:213)
-    at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:200)
-    at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:432)
-    at java.net.Socket.connect(Socket.java:529)
-    at java.net.Socket.connect(Socket.java:478)
-    at java.net.Socket.<init>(Socket.java:375)
-    at java.net.Socket.<init>(Socket.java:189)
-    at hudson.cli.CLI.<init>(CLI.java:97)
-    at hudson.cli.CLI.<init>(CLI.java:82)
-    at hudson.cli.CLI._main(CLI.java:250)
-    at hudson.cli.CLI.main(CLI.java:199)
-----
-
-====== No X-Jenkins-CLI2-Port
-
-Go to *Manage Jenkins* > *Configure Global Security* and choose "Fixed" or
-"Random" under *TCP port for JNLP agents*.
-
-[source]
-----
-java.io.IOException: No X-Jenkins-CLI2-Port among [X-Jenkins, null, Server, X-Content-Type-Options, Connection,
-        X-You-Are-In-Group, X-Hudson, X-Permission-Implied-By, Date, X-Jenkins-Session, X-You-Are-Authenticated-As,
-        X-Required-Permission, Set-Cookie, Expires, Content-Length, Content-Type]
-    at hudson.cli.CLI.getCliTcpPort(CLI.java:284)
-    at hudson.cli.CLI.<init>(CLI.java:128)
-    at hudson.cli.CLIConnectionFactory.connect(CLIConnectionFactory.java:72)
-    at hudson.cli.CLI._main(CLI.java:473)
-    at hudson.cli.CLI.main(CLI.java:384)
-    Suppressed: java.io.IOException: Server returned HTTP response code: 403 for URL: http://citest.gce.px/cli
-        at sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:1840)
-        at sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1441)
-        at hudson.cli.FullDuplexHttpStream.<init>(FullDuplexHttpStream.java:78)
-        at hudson.cli.CLI.connectViaHttp(CLI.java:152)
-        at hudson.cli.CLI.<init>(CLI.java:132)
-        ... 3 more
-----
-
-====== Server key did not validate
+==== Server key did not validate
 
 You may get the error below and find a log entry just below that concerning `mismatched keys`:
 
@@ -370,7 +318,7 @@ and remove the line corresponding to your current SSH port (e.g. `[localhost]:34
 In a production context, check with the Jenkins administrator if the public key of the server changed recently.
 If so, ask the administrator to do the the steps described above.
 
-====== UsernameNotFoundException
+==== UsernameNotFoundException
 
 If your client displays a stacktrace that looks like:
 
@@ -385,7 +333,7 @@ This could occur when you were using the Jenkins database initially, configured 
 
 To solve the problem, ensure your users exist in your configured security realm.
 
-====== Troubleshooting logs
+==== Troubleshooting logs
 
 To get more information about the authentication process:
 

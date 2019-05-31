@@ -10,7 +10,7 @@
 - jruby
 :author: rtyler
 ---
-<img src="http://agentdero.cachefly.net/continuousblog/jruby.png" align="right" width="180" alt="Yay JRuby!"/> It's not often that I get to use *that* much hyperbole in a Jenkins blog post, but I think in this case it's allowable. A journey that started over a year ago by [Charles Lowell](https://twitter.com/cowboyd) has reached a new level, thanks to lots of help from [Kohsuke](https://twitter.com/kohsukekawa) along with [Hiroshi Nakamura](https://twitter.com/nahi) and [J&oslash;rgen Tjern&oslash;](https://twitter.com/jorgenpt).
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/jruby.png" align="right" width="180" alt="Yay JRuby!"/> It's not often that I get to use *that* much hyperbole in a Jenkins blog post, but I think in this case it's allowable. A journey that started over a year ago by [Charles Lowell](https://twitter.com/cowboyd) has reached a new level, thanks to lots of help from [Kohsuke](https://twitter.com/kohsukekawa) along with [Hiroshi Nakamura](https://twitter.com/nahi) and [J&oslash;rgen Tjern&oslash;](https://twitter.com/jorgenpt).
 
 As of today, with Jenkins 1.438, you can now **download and install Ruby plugins from the update center** (the [Path Ignore plugin](https://wiki.jenkins-ci.org/display/JENKINS/Pathignore+Plugin) being the first). 
 
@@ -32,9 +32,9 @@ Currently only a few extension points (BuildStep, Publisher, BuildWrapper) are m
 
 ### The Thank Yous
 
-Great efforts like this one don't just happen without support, which is why I'd like to call out and thank [The FrontSide](http://thefrontside.net/) for their **wonderful** support, helping to cover costs of WebEx for Office Hours and covering Charles' time while he worked with Kohsuke on the internal plumbing needed to make Ruby plugins possible within Jenkins core. If the name "The FrontSide" looks familiar to you, that might be because they also created and donated the Jenkins logo!
+Great efforts like this one don't just happen without support, which is why I'd like to call out and thank [The FrontSide](https://thefrontside.net/) for their **wonderful** support, helping to cover costs of WebEx for Office Hours and covering Charles' time while he worked with Kohsuke on the internal plumbing needed to make Ruby plugins possible within Jenkins core. If the name "The FrontSide" looks familiar to you, that might be because they also created and donated the Jenkins logo!
 
-We should also thank [Lookout, Inc](http://www.mylookout.com) (*full disclosure: Lookout is my employer*) and [CloudBees](http://www.cloudbees.com) for affording some employee time for J&oslash;rgen and Kohsuke respectively to work on the project.
+We should also thank [Lookout, Inc](https://www.mylookout.com) (*full disclosure: Lookout is my employer*) and [CloudBees](https://www.cloudbees.com) for affording some employee time for J&oslash;rgen and Kohsuke respectively to work on the project.
 
 
 <!--break-->

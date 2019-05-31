@@ -1,0 +1,120 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2018-12-05
+section: security
+kind: core
+core:
+  lts:
+    previous: 2.138.3
+    fixed: either 2.138.4 or 2.150.1
+  weekly:
+    previous: 2.153
+    fixed: 2.154
+issues:
+
+- id: SECURITY-595
+  title: Code execution through crafted URLs
+  reporter: >
+    Daniel Beck, CloudBees, Inc., Jesse Glick, CloudBees, Inc., and Wadeck Follonier, CloudBees, Inc.;
+    and, independently,
+    Apple Information Security;
+    Evan Grant of Tenable; and
+    Orange Tsai(@orange_8361) from DEVCORE
+
+  cve: CVE-2018-1000861
+  cvss:
+    severity: critical
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+  description: |
+    Jenkins uses the Stapler web framework for HTTP request handling.
+    Stapler's basic premise is that it uses reflective access to code elements matching its naming conventions.
+    For example, any public method whose name starts with `get`, and that has a `String`, `int`, `long`, or no argument can be invoked this way on objects that are reachable through these means.
+    As these naming conventions closely match common code patterns in Java, accessing crafted URLs could invoke methods never intended to be invoked this way.
+
+    As of publication of this advisory, we are aware of the following potential attacks in the latest Jenkins releases that do not yet contain this fix:
+
+    * Unauthenticated users can invalidate all sessions when running Jenkins with the built-in Winstone-Jetty server.
+    * Users with Overall/Read permission could create new user objects in memory.
+    * Users with Overall/Read access could manually kick off otherwise periodically executed runs of implementations of `AsyncPeriodicWork`.
+
+    The previous two Jenkins security updates, LTS 2.121.3 and 2.138, as well as Jenkins LTS 2.138.2 and 2.146 included changes that prevent a number of other attacks resulting from this vulnerability.
+    The following is a selection of attacks that were discovered during fix development, and are already being prevented on current releases of Jenkins:
+
+    * Up to Jenkins 2.121.2 or 2.137, unauthenticated users could bypass Overall/Read and Job/Read permission checks and access information about builds in jobs with currently running builds, such as their build logs.
+    * Up to Jenkins 2.121.2 or 2.137, users with Overall/Read access could bypass Job/Read permission checks for all jobs.
+      It was also possible to enumerate all top-level jobs on a given instance.
+    * Up to Jenkins 2.121.2 or 2.137, unauthenticated users could access the environment variables defined for the Jenkins master itself, or any agent process.
+    * Up to Jenkins 2.138.1 or 2.145, users with Overall/Read and Credentials/View permissions could enumerate all credentials stored in the system-wide credentials store, and access the user names and passwords (Credentials Plugin).
+      Up to Jenkins 2.121.2 or 2.138, only the Credentials/View permission was required.
+    * Up to Jenkins 2.138.1 or 2.145, unauthenticated users could access the LDAP password from the configuration of the LDAP security realm (LDAP Plugin).
+
+    IMPORTANT: The security-related improvements released in Jenkins LTS 2.121.3 and 2.138, as well as Jenkins LTS 2.138.2 and 2.146 are an important part of this fix, and we strongly recommend not disabling them.
+    Disabling them enables some of the attacks described above.
+    Previously published documentation has been updated.
+
+    Given the vast potential attack surface, we fully expect other attacks, that we are not currently aware of, to be possible on Jenkins releases that do not have this fix applied.
+    This is reflected in the high score we assigned to this issue, rather than limiting the score to the impact through known issues.
+
+    The Stapler web framework has been extended with a Service Provider Interface (SPI) that allows methods and fields to be excluded from routing.
+    The implementation of that SPI in Jenkins now restricts which getter methods, `do*` action methods, and fields can be invoked reflectively by Stapler.
+    Further details are available in the developer documentation:
+
+    * link:/doc/developer/handling-requests/stapler-accessible-type/[Making Object Accessible via Stapler]
+    * link:/doc/developer/handling-requests/actions/[Web Methods]
+    * link:/doc/developer/security/read-access/[Restricting HTTP Access to AccessControlled Objects]
+
+    NOTE: This change is expected to impact existing functionality in some plugins.
+    The most likely effect is that some URLs now return `404 Not Found`.
+    In rare cases, the responses returned might not be `404 Not Found`, but still different than they would have been before this fix was applied.
+    We track known affected plugins and their status in link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+the+SECURITY-595+fix[the Jenkins wiki].
+
+- id: SECURITY-1072
+  title: Forced migration of user records
+  reporter: Nimrod Stoler of CyberArk Labs, and, independently, Evan Grant of Tenable
+  cve: CVE-2018-1000863
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L
+  description: |
+    The fix for link:../2017-11-08[SECURITY-499] introduced a mechanism that renamed user directories on disk as a user with an unsafe user name (user ID) is loaded.
+    Insufficient input validation allowed attackers to rename such user directories even for users with a safe user name by submitting a crafted user name when attempting to log in, even with an invalid password.
+    Doing so prevented users from logging in successfully afterwards.
+
+    Jenkins no longer uses directory names as a reference for user names, making the on-load migration of user records unnecessary.
+    Instead, the new file `users/users.xml` is used to map user names to the directories containing the user metadata.
+
+    On the first startup after updating Jenkins to a version containing this fix, existing legacy user directories are migrated.
+    For further advice related to this user record migration, see link:/doc/upgrade-guide/2.138/#SECURITY-1072[the LTS upgrade guide].
+
+- id: SECURITY-904
+  title: Workspace browser allowed accessing files outside the workspace
+  reporter: Apple Information Security
+  cve: CVE-2018-1000862
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |
+    The file browser for workspaces, archived artifacts, and `$JENKINS_HOME/userContent/` followed symbolic links to locations outside the directory being browsed.
+
+    While builds typically have access to the file system outside the workspace allocated by Jenkins, this should not extend to beyond the execution of a build on that agent.
+    Notably, the configuration may have been changed to not allow a build to run on a given agent, but the workspace used during the previous execution still exists, and could allow browsing the file system outside the workspace.
+
+    Neither browsing through the UI nor downloading directory content as a ZIP file allow accessing directories and files outside the workspace anymore.
+
+    In rare cases, it may be desirable to disable this fix.
+    To do so, set the Java system property `hudson.model.DirectoryBrowserSupport.allowSymlinkEscape` to `true`.
+    link:https://wiki.jenkins.io/display/JENKINS/Features+controlled+by+system+properties[Learn more about system properties in Jenkins].
+
+    NOTE: While the same component allows browsing archived artifacts, this fix does not apply to archived artifacts.
+    Valid symbolic links are archived as the files and directories they point to on the agent, while invalid symlinks cannot escape the root directory for archived artifacts on the Jenkins master.
+    This was previously fixed as SECURITY-162 in the link:../2015-02-27/[2015-02-27 security advisory].
+
+- id: SECURITY-1193
+  title: Potential denial of service through cron expression form validation
+  reporter: Denis Shvedchenko, Sphere, Inc.
+  cve: CVE-2018-1000864
+  cvss:
+    severity: medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H
+  description: |
+    The form validation for cron expressions (e.g. "Poll SCM", "Build periodically") could enter infinite loops when cron expressions only matching certain rare dates were entered, blocking request handling threads indefinitely.
