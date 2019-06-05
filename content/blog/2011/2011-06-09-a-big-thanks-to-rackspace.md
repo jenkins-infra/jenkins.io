@@ -19,12 +19,12 @@ We had some builds on a couple of flakey machines on home connections
 contributed by various individuals, until Rackspace stepped up in a **big**
 way and donated an infrastructure server for the project to use.
 
-<center><a href="http://rackspace.com/?jenkins" target="_blank"><img src="http://agentdero.cachefly.net/continuousblog/rackspace.jpg" width="200" border="0"/></a></center>
+<center><a href="https://rackspace.com/?jenkins" target="_blank"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/rackspace.jpg" width="200" border="0"/></a></center>
 
 For months now, just about all plugins and core have been built and tested on `spinach`,
 the always-on machine in the Rackspace Cloud. Dutifully chugging away building
 core, plugin after plugin and occasionally getting flooded with work from [Frederic
-Camblor's](http://twitter.com/fcamblor) plugin compatibility tester!
+Camblor's](https://twitter.com/fcamblor) plugin compatibility tester!
 
 In hindsight, having a powerful infrastructure machine for nothing other than
 builds has helped us build great software faster; I can't imagine how difficult
@@ -32,7 +32,7 @@ things might be otherwise.
 
 
 I've personally had a lot of interaction with Rackspace engineers through the [OpenStack
-project](http://www.openstack.org/) and have a number of friends who operate businesses on
+project](https://www.openstack.org/) and have a number of friends who operate businesses on
 Rackspace/Rackspace Cloud hybrid infrastructures. 
 
 The folks at Rackspace are

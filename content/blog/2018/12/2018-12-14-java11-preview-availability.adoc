@@ -1,0 +1,263 @@
+---
+layout: post
+title: "Java 11 Support Preview is available in Jenkins 2.155+"
+tags:
+- core
+- developer
+- java11
+- community
+- platform-sig
+author: oleg_nenashev
+links:
+  gitter: /jenkinsci/platform-sig
+  googlegroup: jenkins-platform-sig
+  sig: platform
+---
+
+[WARNING]
+--
+Please refer to link:/doc/administration/requirements/jenkins-on-java-11[Running Jenkins on Java 11] documentation to have the up-to-date details on how to run Jenkins on Java 11.
+--
+
+NOTE: This is a joint blogpost prepared by the link:https://github.com/orgs/jenkinsci/teams/java11-support[Java 11 Support Team].
+On Dec 18 (4PM UTC) we will be also presenting the Java 11 Preview Support at the Jenkins Online Meetup
+(link:https://www.meetup.com/Jenkins-online-meetup/events/257008190/[link])
+
+image:/images/logos/formal/256.png[Jenkins Java, role=center, float=right]
+
+Jenkins, one of the leading open-source automation servers, still supports only Java 8.
+On September 25 OpenJDK 11 was released.
+This is a Long-Term-Support which will stay around for years,
+and in the Jenkins project we are interested to offer a full support of this version.
+Over the last year many contributors have been working towards enabling support for Java 11 in the project (Jenkins JEP-211).
+It was a thorny path,
+but now, on behalf of the link:/sigs/platform[Jenkins Platform SIG],
+we are happy to announce preview availability of Java 11 support in Jenkins weekly releases!
+
+Why do we need preview availability for Java 11?
+It offers Jenkins contributors and early adopters a way
+to try out the changes before the general availability release happens early next year.
+It should help us to get more exploratory testing and, hopefully,
+resolve most of the issues before Java 11 is officially supported in Jenkins.
+
+In this blog post we will describe how to run with Java 11,
+and how to investigate compatibility issues and report them.
+
+=== Background
+
+As you probably remember,
+in June 2018 we had an link:/blog/2018/06/08/jenkins-java10-hackathon/[online hackathon] targeting Java 10+ support in Jenkins.
+As a part of the hackathon,
+we provided the link:/blog/2018/06/17/running-jenkins-with-java10-11/[experimental support of Java 11].
+This event was a big success for us,
+and we were able to get Jenkins running with Java 10 and 11-ea,
+including major features like Jenkins Pipeline, JobDSL, Docker/Kubernetes plugins, Configuration as Code, BlueOcean, etc.
+It gave us confidence that we can provide Java 11 support in Jenkins without major breaking changes.
+After the hackathon, link:https://github.com/oleg-nenashev/[Oleg Nenashev] created
+jep:211["Java 10+ support in Jenkins"] (was later adjusted to target Java 11 only).
+link:/sigs/platform[Platform Special Interest Group]
+has been also founded to coordinate the Java 11 support work
+and other platform support efforts (packaging, operating system support, etc.).
+
+A group of contributors continued working on Java 11 support,
+mostly focusing on upstreaming functional patches,
+enabling Java 11 support in development tools,
+testing and addressing known compatibility issues.
+See the link:/sigs/platform/#meetings[Platform SIG meeting notes] for detailed status updates.
+Starting from Jenkins 2.148, Jenkins successfully runs with latest OpenJDK 11 releases on various Linux and Windows platforms.
+We performed a LOT of automated and exploratory tests, Jenkins plugins appear to work well with some exceptions (see below).
+There is ongoing test automation effort towards the GA releases,
+but we were able to successfully run Jenkins core tests,
+full link:https://github.com/jenkinsci/acceptance-test-harness/[Acceptance Test Harness],
+and link:https://github.com/jenkinsci/plugin-compat-tester[Plugin Compat Tester] for recommended plugins.
+We also deployed a temporary
+link:https://github.com/jenkinsci/jep/tree/master/jep/211#temporary-experimental-update-center-for-java-11[Experimental Update Center for Java 11]
+which allows quickly delivering fixes for Java 11 early adopters.
+Jenkins 2.155+ defaults to this update center when running with Java 11,
+and that's why we announce preview availability for this version.
+
+On Nov 19, 2018 we presented the current Java 11 support status at the Platform SIG meeting
+link:https://docs.google.com/presentation/d/1lw4unaFhsQk7a8HzhxhgTK4X2X2ocv_W_VW7aoH2WkM/edit?usp=sharing[slides],
+and we agreed that we would like to proceed with the preview availability so that
+we can offer something for evaluation to Jenkins users.
+By the next meeting on Dec 04, all blockers have been addressed,
+and the Platform SIG meeting signed off the Java 11 preview availability.
+
+=== Running Jenkins and Java 11 in Docker
+
+Starting from Jenkins 2.155, we provide Docker images for the Jenkins master and agent.
+All these images are based on the official
+link:https://hub.docker.com/r/_/openjdk/[openjdk:11-jdk] image maintained by the Docker Community.
+There were discussions about migrating to other base images,
+but we decided to exclude it from the Preview Availability scope.
+Similarly, we do not provide Alpine images for now.
+
+==== Jenkins master image
+
+Java 11 support is now provided as a part of the official
+link:https://hub.docker.com/r/jenkins/jenkins/[jenkins/jenkins] image.
+You can run the Jenkins with Java 11 simply as:
+
+```
+docker run -p 8080:8080 -p 50000:50000 jenkins/jenkins:jdk11
+```
+
+The following tags are available:
+
+* `jdk11` - Latest weekly release with Java 11 support
+* `2.155-jdk11` - Weekly releases packaged with Java 11
+
+The image is fully compatible with
+link:https://github.com/jenkinsci/docker/blob/master/README.md[jenkins/jenkins documentation],
+e.g. you can use `plugins.txt` to install plugins, mount volumes and pass extra options via environment variables.
+
+==== Agent images
+
+If you use containerized agents via Docker or Kubernetes plugins,
+we have also released official Docker images for Jenkins agents:
+
+* link:https://hub.docker.com/r/jenkins/slave/[jenkins/slave]
+* link:https://hub.docker.com/r/jenkins/jnlp-slave/[jenkins/jnlp-slave]
+* link:https://hub.docker.com/r/jenkins/ssh-slave/[jenkins/ssh-slave]
+
+All images use the `latest-jdk11` image tag for JDK11 bundles.
+And sorry for the obsolete names!
+
+==== Experimental Jenkins master images
+
+In order to simplify testing, we also provide some experimental images on DockerHub.
+We set up a continuous delivery flow for them,
+so you can get patches without waiting for Jenkins weekly releases.
+
+* link:https://hub.docker.com/r/jenkins4eval/blueocean-platform-support/[jenkins4eval/blueocean-platform-support] -
+Equivalent of link:https://hub.docker.com/r/jenkinsci/blueocean/[jenkinsci/blueocean]
+** Tag: `latest-jdk11`
+** The image bundles all Jenkins Pipeline and Blue Ocean patches required to run on Java 11
+** If you want to try Pipeline, use this image
+* link:https://hub.docker.com/r/jenkins/jenkins-experimental/[jenkins/jenkins-experimental] -
+Equivalent of link:https://hub.docker.com/r/jenkins/jenkins/[jenkins/jenkins]
+** Tag: `latest-jdk11`
+** The image is released from the `java11-support` feature branch in the Jenkins core
+** The branch may be slightly ahead or behind the `master` branch,
+   we may use the branch to quickly deliver patches to Java 11 users
+
+Eventually we will move the experimental flow to the new `jenkins4eval` organization
+being created as a part of jep:217[].
+
+=== Running jenkins.war with Java 11
+
+Running without Docker is not that trivial,
+because Jenkins depends on some modules which have been removed from Java 11.
+We plan to address it in the General Availability release somehow (see jira:JENKINS-52186[]),
+but for now some manual actions are required to run Jenkins WAR with Java 11.
+
+1. Download Jenkins WAR for 2.155
+2. Download the following libraries to the same directory as jenkins.war
+** link:https://central.maven.org/maven2/javax/xml/bind/jaxb-api/2.3.0/jaxb-api-2.3.0.jar[jaxb-api-2.3.0.jar] (save as jaxb-api.jar)
+** link:https://central.maven.org/maven2/com/sun/xml/bind/jaxb-core/2.3.0.1/jaxb-core-2.3.0.1.jar[jaxb-core-2.3.0.1.jar] (save as jaxb-core.jar)
+** link:https://central.maven.org/maven2/com/sun/xml/bind/jaxb-impl/2.3.0.1/jaxb-impl-2.3.0.1.jar[jaxb-impl-2.3.0.1.jar] (save as jaxb-impl.jar)
+** https://github.com/javaee/activation/releases/download/JAF-1_2_0/javax.activation.jar[javax.activation v.1.2.0]  (save as javax.activation.jar)
+3. Run the following command:
+
+```shell
+Run Jenkins with ${JAVA11_HOME}/bin/java \
+    -p jaxb-api.jar:javax.activation.jar --add-modules java.xml.bind,java.activation \
+    -cp jaxb-core.jar:jaxb-impl.jar \
+    -jar jenkins.war --enable-future-java --httpPort=8080 --prefix=/jenkins
+```
+
+=== Known compatibility issues
+
+To help users to track down the compatibility issues,
+we have created a new link:https://wiki.jenkins.io/display/JENKINS/Known+Java+11+Compatibility+issues[Known Java 11 Compatibility Issues] Wiki page.
+
+Several important issues and obstacles:
+
+* plugin:workflow-support[Pipeline: Support Plugin] has a known issue
+  with context persistency when running with Java 11 (jira:JENKINS-51998[])
+** We have deployed a temporary fix to the
+link:https://github.com/jenkinsci/jep/tree/master/jep/211#temporary-experimental-update-center-for-java-11[Experimental Update Center for Java 11].
+ Fix version: `3.0-java11-alpha-1`
+** If you use Jenkins Pipeline, make sure you run with this fix.
+   Otherwise the jobs will fail almost immediately
+** When updating instances to Java 11, make sure there is no running Pipelines
+* jira:JENKINS-54305[] -
+  link:jdk-tool[JDK Tool Plugin] does not offer installers for JDK 11
+* jira:JENKINS-52282[] -
+  Java Web Start is no longer available in Java 11, so it is no longer possible to start agents from Web UI.
+  We do not plan to provide a replacement.
+
+We also know about some minor incompatibilities in other plugins,
+but we do not consider them as blockers for preview availability.
+
+=== Reporting compatibility issues
+
+If you discover any Java 11 incompatibilities, please
+link:https://wiki.jenkins.io/display/JENKINS/How+to+report+an+issue[report issues in our bugtracker].
+Please set `java11-compatibility` labels for such issues
+so that they automatically appear on the Wiki page and get triaged.
+
+For the security issues please use the standard
+link:https://jenkins.io/security/#reporting-vulnerabilities[vulnerability reporting process].
+Although we will be fixing Java 11 specific issues in public while it is in the preview,
+following the security process will help us to investigate impact on Java 8 users.
+
+=== Java 11 Support Team
+
+Once Java 11 support is released, we expect reports of regressions in plugins and Jenkins core.
+One of the concerns are exotic platforms with native libraries, and of course other Java versions.
+There is also a risk of 3rd-party library incompatibilities with Java 11.
+To mitigate the risks, we have created a
+link:https://github.com/orgs/jenkinsci/teams/java11-support[Java 11 Support Team].
+This team will be focusing on triaging the incoming issues,
+helping to review pull requests and, in some cases, delivering the fixes.
+The process for this team is link:https://github.com/jenkinsci/jep/tree/master/jep/211#post-release-support[documented] in JEP-211.
+
+We do not expect the _Java 11 Support Team_ to be able to fix all discovered issues,
+and we will be working with Jenkins core and plugin maintainers to get the fixes delivered.
+If you are interested to join the team,
+reach out to us in the link:https://gitter.im/jenkinsci/platform-sig[Platform SIG Gitter Channel].
+
+=== Contributing
+
+We will appreciate any kind of contributions in the Java 11 effort,
+including trying out Jenkins with Java 11, reporting and fixing compatibility issues.
+
+* If you want to do the exploratory testing,
+we recommend to try out Java 11 support at one of your test instances.
+Such testing will be much appreciated,
+especially if you use some service integration plugins or exotic platforms.
+The issue reporting guidelines are provided link:/blog/2018/12/14/java11-preview-availability/#reporting-compatibility-issues[above]
+* If you are a plugin developer/maintainer,
+we would appreciate if you could test your plugin with Java 11.
+In order to help with that, we have created a Wiki page with
+link:https://wiki.jenkins.io/display/JENKINS/Java+11+Developer+Guidelines[Java 11 Developer guidelines].
+This page explains how to build and test plugins with Java 11,
+and it also lists known issues in development tools
+
+Whatever you do, please let us know about your experience by sending a message to
+the link:https://groups.google.com/forum/#!forum/jenkins-platform-sig[Platform SIG mailing list].
+Such information will help us a lot to track changes and contributions.
+Any other feedback about the migration complexity will be appreciated!
+
+=== What's next?
+
+On Dec 18 (4PM UTC) we will be presenting the Java 11 Preview Support at the Jenkins Online Meetup
+(link:https://www.meetup.com/Jenkins-online-meetup/events/257008190/[link]).
+At this meetup we will summarize the current Java 11 Preview support status.
+If you are a plugin developer, we will also organize separate sessions about testing plugins with Java 11 and about common best practices for fixing compatibility issues.
+Please follow the Platform SIG announcements if you are interested.
+
+In the next weeks we will focus on addressing feedback from early adopters and
+fixing the discovered compatibility issues.
+We will also continue working on Java 11 support patches towards the general availability next year (jira:JENKINS-51805[]).
+In addition to that, we will start working on Java 11 support in subprojects,
+including link:/projects/jenkins-x/[Jenkins X] and link:/projects/evergreen/[Jenkins Evergreen].
+
+=== Links
+
+* link:https://github.com/jenkinsci/jep/tree/master/jep/211[JEP-211: Java 11 support in Jenkins]
+* link:/doc/administration/requirements/java/[Java requirements in Jenkins]
+* link:https://wiki.jenkins.io/display/JENKINS/Known+Java+11+Compatibility+issues[Known Java 11 Compatibility Issues]
+* link:https://wiki.jenkins.io/display/JENKINS/Java+11+Developer+Guidelines[Java 11 Developer guidelines]
+* link:/sigs/platform/[Platform Special Interest Group]

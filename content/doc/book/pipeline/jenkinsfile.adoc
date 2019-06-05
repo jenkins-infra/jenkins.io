@@ -75,7 +75,7 @@ node {
         echo 'Building....'
     }
     stage('Test') {
-        echo 'Building....'
+        echo 'Testing....'
     }
     stage('Deploy') {
         echo 'Deploying....'
@@ -178,7 +178,7 @@ node {
 zero exit code is returned by the command. Any non-zero exit code will fail the
 Pipeline.
 <2> `archiveArtifacts` captures the files built matching the include pattern
-(`**/target/*.jar`) and saves them to the Jenkins master for later retrieval.
+(`+**/target/*.jar+`) and saves them to the Jenkins master for later retrieval.
 
 
 [TIP]
@@ -235,12 +235,12 @@ node {
     /* .. snip .. */
 }
 ----
-<1> Using an inline shell conditional (`sh 'make || true'`) ensures that the
+<1> Using an inline shell conditional (`sh 'make check || true'`) ensures that the
 `sh` step always sees a zero exit code, giving the `junit` step the opportunity
 to capture and process the test reports. Alternative approaches to this are
 covered in more detail in the <<handling-failure>> section below.
 <2> `junit` captures and associates the JUnit XML files matching the inclusion
-pattern (`**/target/*.xml`).
+pattern (`+**/target/*.xml+`).
 
 
 === Deploy
@@ -352,7 +352,7 @@ assuming a Jenkins master is running on `localhost:8080`, and includes:
 
 BUILD_ID:: The current build ID, identical to BUILD_NUMBER for builds created in Jenkins versions 1.597+
 JOB_NAME:: Name of the project of this build, such as "foo" or "foo/bar".
-JENKINS_URL:: Full URL of Jenkins, such as http://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
+JENKINS_URL:: Full URL of Jenkins, such as https://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
 
 Referencing or using these environment variables can be accomplished like
 accessing any key in a Groovy
@@ -420,6 +420,47 @@ apply to all steps within the Pipeline.
 given environment variables to steps within the `stage`.
 
 
+==== Setting environment variables dynamically 
+
+In the case where environment variable need to be set dynamically at run time this can be done with the use of a shell scripts (`sh`), Windows Batch Script (`bat`) or PowerShell Script (`powershell`). 
+Each script can either `returnStatus` or `returnStdout`.  
+link:https://jenkins.io/doc/pipeline/steps/workflow-durable-task-step[More information on scripts].
+
+Below is an example in a declarative pipeline using `sh` (shell) with both `returnStatus` and `returnStdout`.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any // <1>
+    environment {
+        // Using returnStdout
+        CC = """${sh(
+                returnStdout: true,
+                script: 'echo "clang"'
+            )}""" // <2>
+        // Using returnStatus
+        EXIT_STATUS = """${sh(
+                returnStatus: true,
+                script: 'exit 1'
+            )}"""
+    }
+    stages {
+        stage('Example') {
+            environment {
+                DEBUG_FLAGS = '-g'
+            }
+            steps {
+                sh 'printenv'
+            }
+        }
+    }
+}
+// Script //
+----
+<1> An `agent` must be set at the top level of the pipeline. This will fail if agent is set as `agent none`.
+<2> When using `returnStdout` a trailing whitespace will be append to the returned string. Use `.trim()` to remove this. 
+
 === Handling credentials
 
 Credentials
@@ -480,12 +521,17 @@ Pipeline's <<syntax#environment,`environment`>> directive), within this stage's
 steps using the syntax `$AWS_ACCESS_KEY_ID` and `$AWS_SECRET_ACCESS_KEY`. For
 example, here you can authenticate to AWS using the secret text credentials
 assigned to these credential variables. +
-To maintain the security and anonymity of these credentials, if you attempt to
-retrieve the value of these credential variables from within the Pipeline (e.g.
-`echo $AWS_SECRET_ACCESS_KEY`), Jenkins only returns the value "`****`" to
-prevent secret information from being written to the console output and any
+To maintain the security and anonymity of these credentials, if the job
+displays the value of these credential variables from within the Pipeline (e.g.
+`echo $AWS_SECRET_ACCESS_KEY`), Jenkins only returns the value "`+****+`" to
+reduce the risk of secret information being disclosed to the console output and any
 logs. Any sensitive information in credential IDs themselves (such as usernames)
-are also returned as "`****`" in the Pipeline run's output.
+are also returned as "`+****+`" in the Pipeline run's output. +
+This only reduces the risk of **accidental exposure**.  It does
+not prevent a malicious user from capturing the credential value
+by other means. A Pipeline that uses credentials can also disclose
+those credentials.  Don't allow untrusted Pipeline jobs to use trusted
+credentials.
 <2> In this Pipeline example, the credentials assigned to the two `AWS_...`
 environment variables are scoped globally for the entire Pipeline, so these
 credential variables could also be used in this stage's steps. If, however, the
@@ -571,10 +617,15 @@ stage's steps and can be referenced using the syntax:
 +
 For example, here you can authenticate to Bitbucket with the username and
 password assigned to these credential variables. +
-To maintain the security and anonymity of these credentials, if you attempt to
-retrieve the value of these credential variables from within the Pipeline, the
+To maintain the security and anonymity of these credentials, if the job
+displays the value of these credential variables from within the Pipeline the
 same behavior described in the <<#secret-text,Secret text>> example above
-applies to these username and password credential variable types too.
+applies to these username and password credential variable types too. +
+This only reduces the risk of **accidental exposure**.  It does
+not prevent a malicious user from capturing the credential value
+by other means. A Pipeline that uses credentials can also disclose
+those credentials.  Don't allow untrusted Pipeline jobs to use trusted
+credentials.
 <2> In this Pipeline example, the credentials assigned to the three
 `COMMON_BITBUCKET_CREDS...` environment variables are scoped only to `Example
 stage 1`, so these credential variables are not available for use in this
@@ -743,7 +794,12 @@ To maintain the security and anonymity of these credentials, if you attempt to
 retrieve the value of these credential variables from within these
 `withCredentials( ... ) { ... }` steps, the same behavior described in the
 <<#secret-text,Secret text>> example (above) applies to these SSH public/private
-key pair credential and certificate variable types too.
+key pair credential and certificate variable types too. +
+This only reduces the risk of **accidental exposure**.  It does
+not prevent a malicious user from capturing the credential value
+by other means. A Pipeline that uses credentials can also disclose
+those credentials.  Don't allow untrusted Pipeline jobs to use trusted
+credentials.
 
 [NOTE]
 ====
@@ -761,6 +817,26 @@ However, if you only need to handle these types of credentials, it is
 recommended you use the relevant procedure described in the section
 <<#for-secret-text-usernames-and-passwords-and-secret-files,above>> for improved
 Pipeline code readability.
+* The use of **single-quotes** instead of  **double-quotes** to define the `script` 
+(the implicit parameter to `sh`) in Groovy above. 
+The single-quotes will cause the secret to be expanded by the shell as an environment variable.
+The double-quotes are potentially less secure as the secret is interpolated by Groovy, 
+and so typical operating system process listings (as well as Blue Ocean, 
+and the pipeline steps tree in the classic UI) will accidentally disclose it :
+```
+node {
+  withCredentials([string(credentialsId: 'mytoken', variable: 'TOKEN')]) {
+    sh /* WRONG! */ """
+      set +x
+      curl -H 'Token: $TOKEN' https://some.api/
+    """
+    sh /* CORRECT */ '''
+      set +x
+      curl -H 'Token: $TOKEN' https://some.api/
+    '''
+  }
+}
+```
 ====
 
 
@@ -976,7 +1052,7 @@ stage('Test') {
 }
 ----
 <1> The `stash` step allows capturing files matching an inclusion pattern
-(`**/target/*.jar`) for reuse within the _same_ Pipeline. Once the Pipeline has
+(`+**/target/*.jar+`) for reuse within the _same_ Pipeline. Once the Pipeline has
 completed its execution, stashed files are deleted from the Jenkins master.
 <2> The parameter in `agent`/`node` allows for any valid Jenkins label
 expression. Consult the <<syntax#, Pipeline Syntax>> section for more details.

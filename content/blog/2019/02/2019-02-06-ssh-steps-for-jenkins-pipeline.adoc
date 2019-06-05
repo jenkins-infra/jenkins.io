@@ -1,0 +1,197 @@
+---
+layout: post
+title: "SSH Steps for Jenkins Pipeline"
+tags:
+- pipeline
+- plugins
+- ssh
+- steps
+author: nrayapati
+---
+
+NOTE: This guest post was originally published on Cerner's Engineering blog
+link:https://engineering.cerner.com/blog/ssh-steps-for-jenkins-pipeline/[here].
+
+
+**Pipeline-as-code** or defining the deployment pipeline through code rather than manual job creation through UI, provides tremendous benefits for teams automating builds and deployment infrastructure across their environments.
+
+image:pipeline/realworld-pipeline-flow.png[alt="Pipeline Flow",width=100%]
+
+_Source of image: link:/doc/book/pipeline/[https://jenkins.io/doc/book/pipeline/]_
+
+## Jenkins Pipelines
+
+https://jenkins.io/[Jenkins] is a well-known open source continuous integration and continuous deployment automation tool. With the latest 2.0 release, Jenkins introduced the Pipeline plugin that implements Pipeline-as-code. This plugin lets you define delivery pipelines using concise scripts which deal elegantly with jobs involving persistence and asynchrony. 
+
+The Pipeline-as-code's script is also known as a _Jenkinsfile_. 
+
+Jenkinsfiles uses a domain specific language syntax based on the http://groovy-lang.org/[Groovy] programming language. They are persistent files which can be checked in and version-controlled along with the rest of their project source code. This file can contain the complete set of encoded steps (steps, nodes, and stages) necessary to define the entire application life-cycle, becoming the intersecting point between development and operations.
+
+### Missing piece of the puzzle
+
+One of the most common steps defined in a basic pipeline job is the _Deploy_ step. The deployment stage encompasses everything from publishing build artifacts to pushing code into pre-production and production environments. This deployment stage usually involves both development and operations teams logging onto various remote nodes to run commands and/or scripts to deploy code and configuration. While there are a couple of existing ssh plugins for Jenkins, they currently don't support the functionality such as logging into nodes for pipelines. Thus, there was a need for a plugin that supports these steps.
+
+## Introducing SSH Steps
+
+image::/images/post-images/2019-02-06-ssh-steps/JenkinsPlusSSH.png[SSH Steps, role=center]
+
+Recently, our team at Cerner started working on a project to automate deployments through Jenkins pipelines to help facilitate running commands on over one thousand nodes. We looked at several options including existing plugins, internal shared Jenkins libraries, and others. In the end, we felt it was best to create and open source a plugin to fill this gap so that it can be used across Cerner and beyond.
+
+The initial version of this new plugin SSH Steps supports the following: 
+
+* `sshCommand`: Executes the given command on a remote node. 
+* `sshScript`: Executes the given shell script on a remote node. 
+* `sshGet`: Gets a file/directory from the remote node to current workspace. 
+* `sshPut`: Puts a file/directory from the current workspace to remote node. 
+* `sshRemove`: Removes a file/directory from the remote node.
+
+### Usage
+
+Below is a simple demonstration on how to use above steps. More documentation can be found on https://github.com/jenkinsci/ssh-steps-plugin/blob/master/README.adoc[GitHub].
+
+```groovy
+def remote = [:]
+remote.name = "node"
+remote.host = "node.abc.com"
+remote.allowAnyHosts = true
+
+node {
+    withCredentials([usernamePassword(credentialsId: 'sshUserAcct', passwordVariable: 'password', usernameVariable: 'userName')]) {    
+        remote.user = userName
+        remote.password = password
+
+        stage("SSH Steps Rocks!") {
+            writeFile file: 'test.sh', text: 'ls'
+            sshCommand remote: remote, command: 'for i in {1..5}; do echo -n \"Loop \$i \"; date ; sleep 1; done'
+            sshScript remote: remote, script: 'test.sh'
+            sshPut remote: remote, from: 'test.sh', into: '.'
+            sshGet remote: remote, from: 'test.sh', into: 'test_new.sh', override: true
+            sshRemove remote: remote, path: 'test.sh'
+        }
+    }
+}
+```
+
+### Configuring via YAML
+
+At Cerner, we always strive to have simple configuration files for CI/CD pipelines whenever possible. With that in mind, my team built a wrapper on top of these steps from this plugin. After some design and analysis, we came up with the following YAML structure to run commands across various remote groups:
+
+```yaml
+config:
+  credentials_id: sshUserAcct
+
+remote_groups:
+  r_group_1:
+    - name: node01
+      host: node01.abc.net
+    - name: node02
+      host: node02.abc.net
+  r_group_2:
+    - name: node03
+      host: node03.abc.net
+
+command_groups:
+  c_group_1:
+    - commands:
+        - 'ls -lrt'
+        - 'whoami'
+    - scripts:
+        - 'test.sh'
+  c_group_2:
+    - gets:
+        - from: 'test.sh'
+          to: 'test_new.sh'
+    - puts:
+        - from: 'test.sh'
+          to: '.'
+    - removes:
+        - 'test.sh'
+
+steps:
+  deploy:
+    - remote_groups:
+        - r_group_1
+      command_groups:
+        - c_group_1
+    - remote_groups:
+        - r_group_2
+      command_groups:
+        - c_group_2
+```
+
+The above example runs commands from `c_group_1` on remote nodes within `r_group_1` in parallel before it moves on to the next group using `sshUserAcct` (from the https://jenkins.io/doc/book/using/using-credentials/[Jenkins Credentials] store) to logon to nodes.
+
+### Shared Pipeline Library
+
+We have created a shared pipeline library that contains a `sshDeploy` step to support the above mentioned YAML syntax. Below is the code snippet for the sshDeploy step from the library. The full version can be found https://github.com/nrayapati/ssh-deploy-library[here] on Github.
+
+```groovy
+#!/usr/bin/groovy
+def call(String yamlName) {
+    def yaml = readYaml file: yamlName
+    withCredentials([usernamePassword(credentialsId: yaml.config.credentials_id, passwordVariable: 'password', usernameVariable: 'userName')]) {
+        yaml.steps.each { stageName, step ->
+            step.each {
+                def remoteGroups = [:]
+                def allRemotes = []
+                it.remote_groups.each {
+                    remoteGroups[it] = yaml.remotes."$it"
+                }
+
+                def commandGroups = [:]
+                it.command_groups.each {
+                    commandGroups[it] = yaml.commands."$it"
+                }
+                def isSudo = false
+                remoteGroups.each { remoteGroupName, remotes ->
+                    allRemotes += remotes.collect { remote ->
+                        if(!remote.name)
+                            remote.name = remote.host
+                        remote.user = userName
+                        remote.password = password
+                        remote.allowAnyHosts = true
+                        remote.groupName = remoteGroupName
+                        remote
+                    }
+                }
+                if(allRemotes) {
+                    if(allRemotes.size() > 1) {
+                        def stepsForParallel = allRemotes.collectEntries { remote ->
+                            ["${remote.groupName}-${remote.name}" : transformIntoStep(stageName, remote.groupName, remote, commandGroups)]
+                        }
+                        stage(stageName) {
+                            parallel stepsForParallel
+                        }
+                    } else {
+                        def remote = allRemotes.first()
+                        stage(stageName + "\n" + remote.groupName + "-" + remote.name) {
+                            transformIntoStep(stageName, remote.groupName, remote, commandGroups).call()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+By using the step (as described in the snippet above) from this shared pipeline library, a Jenkinsfile can be reduced to:
+
+```groovy
+@Library('ssh_deploy') _
+
+node {
+  checkout scm
+  sshDeploy('dev/deploy.yml');
+}
+```
+
+An example execution of the above pipeline code in Blue Ocean looks like this:
+
+image::/images/post-images/2019-02-06-ssh-steps/jenkins-ssh-deploy.png[SSH Deploy BlueOcean View, width=80%, role=center]
+
+### Wrapping up
+
+Steps from the https://github.com/jenkinsci/ssh-steps-plugin[SSH Steps Plugin] are deliberately generic enough that they can be used for various other use-cases as well, not just for deploying code. Using SSH Steps has significantly reduced the time we spend on deployments and has given us the possibility of easily scaling our deployment workflows to various environments. 
+
+Help us make this https://github.com/jenkinsci/ssh-steps-plugin[plugin] better by contributing. Whether it is adding or suggesting a new feature, bug fixes, or simply improving documentation, contributions are always welcome.

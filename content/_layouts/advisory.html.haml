@@ -59,14 +59,22 @@ notitle: true
   %h2
     Descriptions
   - described_issues.each do | issue |
+    - if issue.plugins && issue.plugins[0]
+      - plugin_name = site._generated[:update_center].plugins[issue.plugins[0].name]&.title || issue.plugins[0].name
     %h3{:id => issue.id}
-      = issue.title
+      - if plugin_name
+        = issue.title.gsub(/PLUGIN_NAME/, "#{plugin_name} Plugin")
+      - else
+        = issue.title
     %strong
       = issue.id
       - if issue.cve
         \/
         = issue.cve
-    = Asciidoctor.convert issue.description, safe: :safe
+    - if plugin_name
+      = Asciidoctor.convert issue.description.gsub(/PLUGIN_NAME/, "#{plugin_name} Plugin"), safe: :safe
+    - else
+      = Asciidoctor.convert issue.description, safe: :safe
 - else
   - # If there is any content, it's the issue descriptions -- but only show if there are none in the data
   = content
@@ -75,14 +83,18 @@ notitle: true
   Severity
 
 %ul
-  - page.issues.each do | issue |
-    %li
-      = "#{issue.id}:"
-      - if issue.cvss.vector.start_with? "CVSS:3.0"
-        %a{ :href => 'http://www.first.org/cvss/calculator/3.0#' + issue.cvss.vector }
+  - page.issues.dup.sort { |x,y| x.id.split("-")[1].to_i <=> y.id.split("-")[1].to_i }.each do | issue |
+    - if issue.cvss
+      %li
+        = "#{issue.id}:"
+        - if issue.cvss.vector.start_with? "CVSS:3.0"
+          %a{ :href => 'https://www.first.org/cvss/calculator/3.0#' + issue.cvss.vector }
+            = issue.cvss.severity
+        - else
           = issue.cvss.severity
-      - else
-        = issue.cvss.severity
+    - else
+      %li
+        = "#{issue.id}: Unspecified"
 
 %h2
   Affected Versions
@@ -155,7 +167,7 @@ notitle: true
           %strong
             = reporter
           for
-          = issues.join(", ")
+          = issues.sort { |x,y| x.split("-")[1].to_i <=> y.split("-")[1].to_i }.join(", ")
 
 - if page.resources && page.resources.length > 0
   %h2

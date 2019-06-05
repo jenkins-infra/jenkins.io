@@ -37,6 +37,6 @@ sidebar to the right you'll notice the "Recently Released" section which
 aggregates recently released plugins via [this RSS
 feed](https://hudson.dev.java.net/servlets/ProjectRSS?type=news) , the "Blogs"
 section which is an aggregation of Hudson community blogs (from [this RSS
-feed](http://feeds.feedburner.com/KohsukesHudsonBlogs)).
+feed](https://feeds.feedburner.com/KohsukesHudsonBlogs)).
 
-We're just starting out so make sure you [subscribe to the RSS feed](http://feeds.feedburner.com/ContinuousBlog), we've got a lot to talk about here on Continuous Blog.
+We're just starting out so make sure you [subscribe to the RSS feed](https://feeds.feedburner.com/ContinuousBlog), we've got a lot to talk about here on Continuous Blog.

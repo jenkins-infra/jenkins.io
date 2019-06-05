@@ -1,0 +1,255 @@
+---
+layout: post
+title: "Introducing Jenkins Cloud Native SIG"
+tags:
+- community
+- sig
+- cloud-native
+- cloud-native-sig
+author: oleg_nenashev
+---
+
+On large-scale Jenkins instances master disk and network I/O become bottlenecks in particular cases.
+Build logging and artifact storage were one for the most intensive I/O consumers,
+hence it would be great to somehow redirect them to an external storage.
+Back in 2016 there were active discussions about such Pluggable Storage for Jenkins.
+At that point we created several prototypes, but then other work took precedence. 
+There was still a high demand in Pluggable Storage for large-scale instances,
+and these stories also become a major obstacle for cloud native Jenkins setups.
+
+I am happy to say that the Pluggable Storage discussions are back online.
+You may have seen changes in the Core for Artifact Storage
+(link:https://github.com/jenkinsci/jep/blob/master/jep/202/README.adoc[JEP-202])
+and a new plugin:artifact-manager-s3[Artifact Manager for S3 plugin].
+We have also created a number of JEPs for External Logging
+and created a new link:/sigs/cloud-native[Cloud Native Special Interest Group (SIG)]
+to offer a venue for discussing changes and to keep them as open as possible.
+
+Tomorrow link:https://github.com/jglick[Jesse Glick] and I will be
+presenting the current External Logging designs at the
+Cloud Native SIG online meeting,
+you can find more info about the meeting link:https://groups.google.com/forum/#!topic/jenkins-cloud-native-sig/rvc4qfl8Ks4[here].
+I decided that it is a good time to write about the new SIG.
+In this blogpost I will try to provide my vision of the SIG and its purpose.
+I will also summarize the current status of the activities in the group.
+
+== What are Special Interest Groups?
+
+If you follow the developer mailing list,
+you may have seen the discussion about introducing SIGs
+in the Jenkins project.
+The SIG model has been proposed by
+link:https://github.com/rtyler[R. Tyler Croy],
+and it largely follows the successful
+link:https://github.com/kubernetes/community/blob/master/sig-list.md[Kubernetes SIG] model.
+The objective of these SIGs is to make the community more transparent to contributors
+and to offer venues for specific discussions.
+The idea of SIGs and how to create them is documented in
+link:https://github.com/jenkinsci/jep/blob/master/jep/4/README.adoc[JEP-4].
+JEP-4 is still in Draft state, but a few SIGs have been already created using that process:
+link:/sigs/platform[Platform SIG], link:/sigs/gsoc[GSoC SIG] and, finally,
+link:/sigs/cloud-native[Cloud Native SIG].
+
+SIGs are a big opportunity to the Jenkins project,
+offering a new way to onboard contributors who are interested only in particular aspects of Jenkins.
+With SIGs they can subscribe to particular topics without
+following the entire Developer mailing list which can become pretty buzzy nowadays.
+It also offers company contributors a clear way how to join community and participate in specific areas.
+This is great for larger projects which cannot be done by a single contributor.
+Like JEPs, SIGs help focus and coordinate efforts.
+
+And, back to major efforts...
+Lack of resources among core contributors was one of the reasons
+why we did not deliver on Pluggable Storage stories back in 2016.
+I believe that SIGs can help fix that in Jenkins,
+making it easier to find groups with the same interests and
+reach out to them in order to organize activity.
+Regular meetings are also helpful to get such efforts moving.
+
+Points above are the main reasons why I joined the Cloud Native SIG.
+Similarly, that's why I decided to create a link:/sigs/platform[Platform SIG]
+to deliver on major efforts like Java 10+ support in Jenkins.
+I hope that more SIGs get created soon so that contributors could focus on areas of their interest.
+
+
+== Cloud Native SIG
+
+In the original proposal link:https://github.com/csanchez[Carlos Sanchez],
+the Cloud Native SIG chair, has described the purpose of the SIG well.
+There has been great progress this year in cloud-native-minded projects like Jenkins X and Jenkins Evergreen,
+but the current Jenkins architecture does not offer particular
+features which could be utilized there:
+Pluggable Storage, High Availability, etc.
+There are ways to achieve it using Jenkins plugins and some infrastructure tweaks,
+but it is far from the out-of-the-box experience.
+It complicates Jenkins management and slows down development of new cloud-native solutions for Jenkins.
+
+So, what do I expect from the SIG?
+
+* Define roadmap towards Cloud-Native Jenkins architecture
+  which will help the project to stay relevant for Cloud Native installations
+* Provide a venue for discussion of critical Jenkins architecture changes
+* Act as a steering committee for Jenkins Enhancement Proposals in the area of
+  Cloud-Native solutions
+* Finally, coordinate efforts between contributors and get new
+  contributors onboard
+
+== What's next in the SIG?
+
+The SIG agenda is largely defined by the SIG participants.
+If you are interested to discuss particular topics,
+just propose them in the SIG mailing list.
+As the current link:/sigs/cloud-native[SIG page] describes,
+there are several areas defined as initial topics:
+_Artifact Storage_,
+_Log Storage_,
+_Configuration Storage_
+
+All these topics are related to the Pluggable Storage Area,
+and the end goal for them is to ensure that all data is externalized
+so that replication becomes possible.
+In addition to the mentioned data types,
+discussed at the link:https://docs.google.com/document/d/1sE6BxkUpKCbII-lV-tC_rE97Qqi7jUF_7QJpX0lRZ2Q/edit#heading=h.2yu40cilzo7z[Jenkins World 2016 summit],
+we will need to externalize other data types:
+_Item and Run storage_,
+_Fingerprints_,
+_Test and coverage results_,
+etc.
+There is some foundation work being done for that.
+For example, link:https://github.com/cizezsy[Shenyu Zheng] is working on a 
+link:/projects/gsoc/2018/code-coverage-api-plugin/[Code Coverage API plugin]
+which would allow to unify the code coverage storage formats in Jenkins.
+
+Once the Pluggable Storage stories are done the next steps are true High Availability, rolling or canary upgrades and zero downtime.
+At that point other foundation stories like link:/projects/gsoc/2018/remoting-over-message-bus/[Remoting over Kafka]
+by link:https://github.com/pvtuan10[Pham Vu Tuan]
+might be integrated into the Cloud Native architecture to make Jenkins more robust against outages within the cluster.
+It will take some time to get to this state, but it can be done incrementally.
+
+Let me briefly summarize current state of the 3 focuses listed in the Cloud Native SIG.
+
+=== Artifact Storage
+
+There are many existing plugins allowing to upload and download artifacts from external storage
+(e.g. S3, Artifactory, Publish over SFTP, etc., etc.),
+but there are no plugins which can do it transparently without using
+new steps.
+In many cases the artifacts also get uploaded through master,
+and it increases load on the system.
+It would be great if there was a layer which would allow storing artifacts externally
+when using common steps like _Archive Artifacts_.
+
+Artifact storage work was started this spring by Jesse Glick, Carlos Sanchez and
+link:https://github.com/kuisathaverat[Ivan Fernandez Calvo]
+before the Cloud Native SIG was actually founded.
+Current state:
+
+* link:https://github.com/jenkinsci/jep/blob/master/jep/202/README.adoc[JEP-202 "External Artifact Storage"]
+  has been proposed in the Jenkins community.
+  This JEP defines API changes in the Jenkins core which are needed to
+  support External artifact managers
+* Jenkins Pipeline has been updated to support external artifact storages
+  for `archive`/`unarchive` and `stash`/`unstash`
+* New plugin:artifact-manager-s3[Artifact Manager for S3 plugin]
+  reference implementation of the new API.
+  The plugin is available in main Jenkins update centers
+* A number of plugins has been updated in order to support
+  external artifact storage
+
+The Artifact Manager API is available in Jenkins LTS starting from 2.121.1,
+so it is possible to create new implementations using the provided API and
+existing implementations.
+This new feature is fully backward compatible with the default Filesystem-based storage,
+but there are known issues for plugins explicitly relying on artifact locations in `JENKINS_HOME`
+(you can find a list of such plugins 
+link:https://github.com/jenkinsci/jep/blob/master/jep/202/README.adoc#file-oriented-artifact-reference[here]).
+It will take a while to get all plugins supported,
+but the new API in the core should allow migrating plugins.
+
+I hope we will revisit the External Artifact Storage at the SIG meetings at some point.
+It would be a good opportunity to do a retrospective and to understand how to improve the process
+in SIG.
+
+=== Log storage
+
+Log storage is a separate big story.
+Back in 2016 External logging was one of the key Pluggable Storage stories we defined at the contributor summit.
+We created an EPIC for the story (link:https://issues.jenkins-ci.org/browse/JENKINS-38313[JENKINS-38313])
+and after that created a number of prototypes together with
+link:https://github.com/xyan0607[Xing Yan] and Jesse Glick.
+One of these prototypes for Pipeline has recently been updated and published
+link:https://github.com/jenkinsci/custom-war-packager/tree/master/demo/external-logging-elasticsearch[here].
+
+Jesse Glick and Carlos Sanchez
+are returning to this story and plan to discuss it within the Cloud Native SIG.
+There are a number of Jenkins Enhancement proposals which have been submitted recently:
+
+* jep:207[] -
+External Build Logging support in the Jenkins Core
+* jep:210[] -
+External log storage for Pipeline
+* jep:212[] -
+External Logging API Plugin
+* jep:206[] -
+Use UTF-8 for Pipeline build logs
+
+In the linked documents you can find references to current reference implementations.
+So far we have a working prototype for the new design.
+There are still many bits to fix before the final release,
+but the designs are ready for review and feedback.
+
+This Tuesday (Jul 31) we are going to have a SIG meeting in order to present the current state and to discuss the proposed designs and JEPs.
+The meeting will happen at 3PM UTC.
+You can watch the broadcast using link:https://www.youtube.com/watch?v=9lTOtC9wA_I[this link].
+Participant link will be posted in the SIGs Gitter channel 10 minutes before the meeting.
+
+=== Configuration storage
+
+This is one of the future stories we would like to consider.
+Although configurations are not big, externalizing them is a critical task
+for getting highly-available or disposable Jenkins masters.
+There are many ways to store configurations in Jenkins,
+but 95% of cases are covered by the `XmlFile` layer which
+serializes objects to disk and reads them using the XStream library.
+Externalizing these ``XmlFile``s would be a great step forward.
+
+There are several prototypes for externalizing configurations,
+e.g. in DotCI.
+There are also other implementations which could be upstreamed to the Jenkins core:
+
+* link:https://github.com/deep[Alex Nordlund] has recently proposed a
+  link:https://github.com/jenkinsci/jenkins/pull/3393[pull request]
+  to Jenkins Core, which should make the XML Storage pluggable
+* link:https://github.com/jstrachan[James Strachan] has implemented similar engine
+  for Kubernetes in the link:https://github.com/jstrachan/jenkins/tree/kubeify[kubeify] prototype
+* I also did some experiments with externalizing XML Storages back in 2016
+
+The next steps for this story would be to aggregate implementations into a single JEP.
+I have it in my queue, and I hope to write up a design once we get more clarity on the External logging stories.
+
+== Conclusions
+
+Special Interest Groups are a new format for collaboration and disucssion in the Jenkins community.
+Although we have had some work groups before (Infrastructure, Configuration-as-Code, etc.),
+introduction of SIGs sets a new bar in terms of the project transparency and consistency.
+Major architecture changes in Jenkins are needed to ensure its future in the new environments,
+and SIGs will help to boost visibility and participation around these changes.
+
+If you want to know more about the Cloud Native SIG,
+all resources are listed on the link:/sigs/cloud-native[SIG's page on jenkins.io].
+If you want to participate in the SIG's activities, just do the following:
+
+1. Subscribe to the link:https://groups.google.com/forum/#!forum/jenkins-cloud-native-sig[mailing list]
+2. Join our link:https://gitter.im/jenkinsci/cloud-native-sig[Gitter channel]
+3. Join our public meetings
+
+I am also working on organizing a face-to-face Cloud Native SIG meeting at the
+link:/blog/2018/07/25/contributor-summit/[Jenkins Contributor Summit],
+which will happen on September 17 during
+link:https://www.cloudbees.com/devops-world/san-francisco[DevOps World | Jenkins World] in San Francisco.
+If you come to DevOps World | Jenkins World,
+please feel free to join us at the contributor summit or to meet us at the community booth.
+Together with Jesse and Carlos we are also going to present some bits of our work at the
+link:https://sched.co/F9NT[A Cloud Native Jenkins] talk.
+
+Stay tuned for more updates and demos on the Cloud-Native Jenkins fronts!
