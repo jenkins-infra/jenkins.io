@@ -42,6 +42,9 @@ Awestruct::Extensions::Pipeline.new do
   extension SolutionPage.new
   extension Releases.new
 
+  extension AuthorList.new(:posts,
+                        '/node/index',
+                        :per_page => 10)
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
 
@@ -50,6 +53,7 @@ Awestruct::Extensions::Pipeline.new do
 
   transformer VersionSwitcher.new
 
+  helper AuthorList::AuthorLink
   helper ActiveNav
   helper Authorship
   helper Legacy
