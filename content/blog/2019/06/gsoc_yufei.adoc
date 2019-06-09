@@ -1,0 +1,55 @@
+---
+layout: post
+title: "GSoC Project Progress : Cloud features for external workspace manager"
+tags:
+- jenkins
+- gsoc
+author: imaffe
+description: "Short summary of coding period 1" # optional
+opengraph:
+  image: /images/folder/icon.png # optional
+---
+
+=== About Me
+My name is Yufei Zhang, a student from Zhejiang University and Simon Fraser University Duel Degree Program. I want to share the discoveries when we are exploring the possiblities of extending current external workspace manager plugin (referred to as EWM) to support AWS EFS. 
+
+=== Backgrounds
+For users, they might want to provision a high-available Jenkins cluster, together with other services such as Keycloak for SSO, and use k8s to autoscale agents. All these operations needs a lot of configuration and cloud resources if they decide to base Jenkins on clouds. 
+
+In such cases, EWM was designed to give multiple agents access to shared disks, hence reduce the cost of copying duplicated data, such as codes and outputs in the workspace, or archieves that needs to be managed by other services(e.g. Some companies might want use archieves to do some analysising). With these backgrounds, it is natural to think of "supporting cloud disks". 
+
+Our project proposal was based on extending cloud features, but then we discovered we were on the wrong track maybe.
+
+=== Discoveries
+In order to make things clear, we need to understand the true nature of EWM. As we stated earlier, we want multiple agents to share disk spaces, and the main obstacle was they all have their own workspace directory(paths) by default. If we can modify the default workspace directory, then we might be able to utilize the shared NFS(Network File System).  And that is what EWM did. There are other features in like different strategies choosing a disk, but the way EWM to solve the problem is simple but effective.
+
+And by the way, from my perspective,the main problem, synchronization when visiting shared resources, is guaranteed by the implementation of the NFS itself, and the EWM didn't offer any synchronization mechanism to support concurrent execution. Jenkins itself is not designed to be synchronized. It is left to the users to partition their jobs and let the user manage syncronization. There might be some tricks to do that, but not within the scope of this blog.
+
+When we know what EWM did, we also realized : The Cloud feature is actually already supported. First, from the users perspective, they don't need to worry about the type of the disk, no matter it is a ext2 or ext3 or NFS or any other file system, they all look the same to host machine because of the concept of Virtual File System. If user can mount a disk to their host machine, then the EWM would be able to use them. So user can just create an EFS(Elastic File System, from AWS) in using whatever tools they like, and mount it. Then they can orchestra EFS with EWM.
+
+Then the problem becomes, should Jenkins be responsible to manage the NFS, for example, creating/managing/mounting/destroying the AWS EFS ? Well, my answer is not. There are some reasons. We will use AWS as example, but the same for other cloud providers.
+
+1. For small users, they don't need anybody to manage their jenkins clusters. AWS console gives them a user-friendly to manage the resources, and that would be enough.
+
+2. For medium/large users, it is impossible for them to manage Cloud resources manually (by console). They must use some resource management tools, like CloudFormation by AWS and Terraform by Hashicorp. And me personally are using these tools to manange clusters with thousands of AWS resources. From my perspective, I would like all the resources managed in one place, then that would make me easy to find the problem if something been created/destroyed unexpectedly. I won't let a second participation in my relationship with AWS, as they might potentially ruin everything. e.g, sometimes I had to manage resources using console, but this is even considered as a dangerous operation. Therefore, this plugin should not and not bother to manage any cloud resources. (There are plugins like ec2-plugin who do, but they are well managed, which is safe and used a lot).
+
+3. No convenience is given to user, even we implement the cloud management. We cannot give more feature than CasC(configuration as code) tools and we won't need to. And if we only implement EFS related CasC, what about other resources who also might cooperate with EFS ? e.g. There might not only be one consumer using the EFS, if some service wants to pull information from the Jenkins workspace, that would be inconvenient.
+
+So you can see, the user can do the exactly same thing we want to implement, using other tools and current EWM, possibly in a better way. Then we find that, though I personally did quite a lot to this idea, like learning AWS and Jenkins plugin developement and some working codes, we have to admit our idea might not do good to the community.
+
+=== Done and TODOs
+This is what we've already done:
+
+. The Web UI to define a AWS EFS disk
+. Implemented a demo workflow code
+. Implemented the AWS EFS utils, like create/destroy/mount an EFS.
+
+And unfortunately we have to say bye-bye to those dones. We realize sometimes negative results are also results. A good programmer should know when he is wrong, and has the courage to admit it. Honestly, we were a little bit uneasy when we did the decision, but it doesn't matter, we will continue and spend time on something else.
+
+=== Plan for the future
+
+I previously worked with the JCasC compatiblity of EWM, and my lead mentor Martin, is also interested in JCasC. Then we talked with Oleg and agree JCasC would be a good project to work on. Now we want to have a meeting to decide the priorities of which plugins should we work on first. Also, JCasC is somehow the extension of cloud features, as CasC is important in managing large clusters, if we do more work on JCasC, the integrations of Jenkins and clouds would also be promoted. And that is what we want to see.
+   
+
+
+
