@@ -54,6 +54,17 @@ class AuthorList
        author.pages.each {|p| primary_page.dependencies.add_dependency(p)}
      end
 
+     # user pages for people with no blog posts, to be linked from SIGs
+     site.authors.each do |author, data|
+       if author && !(@authors.has_key? author.to_s)
+         output_prefix = author_link(author)
+         page = site.engine.find_and_load_site_page( @input_path )
+         page.output_path = File.join( output_prefix, File.basename( @input_path ) + ".html" )
+         page.author = author.to_s
+         site.pages << page
+       end
+     end
+
    end
 
 end

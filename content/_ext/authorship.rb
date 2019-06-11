@@ -10,12 +10,14 @@ module Authorship
   def display_author_for(node)
     # bail early if what we were given doesn't even respond
     return unless node.author
+    display_user(node.author)
+  end
 
-    author = node.author.to_sym
-    if node.author && site.authors.has_key?(author)
+  def display_user(author)
+    if site.authors.has_key? author.to_sym
       full_name = site.authors[author].name
     else
-      full_name = author
+      raise "File with personal information (content/_data/authors/#{author}.adoc) is missing"
     end
 
     link = author_link(author)
