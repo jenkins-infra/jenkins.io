@@ -9,11 +9,11 @@
 - jenkinsci
 :author: rtyler
 ---
-<img src="http://agentdero.cachefly.net/continuousblog/images/tip-jar.png"
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/tip-jar.png"
 align="right"/>
 
 Since the end of April, Jenkins has been officially part of the
-[SPI](http://www.spi-inc.org) (Software
+[SPI](https://www.spi-inc.org) (Software
 in the Public Interest), an umbrella organization which offers a useful level
 of legal status for the project.
 

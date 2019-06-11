@@ -11,7 +11,7 @@
 ---
 Today, I’d highlight two recent improvements to the label and matrix projects.
 
-When you have multiple slaves in your Hudson build farm, you can use labels to classify slaves by their capability/environment/architecture/etc. For example, your one slave might have “32bit” and “windows” label, while another one might have “linux”, “ubuntu”, and “64bit.” (with plugins like <a href=”http://wiki.hudson-ci.org/display/HUDSON/PlatformLabeler+Plugin”>platform-labeler plugin</a>, you can attach labels automatically, too.) Or if you do Selenium testing, you might add browser names as labels to indicate which slave has which browser available.
+When you have multiple slaves in your Hudson build farm, you can use labels to classify slaves by their capability/environment/architecture/etc. For example, your one slave might have “32bit” and “windows” label, while another one might have “linux”, “ubuntu”, and “64bit.” (with plugins like <a href=”https://wiki.jenkins.io/display/JENKINS/PlatformLabeler+Plugin”>platform-labeler plugin</a>, you can attach labels automatically, too.) Or if you do Selenium testing, you might add browser names as labels to indicate which slave has which browser available.
 
 With such set up, you then specify that such and such jobs can be only run on such and such labels. For example, you might say your “test-foo” job requires the “windows” label, while your “compile-bar” job might require the “macos” label.
 <!--break-->
@@ -25,4 +25,4 @@ In 1.373, you can now specify multiple label axes. For example, you might have a
 
 Sometimes the exhaustive combinations do not make sense. In such a case, you can use a filter boolean expression to eliminate some values. You can also use the same mechanism to create a sparse matrix --- that is, you tell Hudson to reduce the coverage to 33%, and Hudson will eliminate every 2 out of 3 combinations.
 
-Finally, I’d like to thank <a href="http://www.sandia.gov/">Sandia National Laboratories</a> for sponsoring this work, which made it possible for <a href="http://infradna.com">InfraDNA</a> to provide this feature to the community. People often think that contributing code is the only way to give back to the project, but sponsoring features like this is another great way to do it.
+Finally, I’d like to thank <a href="https://www.sandia.gov/">Sandia National Laboratories</a> for sponsoring this work, which made it possible for <a href="https://infradna.com">InfraDNA</a> to provide this feature to the community. People often think that contributing code is the only way to give back to the project, but sponsoring features like this is another great way to do it.

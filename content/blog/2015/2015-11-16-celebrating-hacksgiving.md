@@ -11,11 +11,11 @@
 ---
 Next week in the US we have a national holiday where, generally speaking, lots of turkey gets converted into left-over turkey sandwiches. For many software developers the Thanksgiving holiday also represents a lull in project schedules, freeing up some time to hack on pet projects or even contribute to open source projects.
 
-<center><img src="https://agentdero.cachefly.net/continuousblog/hacksgiving-platter.png" border="0"/></center>
+<center><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/hacksgiving-platter.png" border="0"/></center>
 
 Taking a cue from the [Adopt a Plugin](/content/adopt-plugin-0) program that [Daniel](https://github.com/daniel-beck) wrote about earlier this month, we thought it would be fun to organize a "virtual hackathon" to coincide with that gap in project schedules. Thus **[Hacksgiving 2015](https://wiki.jenkins-ci.org/display/JENKINS/Hacksgiving+2015)** was created!
 
-We'll be hosting Hacksgiving **Nov 23rd** and **Nov 24** from 7:00PST - 15:00PST (10:00EST - 18:00EST) and would love for you to join! ([RSVP here](http://www.meetup.com/jenkinsmeetup/events/226735213/))
+We'll be hosting Hacksgiving **Nov 23rd** and **Nov 24** from 7:00PST - 15:00PST (10:00EST - 18:00EST) and would love for you to join! ([RSVP here](https://www.meetup.com/jenkinsmeetup/events/226735213/))
 
 **You don't need to know Java to help!** We will have documentation and design hacking going on as well.
 
@@ -55,7 +55,7 @@ Since this is a virtual hackathon, we'll be congregating and chatting in a coupl
 * Via the `#hacksgiving` hashtag on Twitter
 
 
-You can also RSVP on our [meetup page!](http://www.meetup.com/jenkinsmeetup/events/226735213/)
+You can also RSVP on our [meetup page!](https://www.meetup.com/jenkinsmeetup/events/226735213/)
 
 
 We hope you can join in the festivities!

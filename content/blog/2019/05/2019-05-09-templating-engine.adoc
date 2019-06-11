@@ -1,0 +1,285 @@
+---
+:layout: post
+:title: "Introducing the Jenkins Templating Engine!"
+:tags:
+- general
+- pipeline
+- plugin
+- pipeline-authoring
+:author: steven-terrana
+:sig: pipeline-authoring
+---
+
+[NOTE]
+====
+This is a guest post by link:https://github.com/steven-terrana[Steven Terrana], a Lead Technologist at
+link:https://boozallen.com[Booz Allen Hamilton] and principal engineer working on the plugin:templating-engine[Templating Engine Plugin]. 
+He participates in the link:../../../../../sigs/pipeline-authoring[Pipeline Authoring  Special Interest Group].
+====
+
+
+Implementing DevSecOps practices at the enterprise scale is challenging. With multiple programming languages, automated testing frameworks, and security compliance tools being used by different applications within your organization, it becomes difficult to build and maintain pipelines for each team. 
+
+Most pipelines are going to follow the same generic workflow regardless of which specific tech stack is employed by an application.  The plugin:templating-engine[Templating Engine Plugin] (abbreviated as JTE for Jenkins Templating Engine) allows you to capture this efficiency by creating tool-agnostic, templated workflows to be reused by every team.  
+
+As technology consultants with clients in both the public and private sectors, at Booz Allen we found ourselves building DevSecOps pipelines from scratch for every new project.  Through developing the Jenkins Templating Engine, we’ve seen pipeline development decrease from months to days now that we can reuse tool integrations while bringing a new level of governance to Jenkins pipelines. 
+
+
+== Pipeline Templating
+
+Organizations benefit from letting application developers focus on what they do best: building applications. Supporting this means building a centralized DevOps team responsible for maintaining platform infrastructure and creating CI/CD pipelines utilized by development teams.  
+
+With the rise of microservice-based architectures, a centralized DevOps teams can support many different development teams simultaneously; all of whom may be leveraging different programming languages and automated testing tools.  
+
+While the tools may differ between development teams, the workflow is often the same: unit test, static code analysis, build and publish an artifact, deploy it, and then perform different types of testing against the deployed application. 
+
+NOTE: The Templating Engine Plugin allows you to remove the Jenkinsfile from each repository by defining a common workflow for teams to inherit.  Instead of an entire pipeline definition in each repository, teams supply a configuration file specifying which tools to use for the workflow. 
+
+== JTE in Action
+
+Let's walk through a bare bones example to demonstrate the reusability of templates: 
+
+.Example Pipeline Template:
+[source, groovy]
+----
+unit_test()
+build()
+static_code_analysis() 
+----
+
+Templates leverage __Steps__ contributed by __Libraries__ to outline a workflow teams must implement.  While a template does get executed just like any other ``Jenkinsfile`` (meaning that the standard scripted and declarative syntax is supported), the goal of a template should be to read like plain English and avoid any technical implementation.  
+
+TIP: Leveraging templates in this way lets you separate the **business logic** (what should happen when) of your pipeline from the
+**technical implementation** (what's actually going to happen).  The result of this is a CI/CD pipeline that's proven to be 
+significantly easier to manage when supporting multiple teams simultaneously.  
+
+The steps outlined by this template (``unit_test``, ``build``, and ``static_code_analysis``) have been named generically on purpose. This way teams can specify __different__ libraries to use while sharing the __same__ pipeline.
+
+=== Implementing the Template
+
+Implementing a shareable pipeline with the Templating Engine requires a few key components:   
+
+. **Pipeline Template**: __Outline the workflow to be performed__ + 
+. **Libraries**: __Provide technical implementations of the steps of the workflow__ +
+. **Configuration Files**: __Specify which libraries to use and their configuration__ 
+
+==== Step 1: Create a Pipeline Configuration Repository
+
+A __Pipeline Configuration Repository__ is used to store common configurations and pipeline templates inherited by teams. 
+
+This link:https://github.com/steven-terrana/example-jte-configuration[example Pipeline Configuration Repository] will later be configured as part of a link:https://boozallen.github.io/jenkins-templating-engine/pages/Governance/index.html#governance-tier[Governance Tier]: the mechanism in JTE that allows you to build hierarchical configurations representing your organization. 
+
+A Governance Tier holds three things:
+
+. Pipeline Templates 
+. A list of Library Sources
+. The tier's configuration file (``pipeline_config.groovy``) 
+
+NOTE: The pipeline templates and the configuration file for a Governance Tier are stored in the pipeline configuration repository. 
+
+When configuring the Governance Tier in Jenkins, you will provide a source code management location for a repository that contains the above components as well as the base directory where these artifacts can be found. 
+
+==== Step 2: Create the Pipeline Template
+
+Next, we'll create a ``Jenkinsfile`` for the Governance Tier.  In JTE, the ``Jenkinsfile`` is the default pipeline template that an execution will use. 
+
+.Jenkinsfile
+[source, groovy]
+----
+unit_test()
+build()
+static_code_analysis() 
+----
+
+==== Step 3: Create the Libraries
+
+The Templating Engine Plugin has implemented a version of Jenkins Shared Libraries to enhance the reusability of libraries.  A library is a root directory within a source code repository that has been configured as a Library Source on a Governance Tier.  
+
+In our example, the pipeline template needs to perform unit testing, package an artifact, and run static code analysis. 
+
+Let's assume that we have some teams using **gradle** and some teams using **maven** to build and test their application but they will both use SonarQube to perform static code analysis. 
+
+In this scenario, we should create ``gradle``, ``maven``, and ``sonarqube`` libraries. 
+
+----
+|- gradle/
+  \-- build.groovy
+  \-- unit_test.groovy
+|- maven/
+  \-- build.groovy
+  \-- unit_test.groovy
+|- sonarqube/
+  \-- static_code_analysis.groovy 
+----
+
+==== Step 4: Implement the Steps
+
+Implementing a library step is exactly the same as just writing regular global variables as part of the default Jenkins Shared Libraries. 
+
+For the purposes of this demonstration, we will just have each step print out the step name and contributing library. 
+
+.gradle/build.groovy
+[source, groovy]
+----
+void call(){
+    println "gradle: build()" 
+} 
+----
+
+TIP: Read more about link:https://boozallen.github.io/jenkins-templating-engine/pages/Library_Development/index.html[Library Development within JTE].
+
+==== Step 5: Create the Configuration Files
+
+The configuration file for JTE is named ``pipeline_config.groovy``.  
+
+In the Governance Tier we'll create a configuration file specifying common configurations between the applications. In this case, both applications are using the ``sonarqube`` library: 
+
+.pipeline_config.groovy
+[source, groovy]
+----
+libraries{
+  merge = true // allow individual apps to contribute additional libraries
+  sonarqube
+}
+----
+
+Next, we'll create two more repositories representing the link:https://github.com/steven-terrana/example-jte-app-maven[maven] and link:https://github.com/steven-terrana/example-jte-app-gradle[gradle] applications. Within those repositories all we'll need is an application-specific ``pipeline_config.groovy`` file. 
+
+These repositories both contain an application ``pipeline_config.groovy`` configuration file. 
+
+.maven app: pipeline_config.groovy
+[source, groovy]
+----
+libraries{
+    maven
+}
+----
+
+.gradle app: pipeline_config.groovy
+[source, groovy]
+----
+libraries{
+    gradle
+}
+----
+
+==== Step 6: Configure the Governance Tier in Jenkins
+
+Now that we have a link:https://github.com/steven-terrana/example-jte-configuration[Pipeline Configuration Repository] and a link:https://github.com/steven-terrana/example-jte-libraries[Library Source Repository], we can configure a link:https://boozallen.github.io/jenkins-templating-engine/pages/Governance/index.html#governance-tier[Governance Tier] in Jenkins:
+
+image:/images/post-images/2019-05-09-templating-engine/governance_tier.png[role=center]
+
+NOTE: This configuration shown in the image above can be found under ``Manage Jenkins >> Configure System``
+
+TIP: Through the Templating Engine, you can create a pipeline governance hierarchy matching your organization's taxonomy by representing this structure via Folders in Jenkins. 
+
+==== Step 7: Create a Multibranch Pipeline for Both Applications
+
+When creating Multibranch Pipeline Projects for each app, the Templating Engine plugin supplies a new ``Project Recognizer`` 
+called **Jenkins Templating Engine**.  This sets the project to use the Templating Engine framework for all branches within the
+repository.  
+
+image:/images/post-images/2019-05-09-templating-engine/project_recognizer.png[role=center]
+
+NOTE: You can also set the **Jenkins Templating Engine** project recognizer for a GitHub Organization project, enabling you to easily share the same pipeline across an entire Github Organization! 
+
+==== Step 8: Run the Pipelines
+
+That's it!  Now, both applications will leverage the exact same pipeline template while having the flexibility to select which 
+tools should be used during each phase of the workflow. 
+
+Below is sample output from the console log from both applications pipeline runs: 
+
+.Gradle: 
+----
+[JTE] Obtained Template Configuration File pipeline_config.groovy from git https://github.com/steven-terrana/example-jte-configuration
+[JTE] Obtained Template Configuration File pipeline_config.groovy from git https://github.com/steven-terrana/example-jte-app-gradle.git
+[JTE] Loading Library sonarqube from git https://github.com/steven-terrana/example-jte-libraries.git
+[JTE] Loading Library gradle from git https://github.com/steven-terrana/example-jte-libraries.git
+...
+[JTE] Obtained Template Jenkinsfile from git https://github.com/steven-terrana/example-jte-configuration
+[JTE][Step - gradle/unit_test]
+[Pipeline] echo
+gradle: unit_test()
+[JTE][Step - gradle/build]
+[Pipeline] echo
+gradle: build()
+[JTE][Step - sonarqube/static_code_analysis]
+[Pipeline] echo
+sonarqube: static_code_analysis()
+[Pipeline] End of Pipeline
+----
+
+.Maven: 
+----
+[JTE] Obtained Template Configuration File pipeline_config.groovy from git https://github.com/steven-terrana/example-jte-configuration
+[JTE] Obtained Template Configuration File pipeline_config.groovy from git https://github.com/steven-terrana/example-jte-app-maven.git
+[JTE] Loading Library sonarqube from git https://github.com/steven-terrana/example-jte-libraries.git
+[JTE] Loading Library maven from git https://github.com/steven-terrana/example-jte-libraries.git
+...
+[JTE] Obtained Template Jenkinsfile from git https://github.com/steven-terrana/example-jte-configuration
+[JTE][Step - maven/unit_test]
+[Pipeline] echo
+maven: unit_test()
+[JTE][Step - maven/build]
+[Pipeline] echo
+maven: build()
+[JTE][Step - sonarqube/static_code_analysis]
+[Pipeline] echo
+sonarqube: static_code_analysis()
+[Pipeline] End of Pipeline
+----
+
+
+== Benefits of the Templating Engine
+
+image:/images/post-images/2019-05-09-templating-engine/jte_benefits.png[role=center]
+
+=== Apply Organizational Governance
+
+Leveraging the Templating Engine Plugin will allow you to define enterprise-scale, approved 
+workflows that can be used by teams regardless of what tools are being used.  This top-down 
+approach makes scaling and enforcing DevSecOps principles significantly easier within your organization.  
+
+=== Optimize Code Reuse
+
+There's really no need for every team in your organization to figure out how to do the same things over
+and over again.  At Booz Allen, we have seen pipeline development time decrease from months to days as 
+we have continuously reused and expanded upon our Templating Engine library portfolio as part of our Solutions
+Delivery Platform. 
+
+=== Simplify Pipeline Maintainability
+
+Often DevOps engineers find themselves building and supporting pipelines for multiple development teams at
+the same time.  By decoupling the workflow from the technical implementation and consolidating the pipeline 
+definition to a centralized location, the Templating Engine plugin allows DevOps engineers to scale much faster. 
+
+== Get Involved!
+
+The plugin:templating-engine[Templating Engine Plugin] has been open sourced and made available in the Jenkins Update Center.
+
+We always appreciate feedback and contributions! If you have an interesting use case or would like to ask questions, try the link:https://gitter.im/jenkinsci/templating-engine-plugin[templating-engine-plugin on Gitter]. 
+
+== Advanced Features
+
+* link:https://boozallen.github.io/jenkins-templating-engine/pages/Governance/conditional_inheritance.html[Configuration File Conditional Inheritance]
+* link:https://boozallen.github.io/jenkins-templating-engine/pages/Library_Development/externalizing_config.html[Externalize Library Configurations]
+* link:https://boozallen.github.io/jenkins-templating-engine/pages/Library_Development/lifecycle_hooks.html[Aspect Oriented LifeCycle Hooks]
+* link:https://boozallen.github.io/jenkins-templating-engine/pages/Governance/index.html#pipeline-template-selection[Multiple Pipeline Templates]
+* link:https://boozallen.github.io/jenkins-templating-engine/pages/Templating/configuration_files/default_step_implementation.html[Default Step Implementation]
+* link:https://boozallen.github.io/jenkins-templating-engine/pages/Templating/configuration_files/sandboxing.html[Configuration File DSL Sandboxing]
+
+== More Resources
+
+=== For this Demonstration
+
+* link:https://github.com/steven-terrana/example-jte-configuration[Pipeline Configuration Repository]
+* link:https://github.com/steven-terrana/example-jte-libraries[Sample Libraries]
+* link:https://github.com/steven-terrana/example-jte-app-maven[Sample Maven Repository]
+* link:https://github.com/steven-terrana/example-jte-app-gradle[Sample Gradle Repository]
+
+=== Additional Resources
+* link:https://boozallen.github.io/jenkins-templating-engine/[Templating Engine Documentation]
+* link:https://github.com/jenkinsci/templating-engine-plugin[Source Code]
+* link:https://github.com/boozallen/sdp-libraries[Booz Allen's SDP Pipeline Libraries]
+* link:https://boozallen.com[Booz Allen Hamilton]

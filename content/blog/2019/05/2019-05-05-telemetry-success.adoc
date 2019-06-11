@@ -1,0 +1,91 @@
+---
+:layout: post
+:title: First successful use of Jenkins telemetry
+:tags:
+- core
+- security
+- telemetry
+:author: daniel-beck
+---
+
+Half a year ago we delivered a security fix for Jenkins that had the potential to break the entire Jenkins UI.
+We needed to change how Jenkins, through the Stapler web framework, handled HTTP requests, tightening the rules around what requests would be processed by Jenkins.
+In the six months since, we didn't receive notable reports of problems resulting from this change, and it's thanks to the telemetry we gathered beforehand.
+
+
+== The Problem
+
+Jenkins uses the Stapler web framework for HTTP request handling.
+Stapler's basic premise is that it uses reflective access to code elements matching its naming conventions.
+For example, any public method whose name starts with `get`, and that has a `String`, `int`, `long`, or no argument can be invoked this way on objects that are reachable through these means.
+As these naming conventions closely match common code patterns in Java, accessing crafted URLs could invoke methods never intended to be invoked this way.
+
+A simple example of that is a URL every Jenkins user would be familiar with: `/job/jobname`.
+This ends up invoking a method called `#getJob(String)`, with the argument being `"jobname"`, on the root application object, and having it handle the rest of the URL, if any.
+Of course, this is a URL intended to be accessed this way.
+How about invoking `Object#getClass()`, followed by `Class#getClassLoader()`, by accessing the URL `/class/classLoader`?
+While this particular chain would not result in a useful response, this doesn't change that the methods were invoked.
+We identified a number of URLs that could be abused to access otherwise inaccessible jobs, or even invoke internal methods in the web application server to invalidate all sessions.
+https://jenkins.io/security/advisory/2018-12-05/[The security advisory] provides an overview of the issues we'd identified by then.
+
+
+== The Idea
+
+To solve this problem inherent in the Stapler framework's design, we defined rules that restrict invocation beyond what would be allowed by Stapler.
+For example, the declared return type of getters now needed to be one defined in Jenkins core or a Jenkins plugin and have either clearly Stapler-related methods (with Stapler annotations, parameter types, etc.) or Stapler-related resource files associated with it.
+Otherwise, the type wouldn't be aware of Stapler, and couldn't produce a meaningful response anyway.
+
+This meant that getters just declaring `Object` (or `List`, `Map`, etc.) would no longer be allowed by default.
+It was clear to the developers working on this problem that we needed the ability to be able to override the default rules for specific getters.
+But allowing plugin developers to adapt their plugins after we published the fix wasn't going to cut it;
+Jenkins needed to ship with a comprehensive default whitelist for methods known to not conform to the new rules, so that updating would not result in problems for users.
+
+
+== The Solution
+
+While there is tooling like https://github.com/jenkinsci/plugin-compat-tester/[Plugin Compatibility Tester] and https://github.com/jenkinsci/acceptance-test-harness[Acceptance Test Harness], many Jenkins plugins do not have comprehensive tests of their UI -- the Jenkins UI is fairly stable after all.
+We did not expect to have sufficient test coverage to deliver a change like this with confidence.
+The only way we would be able to build such a comprehensive whitelist would be to add telemetry to Jenkins.
+
+While Jenkins instances periodically report usage statistics to the Jenkins project, the information included is very bare bones and mostly useful to know the number of installations, the popularity of plugins, and the general size of Jenkins instances through number and types of jobs and agents.
+We also didn't want to just collect data without a clear goal, so we set ourselves some limitations -- collect as little data as possible, no personally identifiable information, have a specific purpose for each kind of information we would collect, and define an end date for the collection in advance.
+We defined all of this in https://github.com/jenkinsci/jep/blob/master/jep/214/README.adoc[JEP-214], created the https://github.com/jenkins-infra/uplink[Uplink service that would receive submissions], and added the basic client framework to Jenkins.
+The implementation is fairly basic -- we just submit an arbitrary JSON object with some added metadata to a service.
+This system would inform tweaks to a security fix we were anxious to get out, after all.
+
+Starting in mid October for weekly releases, and early November for LTS, tens of thousands of Jenkins instances would submit Stapler request dispatch telemetry daily, and we would keep identifying code incompatible with the new rules and amending the fix.
+Ultimately, https://github.com/jenkinsci/jenkins/blob/44c4d3989232082c254d27ae360aa810669f44b7/core/src/main/resources/jenkins/security/stapler/default-whitelist.txt[the whitelist] would include a few dozen entries, preventing serious regressions in popular plugins like plugin:credentials[Credentials Plugin], plugin:junit[JUnit Plugin], or the Pipeline plugins suite, down to plugin:google-cloud-health-check[Google Health Check Plugin], a plugin with just 80 installations when we published the fix.
+
+Learning what requests would result in problems also allowed us to write better developer documentation -- we already knew what code patterns would break, and how popular each of them was in the plugin ecosystem.
+
+
+== The Overhaul
+
+I wrote above:
+
+____
+For example, the declared return type of getters now needed to be one defined in Jenkins core or a Jenkins plugin and have either clearly Stapler-related methods (with Stapler annotations, parameter types, etc.) or Stapler-related resource files associated with it.
+____
+
+While this was true for the fix during most of development, it isn't how the fix that we published actually works.
+About a month before the intended release date, internal design/code review feedback criticized the complicated and time-consuming implementation that at the time required scanning the class path of Jenkins and all plugins and looking for related resources, and suggested a different approach.
+
+So we tried to require that the declared type or any of its ancestors be annotated with the new annotation `@StaplerAccessibleType`, annotated a bunch of types in Jenkins itself (https://javadoc.jenkins.io/hudson/model/ModelObject.html[`ModelObject`] being the obvious first choice), and ran our scripts that check to see whether Stapler would be allowed to dispatch methods identified in telemetry.
+We'd long since automated the daily update of dispatch telemetry processing, so it was a simple matter of changing which Jenkins build we were working with.
+
+After a few iterations of adding the annotation to more classes, the results were very positive: Very few additional types needed whitelisting, while many more were no longer (unnecessarily) allowed to be dispatched to.
+This experiment, late during development, ended up being essentially the fix we delivered.
+We didn't need to perform costly scanning of the class path on startup -- we didn't need to scan the class path at all -- , and the rules governing request dispatch in Stapler, while different from before, are still pretty easy to understand and independent of how components are packaged.
+
+
+== The Outcome
+
+As usual when delivering a fix we expect could result in regressions in plugins, we https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+the+SECURITY-595+fix[created a wiki page] that users could report problems on.
+Right now, there's one entry on that wiki page.
+It is one we were aware of well before release, decided against whitelisting it, and the affected, undocumented feature in Git Plugin ended up being removed.
+The situation in our issue tracker is only slightly worse, with two apparently minor issues having been reported in Jira.
+
+Without telemetry, delivering a fix like this one would have been difficult to begin with.
+Tinkering with the implementation just a few weeks before release and having any confidence in the result?
+Not causing any significant regressions?
+I think this would simply be impossible.

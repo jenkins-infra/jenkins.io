@@ -49,7 +49,7 @@ or if you don't like indenting you could use the GitHub style triple-back-tick
     echo hello world
     ```
 
-Part of what makes this a [literate style](http://en.wikipedia.org/wiki/Literate_programming) of build description is that you can freely intersperse the description of what and why the commands do with the actual commands, e.g.
+Part of what makes this a [literate style](https://en.wikipedia.org/wiki/Literate_programming) of build description is that you can freely intersperse the description of what and why the commands do with the actual commands, e.g.
 
     # Build
 
@@ -248,10 +248,10 @@ The “Experimental” update center includes plugins that have `alpha` or `beta
 
 So if you want to play with these plugins you need to change your Jenkins instance's update center URI to:
 
-    http://updates.jenkins-ci.org/experimental/update-center.json
+    https://updates.jenkins-ci.org/experimental/update-center.json
 
 I would recommend that you use a test Jenkins instance for playing with. 
 
-(WARNING: shameless plug) You could also just fire up a Jenkins in the cloud using CloudBee's DEV@cloud service and follow [these handy instructions](http://developer-blog.cloudbees.com/2013/09/how-to-try-literate-builds-on-devcloud.html) to enable access to the experimental plugins:
+(WARNING: shameless plug) You could also just fire up a Jenkins in the cloud using CloudBee's DEV@cloud service and follow [these handy instructions](https://developer-blog.cloudbees.com/2013/09/how-to-try-literate-builds-on-devcloud.html) to enable access to the experimental plugins:
  
 The 10 best bug reports on literate builds before the Jenkins User Conference next month will receive a prise from CloudBees, Inc. I was able to get a commitment that the prise would be at least a T-shirt. I am hoping to get some more swag added to the prize pool. CloudBees employees or relatives of CloudBees employees are not eligible for the bug report prise!

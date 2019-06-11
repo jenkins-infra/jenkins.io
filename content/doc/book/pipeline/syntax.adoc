@@ -332,10 +332,7 @@ was successful.
 run has an "aborted" status, usually due to the Pipeline being manually aborted.
 This is typically denoted by gray in the web UI.
 `failure`:: Only run the steps in `post` if the current Pipeline's or stage's
-run has a "failed" status, typically denoted by red in the web UI. Note that if
-you manually set `currentBuild.result = 'FAILURE'` in a stage and have a
-`failure` `post` condition on that stage, the `failure` will not fire for that
-stage.
+run has a "failed" status, typically denoted by red in the web UI.
 `success`:: Only run the steps in `post` if the current Pipeline's or stage's
 run has a "success" status, typically denoted by blue or green in the web UI.
 `unstable`:: Only run the steps in `post` if the current Pipeline's or stage's
@@ -465,13 +462,7 @@ depending on where the `environment` directive is located within the Pipeline.
 
 This directive supports a special helper method `credentials()` which can be
 used to access pre-defined Credentials by their identifier in the Jenkins
-environment. For Credentials which are of type "Secret Text", the
-`credentials()` method will ensure that the environment variable specified
-contains the Secret Text contents. For Credentials which are of type "Standard
-username and password", the environment variable specified will be set to
-`username:password` and two additional environment variables will be
-automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respectively.
-
+environment. 
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -485,8 +476,30 @@ automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respectively.
 | Inside the `pipeline` block, or within `stage` directives.
 |===
 
+===== Supported Credentials Type
+
+Secret Text:: 
+the environment variable specified will be set to the Secret Text content
+Secret File::
+the environment variable specified will be set to the location of the File
+file that is temporarily created
+Username and password:: 
+the environment variable specified will be set to `username:password` and two
+additional environment variables will be automatically defined: `MYVARNAME_USR`
+and `MYVARNAME_PSW` respectively.
+SSH with Private Key:: 
+the environment variable specified will be set to the location of the SSH key 
+file that is temporarily created and two additional environment variables may
+be automatically defined: `MYVARNAME_USR` and `MYVARNAME_PSW` (holding the 
+passphrase).
+
+[NOTE]
+====
+Unsupported credentials type causes the pipeline to fail with the message: `org.jenkinsci.plugins.credentialsbinding.impl.CredentialNotFoundException: No suitable binding handler could be found for type <unsupportedType>.`
+====
+
 [[environment-example]]
-===== Example
+===== Examples
 
 [pipeline]
 ----
@@ -516,6 +529,37 @@ given environment variables to steps within the `stage`.
 <3> The `environment` block has a helper method `credentials()` defined which
 can be used to access pre-defined Credentials by their identifier in the
 Jenkins environment.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Example Username/Password') {
+            environment {
+                SERVICE_CREDS = credentials('my-prefined-username-password')
+            }
+            steps {
+                sh 'echo "Service user is $SERVICE_CREDS_USR"'
+                sh 'echo "Service password is $SERVICE_CREDS_PSW"'
+                sh 'curl -u $SERVICE_CREDS https://myservice.example.com'
+            }
+        }
+        stage('Example Username/Password') {
+            environment {
+                SSH_CREDS = credentials('my-prefined-ssh-creds')
+            }
+            steps {
+                sh 'echo "SSH private key is located at $SSH_CREDS"'
+                sh 'echo "SSH user is $SSH_CREDS_USR"'
+                sh 'echo "SSH passphrase is $SSH_CREDS_PSW"'
+            }
+        }
+    }
+}
+// Script //
+----
 
 ==== options
 
@@ -548,6 +592,9 @@ in a subdirectory of the workspace. For example: `options { checkoutToSubdirecto
 disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
 be useful for preventing simultaneous accesses to shared resources, etc. For
 example: `options { disableConcurrentBuilds() }`
+
+disableResume:: Do not allow the pipeline to resume if the master restarts.
+For example: `options { disableResume() }`
 
 newContainerPerStage:: Used with `docker` or `dockerfile` top-level
 agent. When specified, each stage will run in a new container instance

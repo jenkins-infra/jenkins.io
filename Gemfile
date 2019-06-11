@@ -4,7 +4,7 @@ gem 'colorize'
 gem 'awestruct', '~> 0.5.7'
 gem 'awestruct-ibeams', '~> 0.4'
 gem 'asciidoctor-jenkins-extensions'
-gem 'asciidoctor', '~> 1.5.5'
+gem 'asciidoctor', '~> 1.5.8'
 
 # Support for various template engines we use
 gem 'haml', '~> 4.0.7'
@@ -19,7 +19,7 @@ group :fetcher do
 end
 
 group :pdfs do
-  gem 'asciidoctor-pdf', '1.5.0.alpha.15'
+  gem 'asciidoctor-pdf', '1.5.0.alpha.16'
 end
 
 gem "concurrent-ruby", "~> 1.1"
