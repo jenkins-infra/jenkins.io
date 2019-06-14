@@ -28,6 +28,88 @@ This tutorial use AWS as example, but other clouds like Google Cloud, Microsoft 
 
 === Define a master Jenkins EC2
 
-Terraform use its own DSL, tutorial can be found : , but you don't need to worry about the syntaxes. You only need to know the concept of CasC, then you can use any CasC with any cloud providers or even other services. To define an EC2 instance, we define 
+Terraform use its own DSL, tutorial can be found : , but you don't need to worry about the syntaxes. You only need to know the concept of CasC, then you can use any CasC with any cloud providers or even other services. you create a ```jenkins.tf``` file, and then write such code :
+```
+resource "aws_instance" "jenkins_master" {
+  ami           = "ami-174325867235"
+  instance_type = "t2.micro"
+  *user_data*    = "${data.template_file.jenkins_start_script}"
+}
+```
+This defines a ec2 instance, and use a template we will define later as the user data. User data is a script will be executed when instance launched. We will use this user data to install dependencies, Jenkins, mount EFS and many other things.
+
+
+```
+resource "aws_efs_file_system" "jenkins_efs" {
+  creation_token = "jenkins"
+  tags = {
+    Name = "jenkins-efs"
+  }
+}
+```
+This defines an EFS, we will use its id.
+```
+data "template_file" "jenkins_start_script" {
+  template = "${file("${path.module}/jenkins_start_script.tpl")}"
+  vars = {
+    EFS_ID = "${aws_efs_file_system.jenkins_efs.private_ip}"
+  }
+}
+```
+This tells terraform to find a file named "jenkins_start_script.tpl" in the same directory with current .tf file, and feed the id of the EFS we just created to the variable 'EFS_ID'. It looks very much like function/methods in imperative languages, just pass in values to provision resources.Finally we write the installation script.
+
+```
+#!/bin/bash
+
+# file named "jenkins_start_script.tpl"
+
+yum update -y
+yum update -y
+yum install jenkins
+systemctl start jenkins.service
+yum install -y amazon-efs-utils
+# then you mount the EFS
+
+mount -t ${EFS_ID}:/ /home/jenkins/custom-workspace-path/
+
+# then do other things
+```
+Now you have defined a EC2 instance with an EFS mounted. (But it's not created yet, you need to run some commands to actually create that, this is just like a blueprint)
+
+=== Use auto scaling groups
+Next steps would be defining auto-scaling-groups as slaves. The user-data part is almost the same, only that you need to put user data in the launch configuration of an auto scaling group.
+
+```
+resource "aws_autoscaling_group" "jenkins_slave_asg" {
+  name                      = "jenkins-slave-asg"
+  max_size                  = 5
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 4
+  force_delete              = true
+  launch_configuration      = "${aws_launch_configuration.jenkins_slave_asg_launch_configuration.name}"
+}
+
+resource "aws_launch_configuration" "jenkins_slave_asg_launch_configuration" {
+  name          = "jenkins-slave-asg-launch-configuration"
+  image_id      = "ami-1571365314613"
+  instance_type = "t2.micro"
+  user_date     = ${data.template_file.jen
+kins_slave_start_script}"
+}
+```
+
+You can write a new user data for Jenkins slaves, with the same syntax above.
+
+=== Use ec2-plugin with EFS
+
+ec2-plugin allows you to launch Jenkins slaves within Jenkins. 
+
+TODO
+
+=== Jenkins CasC
+
+
 
 
