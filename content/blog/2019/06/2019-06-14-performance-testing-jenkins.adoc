@@ -1,0 +1,124 @@
+---
+layout: post
+title: "Performance Testing Framework for Jenkins Plugins"
+tags:
+- jenkins
+- jmh
+- plugins
+- benchmark
+- performance
+- gsoc
+author: abhyudayasharma
+---
+
+= Performance Testing Framework for Jenkins Plugins
+
+My work for the first phase of my Google Summer of Code project to improve the performance of
+the Role Strategy Plugin involved creating a framework for running benchmarks in Jenkins Plugins.
+We chose link:http://openjdk.java.net/jeps/230[Java Microbenchmark Harness] for running the benchamrks.
+
+The framework works by starting a temporary Jenkins instance for each fork of the JMH benchmark, just
+like `JenkinsRule` from Jenkins Test Harness.
+
+== Creating Benchmarks
+
+Benchmarks are run directly from your JUnit Tests which allows you to fail builds on the fly and easily run
+benchmarks from your IDE, just like unit tests. You can easily configure your benchmarks by either using your
+Java methods, or by using Jenkins Configuration-as-Code plugin and passing the path to your YAML file.
+
+=== Writing benchmarks
+
+A reference to the Jenkins instance is available through either `JmhBenchmarkState#getJenkins()` or through
+`Jenkins.getInstance()` like you would otherwise do. `JmhBenchmarkState` provides `setup()` and `tearDown` methods
+which can be overridden to configure the Jenkins instance according to your benchmark's requirements.
+
+=== Running the benchmarks
+
+The benchmarks can be run through JUnit tests. From a test method, you can use the `OptionsBuilder` provided by JMH to
+configure your benchmarks. enchmark reports generated (in JSON) can be visualized using the
+link:https://wiki.jenkins.io/display/JENKINS/JMH+Report+Plugin[JMH Report Plugin].
+
+==== Automatic detection of benchmark classes
+
+Classes containing benchmarks are found automatically by the `BenchmarkFinder`
+when annotated with `@JmhBenchmark`.
+
+NOTE: Benchmark methods need to be annotated by `@Benchmark` for JMH to detect them.
+
+==== Running benchmarks from Maven
+
+To easily run benchmrks from Maven, a Maven profile to run the benchmarks has been created
+and is available starting Plugin-POM version 3.45. You can then run your benchmarks from the
+command line using `mvn test -Dbenchmark`. To make it easier for plugins hosted on ci.jenkins.io,
+a build step has been added in Jenkins pipeline library which automatically runs benchmarks
+and optionally archives the benchmark results.
+
+=== Sample benchmarks
+
+First, you need to have a benchmark runner that contains a `@Test` so it can run
+like a JUnit test:
+
+[source, java]
+----
+public class BenchmarkRunner {
+    @Test
+    public void runJmhBenchmarks() throws Exception {
+        ChainedOptionsBuilder options = new OptionsBuilder()
+                .mode(Mode.AverageTime)
+                .forks(2)
+                .result("jmh-report.json");
+
+        // find benchmarks in the package containing this class
+        BenchmarkFinder bf = new BenchmarkFinder(getClass().getPackage().getName());
+        bf.findBenchmarks(options);
+        new Runner(options.build()).run();
+    }
+}
+----
+
+This allows us to automatically find benchmarks and run them through a JUnit test.
+Since `BenchmarkRunner` class name does not qualify as a test according to Maven surefire plugin's
+naming conventions, the benchmarks will not interfere with your JUnit tests.
+Now, you can write your benchmarks:
+
+**Without any special setup**:
+
+[source,java]
+----
+@JmhBenchmark
+public class JmhStateBenchmark {
+    public static class MyState extends JmhBenchmarkState {
+    }
+
+    @Benchmark
+    public void benchmark(MyState state) {
+        // benchmark code goes here
+        state.getJenkins().setSystemMessage("Hello world");
+    }
+}
+----
+
+// TODO: Add docs for configuration as code after configuration-as-code#921 is merged
+
+**More Samples**:
+
+As a part of this project, benchmarks have been created in the Role Strategy Plugin which show
+configuring the instances and the benchmarks for various situations. You may find them 
+link:https://github.com/jenkinsci/role-strategy-plugin/tree/master/src/test/java/jmh/benchmarks[here].
+
+
+== Integrating with your plugin
+
+This framework has now been integrated into Jenkins Test Harness and is available for everyone 
+to use by just upgrading the version of the Plugin-POM. To use Configuration-as-Code to set up your Jenkins
+instances that will be started for the benchmarks, you also need to add a Maven dependency to the 
+`configuration-as-code` plugin.
+
+== Demos and Presentation Slides
+
+++++
+<div style="text-align: center; margin-bottom: 30px;">
+<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQXca_ZQNwI4vQ25Nw7lMSnSh4WBwKbC9VltT-7tOjS8cE69zMb2bgEbhgwurb1xA/embed?start=false&loop=false&delayms=5000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</div>
+++++
+
