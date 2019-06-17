@@ -1,42 +1,51 @@
 ---
 layout: post
-title: "Performance Testing Framework for Jenkins Plugins"
+title: "Microbenchmarking Framework for Jenkins Plugins"
 tags:
-- jenkins
 - jmh
 - plugins
 - benchmark
 - performance
+- developer
 - gsoc
+- gsoc2019
 author: abhyudayasharma
 ---
 
 = Performance Testing Framework for Jenkins Plugins
 
-My work for the first phase of my Google Summer of Code project to improve the performance of
-the Role Strategy Plugin involved creating a framework for running benchmarks in Jenkins Plugins.
-We chose link:http://openjdk.java.net/jeps/230[Java Microbenchmark Harness] for running the benchamrks.
-
-The framework works by starting a temporary Jenkins instance for each fork of the JMH benchmark, just
-like `JenkinsRule` from Jenkins Test Harness.
+I have been working on improving the performance of the Role Strategy Plugin as a part of my Google Summer of
+Code project. Since there was no existing way to measure performance and do benchmarks on Jenkins Plugins,
+my work for the first phase of this Google Summer of Code project was to create a framework for running
+benchmarks in Jenkins Plugins with a Jenkins instance available. To make our job a bit easier,
+we chose link:http://openjdk.java.net/jeps/230[Java Microbenchmark Harness] for running these benchmarks. This
+allows us to reliably measure performance of our time-critical functions and will help make Jenkins perform faster
+for everyone. The blogpost below shows how to run a benchmark in your plugin.
 
 == Creating Benchmarks
 
-Benchmarks are run directly from your JUnit Tests which allows you to fail builds on the fly and easily run
-benchmarks from your IDE, just like unit tests. You can easily configure your benchmarks by either using your
-Java methods, or by using Jenkins Configuration-as-Code plugin and passing the path to your YAML file.
+The framework runs works by starting a temporary Jenkins instance for each fork of the JMH benchmark,
+just like `JenkinsRule` from Jenkins Test Harness. Benchmarks are run directly from your JUnit Tests which allows
+you to fail builds on the fly and easily run benchmarks from your IDE, just like unit tests. You can easily
+configure your benchmarks by either using your Java methods, or by using Jenkins Configuration-as-Code plugin
+and passing the path to your YAML file.
+
+To run benchmarks from your plugins, you either need to do the following:
+
+* bump up the minimum required Jenkins version to 2.60.3 or above
+* bump Plugin-POM to a version >= 3.46 or manually upgrade to Jenkins Test Harness >= 2.51.
 
 === Writing benchmarks
 
 A reference to the Jenkins instance is available through either `JmhBenchmarkState#getJenkins()` or through
-`Jenkins.getInstance()` like you would otherwise do. `JmhBenchmarkState` provides `setup()` and `tearDown` methods
+`Jenkins.getInstance()` like you would otherwise do. `JmhBenchmarkState` provides `setup()` and `tearDown()` methods
 which can be overridden to configure the Jenkins instance according to your benchmark's requirements.
 
 === Running the benchmarks
 
 The benchmarks can be run through JUnit tests. From a test method, you can use the `OptionsBuilder` provided by JMH to
 configure your benchmarks. Benchmark reports generated (in JSON) can be visualized using the
-link:https://wiki.jenkins.io/display/JENKINS/JMH+Report+Plugin[JMH Report Plugin].
+plugin:jmh-report[JMH Report Plugin].
 
 ==== Automatic detection of benchmark classes
 
@@ -97,14 +106,64 @@ public class JmhStateBenchmark {
 }
 ----
 
-// TODO: Add docs for configuration as code after configuration-as-code#921 is merged
-
 **More Samples**:
 
 As a part of this project, benchmarks have been created in the Role Strategy Plugin which show
 configuring the instances and the benchmarks for various situations. You may find them 
 link:https://github.com/jenkinsci/role-strategy-plugin/tree/master/src/test/java/jmh/benchmarks[here].
 
+== Using Configuration as Code
+
+To use configuration as code, apart from the dependencies above you also need to add the following
+to your `pom.xml`:
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.jenkins</groupId>
+    <artifactId>configuration-as-code</artifactId>
+    <version>1.21</version>
+    <optional>true</optional>
+</dependency>
+<dependency>
+    <groupId>io.jenkins</groupId>
+    <artifactId>configuration-as-code</artifactId>
+    <version>1.21</version>
+    <classifier>tests</classifier>
+    <scope>test</scope>
+</dependency>
+----
+
+// TODO: Verify version after configuration-as-code#921 is released
+
+Now configuring a benchmark is as simple as providing path to your YAML file and specifying the class
+containing the benchmark state.
+
+[source,java]
+----
+@JmhBenchmark
+public class SampleBenchmark {
+    public static class MyState extends CascJmhBenchmarkState {
+        @Nonnull
+        @Override
+        protected String getResourcePath() {
+            return "config.yml";
+        }
+
+        @Nonnull
+        @Override
+        protected Class<?> getEnclosingClass() {
+            return SampleBenchmark.class;
+        }
+    }
+
+    @Benchmark
+    public void benchmark(MyState state) {
+        Jenkins jenkins = state.getJenkins(); // jenkins is configured and ready to be benchmarked.
+        // your benchmark code goes here...
+    }
+}
+----
 
 == Integrating with your plugin
 
@@ -117,7 +176,13 @@ Plugins built on ci.jenkins.io can also use the `runBenchmarks()` method after t
 Jenkinsfile which is now available in the Jenkins Pipeline library. This function also accepts the path to your
 generated JMH benchmark reports as an optional parameter and archives the benchmark results. The benchmark
 builds are currently throttled because of the limited availability of `highmem` nodes. Running benchmarks in 
-pull request builds allows you to constantly monitor the performance implications of a given change.
+pull request builds allows you to constantly monitor the performance implications of a given change. For example,
+the Jenkinsfile from Role Strategy Plugin:
+[source, groovy]
+----
+buildPlugin()
+runBenchmarks('jmh-report.json')
+----
 
 == Demos and Presentation Slides
 
