@@ -42,6 +42,8 @@ Awestruct::Extensions::Pipeline.new do
   extension SolutionPage.new
   extension Releases.new
 
+  extension UpgradeGuide.new
+
   extension AuthorList.new(:posts,
                         '/node/index',
                         :per_page => 10)
