@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Microbenchmarking Framework for Jenkins Plugins"
+title: "Micro-benchmarking Framework for Jenkins Plugins"
 tags:
 - jmh
 - plugins
@@ -12,17 +12,20 @@ tags:
 author: abhyudayasharma
 ---
 
-= Performance Testing Framework for Jenkins Plugins
+= Micro-benchmarking Framework for Jenkins Plugins
 
-I have been working on improving the performance of the Role Strategy Plugin as a part of my Google Summer of
-Code project. Since there was no existing way to measure performance and do benchmarks on Jenkins Plugins,
+I have been working on improving the performance of the Role Strategy Plugin as a part of my link:https://summerofcode.withgoogle.com/projects/#6612887823450112[Google Summer of Code project].
+Since there was no existing way to measure performance and do benchmarks on Jenkins Plugins,
 my work for the first phase of this Google Summer of Code project was to create a framework for running
 benchmarks in Jenkins Plugins with a Jenkins instance available. To make our job a bit easier,
 we chose link:http://openjdk.java.net/jeps/230[Java Microbenchmark Harness] for running these benchmarks. This
 allows us to reliably measure performance of our time-critical functions and will help make Jenkins perform faster
-for everyone. The blogpost below shows how to run a benchmark in your plugin.
+for everyone.
 
-== Creating Benchmarks
+The micro-benchmarking framework was recently released in the Jenkins Unit Test Harness.
+The blog post below shows how to run benchmarks in your plugins.
+
+== Introduction
 
 The framework runs works by starting a temporary Jenkins instance for each fork of the JMH benchmark,
 just like `JenkinsRule` from Jenkins Test Harness. Benchmarks are run directly from your JUnit Tests which allows
@@ -30,42 +33,14 @@ you to fail builds on the fly and easily run benchmarks from your IDE, just like
 configure your benchmarks by either using your Java methods, or by using Jenkins Configuration-as-Code plugin
 and passing the path to your YAML file.
 
-To run benchmarks from your plugins, you either need to do the following:
+To run benchmarks from your plugins, you need to do the following:
 
 * bump up the minimum required Jenkins version to 2.60.3 or above
-* bump Plugin-POM to a version >= 3.46 or manually upgrade to Jenkins Test Harness >= 2.51.
+* bump Plugin-POM to a version ≥ 3.46 or manually upgrade to Jenkins Test Harness ≥ 2.51.
 
-=== Writing benchmarks
-
-A reference to the Jenkins instance is available through either `JmhBenchmarkState#getJenkins()` or through
-`Jenkins.getInstance()` like you would otherwise do. `JmhBenchmarkState` provides `setup()` and `tearDown()` methods
-which can be overridden to configure the Jenkins instance according to your benchmark's requirements.
-
-=== Running the benchmarks
-
-The benchmarks can be run through JUnit tests. From a test method, you can use the `OptionsBuilder` provided by JMH to
-configure your benchmarks. Benchmark reports generated (in JSON) can be visualized using the
-plugin:jmh-report[JMH Report Plugin].
-
-==== Automatic detection of benchmark classes
-
-Classes containing benchmarks are found automatically by the `BenchmarkFinder`
-when annotated with `@JmhBenchmark`.
-
-NOTE: Benchmark methods need to be annotated by `@Benchmark` for JMH to detect them.
-
-==== Running benchmarks from Maven
-
-To easily run benchmrks from Maven, a Maven profile to run the benchmarks has been created
-and is available starting Plugin-POM version 3.45. You can then run your benchmarks from the
-command line using `mvn test -Dbenchmark`. To make it easier for plugins hosted on ci.jenkins.io,
-a build step has been added in Jenkins pipeline library which automatically runs benchmarks
-and optionally archives the benchmark results.
-
-=== Sample benchmarks
-
-First, you need to have a benchmark runner that contains a `@Test` so it can run
-like a JUnit test:
+Now, to run the benchmark, you need to have a benchmark runner that contains a `@Test` so it can run
+inside of a JUnit test. From inside a test method, you can use the `OptionsBuilder` provided by JMH to
+configure your benchmarks. For example:
 
 [source, java]
 ----
@@ -84,12 +59,11 @@ public class BenchmarkRunner {
 }
 ----
 
-This allows us to automatically find benchmarks and run them through a JUnit test.
-Since `BenchmarkRunner` class name does not qualify as a test according to Maven surefire plugin's
-naming conventions, the benchmarks will not interfere with your JUnit tests.
-Now, you can write your benchmarks:
+== Sample benchmarks
 
-**Without any special setup**:
+Now, you can write your first benchmark:
+
+=== Without any special setup
 
 [source,java]
 ----
@@ -106,13 +80,7 @@ public class JmhStateBenchmark {
 }
 ----
 
-**More Samples**:
-
-As a part of this project, benchmarks have been created in the Role Strategy Plugin which show
-configuring the instances and the benchmarks for various situations. You may find them 
-link:https://github.com/jenkinsci/role-strategy-plugin/tree/master/src/test/java/jmh/benchmarks[here].
-
-== Using Configuration as Code
+=== Using Configuration as Code
 
 To use configuration as code, apart from the dependencies above you also need to add the following
 to your `pom.xml`:
@@ -165,6 +133,12 @@ public class SampleBenchmark {
 }
 ----
 
+**More Samples**:
+
+As a part of this project, a few benchmarks have been created in the Role Strategy Plugin which show
+configuring the instances for various situations. You can find them 
+link:https://github.com/jenkinsci/role-strategy-plugin/tree/master/src/test/java/jmh/benchmarks[here].
+
 == Integrating with your plugin
 
 This framework has now been integrated into Jenkins Test Harness and is available for everyone 
@@ -172,23 +146,54 @@ to use by just upgrading the version of the Plugin-POM. To use Configuration-as-
 instances that will be started for the benchmarks, you also need to add a Maven dependency to the 
 `configuration-as-code` plugin.
 
-Plugins built on ci.jenkins.io can also use the `runBenchmarks()` method after the `buildPlugin()` step in your
-Jenkinsfile which is now available in the Jenkins Pipeline library. This function also accepts the path to your
-generated JMH benchmark reports as an optional parameter and archives the benchmark results. The benchmark
-builds are currently throttled because of the limited availability of `highmem` nodes. Running benchmarks in 
-pull request builds allows you to constantly monitor the performance implications of a given change. For example,
-the Jenkinsfile from Role Strategy Plugin:
+=== Running benchmarks from Maven
+
+To easily run benchmrks from Maven, a Maven profile to run the benchmarks has been created
+and is available starting Plugin-POM version 3.45. You can then run your benchmarks from the
+command line using `mvn test -Dbenchmark`.
+
+=== Running benchmarks on ci.jenkins.io
+
+If you have your plugins hosted on ci.jenkins.io, you can easily run benchmarks directly from your Jenkinsfile
+by using the `runBenchmarks()` method after the `buildPlugin()` step in your which is now available in Jenkins
+Pipeline library. This function also accepts the path to your generated JMH benchmark reports as an optional 
+parameter and archives the benchmark results. The benchmark builds are currently throttled because of the
+limited availability of `highmem` nodes. Running benchmarks in pull request builds allows you to constantly 
+monitor the performance implications of a given change. For example, the Jenkinsfile from Role Strategy Plugin:
 [source, groovy]
 ----
 buildPlugin()
 runBenchmarks('jmh-report.json')
 ----
 
-== Demos and Presentation Slides
+=== Visualizing Benchmark Results
 
-++++
-<div style="text-align: center; margin: 30px 0px;">
-<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vQXca_ZQNwI4vQ25Nw7lMSnSh4WBwKbC9VltT-7tOjS8cE69zMb2bgEbhgwurb1xA/embed?start=false&loop=false&delayms=5000" frameborder="0" width="640" height="389" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true" style="margin-bottom: 20px;"></iframe>
-<iframe width="640" height="389" src="https://www.youtube.com/embed/sr28UADG1AE" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</div>
-++++
+Benchmark reports generated (in JSON) can be visualized using the
+plugin:jmh-report[JMH Report Plugin].
+
+== Tips and tricks
+
+* Since `BenchmarkRunner` class name in the example above does not qualify as a test according to Maven surefire plugin's
+naming conventions, the benchmarks will not interfere with your JUnit tests.
+* Benchmark methods need to be annotated by `@Benchmark` for JMH to detect them.
+* Classes containing benchmarks are found automatically by the `BenchmarkFinder`
+when annotated with `@JmhBenchmark`.
+* A reference to the Jenkins instance is available through either `JmhBenchmarkState#getJenkins()` or through
+`Jenkins.getInstance()` like you would otherwise do. 
+* `JmhBenchmarkState` provides `setup()` and `tearDown()` methods which can be overridden to configure the
+ Jenkins instance according to your benchmark's requirements.
+
+== Links and Feedback
+
+If you have any feedback, comments or questions, please feel free to reach out to me through either
+the link:https://gitter.im/jenkinsci/role-strategy-plugin
+[Role Strategy Plugin Gitter chat] or through 
+link:mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
+
+* link:https://docs.google.com/presentation/d/e/2PACX-1vQXca_ZQNwI4vQ25Nw7lMSnSh4WBwKbC9VltT-7tOjS8cE69zMb2bgEbhgwurb1xA[Presentation slides]
+* link:https://www.youtube.com/watch?v=lyfbmhQd0Ag[Demo in Platform SIG meeting]
+* Documentation for the micro-benchmark framework:
+** link:https://github.com/jenkinsci/jenkins-test-harness/blob/master/docs/jmh-benchmarks.adoc[Jenkins Test Harness]
+** link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/benchmarks/jmh-benchmarks.md[Configuration-as-Code Plugin]
+** link:https://github.com/jenkinsci/plugin-pom#running-benchmarks[Plugin POM]
+** link:https://github.com/jenkins-infra/pipeline-library#runbenchmarks[Jenkins Pipeline Library]
