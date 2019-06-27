@@ -199,6 +199,59 @@ agent {
 }
 ----
 
+kubernetes:: Execute the Pipeline, or stage, inside a pod deployed on a Kubernetes cluster. In order to use this option,
+the `Jenkinsfile` must be loaded from either a  Multibranch Pipeline, or a
+"Pipeline from SCM." The Pod template is defined inside the kubernetes { } block. 
+For example, if you want a pod with kaniko and kubectl containers inside it, you would define it as follows:
++
+[source,groovy]
+----
+agent {
+    kubernetes {
+        label podlabel
+        yaml """
+kind: Pod
+metadata:
+  name: jenkins-slave
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    imagePullPolicy: Always
+    command:
+    - /busybox/cat
+    tty: true
+    volumeMounts:
+      - name: aws-secret
+        mountPath: /root/.aws/
+      - name: docker-registry-config
+        mountPath: /kaniko/.docker
+  restartPolicy: Never
+  volumes:
+    - name: aws-secret
+      secret:
+        secretName: aws-secret
+    - name: docker-registry-config
+      configMap:
+        name: docker-registry-config
+"""
+   }
+----
++
+You will need to create a secret `aws-secret` for Kaniko to be able to authenticate with ECR. This secret should contain the contents of `~/.aws/credentials`. The other volume is a ConfigMap which should contain the endpoint of your ECR registry. 
+For example:
++
+[source,json]
+----
+{
+      "credHelpers": {
+        "<your-aws-account-id>.dkr.ecr.eu-central-1.amazonaws.com": "ecr-login"
+      }
+}
+---
++
+Refer to the following example for reference: https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/kaniko.groovy
+----
 
 ===== Common Options
 
