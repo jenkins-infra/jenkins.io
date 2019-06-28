@@ -53,6 +53,8 @@ Awestruct::Extensions::Pipeline.new do
 
   transformer VersionSwitcher.new
 
+  extension Validator.new
+
   helper AuthorList::AuthorLink
   helper ActiveNav
   helper Authorship
