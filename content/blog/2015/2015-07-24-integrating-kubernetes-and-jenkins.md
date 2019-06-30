@@ -17,8 +17,8 @@ Kubernetes-related services by Google are the [Google Container Engine](https://
 
 Several new Jenkins plugins allow you to make use of Kubernetes and these services:
 
-* The [Google Cloud Registry Auth Plugin](https://wiki.jenkins-ci.org/display/JENKINS/Google+Container+Registry+Auth+Plugin) allows users to authenticate with the Google Cloud Registry so they can push/pull images. This allows you to use the Google Cloud Registry with existing Docker-related plugins, like [Docker build step plugin](https://wiki.jenkins-ci.org/display/JENKINS/Docker+build+step+plugin) or [CloudBees Docker Custom Build Environment Plugin](https://wiki.jenkins-ci.org/display/JENKINS/CloudBees+Docker+Custom+Build+Environment+Plugin).
-* The [Kubernetes Plugin](https://wiki.jenkins-ci.org/display/JENKINS/Kubernetes+Plugin) implements a cloud provider for Jenkins, and can create slaves based on Docker images on-demand on your Kubernetes cluster or the Google Cloud Platform.
+* The [Google Cloud Registry Auth Plugin](https://wiki.jenkins.io/display/JENKINS/Google+Container+Registry+Auth+Plugin) allows users to authenticate with the Google Cloud Registry so they can push/pull images. This allows you to use the Google Cloud Registry with existing Docker-related plugins, like [Docker build step plugin](https://wiki.jenkins.io/display/JENKINS/Docker+build+step+plugin) or [CloudBees Docker Custom Build Environment Plugin](https://wiki.jenkins.io/display/JENKINS/CloudBees+Docker+Custom+Build+Environment+Plugin).
+* The [Kubernetes Plugin](https://wiki.jenkins.io/display/JENKINS/Kubernetes+Plugin) implements a cloud provider for Jenkins, and can create slaves based on Docker images on-demand on your Kubernetes cluster or the Google Cloud Platform.
 
 [Watch Kohsuke demoing Jenkins/Kubernetes integration at OSCON earlier this week.](https://www.youtube.com/watch?v=PFCSSiT-UUQ&index=21&list=PL69nYSiGNLP0Ljwa9J98xUd6UlM604Y-l)
 

@@ -36,4 +36,4 @@ ZeroTurnaround and Jenkins plugin development approaches.
 * Q&A Session [ru], all speakers - \[[video](https://events.yandex.ru/lib/talks/3306/)\]
 
 
-Check out where [Jenkins Area Meetups](https://www.meetup.com/pro/Jenkins/) (JAMs) are located in the world. Don't see a JAM in your area? Why not start your own, [here's how](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup).
+Check out where [Jenkins Area Meetups](https://www.meetup.com/pro/Jenkins/) (JAMs) are located in the world. Don't see a JAM in your area? Why not start your own, [here's how](https://wiki.jenkins.io/display/JENKINS/Jenkins+Area+Meetup).

@@ -10,7 +10,7 @@
 :author: rtyler
 ---
 We have been featuring a few proposals this week for what "[Jenkins
-2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0)" is going to include. Today we'll be diving into the most noticeable changes being proposed for Jenkins 2.0: the User Experience (UX) improvements
+2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" is going to include. Today we'll be diving into the most noticeable changes being proposed for Jenkins 2.0: the User Experience (UX) improvements
 
 Thus far in this blog series we have reviewed proposals covering:
 
@@ -33,7 +33,7 @@ We're asking you to read the issues linked from [JENKINS-31156](https://issues.j
 
 If you have ever logged in to the [issue
 tracker](https://issues.jenkins-ci.org) or the
-[wiki](https://wiki.jenkins-ci.org/), you have a "Jenkins user account" which
+[wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.
 

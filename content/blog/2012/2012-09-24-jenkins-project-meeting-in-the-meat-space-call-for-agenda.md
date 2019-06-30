@@ -11,11 +11,11 @@
 - juc
 :author: kohsuke
 ---
-As you may or may not know, the Jenkins project has a [bi-weekly IRC meeting](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda) where we discuss and decide on things necessary to keep the project running.
+As you may or may not know, the Jenkins project has a [bi-weekly IRC meeting](https://wiki.jenkins.io/display/JENKINS/Governance+Meeting+Agenda) where we discuss and decide on things necessary to keep the project running.
 
 Next Sunday, we'll bring this project meeting live to [Jenkins User Conference San Francisco](https://www.cloudbees.com/jenkins-user-conference-2012-san-francisco.cb).
 
-Since this is an unique opportunity to engage people who don't normally come to these meetings, I'd like to encourage everyone to propose agenda items and add it to [the agenda page](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda#GovernanceMeetingAgenda-JenkinsUserConferenceMeeting@SanFrancisco).
+Since this is an unique opportunity to engage people who don't normally come to these meetings, I'd like to encourage everyone to propose agenda items and add it to [the agenda page](https://wiki.jenkins.io/display/JENKINS/Governance+Meeting+Agenda#GovernanceMeetingAgenda-JenkinsUserConferenceMeeting@SanFrancisco).
 
 The Wiki page lists all the past meetings, so you can get a sense of what it is like. But this time, we hope to have a good number of users to the meeting, not just project insiders. So if you have things you'd like to get users feedback on, or if you like project insiders to update you on things, please don't hesitate to add them.
 

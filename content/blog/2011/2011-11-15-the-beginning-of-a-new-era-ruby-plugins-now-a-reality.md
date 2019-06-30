@@ -12,7 +12,7 @@
 ---
 <img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/jruby.png" align="right" width="180" alt="Yay JRuby!"/> It's not often that I get to use *that* much hyperbole in a Jenkins blog post, but I think in this case it's allowable. A journey that started over a year ago by [Charles Lowell](https://twitter.com/cowboyd) has reached a new level, thanks to lots of help from [Kohsuke](https://twitter.com/kohsukekawa) along with [Hiroshi Nakamura](https://twitter.com/nahi) and [J&oslash;rgen Tjern&oslash;](https://twitter.com/jorgenpt).
 
-As of today, with Jenkins 1.438, you can now **download and install Ruby plugins from the update center** (the [Path Ignore plugin](https://wiki.jenkins-ci.org/display/JENKINS/Pathignore+Plugin) being the first). 
+As of today, with Jenkins 1.438, you can now **download and install Ruby plugins from the update center** (the [Path Ignore plugin](https://wiki.jenkins.io/display/JENKINS/Pathignore+Plugin) being the first). 
 
 Words simply can't express what a monumental achievement this is for the Jenkins project, both from the technical perspective but also in terms of what this means for the future of the project.
 
@@ -24,7 +24,7 @@ According to the [languages dashboard on GitHub](https://github.com/languages), 
 
 For those that are curious, the first officially released Ruby plugin for Jenkins is J&oslash;rgen's [pathignore-plugin](https://github.com/jenkinsci/pathignore-plugin) which can be found in the update center. If you're looking for a reference project, this is currently the most up-to-date plugin.
 
-There is also a **[wiki page covering Ruby plugin development](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+plugin+development+in+Ruby)**, which might be a little out-of-date but covers most of the essentials.
+There is also a **[wiki page covering Ruby plugin development](https://wiki.jenkins.io/display/JENKINS/Jenkins+plugin+development+in+Ruby)**, which might be a little out-of-date but covers most of the essentials.
 
 Additionally you might find the [jenkins-prototype-plugin](https://github.com/cowboyd/jenkins-prototype-ruby-plugin) an interesting resource as it is practically a kitchen sink of demo/test Ruby plugin code.
 

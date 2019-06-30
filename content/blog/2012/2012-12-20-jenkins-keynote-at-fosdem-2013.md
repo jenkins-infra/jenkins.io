@@ -36,7 +36,7 @@ We are very likely going to have a table in the hall again this year, but the FO
 
 Regardless, a **lot** of Jenkins community members will be at FOSDEM in February in addition to hundreds of other open source contributors and users from around the world.
 
-If you're interested in participating and/or meeting up with the Jenkins crowd, there's details coming together on **[the FOSDEM wiki page](https://wiki.jenkins-ci.org/display/JENKINS/FOSDEM)**.
+If you're interested in participating and/or meeting up with the Jenkins crowd, there's details coming together on **[the FOSDEM wiki page](https://wiki.jenkins.io/display/JENKINS/FOSDEM)**.
 
 We hope to see you there!
 <!--break-->

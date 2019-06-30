@@ -25,7 +25,7 @@ But what if Jenkins reads the README file and uses it for the build definition? 
 
 What if, because the build definition is now in Source Control, you can have Jenkins create jobs for each branch with ease? The joy of cheap branches that modern source control systems such as GIT and Mercurial give us, no longer comes with the pain of having to create Jenkins jobs for each branch (and more pain having to remember to tidy up when the branch is gone.)
 
-That is the promise delivered by the [Literate plugin](https://wiki.jenkins-ci.org/display/JENKINS/Literate+Plugin).
+That is the promise delivered by the [Literate plugin](https://wiki.jenkins.io/display/JENKINS/Literate+Plugin).
 
 ## How does it work?
 

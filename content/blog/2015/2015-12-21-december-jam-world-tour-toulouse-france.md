@@ -31,7 +31,7 @@ There were 3 talks planned for the evening:
 * [Job DSL
   Intro](https://fr.slideshare.net/gmahieux/jenkins-job-dsl-plugin-56347061) [fr], by [Ghislain Mahieux](https://twitter.com/ghislainmahieux)
     * [Video recording](https://www.youtube.com/watch?v=ddxoOaSDQCE)
-* [Workflow plugin](https://mpailloncy.github.io/presentations/jenkins-workflow-plugin/index.html) [fr], by [Michaël Pailloncy](https://twitter.com/mpailloncy) (co-maintainer of the [Build Trigger Badge plugin](https://wiki.jenkins-ci.org/display/JENKINS/Build+Trigger+Badge+Plugin))
+* [Workflow plugin](https://mpailloncy.github.io/presentations/jenkins-workflow-plugin/index.html) [fr], by [Michaël Pailloncy](https://twitter.com/mpailloncy) (co-maintainer of the [Build Trigger Badge plugin](https://wiki.jenkins.io/display/JENKINS/Build+Trigger+Badge+Plugin))
     * [Video recording](https://www.youtube.com/watch?v=_f16qTAAMYs)
 * [Feedback on almost 10 years of CI and what's upcoming](https://batmat.github.io/presentations/rex-forge-2015/prez.html) [fr], demo with [Jenkins build scaling with Docker Swarm](https://twitter.com/bmathus/status/677271839282999297), by [Baptiste Mathus](https://twitter.com/bmathus)
     * [Video recording](https://www.youtube.com/watch?v=AB-OBl1hAPs)

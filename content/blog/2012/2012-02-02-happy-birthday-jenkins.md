@@ -14,7 +14,7 @@ Along with some other bug fixes, the 1.396 release of Jenkins included a *very* 
 
 > *Fixed a trademark bug that caused a considerable fiasco by renaming to Jenkins*
 
-On behalf of the core Jenkins team and the governance board I would like to extend a extremely large <big><strong>Thank You!</strong></big> to all of the [plugin developers](https://github.com/jenkinsci), [bug filers](https://issues.jenkins-ci.org), [wiki page editors](https://wiki.jenkins-ci.org), [book authors](http://www.wakaleo.com/books/jenkins-the-definitive-guide) and the users who have helped grow Jenkins into the project it is today.
+On behalf of the core Jenkins team and the governance board I would like to extend a extremely large <big><strong>Thank You!</strong></big> to all of the [plugin developers](https://github.com/jenkinsci), [bug filers](https://issues.jenkins-ci.org), [wiki page editors](https://wiki.jenkins.io), [book authors](http://www.wakaleo.com/books/jenkins-the-definitive-guide) and the users who have helped grow Jenkins into the project it is today.
 
 Some of the tidbits from our highlight reel:
 

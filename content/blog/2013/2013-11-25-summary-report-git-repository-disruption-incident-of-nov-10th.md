@@ -49,7 +49,7 @@ Firstly, we’ll develop a script that continuously records the ref update event
 Secondly, we’ll allow people to control access to individual Git repositories, as opposed to give them all or nothing access to the entire array of plugin repositories.
 
 
-The Jenkins developers decided to continue the current open commit policy despite the incident to preserve [our culture](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Document#GovernanceDocument-OurPhilosophy), which helped us navigate through this incident without a single argument nor flame war.
+The Jenkins developers decided to continue the current open commit policy despite the incident to preserve [our culture](https://wiki.jenkins.io/display/JENKINS/Governance+Document#GovernanceDocument-OurPhilosophy), which helped us navigate through this incident without a single argument nor flame war.
 
 
 ## FAQ
