@@ -19,7 +19,7 @@ Or, better still, write a plugin or contribute a patch yourself!
 
 ----
 
-**Editor's Note:**  If you're interested in writing a plugin, you can check out [Hudson's wiki](https://wiki.hudson-ci.org) and/or [this guide](https://wiki.jenkins.io/display/JENKINS/Plugin+tutorial) on the subject.
+**Editor's Note:**  If you're interested in writing a plugin, you can check out [Hudson's wiki](https://wiki.jenkins.io) and/or [this guide](https://wiki.jenkins.io/display/JENKINS/Plugin+tutorial) on the subject.
 
 
 Andrew Bayer (`abayer`) has been a contributor to Hudson since early 2009, contributing to the ClearCase plugin, Hudson's core and a small number of other plugins. Andrew also helps Kohsuke with a lot of Hudson's project infrastructure, most notably the migration from Bugzilla on Java.net to JIRA running at [issues.hudson-ci.org](https://issues.hudson-ci.org).

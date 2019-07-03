@@ -6,7 +6,7 @@
 - security
 :author: daniel-beck
 ---
-We just released security updates to Jenkins that fix a number of low and medium severity issues. For an overview of what was fixed, see the [security advisory](https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2016-05-11).
+We just released security updates to Jenkins that fix a number of low and medium severity issues. For an overview of what was fixed, see the [security advisory](/security/advisory/2016-05-11/).
 
 One of the fixes may well break some of your use cases in Jenkins, at least until plugins have been adapted: SECURITY-170. This change removes parameters that are not defined on a job from the build environment. So, right now, a job could even be unparameterized, and plugins were able to pass parameters anyway. Since build parameters are added to the environment variables of scripts run during a build, parameters such as `PATH` or `DYLD_LIBRARY_PATH` can be defined -- on jobs which don't even expect those as build parameters -- to change the behavior of builds.
 
