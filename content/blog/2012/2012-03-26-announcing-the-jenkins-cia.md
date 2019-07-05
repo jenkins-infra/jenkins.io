@@ -17,7 +17,7 @@ workstation. As time went on, word-of-mouth within the organization spread
 Jenkins far and wide.
 
 Today we announce an initiative to help support these rogue agents: the
-[Jenkins CIA](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+CIA+Program). CIA being short for Continuous
+[Jenkins CIA](https://wiki.jenkins.io/display/JENKINS/Jenkins+CIA+Program). CIA being short for Continuous
 Integration Ambassador of course.
 
 
@@ -38,7 +38,7 @@ Jenkins, but continuous integration in general, so stay tuned.
 
 If you're not the speaking type but instead prefer to work behind the scenes,
 you can join the [OSS](https://en.wikipedia.org/wiki/Office_of_Strategic_Services) by checking out the [Beginner's Guide to contributing
-to Jenkins](https://wiki.jenkins-ci.org/display/JENKINS/Beginners+Guide+to+Contributing).
+to Jenkins](https://wiki.jenkins.io/display/JENKINS/Beginners+Guide+to+Contributing).
 
 
 

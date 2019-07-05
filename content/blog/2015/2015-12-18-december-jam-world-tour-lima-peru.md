@@ -47,5 +47,5 @@ the Lima JAM can be found [here](https://jenkinsperu.github.io/).
 Check out where [Jenkins Area Meetups](https://www.meetup.com/pro/Jenkins/)
 (JAMs) are located in the world. Don't see a JAM in your area? why not start
 your own, [here's
-how](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup).
+how](https://wiki.jenkins.io/display/JENKINS/Jenkins+Area+Meetup).
 

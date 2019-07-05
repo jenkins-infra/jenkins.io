@@ -10,7 +10,7 @@
 ---
 <img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/>
 
-As I mentioned in [yesterday's post](/content/fosdem-2016-travel-grant-program), we're planning a "Contributor Summit" on February 1st, after [FOSDEM 2016](https://fosdem.org/2016) (January 30th/31st), to focus on Jenkins 2.0. Since many of us [are already planning](https://wiki.jenkins-ci.org/display/JENKINS/FOSDEM+2016), the Monday following the event turned out to be the ideal time to discuss 2.0.
+As I mentioned in [yesterday's post](/content/fosdem-2016-travel-grant-program), we're planning a "Contributor Summit" on February 1st, after [FOSDEM 2016](https://fosdem.org/2016) (January 30th/31st), to focus on Jenkins 2.0. Since many of us [are already planning](https://wiki.jenkins.io/display/JENKINS/FOSDEM+2016), the Monday following the event turned out to be the ideal time to discuss 2.0.
 
 *Note:* If you're not already familiar with some of the key proposals that were put forth, you can review them in the [Jenkins 2.0 proposals summery page](/content/jenkins-20-proposals).
 

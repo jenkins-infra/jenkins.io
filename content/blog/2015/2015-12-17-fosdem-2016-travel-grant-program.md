@@ -10,7 +10,7 @@
 ---
 <img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/>
 
-While we are gearing up for [FOSDEM 2016](https://fosdem.org/2016/) early next year in Brussels, I wanted to remind the Jenkins community about our [Travel Grant Program](https://wiki.jenkins-ci.org/display/JENKINS/Travel+Grant+Program). We're a little late on mentioning it, but the board has allocated the money to help Jenkins contributors travel to Brussels to participate in FOSDEM and the Jenkins Contributor Summit which we will be hosting the day after, Feb 1st, which we'll discuss more in a later blog post.
+While we are gearing up for [FOSDEM 2016](https://fosdem.org/2016/) early next year in Brussels, I wanted to remind the Jenkins community about our [Travel Grant Program](https://wiki.jenkins.io/display/JENKINS/Travel+Grant+Program). We're a little late on mentioning it, but the board has allocated the money to help Jenkins contributors travel to Brussels to participate in FOSDEM and the Jenkins Contributor Summit which we will be hosting the day after, Feb 1st, which we'll discuss more in a later blog post.
 
 For the FOSDEM Travel Grant Program, we are able to cover up to $500 (USD) in expenses to help community members participate in FOSDEM.
 
@@ -27,9 +27,9 @@ If you have other possible funding sources, please look to them first. This will
 
 ### Application
 
-The application process for FOSDEM, due to our poor timing, deviates from the traditional [Travel Grant Program](https://wiki.jenkins-ci.org/display/JENKINS/Travel+Grant+Program).
+The application process for FOSDEM, due to our poor timing, deviates from the traditional [Travel Grant Program](https://wiki.jenkins.io/display/JENKINS/Travel+Grant+Program).
 
-To apply for a travel grant, send an email with the following information to the [Governance Board](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Board) at `jenkinsci-board@googlegroups.com` before **January 6th**.
+To apply for a travel grant, send an email with the following information to the [Governance Board](https://wiki.jenkins.io/display/JENKINS/Governance+Board) at `jenkinsci-board@googlegroups.com` before **January 6th**.
 
 * Your name
 * The event you'd like to attend
@@ -46,10 +46,10 @@ To apply for a travel grant, send an email with the following information to the
 If you've been selected for a travel grant, we'll expect you to:
 
 * Be available for a blog post about this program before the event.
-* Help out at the Jenkins [stand at FOSDEM](https://wiki.jenkins-ci.org/display/JENKINS/FOSDEM+2016)
+* Help out at the Jenkins [stand at FOSDEM](https://wiki.jenkins.io/display/JENKINS/FOSDEM+2016)
 * If your schedule permits, we'd love to see you at the Jenkins 2.0 Contributor Summit the day after FOSDEM.
 
-It should go without saying that we expect all Jenkins contributors representing the project at an event such as FOSDEM to act in a respectful and constructive manner. As we have not yet formally adopted our own [Code of Conduct](https://wiki.jenkins-ci.org/display/JENKINS/Code+of+Conduct), we recommend reviewing the [FOSDEM Code of Conduct](https://fosdem.org/2016/practical/conduct/).
+It should go without saying that we expect all Jenkins contributors representing the project at an event such as FOSDEM to act in a respectful and constructive manner. As we have not yet formally adopted our own [Code of Conduct](https://wiki.jenkins.io/display/JENKINS/Code+of+Conduct), we recommend reviewing the [FOSDEM Code of Conduct](https://fosdem.org/2016/practical/conduct/).
 
 After the trip, please submit a travel report to `jenkinsci-dev@googlegroups.com` mailing list. This report should include the following:
 

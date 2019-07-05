@@ -11,7 +11,7 @@
 - workflow
 :author: rtyler
 ---
-Last week we hosted our first [Hacksgiving](https://wiki.jenkins-ci.org/display/JENKINS/Hacksgiving+2015) event, a two-day virtual hackathon with a number of recorded sessions and plenty of pull requests submitted, [I](https://github.com/rtyler) would say it was a success! I would like to thank everybody who took the time to watch, chat and present in the Hacker Hangout. 
+Last week we hosted our first [Hacksgiving](https://wiki.jenkins.io/display/JENKINS/Hacksgiving+2015) event, a two-day virtual hackathon with a number of recorded sessions and plenty of pull requests submitted, [I](https://github.com/rtyler) would say it was a success! I would like to thank everybody who took the time to watch, chat and present in the Hacker Hangout. 
 
 
 <center><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/hacksgiving-platter.png"/></center>
@@ -19,7 +19,7 @@ Last week we hosted our first [Hacksgiving](https://wiki.jenkins-ci.org/display/
 
 Now that everybody has had time to recover from the turkey and travel, we have some videos of the sessions sliced out and ready for publication.
 
-In addition to the recorded sessions, there were a number of notes captured with useful links associated with practically each session. You can find those notes [at the bottom of the Hacksgiving page](https://wiki.jenkins-ci.org/display/JENKINS/Hacksgiving+2015#Hacksgiving2015-HacksgivingNotes).
+In addition to the recorded sessions, there were a number of notes captured with useful links associated with practically each session. You can find those notes [at the bottom of the Hacksgiving page](https://wiki.jenkins.io/display/JENKINS/Hacksgiving+2015#Hacksgiving2015-HacksgivingNotes).
 
 *Note:* The following videos are all available in this [YouTube playlist](https://www.youtube.com/playlist?list=PLN7ajX_VdyaOX2dHsUpLGUMewG_TFdsP2)
 
@@ -46,7 +46,7 @@ This session was given both days of Hacksgiving by [schristou](https://github.co
 
 ### Workflow Q&A and Demo Session
 
-This session was not originally scheduled, but some folks on the Jenkins [IRC channel](https://wiki.jenkins-ci.org/display/JENKINS/IRC+Channel) had some [Workflow](https://github.com/jenkinsci/workflow-plugin) questions and [Jesse Glick](https://github.com/jglick) jumped into the Hacker Hangout to help us out!
+This session was not originally scheduled, but some folks on the Jenkins [IRC channel](https://wiki.jenkins.io/display/JENKINS/IRC+Channel) had some [Workflow](https://github.com/jenkinsci/workflow-plugin) questions and [Jesse Glick](https://github.com/jglick) jumped into the Hacker Hangout to help us out!
 
 
 <center>

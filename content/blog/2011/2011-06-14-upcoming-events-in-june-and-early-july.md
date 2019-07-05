@@ -13,7 +13,7 @@
 - jenkinsci
 :author: abayer
 ---
-I've just added three events coming up in the next few weeks to [the Jenkins calendar](https://jenkins-ci.org/calendar). Conveniently, they are all events I'll be attending while traveling around Western Europe!
+I've just added three events coming up in the next few weeks to [the Jenkins calendar](/event-calendar). Conveniently, they are all events I'll be attending while traveling around Western Europe!
 
 * [The Cologne JUG](https://jugcologne.org) is having a meetup on Saturday, June 25th, starting at 2pm. We'll be talking about Jenkins, maybe doing some coding, and then heading out for drinks and more talk! You can find more information and sign up at [Xing](https://www.xing.com/events/jugc-jenkins-town-763587).
 
@@ -21,6 +21,6 @@ I've just added three events coming up in the next few weeks to [the Jenkins cal
 
 * A week later, the London CI meetup group is hosting a meetup as well, on Wednesday, July 6th, starting at 6:30pm. We'll be meeting up at the Royal Festival Hall for discussion and drinking. You can find more information and sign up at [Meetup](https://www.meetup.com/Continuous-Integration-London/events/21752121/).
 
-Do you have a Jenkins event you'd like to have added to [our calendar](https://jenkins-ci.org/calendar)? Let us know!
+Do you have a Jenkins event you'd like to have added to [our calendar](/event-calendar)? Let us know!
 
 <!--break-->

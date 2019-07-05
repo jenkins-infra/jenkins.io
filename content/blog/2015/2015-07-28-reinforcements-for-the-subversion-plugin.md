@@ -11,7 +11,7 @@
 ---
 *This is a guest post by Manuel Recena Soto (aka recena).*
 
-Users of the plug-in know that it has undergone [very important changes](https://wiki.jenkins-ci.org/display/JENKINS/Subversion+Plugin#SubversionPlugin-ChangeLog) in the last two years.
+Users of the plug-in know that it has undergone [very important changes](https://wiki.jenkins.io/display/JENKINS/Subversion+Plugin#SubversionPlugin-ChangeLog) in the last two years.
 
 Unfortunately, some of these changes resulted in regressions for some users that weren’t properly addressed in subsequent releases. Many users were therefore forced to keep using an older release of the plugin to keep their instances running.
 

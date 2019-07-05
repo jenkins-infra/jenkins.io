@@ -14,7 +14,7 @@ This week was an interesting week in plugin development, a slight regression in 
 
 
 There were a few new and notable plugins released this week such as the [iPhoneView plugin](https://wiki.jenkins.io/display/JENKINS/iPhoneView+Plugin) which adds a fancy view to make checking Hudson all that prettier on an iPhone or iPod Touch, the [cross-platform shell plugin](https://wiki.jenkins.io/display/JENKINS/XShell+Plugin) was released, aiming to solve the problem of running a job on both Windows and Unix slaves. My favorite new plugin release this week has to be the [Gerrit plugin](https://wiki.jenkins.io/display/JENKINS/Gerrit+Plugin) which made its debut and shows a lot of potential to enable the "pre-tested commit" workflow with Git and <a id="aptureLink_NREODpoWf6" href="https://code.google.com/p/gerrit/">Gerrit</a>
-<!--break-->
+
 * Mar 20, 2010
    * [Fitnesse plugin](https://wiki.jenkins.io/display/JENKINS/Fitnesse+Plugin) 1.2
    * [Labeled Test Groups Publisher](https://wiki.jenkins.io/display/JENKINS/LabeledTestGroupsPublisher+Plugin) 1.2.6
@@ -32,7 +32,7 @@ There were a few new and notable plugins released this week such as the [iPhoneV
    * [Fitnesse plugin](https://wiki.jenkins.io/display/JENKINS/Fitnesse+Plugin) 1.3.1
    * [Gerrit plugin](https://wiki.jenkins.io/display/JENKINS/Gerrit+Plugin) 0.1
    * [JIRA plugin](https://wiki.jenkins.io/display/JENKINS/JIRA+Plugin) 1.21
-   * [Maven Release Plug-in nexus helper](None) 0.0.3
+   * Maven Release Plug-in nexus helper 0.0.3
    * [Nested View Plugin](https://wiki.jenkins.io/display/JENKINS/Nested+View+Plugin) 1.1
    * [Performance plugin](https://wiki.jenkins.io/display/JENKINS/Performance+Plugin) 1.2
    * [Sonar Plugin](https://wiki.jenkins.io/display/JENKINS/Sonar+Plugin) 1.5

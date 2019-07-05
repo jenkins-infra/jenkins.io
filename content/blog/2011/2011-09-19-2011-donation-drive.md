@@ -19,7 +19,7 @@ of legal status for the project.
 
 Up until recently we had not taken proper advantage of this new legal
 umbrella, thankfully that's changed as we're now capable of **[accepting
-donations!](https://wiki.jenkins-ci.org/display/JENKINS/Donation)**
+donations!](/donate/)**
 
 For the project this is a big step forward as it will allow us to offset the
 cost of servers for the project, bandwidth, SSL certificates and other costs

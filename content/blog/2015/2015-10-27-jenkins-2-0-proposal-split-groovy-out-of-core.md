@@ -10,7 +10,7 @@
 :author: rtyler
 ---
 As I mentioned in [yesterday's post](/content/jenkins-20-proposal-introduce-policy-api-deprecation), there's been a lot of discussion recently about what "[Jenkins
-2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0)" means. In a recent "Office Hours" session, [Kohsuke Kawaguchi](https://github.com/kohsuke) presented his
+2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" means. In a recent "Office Hours" session, [Kohsuke Kawaguchi](https://github.com/kohsuke) presented his
 vision for **Jenkins 2.0** in a [office
 hours](https://www.youtube.com/watch?v=2eVyc_n8i1c) session, the slides for
 which can be found [in this Google
@@ -50,7 +50,7 @@ feedback if you have it.
 
 If you have ever logged in to the [issue
 tracker](https://issues.jenkins-ci.org) or the
-[wiki](https://wiki.jenkins-ci.org/), you have a "Jenkins user account" which
+[wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.
 

@@ -21,4 +21,4 @@ There are also some mailing list threads where he's discussing his designs with 
 * [February to April discussion](https://groups.google.com/forum/#!topic/jenkinsci-dev/6BdWZt35dTQ)
 * [July discussion](https://groups.google.com/forum/#!msg/jenkinsci-dev/Tiz-LSqCJmg/3CuYzuBXJpsJ)
 
-The links to the Google Hangout (participate) and Youtube (watch live) [will be posted to the wiki before the event](https://wiki.jenkins-ci.org/display/JENKINS/Office+Hours). If you don't get into the Hangout (limited number of participants), don't worry: You'll be able to send questions and suggestions to his [Twitter account @gusreiber](https://twitter.com/gusreiber).
+The links to the Google Hangout (participate) and Youtube (watch live) [will be posted to the wiki before the event](https://wiki.jenkins.io/display/JENKINS/Office+Hours). If you don't get into the Hangout (limited number of participants), don't worry: You'll be able to send questions and suggestions to his [Twitter account @gusreiber](https://twitter.com/gusreiber).
