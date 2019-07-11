@@ -1,0 +1,131 @@
+---
+layout: post
+title: "Remoting over Apache Kafka plugin with Kafka launcher in Kubernetes"
+tags:
+- remoting
+- kafka
+- kubernetes
+- helm
+- developer
+- gsoc
+- gsoc2019
+author: longnguyen
+---
+
+= Remoting over Apache Kafka plugin with Kafka launcher in Kubernetes
+
+I am Long Nguyen from FPT University, Vietnam. My project for Google Summer of Code 2019 is link:https://jenkins.io/projects/gsoc/2019/remoting-over-apache-kafka-docker-k8s-features/[Remoting over Apache Kafka with Kubernetes features]. This is the first time I have contributed for Jenkins and I am very excited to announce the features that have been done in Phase 1.
+
+== Project Introduction
+
+Current version of link:https://github.com/jenkinsci/remoting-kafka-plugin[Remoting over Apache Kafka plugin] requires users to manually configure the entire system which includes Zookeeper, Kafka and remoting agents. It also doesn't support dynamic agent provisioning so scalability is harder to achieve. My project aims to solve two problems:
+
+. Out-of-the-box solution to provision Apache Kafka cluster.
+
+. Dynamic agent provisioning in a Kubernetes cluster.
+
+== Current State
+
+* Kubernetes connector with credentials supported.
+
+* Apache Kafka provisioning in Kubernetes feature is fully implemented.
+
+* Helm chart is partially implemented.
+
+== Apache Kafka provisioning in Kubernetes
+
+This feature is part of 2.0 version so it is not yet released officially. You can try out the feature by using the link:https://jenkins.io/doc/developer/publishing/releasing-experimental-updates/[Experimental Update Center] to update to `2.0.0-alpha` version or building directly from master branch:
+
+[source, bash]
+----
+git clone https://github.com/jenkinsci/remoting-kafka-plugin.git
+cd remoting-kafka-plugin/plugin
+mvn hpi:run
+----
+
+On the Global Configuration page, users can input Kubernetes server information and credentials. Then they can start Apache Kafka with only one button click.
+
+image:/images/post-images/remoting-kafka/kafka-provisioning-kubernetes-ui.png[Kafka provisioning in Kubernetes UI]
+
+When users click `Start Kafka on Kubernetes` button, Jenkins will create a Kubernetes client from the information and then apply Zookeeper and Kafka YAML specification files from `resources`.
+
+image:/images/post-images/remoting-kafka/kafka-provisioning-kubernetes-architecture.png[Kafka provisioning in Kubernetes architecture]
+
+== Helm Chart
+
+Helm chart for Remoting over Apache Kafka plugin is based on link:https://github.com/helm/charts/tree/master/stable/jenkins[stable/jenkins] chart and link:https://github.com/helm/charts/tree/master/incubator/kafka[incubator/kafka] chart. As of now, the chart is still a link:https://github.com/jenkinsci/remoting-kafka-plugin/pull/62[Work in Progress] because it is still waiting for Cloud API implementation in Phase 2. However, you can check out the demo chart with a single standalone Remoting Kafka Agent:
+
+[source, bash]
+----
+git clone -b demo-helm-phase-1 https://github.com/longngn/remoting-kafka-plugin.git
+cd remoting-kafka-plugin
+K8S_NODE=<your Kubernetes node IP> ./helm/jenkins-remoting-kafka/do.sh start
+----
+
+The command `do.sh start` will do the following steps:
+
+- Install the chart (with Jenkins and Kafka).
+
+- Launch a Kafka computer on Jenkins master by applying the following JCasC.
+
+[source, yaml]
+----
+jenkins:
+  nodes:
+    - permanent:
+        name: "test"
+        remoteFS: "/home/jenkins"
+        launcher:
+          kafka: {}
+----
+
+- Launch a single Remoting Kafka Agent pod.
+
+You can check the chart state by running `kubectl`, for example:
+
+[source, bash]
+----
+$ kubectl get all -n demo-helm
+NAME                                    READY   STATUS    RESTARTS   AGE
+pod/demo-jenkins-998bcdfd4-tjmjs        2/2     Running   0          6m30s
+pod/demo-jenkins-remoting-kafka-agent   1/1     Running   0          4m10s
+pod/demo-kafka-0                        1/1     Running   0          6m30s
+pod/demo-zookeeper-0                    1/1     Running   0          6m30s
+
+NAME                              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+service/demo-0-external           NodePort    10.106.254.187   <none>        19092:31090/TCP              6m30s
+service/demo-jenkins              NodePort    10.101.84.33     <none>        8080:31465/TCP               6m31s
+service/demo-jenkins-agent        ClusterIP   10.97.169.65     <none>        50000/TCP                    6m31s
+service/demo-kafka                ClusterIP   10.106.248.10    <none>        9092/TCP                     6m30s
+service/demo-kafka-headless       ClusterIP   None             <none>        9092/TCP                     6m30s
+service/demo-zookeeper            ClusterIP   10.109.222.63    <none>        2181/TCP                     6m30s
+service/demo-zookeeper-headless   ClusterIP   None             <none>        2181/TCP,3888/TCP,2888/TCP   6m31s
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/demo-jenkins   1/1     1            1           6m30s
+
+NAME                                     DESIRED   CURRENT   READY   AGE
+replicaset.apps/demo-jenkins-998bcdfd4   1         1         1       6m30s
+
+NAME                              READY   AGE
+statefulset.apps/demo-kafka       1/1     6m30s
+statefulset.apps/demo-zookeeper   1/1     6m30s
+----
+
+== Next Phase Plan
+
+* Implement Cloud API to provision Remoting Kafka Agent. (link:https://issues.jenkins-ci.org/browse/JENKINS-57668[JENKINS-57668])
+
+* Integrate Cloud API implementation with Helm chart. (link:https://issues.jenkins-ci.org/browse/JENKINS-58288[JENKINS-58288])
+
+* Unit tests and integration tests.
+
+* Release version 2.0 and address feedbacks. (link:https://issues.jenkins-ci.org/browse/JENKINS-58289[JENKINS-58289])
+
+== Links
+
+* link:https://youtu.be/MDs0Vr7gnnA?t=2601[Phase 1 Demo Video]
+* link:https://docs.google.com/presentation/d/1yIPwwL7P051XaSE2EOJYAtbVsd6YvGvvKp9QcJE4J1Y/edit?usp=sharing[Phase 1 Presentation Slides]
+* link:https://github.com/jenkinsci/remoting-kafka-plugin[Remoting over Apache Kafka plugin]
+* link:https://jenkins.io/projects/gsoc/2019/remoting-over-apache-kafka-docker-k8s-features/[Project Page]
+* link:https://gitter.im/jenkinsci/remoting[Gitter Channel]
