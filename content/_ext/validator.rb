@@ -6,8 +6,8 @@ class Validator
       next unless page.output_path =~ /\.html?/i
       if !page.layout
          warning "Missing layout for #{page.output_path}"
-      elsif page.layout != "redirect" && page.layout != "refresh" && !page.title
-         warning "Missing title for #{page.output_path}"
+      elsif page.layout != "redirect" && page.layout != "refresh"
+         validate_title page
       end
     end
 
@@ -33,6 +33,21 @@ class Validator
     end
   end
 
+  def validate_title(page)
+    if !page.title
+      warning "Missing title for #{page.output_path}"
+    else
+      # Workaround for title parsing bug
+      # https://issues.jenkins-ci.org/browse/WEBSITE-270
+      if page.title.is_a?(Hash) and page.title.keys.length == 1
+        page.title.each do |key, val|
+          page.title = "#{key}: #{val}"
+        end
+      end
+      warning "Invalid title #{page.title} for #{page.output_path}" unless page.title.is_a?(String)
+    end
+  end
+  
   def warning(message)
     puts "WARNING: #{message}"
     @warnings += 1
