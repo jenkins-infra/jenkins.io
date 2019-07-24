@@ -1,0 +1,107 @@
+---
+layout: post
+title: "Managing Jenkins Artifacts with the Azure Artifact Manager Plugin"
+tags:
+- general
+- azure
+- plugin
+author: jshen
+---
+
+Jenkins stores all generated artifacts on the master server filesystem. This presents a couple of challenges especially when you try to run Jenkins in the cloud:
+
+* As the number of artifacts grow, your Jenkins master will run out of disk space. Eventually, performance can be impacted.
+* Frequent transfer of files between agents and master may cause load, CPU or network issues which are always hard to diagnose.
+
+Several existing plugins allow you to manage your artifacts externally. To use these plugins, you need to know how they work and perform specific steps in your job's configuration. And if you are new to Jenkins, you may find it hard to follow existing samples in Jenkins tutorial like https://jenkins.io/doc/pipeline/tour/tests-and-artifacts/[Recording tests and artifacts].
+
+So, if you are running Jenkins in Azure, you can consider automatically managing new artifacts on https://azure.microsoft.com/en-us/services/storage/[Azure Storage]. The new https://plugins.jenkins.io/azure-artifact-manager[Azure Artifact Management plugin] allows you to store artifacts in Azure blob storage and simplify your existing Jenkins jobs that contain Jenkins general artifacts management steps. This approach will give you all the advantages of a cloud storage, with less effort on your part to maintain your Jenkins instance.
+
+== Configuration
+
+======  Azure storage account
+
+First, you need to have an Azure Storage account. You can skip this section if you already have one. Otherwise, create an Azure storage account for storing your artifacts. Follow this https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account?tabs=azure-portal[tutorial] to quickly create one. Then navigate to *Access keys* in the *Settings* section to get the storage account name and one of its keys.
+
+image:/images/post-images/2019-07-24-azure-artifact-manager/1-azure-accesskey.png[role=center]
+
+====== Existing Jenkins instance
+
+For existing Jenkins instance, make sure you install the https://plugins.jenkins.io/azure-artifact-manager[Azure Artifact Manager] plugin. Then you can go to your Jenkins _System Configuration_ page and locate the _Artifact Management for Builds_ section. Select the *Add* button to configure an Azure Artifact Storage. Fill in the following parameters:
+
+* *Storage Type:* Azure storage supports several storage types like blob, file, queue etc. This plugin currently supports blob storage only.
+* *Storage Credentials:* Credentials used to authenticate with Azure storage. If you do not have an existing Azure storage credential in you Jenkins credential store, click the *Add* button and choose *Microsoft Azure Storage* kind to create one.
+* *Azure Container Name:* The container under which to keep your artifacts. If the container name does not exist in the blob, this plugin automatically creates one for you when artifacts are uploaded to the blob.
+* *Base Prefix:* Prefix added to your artifact paths stored in your container, a forward slash will be parsed as a folder. In the following screenshot, all your artifacts will be stored in the “staging” folder in the container “Jenkins.”
+
+image:/images/post-images/2019-07-24-azure-artifact-manager/2.configuration.png[role=center]
+
+====== New Jenkins instance
+
+If you need to create a new Jenkins master, follow this https://docs.microsoft.com/en-us/azure/jenkins/install-jenkins-solution-template[tutorial] to quickly create an Jenkins instance on Azure. In the *Integration Settings* section, you can now set up Azure Artifact Manager directly. Note that you can change any of the configuration after your Jenkins instance is created. Azure storage account and credential, in this case, are still prerequisites.
+
+image:/images/post-images/2019-07-24-azure-artifact-manager/3.integration-setting-azure.png[role=center]
+
+== Usage
+
+====== Jenkins Pipeline
+
+Here’s are a few of commonly used artifacts related steps in pipeline jobs; all are supported to push artifacts to the Azure Storage blob specified.
+
+You can use _archiveArtifacts_ step to archive target artifacts into Azure storage. For more details about _archiveArtifacts_ step, see the Jenkins https://jenkins.io/doc/pipeline/steps/core/#archiveartifacts-archive-the-artifacts[archiveArtifacts setp documentation].
+
+----
+node {
+     //...
+     stage('Archive') { 
+        archiveArtifacts "pattern"
+     } 
+}
+----
+
+You can use the _unarchive_ step to retrieve the artifacts from Azure storage. For more details about _unarchive_ step, please see https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#code-unarchive-code-copy-archived-artifacts-into-the-workspace[unarchive step documentation].
+
+----
+node {
+     //...
+     stage('Unarchive') {
+        unarchive mapping: ["pattern": '.']
+     } 
+}
+----
+
+To save a set of files so that you can use them later in the same build (generally on another node or workspace), you can use _stash_ step to store files into Azure storage for later use. _Stash_ step documentation can be found https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#unstash-restore-files-previously-stashed[here].
+
+----
+node {
+     //...
+     stash name: 'name', includes: '*'
+}
+----
+
+You can use _unstash_ step to retrieve the files saved with _stash_ step from Azure storage to the local workspace.  _Unstash_ documentation can be found https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#unstash-restore-files-previously-stashed[here].
+
+----
+node {
+     //...
+     unstash 'name'
+}
+----
+
+====== FreeStyle Job
+
+For a FreeStyle Jenkins job, you can use *Archive the artifacts* step in *Post-build Actions* to upload the target artifacts into Azure storage.
+
+image:/images/post-images/2019-07-24-azure-artifact-manager/4.post-build-actions.png[role=center]
+
+This Azure Artifact Manager plugin is also compatible with some other popular management plugins, such as the https://plugins.jenkins.io/copyartifact[Copy Artifact] plugin. You can still use these plugins without changing anything.
+
+image:/images/post-images/2019-07-24-azure-artifact-manager/5-build.png[role=center]
+
+== Troubleshooting
+
+If you have any problems or suggestions when using Azure Artifact Manager plugin, you can file a ticket on https://issues.jenkins-ci.org/secure/Dashboard.jspa[Jenkins JIRA] for the azure-artifact-manager-plugin component.
+
+== Conclusion
+
+In summary, the https://plugins.jenkins.io/azure-artifact-manager[Azure Artifact Manager] enables a more cloud-native Jenkins. This is the first step in the https://jenkins.io/sigs/cloud-native/[Cloud Native project]. We have a long way to go to get Jenkins to run on cloud environments as a true “Cloud Native” application. We need help and welcome your participation and contributions to make Jenkins better. Please start contributing and/or give us feedback!
