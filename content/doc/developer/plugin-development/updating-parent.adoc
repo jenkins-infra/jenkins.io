@@ -45,31 +45,111 @@ with the new format:
 
 ## Understanding `requireUpperBoundDeps` failures and fixes
 
-TODO
+Sometimes after changing dependency versions in a POM and building,
+you will encounter Maven Enforcer errors referring to a rule named `RequireUpperBoundDeps`.
+This rule means that if your plugin depends on some component (such as another plugin) A in version 13,
+and another component B in version 7,
+yet A version 13 expressed a dependency on B version 9 or newer,
+then you may have a problem.
+The practical impact could vary depending on the situation,
+but in some cases it could mean ``LinkageError``s at runtime.
 
 ### Transitive dependency plugin too old
 
-TODO Jenkins 2.12+ also checks this during `InjectedTest`, but more slowly
+For example, changing only the `git` test dependency version from `3.9.1` to `4.0.0-rc` in the `kubernetes` plugin might print:
+
+[source]
+----
+--- maven-enforcer-plugin:3.0.0-M2:enforce (display-info) @ kubernetes ---
+Adding ignore: module-info
+Rule 5: org.apache.maven.plugins.enforcer.RequireUpperBoundDeps failed with message:
+Failed while enforcing RequireUpperBoundDeps. The error(s) are [
+Require upper bound dependencies error for org.jenkins-ci.plugins:git-client:2.7.5 paths to dependency are:
++-org.csanchez.jenkins.plugins:kubernetes:1.17.3-SNAPSHOT
+  +-org.jenkinsci.plugins:pipeline-model-definition:1.3.7
+    +-org.jenkins-ci.plugins:git-client:2.7.5
+and
++-org.csanchez.jenkins.plugins:kubernetes:1.17.3-SNAPSHOT
+  +-org.jenkins-ci.plugins:git:4.0.0-rc
+    +-org.jenkins-ci.plugins:git-client:2.7.5 (managed) <-- org.jenkins-ci.plugins:git-client:3.0.0-rc
+and
++-org.csanchez.jenkins.plugins:kubernetes:1.17.3-SNAPSHOT
+  +-org.jenkins-ci.plugins:git:3.9.1
+    +-org.jenkins-ci.plugins:git-client:2.7.5 (managed) <-- org.jenkins-ci.plugins:git-client:2.7.3
+and
++-org.csanchez.jenkins.plugins:kubernetes:1.17.3-SNAPSHOT
+  +-org.jenkinsci.plugins:pipeline-model-definition:1.3.7
+    +-org.jenkins-ci.plugins.workflow:workflow-cps-global-lib:2.9
+      +-org.jenkins-ci.plugins:git-client:2.7.5 (managed) <-- org.jenkins-ci.plugins:git-client:2.7.0
+and
++-org.csanchez.jenkins.plugins:kubernetes:1.17.3-SNAPSHOT
+  +-org.jenkinsci.plugins:pipeline-model-definition:1.3.7
+    +-org.jenkins-ci.plugins.workflow:workflow-cps-global-lib:2.9
+      +-org.jenkins-ci.plugins:git-server:1.7
+        +-org.jenkins-ci.plugins:git-client:2.7.5 (managed) <-- org.jenkins-ci.plugins:git-client:2.3.0
+]
+----
+
+It takes a while to read the meaning behind this message,
+but it is saying that `git:4.0.0-rc` depends on `git-client:3.0.0-rc`
+and yet we are currently using `git-client:2.7.5` in our classpath.
+Plugin tests in this configuration are likely to fail even if the Enforcer rule were suppressed,
+since code added to Git 4 might be expecting to use APIs added to Git Client 3.
+
+In this case (a bad plugin → plugin dependency),
+the `InjectedTest` in Jenkins 2.12 or later would also catch the mistake,
+albeit more slowly (so less suitably for quick iteration):
+
+[source]
+----
+… jenkins.InitReactorRunner$1 onTaskFailed
+SEVERE: Failed Loading plugin Jenkins Git plugin v4.0.0-rc (git)
+java.io.IOException: Jenkins Git plugin version 4.0.0-rc failed to load.
+ - Jenkins Git client plugin version 2.7.5 is older than required. To fix, install version 3.0.0-rc or later.
+	at hudson.PluginWrapper.resolvePluginDependencies(PluginWrapper.java:868)
+	at hudson.PluginManager$2$1$1.run(PluginManager.java:544)
+	at org.jvnet.hudson.reactor.TaskGraphBuilder$TaskImpl.run(TaskGraphBuilder.java:169)
+	at org.jvnet.hudson.reactor.Reactor.runTask(Reactor.java:296)
+	at jenkins.model.Jenkins$5.runTask(Jenkins.java:1091)
+	at org.jvnet.hudson.reactor.Reactor$2.run(Reactor.java:214)
+	at org.jvnet.hudson.reactor.Reactor$Node.run(Reactor.java:117)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+…
+java.lang.Error: Plugin git failed to start
+	at org.jvnet.hudson.test.PluginAutomaticTestBuilder$OtherTests.testPluginActive(PluginAutomaticTestBuilder.java:99)
+----
+
+In other cases you might get a more cryptic `NoSuchMethodError` error during tests;
+or, worse, all tests might pass yet your plugin might throw an endless stream of errors at runtime.
+The standard POM defines this Enforcer rule to reduce the likelihood of such mistakes.
+
+The fix here is to also update the `git-client` plugin version.
+That in turn might also require another plugin to be updated.
+This process can get tedious,
+so you are encouraged to make use of a “bill of materials”:
+
+https://github.com/jenkinsci/bom#usage[Plugin BOM usage instructions]
+
+At least for commonly encountered dependencies,
+the BOM can eliminate the need to specify individual versions and check that they work together.
 
 ### Improper attempt to use core component
 
-TODO
+TODO unless using `pluginFirstClassLoader`, a dep on a dep of `jenkins-core` will be ignored at runtime
 
 ### Test-scoped dependency mismatch
 
-TODO
-
-### Picking up fixes to dependency plugins
-
-TODO
+TODO if using a plugin and its `<classifier>tests</classifier>` JAR too, introduce a POM property to make sure both are at the same version
 
 ### Suppressing violations
 
-TODO
+TODO similar to https://github.com/jenkinsci/plugin-pom/blob/439ab3d2fb3dd91717538bef4d38bb67e31d65d4/pom.xml#L572-L589 but for https://github.com/jenkinsci/plugin-pom/blob/439ab3d2fb3dd91717538bef4d38bb67e31d65d4/pom.xml#L604-L611
 
 ### Shading libraries
 
-TODO
+TODO can use a distinct version of a library if it is repackaged
 
 ## Optional dependencies and extensions
 
