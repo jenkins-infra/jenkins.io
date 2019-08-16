@@ -1,0 +1,127 @@
+---
+layout: post
+title: "Introducing new Folder Authorization Plugin"
+tags:
+- plugins
+- security
+- performance
+- gsoc
+- gsoc2019
+author: abhyudayasharma
+---
+
+During my link:/projects/gsoc/2019/role-strategy-performance[Google Summer of Code Project],
+I have created the brand new plugin:folder-auth[Folder Auth Plugin] for easily
+managing permissions to projects organized in folders from the plugin:cloudbees-folder[Folders plugin].
+This new plugin is designed for fast permission checks with easy-to-manage roles.
+The 1.0 version of the plugin has just been released and can be downloaded
+from your Jenkins' Update center.
+
+image::/images/post-images/gsoc-folder-auth-plugin/folder-auth.png[Screenshot of the Folder Auth Plugin]
+
+This plugin was inspired by the plugin:role-strategy[Role Strategy Plugin]
+and brings about performance improvements and makes managing roles much easier.
+The plugin was developed to overcome performance limitations of the Role Strategy
+plugin on a large number of roles. At the same time, the plugin addresses one
+of the most popular ways of organizing projects in Jenkins, through folders.
+The plugin also has a new UI with more improvements to come in the future.
+
+The plugin supports three types of roles which are applicable at different places
+in Jenkins.
+
+* Global Roles: applicable everywhere in Jenkins
+* Agent Roles: restrict permissions for multiple agents connected to your instance
+* Folder Roles: applicable to multiple jobs organized inside folders
+
+==== Performance Improvements over Role Strategy Plugin
+
+This plugin, unlike the Role Strategy plugin, does not use regular expressions
+for finding matching projects and agents giving us performance improvements
+and makes administrators' lives easier. To reduce the number of roles required
+to be managed, permissions given to a folder through a folder role get inherited
+to all of its children. This is useful for giving access to multiple projects
+through a single role. Similarly, an agent role can be applied to multiple agents
+and assigned to multiple users.
+
+This plugin is designed to outperform Role Strategy Plugin in permission
+checks. The improvements were measured using the
+link:blog/2019/06/21/performance-testing-jenkins/[micro-benchmark framework]
+I had created during the first phase of my GSoC project.
+Benchmarks for identical configurations for both plugin show that the
+permissions check are up to 934x faster for 500 global roles when compared to
+the global roles from the Role Strategy 2.13, which in itself contains several
+performance improvements. Comparing folder roles with Role Strategy's project
+roles, a permission check for access to a job almost 15x faster for 250 projects
+organized in two-level deep folders on an instance with 150 users. You can see
+the benchmarks and the result comparisons
+link:https://github.com/jenkinsci/folder-auth-plugin/pull/13[here].
+
+==== Jenkins Configuration as Code Support
+
+The plugin supports Jenkins Configuration-as-Code so you can configure permissions
+without going through the Web UI. A YAML configuration looks like this:
+
+[source, yaml]
+----
+jenkins:
+  authorizationStrategy:
+    folderBased:
+      globalRoles:
+        - name: "admin"
+          permissions:
+            - id: "hudson.model.Hudson.Administer"
+              # ...
+          sids:
+            - "admin"
+        - name: "read"
+          permissions:
+            - id: "hudson.model.Hudson.Read"
+          sids:
+            - "user1"
+      folderRoles:
+        - folders:
+            - "root"
+          name: "viewRoot"
+          permissions:
+            - id: "hudson.model.Item.Read"
+          sids:
+            - "user1"
+      agentRoles:
+        - agents:
+            - "agent1"
+          name: "agentRole1"
+          permissions:
+            - id: "hudson.model.Computer.Configure"
+            - id: "hudson.model.Computer.Disconnect"
+          sids:
+            - "user1"
+----
+
+==== REST APIs with Swagger support
+
+The plugin provides REST APIs for managing roles with OpenAPI specifications
+through Swagger.json. You can check out the Swagger API on
+link:https://app.swaggerhub.com/apis/abhyudaya/folder-auth/1.0.0s[SwaggerHub].
+SwaggerHub provides stubs in multiple languages which can be downloaded and
+used to interact with the plugin. You can also see some sample requests from
+the command line using link:https://curl.haxx.se/[curl].
+
+image::/images/post-images/gsoc-folder-auth-plugin/swagger.png[alt=Screenshot of the APIs on SwaggerHub, height=500]
+
+image::/images/post-images/gsoc-folder-auth-plugin/swagger2.png[Another Screenshot of the APIs on SwaggerHub, height=400]
+
+==== What's next
+
+In the (not-too-distant) future, I would like to work on improving the UI and
+make the plugin easier to work with. I would also like to work on improving the
+APIs, documentation and more optimizations for improving the plugin's performance.
+
+== Links and Feedback
+I would love to hear your comments and suggestions. Please feel free to reach
+out to me through either the
+link:https://gitter.im/jenkinsci/role-strategy-plugin[Role Strategy Plugin Gitter chat] or through
+link:mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
+
+* link:https://drive.google.com/file/d/1IVe3T8WdTILmb62PAIJveR4KbBWzPt1k/view?usp=sharing[Presentation slides for second phase evaluations]
+* link:https://youtu.be/tnoObQqGhyM?t=1101[Demo for the alpha version of Folder Auth]
+* link:https://github.com/jenkinsci/folder-auth-plugin/blob/master/README.md[Documentation for the Folder Auth Plugin]
