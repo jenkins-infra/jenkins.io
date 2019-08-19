@@ -1,13 +1,13 @@
 source 'https://rubygems.org'
 
 gem 'colorize'
-gem 'awestruct', '~> 0.5.7'
+gem 'awestruct', '~> 0.6.0.alpha2'
 gem 'awestruct-ibeams', '~> 0.4'
 gem 'asciidoctor-jenkins-extensions'
 gem 'asciidoctor', '~> 1.5.8'
 
 # Support for various template engines we use
-gem 'haml', '~> 4.0.7'
+gem 'haml', '~> 5.1.0'
 gem 'liquid', '~> 3.0'
 gem 'kramdown', '~> 1.9.0'
 
