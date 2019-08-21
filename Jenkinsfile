@@ -19,7 +19,7 @@ try {
     /* Assuming that wherever we're going to build, we have nodes labelled with
     * "Docker" so we can have our own isolated build environment
     */
-    node('docker') {
+    node('docker&&linux') {
         stage('Clean workspace') {
             /* Running on a fresh Docker instance makes this redundant, but just in
             * case the host isn't configured to give us a new Docker image for every
