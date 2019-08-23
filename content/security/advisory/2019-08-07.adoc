@@ -1,0 +1,344 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2019-08-07
+section: security
+kind: plugins
+issues:
+
+# Fixed
+
+- id: SECURITY-1497
+  # reporter: (TBD)
+  title: PLUGIN_NAME failed to mask secrets in system log messages
+  cve: CVE-2019-10367
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: |-
+    PLUGIN_NAME logs the changes it applies to the Jenkins system log.
+    Secrets such as passwords should be masked (i.e. replaced with asterisks) in that log to prevent accidental disclosure.
+    PLUGIN_NAME inspects the type and looks for a field, getter, or constructor argument corresponding to the property, making the secret detection much more robust for the purpose of log message masking.
+    This was implemented in the link:https://jenkins.io/security/advisory/2019-07-31/#SECURITY-1279[fix for SECURITY-1279 in the 2019-07-31 security advisory].
+
+    That fix was incomplete and did not cover a log message written to the logger `io.jenkins.plugins.casc.impl.configurators.DataBoundConfigurator`.
+
+    PLUGIN_NAME now uses the same secret detection for these log messages.
+
+    As a workaround, administrators can configure the logging level of the logger `io.jenkins.plugins.casc.impl.configurators.DataBoundConfigurator` to a level that does not include these messages.
+    PLUGIN_NAME 1.25 and earlier logs these messages at the `INFO` level, PLUGIN_NAME 1.26 logs them at `FINE`.
+    See https://wiki.jenkins.io/display/JENKINS/Logging[the logging documentation] for details.
+  plugins:
+  - name: configuration-as-code
+    previous: 1.26
+    fixed: 1.27
+
+- id: SECURITY-1482
+  reporter: Oleg Nenashev, CloudBees, Inc., and, independently, Viktor Gazdag NCC Group
+  title: CSRF vulnerability and missing permission check in PLUGIN_NAME allowed capturing credentials
+  cve: CVE-2019-10368 (CSRF), CVE-2019-10369 (permission check)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME did not perform permission checks on a method implementing form validation.
+    This allowed users with Overall/Read access to Jenkins to connect to an attacker-specified URL using attacker-specified credentials IDs obtained through another method, capturing credentials stored in Jenkins.
+
+    Additionally, this form validation method did not require POST requests, resulting in a cross-site request forgery vulnerability.
+
+    This form validation method now requires POST requests and Overall/Administer permission.
+  plugins:
+  - name: jclouds-jenkins
+    previous: 2.14
+    fixed: 2.15
+
+
+# 10,000+
+
+- id: SECURITY-157
+  # reporter: (TBD)
+  title: PLUGIN_NAME shows plain text passwords in global configuration form fields
+  cve: CVE-2019-10370
+  cvss:
+    severity: Low
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME allows specifying passwords to be provided to builds in the global Jenkins configuration.
+
+    While the passwords are stored encrypted on disk, they are transmitted in plain text as part of the configuration form.
+    This can result in exposure of the password through browser extensions, cross-site scripting vulnerabilities, and similar situations.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: mask-passwords
+    previous: 2.12.0
+
+
+- id: SECURITY-795
+  reporter: Wadeck Follonier, CloudBees, Inc.
+  title: HTTP session fixation vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10371
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:N
+  description: |-
+    PLUGIN_NAME does not invalidate the previous session and create a new one upon successful login.
+    This allows attackers able to control or obtain another user's pre-login session ID to impersonate them.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: gitlab-oauth
+    previous: 1.4
+
+
+- id: SECURITY-796
+  reporter: Wadeck Follonier, CloudBees, Inc.
+  title: Open redirect vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10372
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME records the HTTP `Referer` header when the authentication process starts and redirects users to that URL when the user has finished logging in.
+
+    This implements an open redirect, allowing malicious sites to implement a phishing attack, with users expecting they have just logged in to Jenkins.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: gitlab-oauth
+    previous: 1.4
+
+
+- id: SECURITY-879
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Stored XSS vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10373
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME does not properly escape variables in views, resulting in a stored cross-site scripting vulnerability exploitable by users with permission to configure build pipelines.
+
+    This vulnerability is only exploitable on Jenkins releases older than 2.146 or 2.138.2 due to the https://jenkins.io/blog/2018/10/10/security-updates/[security hardening implemented in those releases].
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: build-pipeline-plugin
+    previous: 1.5.8
+
+
+# 1,000+
+
+- id: SECURITY-142
+  # reporter: (TBD)
+  title: Stored XSS vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10374
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME uses the PegDown library to implement support for rendering Markdown formatted descriptions in Jenkins.
+    It advertises disabling of HTML to prevent cross-site scripting (XSS) as a feature.
+
+    PLUGIN_NAME does not prevent the use of `javascript:` scheme in URLs for links.
+    This results in an XSS vulnerability exploitable by users able to configure entities with descriptions or similar properties that are rendered by the configured markup formatter.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: pegdown-formatter
+    previous: 1.3
+
+
+- id: SECURITY-569
+  # reporter: (Uncredited)
+  title: Arbitrary file read vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10375
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: |-
+    PLUGIN_NAME allows users able to configure jobs to read arbitrary files from the Jenkins master, even if the job is running on an agent.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: filesystem_scm
+    previous: 2.1
+
+
+- id: SECURITY-751
+  reporter: >
+    MWR labs (@mwrlabs)
+  title: Reflected XSS vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10376
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME does not properly escape the `customTheme` query parameter, resulting in a reflected cross-site scripting vulnerability.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: jenkinswalldisplay
+    previous: 0.6.34
+
+
+- id: SECURITY-1099
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  title: PLUGIN_NAME allows changing other users' avatars
+  cve: CVE-2019-10377
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    PLUGIN_NAME does not implement a permission check for the HTTP URL used to replace user avatars.
+    This allows any user with Overall/Read permission to change any other user's avatar, in addition to their own.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: avatar
+    previous: 1.2
+
+
+- id: SECURITY-1428
+  reporter: David Fiser of Trend Micro Nebula
+  title: PLUGIN_NAME stores credentials in plain text # ZDI-CAN-8874
+  cve: CVE-2019-10378
+  cvss:
+    severity: Low
+    vector: CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME stores credentials unencrypted in its global configuration file `hudson.plugins.testlink.TestLinkBuilder.xml` on the Jenkins master.
+    These credentials can be viewed by users with access to the master file system.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: testlink
+    previous: 3.16
+
+
+# 100+
+
+- id: SECURITY-591
+  # reporter: (TBD)
+  title: PLUGIN_NAME stores credentials in plain text
+  cve: CVE-2019-10379
+  cvss:
+    severity: Low
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME stores an API key unencrypted in its global configuration file `org.jenkinsci.plugins.gcm.im.GcmPublisher.xml` on the Jenkins master.
+    These credentials can be viewed by users with access to the master file system.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: gcm-notification
+    title: Google Cloud Messaging Notification
+    previous: 1.0
+
+
+- id: SECURITY-922
+  reporter: Jesse Glick, CloudBees, Inc.
+  title: Script sandbox bypass vulnerability in PLUGIN_NAME
+  cve: CVE-2019-10380
+  cvss:
+    severity: High
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME defines a custom whitelist for scripts protected by the Script Security sandbox.
+
+    This custom whitelist allows the use of methods that can be used to bypass Script Security sandbox protection.
+    This results in arbitrary code execution on any Jenkins instance with this plugin installed.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: simple-travis-runner
+    title: Simple Travis Pipeline Runner
+    previous: 1.0
+
+
+- id: SECURITY-931
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: PLUGIN_NAME globally and unconditionally disables SSL/TLS certificate validation
+  cve: CVE-2019-10381
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N
+  description: |-
+    PLUGIN_NAME unconditionally disables SSL/TLS certificate validation for the entire Jenkins master JVM.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: codefresh
+    previous: 1.8
+
+
+- id: SECURITY-1376
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: PLUGIN_NAME globally and unconditionally disables SSL/TLS certificate validation
+  cve: CVE-2019-10382
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N
+  description: |-
+    PLUGIN_NAME unconditionally disables SSL/TLS certificate validation for the entire Jenkins master JVM.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: labmanager
+    previous: 0.2.8
+
+
+- id: SECURITY-1430
+  reporter: David Fiser of Trend Micro Nebula
+  title: PLUGIN_NAME stores credentials in plain text # ZDI-CAN-8876
+  cve: CVE-2019-10385
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME stores credentials unencrypted in job `config.xml` files on the Jenkins master.
+    These credentials can be viewed by users with Extended Read permission, or access to the master file system.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: eggplant-plugin
+    previous: 2.2
+
+
+# 10+
+
+- id: SECURITY-1008
+  reporter: Oleg Nenashev, CloudBees, Inc.
+  title: CSRF vulnerability and missing permission check in PLUGIN_NAME allow capturing credentials
+  cve: CVE-2019-10386 (CSRF), CVE-2019-10387 (permission check)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME does not perform permission checks on a method implementing form validation.
+    This allows users with Overall/Read access to Jenkins to connect to an attacker-specified URL using attacker-specified credentials IDs obtained through another method, capturing credentials stored in Jenkins.
+
+    Additionally, this form validation method does not require POST requests, resulting in a cross-site request forgery vulnerability.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: xltestview-plugin
+    title: XL TestView
+    previous: 1.2.0
+
+
+- id: SECURITY-1053
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: CSRF vulnerability and missing permission check in PLUGIN_NAME allow SSRF
+  cve: CVE-2019-10388 (CSRF), CVE-2019-10389 (permission check)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    A missing permission check in a form validation method in PLUGIN_NAME allows users with Overall/Read permission to initiate a connection test to an attacker-specified URL using attacker-specified credentials and attacker-specified HTTP proxy configuration.
+
+    Additionally, the form validation method does not require POST requests, resulting in a CSRF vulnerability.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: relution-publisher
+    previous: 1.24

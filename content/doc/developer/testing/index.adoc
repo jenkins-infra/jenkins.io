@@ -52,19 +52,34 @@ For example:
 You are encouraged to test that your plugin works with link:/doc/pipeline/[Pipeline].
 You can do so without making your plugin itself dependent on various Pipeline-related plugins; instead you can include these as `test` dependencies, so that they are only used when compiling and running test cases.
 
-The simplest way to do this is to add plugin:workflow-aggregator[`workflow-aggregator`], which is the "parent" Pipeline plugin, to the `<dependencies>` section of your POM, like this:
+This is done by adding the minimum required Pipeline plugins to the `<dependencies>` section of your POM.
+The following list covers typical integration tests:
 
 [source,xml]
 ----
 <dependency>
   <groupId>org.jenkins-ci.plugins.workflow</groupId>
-  <artifactId>workflow-aggregator</artifactId>
-  <version>2.5</version> // <1>
+  <artifactId>workflow-basic-steps</artifactId>
+  <scope>test</scope>
+</dependency>
+<dependency>
+  <groupId>org.jenkins-ci.plugins.workflow</groupId>
+  <artifactId>workflow-cps</artifactId>
+  <scope>test</scope>
+</dependency>
+<dependency>
+  <groupId>org.jenkins-ci.plugins.workflow</groupId>
+  <artifactId>workflow-durable-task-step</artifactId>
+  <scope>test</scope>
+</dependency>
+<dependency>
+  <groupId>org.jenkins-ci.plugins.workflow</groupId>
+  <artifactId>workflow-job</artifactId>
   <scope>test</scope>
 </dependency>
 ----
-<1> As of this writing, version 2.5 is the latest, requiring at least Jenkins 2.7.3; a newer version of the plugin:workflow-aggregator[plugin] may now be available.
-If your plugin supports a Jenkins baseline below 2.7.3, you should preferably increase it; otherwise you will have to find an appropriate version of `workflow-aggregator` older than 2.5.
+
+(You will also need to specify ``<version>``s, unless you are using the [BOM](https://github.com/jenkinsci/bom#introduction).)
 
 ==== Depending on Other Plugins
 Any Jenkins plugins that you add as dependencies to your POM with `<scope>test</scope>` will be available in the Jenkins installations created while running test cases, or when using link:/doc/developer/tutorial/run/[`mvn hpi:run`].
@@ -73,63 +88,12 @@ You can also apply the link:https://javadoc.jenkins.io/component/jenkins-test-ha
 
 === Source Code Location
 The source code for your test cases should be placed in the standard location for Maven projects, i.e. under the `src/test/java/` directory.
-You can also write test cases in Groovy, placing them under `src/test/groovy/`. TODO: Do we want to encourage this?
 
-== Basic Example
-Here we'll show a basic test class that exercises a Jenkins build step.
+== Examples
 
-By using link:https://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/JenkinsRule.html[`JenkinsRule`], a fresh, temporary installation of Jenkins will be set up before each `@Test` method.
-Once the Jenkins instance is running, each test method can use the `Jenkins` object model, via the convenience methods of `JenkinsRule`, to set up and run a new project.
-After each test method completes, the temporary Jenkins installation will be destroyed.
-
-[source,java]
-----
-import hudson.Functions;
-import hudson.model.*;
-import hudson.tasks.*;
-import org.jenkinsci.plugins.workflow.cps.*;
-import org.jenkinsci.plugins.workflow.job.*;
-import org.junit.*;
-import org.jvnet.hudson.test.*;
-
-public class BasicExampleTest {
-  @Rule public JenkinsRule j = new JenkinsRule(); // <1>
-  @ClassRule public static BuildWatcher bw = new BuildWatcher(); // <2>
-
-  @Test public void freestyleEcho() throws Exception {
-    final String command = "echo hello";
-
-    // Create a new freestyle project with a unique name, with an "Execute shell" build step;
-    // if running on Windows, this will be an "Execute Windows batch command" build step
-    FreeStyleProject project = j.createFreeStyleProject();
-    Builder step = Functions.isWindows() ? new BatchFile(command) : new Shell(command); // <3>
-    project.getBuildersList().add(step);
-
-    // Enqueue a build of the project, wait for it to complete, and assert success
-    FreeStyleBuild build = j.buildAndAssertSuccess(project);
-
-    // Assert that the console log contains the output we expect
-    j.assertLogContains(command, build);
-  }
-
-  @Test public void pipelineEcho() throws Exception {
-    // Create a new Pipeline with the given (Scripted Pipeline) definition
-    WorkflowJob project = j.createProject(WorkflowJob.class); // <4>
-    project.setDefinition(new CpsFlowDefinition("node { echo 'hello' }", true)); // <5>
-
-    // Enqueue a build of the Pipeline, wait for it to complete, and assert success
-    WorkflowRun build = j.buildAndAssertSuccess(project);
-
-    // Assert that the console log contains the output we expect
-    j.assertLogContains("hello", build);
-  }
-}
-----
-<1> Declaring a `JenkinsRule` is the only requirement to automatically set up and tear down a Jenkins installation for each test method. You can disable this behavior for individual test methods by adding the link:https://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/WithoutJenkins.html[`@WithoutJenkins`] annotation.
-<2> link:https://javadoc.jenkins.io/component/jenkins-test-harness/?org/jvnet/hudson/test/BuildWatcher.html[`BuildWatcher`] captures the console log output for each build that runs in the test case, and writes it to standard output.
-<3> Try to ensure that your tests run on both Windows and Unix-like operating systems; the link:https://javadoc.jenkins.io/hudson/Functions.html#isWindows--[`isWindows()`] method can help here.
-<4> As the link:https://javadoc.jenkins.io/plugin/workflow-job/?org/jenkinsci/plugins/workflow/job/WorkflowJob.html[Pipeline project type] isn't included in Jenkins core, unlike Freestyle, we have to use the generic link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#createProject-java.lang.Class-[`createProject`] method with the `WorkflowJob` class, rather than a specific convenience method like link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#createFreeStyleProject[`createFreeStyleProject`].
-<5> The second parameter should *always* be set to `true`, as this enables plugin:script-security[script sandboxing].
+To see some working examples of plugin development,
+including use of `JenkinsRule` to test plugin code in the context of temporary Jenkins installations,
+try using one of the official [archetypes](https://github.com/jenkinsci/archetypes#usage).
 
 == Running Tests
 === From the Command Line
@@ -160,25 +124,8 @@ The process to follow is:
 3. Submit the configuration page without making any changes.
 4. Verify that your plugin is still identically configured.
 
-This can be done easily with the link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#configRoundtrip--[`configRoundtrip`] convenience methods in `JenkinsRule`:
-
-[source,java]
-----
-@Rule public JenkinsRule j = new JenkinsRule();
-
-@Test public void configRoundtrip() {
-  // Configure a build step with certain properties
-  JUnitResultArchiver junit = new JUnitResultArchiver("**/TEST-*.xml");
-  junit.setAllowEmptyResults(true);
-
-  // Create a project using this build step, open the configuration form, and save it
-  j.configRoundtrip(junit);
-
-  // Assert that the build step still has the correct configuration
-  assertThat(junit.getTestResults(), is("**/TEST-*.xml"));
-  assertThat(junit.isAllowEmptyResults(), is(true));
-}
-----
+This can be done easily with the link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#configRoundtrip--[`configRoundtrip`] convenience methods in `JenkinsRule`.
+Use [archetypes](https://github.com/jenkinsci/archetypes#usage) to see examples.
 
 === Providing Environment Variables
 In Jenkins, you can set environment variables on the Configure System page, which then become available during builds.
