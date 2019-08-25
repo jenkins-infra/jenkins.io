@@ -70,7 +70,7 @@ try {
                         exit 1
                     fi
 
-                    illegal_filename="$( find . -name '*[<>]' )"
+                    illegal_filename="$( find . -name '*[<>]*' )"
                     if [[ -n "$illegal_filename" ]] ; then
                         echo "Failing build due to illegal filename:" >&2
                         echo "$illegal_filename" >&2
