@@ -101,7 +101,7 @@ try {
         }
 
         stage('dry-run for blobxfer') {
-            sh './scripts/blobxfer upload --dry-run --local-path /data/_site'
+            sh './scripts/blobxfer upload --dry-run --local-path /data/_site --remote-path jenkinsio'
         }
 
         /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
