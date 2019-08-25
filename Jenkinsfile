@@ -69,6 +69,8 @@ try {
                         echo "$illegal_htaccess_content" >&2
                         exit 1
                     fi
+
+                    find . -name "*[:punct:]" && echo Failing build due to illegal filename && exit 1
                     '''
             }
         }
