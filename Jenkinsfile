@@ -100,10 +100,6 @@ try {
             archiveArtifacts artifacts: 'build/**/*.zip,build/_site/*.pdf', fingerprint: true
         }
 
-        stage('dry-run for blobxfer') {
-            sh './scripts/blobxfer upload --dry-run --local-path /data/_site --remote-path jenkinsio'
-        }
-
         /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
         */
         if (env.BRANCH_NAME == null) {
