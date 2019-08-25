@@ -70,7 +70,7 @@ try {
                         exit 1
                     fi
 
-                    find . -name "*[\<\>]" && echo Failing build due to illegal filename && exit 1
+                    find . -name "*[<>]" && echo Failing build due to illegal filename && exit 1
                     '''
             }
         }
