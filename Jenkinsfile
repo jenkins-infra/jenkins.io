@@ -102,8 +102,11 @@ try {
 
         stage('dry-run for blobxfer') {
             sh './scripts/blobxfer -h'
-            sh './scripts/blobxfer upload --dry-run --local-path /data/_site --storage-account-key unavailable --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
-            sh './scripts/blobxfer --dry-run upload --local-path /data/_site --storage-account-key unavailable --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+            /* -> https://github.com/Azure/blobxfer
+            Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
+            withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
+                sh './scripts/blobxfer upload --dry-run --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+            }
         }
 
         /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
