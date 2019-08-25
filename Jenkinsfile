@@ -101,7 +101,6 @@ try {
         }
 
         stage('dry-run for blobxfer') {
-            sh './scripts/blobxfer -h
             sh './scripts/blobxfer upload --dry-run --local-path /data/_site --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
             }
         }
