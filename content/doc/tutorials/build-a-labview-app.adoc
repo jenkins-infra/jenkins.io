@@ -1,0 +1,578 @@
+---
+layout: documentation
+title: Build a LabVIEW app 
+section: doc
+---
+
+:toc:
+:toclevels: 3
+:imagesdir: ../../book/resources
+
+This tutorial shows you how to use LabVIEW to orchestrate building a simple https://www.ni.com/en-us/shop/labview.html[LabVIEW] application. 
+
+If you are a LabVIEW developer who is new to CI/CD concepts, or you might be familiar with these concepts but don't know how to implement building your application using Jenkins, then this tutorial is for you.
+
+We’ll walk through setting up Jenkins as our CI server and using it to automate graphical diffing and testing of our project (which you'll obtain from http://www.ni.com/example/lv-ci[this example page] on ni.com). Jenkins will monitor GitHub Pull Requests for changes and will comment and check if the LabVIEW project can build successfully. Unit test results will be saved to a JUnit XML report.
+
+*Duration:* This tutorial takes 20-40 minutes to complete (assuming you've
+already met the <<prerequisites,prerequisites>> below). The exact duration will
+depend on the speed of your machine and whether or not you've already
+<<run-jenkins-in-docker,run Jenkins in Docker>> from link:..[another tutorial].
+
+You can stop this tutorial at any point in time and continue from where you left
+off.
+
+If you've already run though link:..[another tutorial], you can skip the
+<<prerequisites,Prerequisites>> and <<run-jenkins-in-docker,Run Jenkins in
+Docker>> sections below and proceed on (Just ensure you have
+link:https://git-scm.com/downloads[Git] installed locally.) If you need to
+restart Jenkins, simply follow the restart instructions in
+<<stopping-and-restarting-jenkins,Stopping and restarting Jenkins>> and then
+proceed on.
+
+include::doc/tutorials/_prerequisites.adoc[]
+** link:https://www.ni.com/en-us/support/downloads/software-products/download.labview.html#305508[LabVIEW Professional Development System 2018+]
+** link:https://www.ni.com/en-us/support/downloads/software-products/download.labview-unit-test-framework-toolkit.html#305485[LabVIEW Unit Test Framework Toolkit]
+** link:https://forums.ni.com/t5/Reference-Design-Content/UTF-JUnit-Report-Library/ta-p/3630740?profile.language=en[UTF JUnit Report library (VI Package Manager)]
+** link:https://www.python.org/downloads/[Python(Version 3.6.3 or later)]. For these examples to work, make sure Python is added to your System Path.
+** link:https://git-scm.com/downloads[Git] and optionally link:https://desktop.github.com/[GitHub Desktop].
+
+[[labview-cli-setup]]
+=== LabVIEW CLI Setup
+
+The link:https://zone.ni.com/reference/en-XX/help/371361R-01/lvhowto/cli_running_operations/[LabVIEW Command Line Interface (LabVIEWCLI)] is installed alongside LabVIEW 2018+ and is used to run LabVIEW commands, such as unit testing, through the Command Line. To use the LabVIEWCLI, you must enable VI Server: *Tools >> Options >> VI Server*. Make sure the TCP/IP checkbox is enabled and leave the Port as 3363. 
+
+[.boxshadow]
+image:tutorials/labview-01-labviewcli-setup.png[alt="LabVIEWCLI setup",width=100%]
+
+=== Python Setup
+
+The Python link:https://pypi.org/project/requests/[requests] library must be installed in order for Jenkins to post results to GitHub. One way to do this is by opening a command prompt and running the following command:
+
+----
+pip install requests
+----
+
+
+=== GitHub Setup
+
+==== Repository Setup
+
+We’ll create three GitHub repositories. Each of these repositories will be used for one of the following:
+
+* Host the script files, library files, and  infrastructure items needed for the build server. 
+* Host the actual example application.
+* Host images used during the VI diffing step.
+
+To create these repositories:
+
+1. Create or log in to your https://github.com/[GitHub] account. Make sure your email is verified.
+2. Click on the *New* button next to Repositories:
+[.boxshadow]
+image:tutorials/labview-02-new-repo.png[alt="GitHub New Repo",width=100%]
+3. On the *Create a new repository* screen, fill out the Repository name and Description:
+[.boxshadow]
+image:tutorials/labview-03-create-repo-buildsystem.png[alt="GitHub Create myBuildsystem Repo",width=100%]
+4. Click Create repository to create the repository.
+5. Repeat steps 2-4 using the below information. This will be the repository for the actual example application.
+[.boxshadow]
+image:tutorials/labview-04-create-repo-my-application.png[alt="GitHub Create myApplication Repo",width=100%]
+6. Repeat steps 2-4 with the following information. This will be used to host images for diffing.
+[.boxshadow]
+image:tutorials/labview-05-create-repo-mypicrepo.png[alt="GitHub Create myPicRepo",width=100%]
+7. Open a terminal with Git. If you installed Git Bash on Windows, open Git Bash:
+[.boxshadow]
+image:tutorials/labview-06-gitbash-window.png[alt="GitHub Create myPicRepo",width=100%]
+8. Create a local directory to maintain your Jenkins files. For this example, we’ll be using the _C:/Users/<User>/Documents/GitHub_ directory. To create and navigate to this directory, run the following commands:
+-----
+    cd “C:/Users/<User>/Documents”
+
+    mkdir GitHub
+
+    cd GitHub
+-----
+
+9. Run the following command (using the URL copied from Step 5) to copy the Git repository and its contents onto your machine:
+-----
+    git clone https://github.com/<Organization Name>/<Repository Name>.git
+-----
+
+You can also obtain the HTTPS URL of the repository by clicking on the Copy button on the repository page:
+[.boxshadow]
+image:tutorials/labview-07-github-https-url.png[alt="GitHub HTTPS URL",width=100%]
+10. Repeat Step 9 for the myApplication repository.
+
+11.	In Windows Explorer, place the contents of ../myBuildsystem from the example files located http://www.ni.com/example/lv-ci[here] in the ../myBuildSystem directory located on your machine:
+[.boxshadow]
+image:tutorials/labview-08-myBuildSystem-directory.png[alt="myBuildSystem directory",width=100%]
+
+12.	Navigate to the directory in the Git terminal, and run the following command to add all files within the directory to the Git repository:
+-----
+    cd “C:/Users/<User>/Documents/GitHub/<Repository Name>”
+    git add .
+-----
+
+13.	Run this command to commit all changes and add a comment:
+-----
+    git commit -m “Added files”
+-----
+
+If you can’t run the command because you’re missing credentials, you can set them:
+-----
+    git config --global user.email <<Your GitHub Email>
+    git config --global user.name <<Your GitHub Username>>
+-----
+ 
+14.	Run this command to push all committed changes to the remote repository (i.e. GitHub):
+-----
+    git push origin master
+-----
+
+Now, the repository contains all necessary components we will need for this example.
+
+15.	Next, we’ll perform similar steps to set up the example application repository. In Windows Explorer, place the contents of ../myApplication from the example files located http://www.ni.com/example/lv-ci[here] in the ../myApplication directory located on your machine:
+[.boxshadow]
+image:tutorials/labview-09-myApplication-directory.png[alt="myApplication directory",width=100%]
+16.	Open up ‘Jenkinsfile’ in the ../myApplication directory. Change the lvVersion and lvBitness variables according to which version of LabVIEW you are using. For instance, with LabVIEW 2018 32-bit, your Jenkinsfile will look like this:
+[.boxshadow]
+image:tutorials/labview-10-edit-jenkinsfile.png[alt="edit jenkinsfile",width=100%]
+17.	Run the commands from steps 12-14, this time for the myApplication repository:
+ 
+-----
+    cd <<myApplication directory>>
+    git add .
+    git commit -m "Added files"
+    git push origin master
+-----
+
+Now, your files are set up and in place for Jenkins to use.
+
+
+
+
+=== Jenkins Setup
+
+. Ensure 
+. Fork 
+. C
+** If you have the GitHub Desktop app installed on your machine:
+.. In Git
+.. In G
+*** macOS is `
+*** Linux is
+*** Window
+** Otherwise:
+.. Open up a terminal/command line prompt and `cd` to the appropriate directory
+   on:
+*** macOS - 
+*** Linux - 
+
+=== Confirmation
+
+. Ensure 
+. Fork 
+. C
+** If you have the GitHub Desktop app installed on your machine:
+.. In Git
+.. In G
+*** macOS is `
+*** Linux is
+*** Window
+** Otherwise:
+.. Open up a terminal/command line prompt and `cd` to the appropriate directory
+   on:
+*** macOS - 
+*** Linux - 
+
+
+=== Next Steps
+
+. Ensure 
+. Fork 
+. C
+** If you have the GitHub Desktop app installed on your machine:
+.. In Git
+.. In G
+*** macOS is `
+*** Linux is
+*** Window
+** Otherwise:
+.. Open up a terminal/command line prompt and `cd` to the appropriate directory
+   on:
+*** macOS - 
+*** Linux - 
+
+
+//Create your Pipeline project in Jenkins
+
+. Go back to Jenkins, log in again if necessary and click *create new jobs*
+  under *Welcome to Jenkins!* +
+  *Note:* If you don't see this, click *New Item* at the top left.
+. In the *Enter an item name* field, specify the name for your new Pipeline
+  project (e.g. `simple-java-maven-app`).
+. Scroll down and click *Pipeline*, then click *OK* at the end of the page.
+. ( _Optional_ ) On the next page, specify a brief description for your Pipeline
+  in the *Description* field (e.g. `An entry-level Pipeline demonstrating how to
+  use Jenkins to build a simple Java application with Maven.`)
+. Click the *Pipeline* tab at the top of the page to scroll down to the
+  *Pipeline* section.
+. From the *Definition* field, choose the *Pipeline script from SCM* option.
+  This option instructs Jenkins to obtain your Pipeline from Source Control
+  Management (SCM), which will be your locally cloned Git repository.
+. From the *SCM* field, choose *Git*.
+. In the *Repository URL* field, specify the directory path of your locally
+  cloned repository <<fork-sample-repository,above>>,
+  which is from your user account/home directory on your host machine, mapped to
+  the `/home` directory of the Jenkins container - i.e.
+* For macOS - `/home/Documents/GitHub/simple-java-maven-app`
+* For Linux - `/home/GitHub/simple-java-maven-app`
+* For Windows - `/home/Documents/GitHub/simple-java-maven-app`
+. Click *Save* to save your new Pipeline project. You're now ready to begin
+  creating your `Jenkinsfile`, which you'll be checking into your locally cloned
+  Git repository.
+
+
+//Create your initial Pipeline as a Jenkinsfile
+
+You're now ready to create your Pipeline that will automate building your Java
+application with Maven in Jenkins. Your Pipeline will be created as a
+`Jenkinsfile`, which will be committed to your locally cloned Git repository
+(`simple-java-maven-app`).
+
+This is the foundation of "Pipeline-as-Code", which treats the continuous
+delivery pipeline as a part of the application to be versioned and reviewed like
+any other code. Read more about Pipeline and what a Jenkinsfile is in the
+link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using
+a Jenkinsfile] sections of the User Handbook.
+
+First, create an initial Pipeline to download a Maven Docker image and run it as
+a Docker container (which will build your simple Java application). Also add a
+"Build" stage to the Pipeline that begins orchestrating this whole process.
+
+. Using your favorite text editor or IDE, create and save new text file with the
+  name `Jenkinsfile` at the root of your local `simple-java-maven-app` Git
+  repository.
+. Copy the following Declarative Pipeline code and paste it into your empty
+  `Jenkinsfile`:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'maven:3-alpine' // <1>
+            args '-v /root/.m2:/root/.m2' // <2>
+        }
+    }
+    stages {
+        stage('Build') { // <3>
+            steps {
+                sh 'mvn -B -DskipTests clean package' // <4>
+            }
+        }
+    }
+}
+----
+<1> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
+section's `docker` parameter) downloads the
+https://hub.docker.com/_/maven/[`maven:3-alpine` Docker image] (if it's not
+already available on your machine) and runs this image as a separate container.
+This means that:
+* You'll have separate Jenkins and Maven containers running locally in Docker.
+* The Maven container becomes the link:/doc/book/glossary/#agent[agent] that
+  Jenkins uses to run your Pipeline project. However, this container is
+  short-lived - its lifespan is only that of the duration of your Pipeline's
+  execution.
+<2> This `args` parameter creates a reciprocal mapping between the `/root/.m2`
+(i.e. Maven repository) directories in the short-lived Maven Docker container
+and that of your Docker host's filesystem. Explaining the details behind this is
+beyond the scope of this tutorial. However, the main reason for doing this is to
+ensure that the artifacts necessary to build your Java application (which Maven
+downloads while your Pipeline is being executed) are retained in the Maven
+repository beyond the lifespan of the Maven container. This prevents Maven from
+having to download the same artifacts during successive runs of your Jenkins
+Pipeline, which you'll be conducting later on. Be aware that unlike the Docker
+data volume you created for `jenkins-data`
+<<download-and-run-jenkins-in-docker,above>>, the Docker host's filesystem is
+effectively cleared out each time Docker is restarted. This means you'll lose
+the downloaded Maven repository artifacts each time Docker restarts.
+<3> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
+`Build` that appears on the Jenkins UI.
+<4> This
+link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
+step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) runs the
+Maven command to cleanly build your Java application (without running any
+tests).
+. Save your edited `Jenkinsfile` and commit it to your local
+  `simple-java-maven-app` Git repository. E.g. Within the
+  `simple-java-maven-app` directory, run the commands: +
+  `git add .` +
+  then +
+  `git commit -m "Add initial Jenkinsfile"`
+. Go back to Jenkins again, log in again if necessary and click *Open Blue
+  Ocean* on the left to access Jenkins's Blue Ocean interface.
+. In the *This job has not been run* message box, click *Run*, then quickly
+  click the *OPEN* link which appears briefly at the lower-right to see Jenkins
+  running your Pipeline project. If you weren't able to click the *OPEN* link,
+  click the row on the main Blue Ocean interface to access this feature. +
+  *Note:* You may need to wait several minutes for this first run to complete.
+  After making a clone of your local `simple-java-maven-app` Git repository
+  itself, Jenkins:
+.. Initially queues the project to be run on the agent.
+.. Downloads the Maven Docker image and runs it in a container on Docker.
++
+[.boxshadow]
+image:tutorials/java-maven-01-downloading-maven-docker-image.png[alt="Downloading
+Maven Docker image",width=100%]
+.. Runs the `Build` stage (defined in the `Jenkinsfile`) on the Maven container.
+   During this time, Maven downloads many artifacts necessary to build your Java
+   application, which will ultimately be stored in Jenkins's local Maven
+   repository (in the Docker host's filesystem).
+[.boxshadow]
+image:tutorials/java-maven-02-initial-pipeline-downloading-maven-artifacts.png[alt="Downloading
+Maven artifacts",width=100%]
+
++
+The Blue Ocean interface turns green if Jenkins built your Java application
+successfully.
+[.boxshadow]
+image:tutorials/java-maven-03-initial-pipeline-runs-successfully.png[alt="Initial
+Pipeline runs successfully",width=100%]
+. Click the *X* at the top-right to return to the main Blue Ocean interface.
++
+[.boxshadow]
+image:tutorials/java-maven-04-main-blue-ocean-interface.png[alt="Main Blue Ocean
+interface",width=100%]
+
+
+//Add a test stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the
+  `Build` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+----
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'maven:3-alpine'
+            args '-v /root/.m2:/root/.m2'
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Test') { // <1>
+            steps {
+                sh 'mvn test' // <2>
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml' // <3>
+                }
+            }
+        }
+    }
+}
+----
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
+`Test` that appears on the Jenkins UI.
+<2> This
+link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
+step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) executes
+the Maven command to run the unit test on your simple Java application. This
+command also generates a JUnit XML report, which is saved to the
+`target/surefire-reports` directory (within the
+`/var/jenkins_home/workspace/simple-java-maven-app` directory in the Jenkins
+container).
+<3> This
+link:/doc/pipeline/steps/junit/#code-junit-code-archive-junit-formatted-test-results[`junit`]
+step (provided by the link:/doc/pipeline/steps/junit[JUnit Plugin]) archives the
+JUnit XML report (generated by the `mvn test` command above) and exposes the
+results through the Jenkins interface. In Blue Ocean, the results are accessible
+through the *Tests* page of a Pipeline run. The
+link:/doc/book/pipeline/syntax/#post[`post`] section's `always` condition that
+contains this `junit` step ensures that the step is _always_ executed _at the
+completion_ of the `Test` stage, regardless of the stage's outcome.
+. Save your edited `Jenkinsfile` and commit it to your local
+  `simple-java-maven-app` Git repository. E.g. Within the
+  `simple-java-maven-app` directory, run the commands: +
+  `git stage .` +
+  then +
+  `git commit -m "Add 'Test' stage"`
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Run* at the top left, then quickly click the *OPEN* link which appears
+  briefly at the lower-right to see Jenkins running your amended Pipeline
+  project. If you weren't able to click the **OPEN** link, click the _top_ row
+  on the Blue Ocean interface to access this feature. +
+  *Note:* You'll notice from this run that Jenkins no longer needs to download
+  the Maven Docker image. Instead, Jenkins only needs to run a new container
+  from the Maven image downloaded previously. Also, if Docker had not restarted
+  since you last ran the Pipeline <<create-your-initial-pipeline-as-a-jenkinsfile,above>>,
+  then no Maven artifacts need to be downloaded during the "Build" stage.
+  Therefore, running your Pipeline this subsequent time should be much faster. +
+  If your amended Pipeline ran successfully, here's what the Blue Ocean
+  interface should look like. Notice the additional "Test" stage. You can click
+  on the previous "Build" stage circle to access the output from that stage.
+[.boxshadow]
+image:tutorials/java-maven-11-test-stage-runs-successfully-with-output.png[alt="Test
+stage runs successfully (with output)",width=100%]
+. Click the *X* at the top-right to return to the main Blue Ocean interface.
+
+
+//Add a final deliver stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the
+  `Test` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Deliver') {
+            steps {
+                sh './jenkins/scripts/deliver.sh'
+            }
+        }
+----
+and add a `skipStagesAfterUnstable` option so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent {
+        docker {
+            image 'maven:3-alpine'
+            args '-v /root/.m2:/root/.m2'
+        }
+    }
+    options {
+        skipStagesAfterUnstable()
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+        stage('Deliver') { // <1>
+            steps {
+                sh './jenkins/scripts/deliver.sh' // <2>
+            }
+        }
+    }
+}
+----
+<1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
+<2> This
+link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
+step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) runs the
+shell script `deliver.sh` located in the `jenkins/scripts` directory from the
+root of the `simple-java-maven-app` repository. Explanations about what this
+script does are covered in the `deliver.sh` file itself. As a general principle,
+it's a good idea to keep your Pipeline code (i.e. the `Jenkinsfile`) as tidy as
+possible and place more complex build steps (particularly for stages consisting
+of 2 or more steps) into separate shell script files like the `deliver.sh` file.
+This ultimately makes maintaining your Pipeline code easier, especially if your
+Pipeline gains more complexity.
+. Save your edited `Jenkinsfile` and commit it to your local
+  `simple-java-maven-app` Git repository. E.g. Within the
+  `simple-java-maven-app` directory, run the commands: +
+  `git stage .` +
+  then +
+  `git commit -m "Add 'Deliver' stage"`
+. Go back to Jenkins again, log in again if necessary and ensure you've accessed
+  Jenkins's Blue Ocean interface.
+. Click *Run* at the top left, then quickly click the *OPEN* link which appears
+  briefly at the lower-right to see Jenkins running your amended Pipeline
+  project. If you weren't able to click the **OPEN** link, click the _top_ row
+  on the Blue Ocean interface to access this feature. +
+  If your amended Pipeline ran successfully, here's what the Blue Ocean
+  interface should look like. Notice the additional "Deliver" stage. Click on
+  the previous "Test" and "Build" stage circles to access the outputs from those
+  stages.
++
+[.boxshadow]
+image:tutorials/java-maven-21-deliver-stage-runs-successfully.png[alt="Deliver
+stage runs successfully",width=100%]
+
++
+Here's what the output of the "Deliver" stage should look like, showing you the
+execution results of your Java application at the end.
+[.boxshadow]
+image:tutorials/java-maven-22-deliver-stage-output-only.png[alt="Deliver stage
+output only",width=100%]
+. Click the *X* at the top-right to return to the main Blue Ocean interface,
+  which lists your previous Pipeline runs in reverse chronological order.
+[.boxshadow]
+image:tutorials/java-maven-23-main-blue-ocean-interface-with-all-previous-runs-displayed.png[alt="Main
+Blue Ocean interface with all previous runs displayed",width=100%]
+
+
+//Wrapping up
+
+Well done! You've just used Jenkins to build a simple Java application with
+Maven!
+
+The "Build", "Test" and "Deliver" stages you created above are the basis for
+building more complex Java applications with Maven in Jenkins, as well as Java
+and Maven applications that integrate with other technology stacks.
+
+Because Jenkins is extremely extensible, it can be modified and configured to
+handle practically any aspect of build orchestration and automation.
+
+To learn more about what Jenkins can do, check out:
+
+* The link:/doc/tutorials[Tutorials overview] page for other introductory
+  tutorials.
+* The link:/doc/book[User Handbook] for more detailed information about using
+  Jenkins, such as link:/doc/book/pipeline[Pipelines] (in particular
+  link:/doc/book/pipeline/syntax[Pipeline syntax]) and the
+  link:/doc/book/blueocean[Blue Ocean] interface.
+* The link:/node[Jenkins blog] for the latest events, other tutorials and
+  updates.
+
+
+'''
+++++
+include::_partials/_feedback-footer.html[]
+++++
+
+////
+Hide this warning due to temporary addition to 'mvn jar:jar install:install'
+fix implemented.
+*Warning:* It's possible that since Maven downloads artifacts during this final
+`Deliver` stage, Maven will attempt to run some of the other commands further
+down the `sh` step before the artifacts have finished downloading. This will
+cause the build to fail. If you notice the build failing the first time, run
+the Pipeline project again and it should succeed.
+////
