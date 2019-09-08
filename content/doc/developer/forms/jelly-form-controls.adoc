@@ -25,17 +25,24 @@ This tag creates a right-aligned button for performing server-side validation. I
    method="testConnection" with="secretKey,accessId" />
 ----
 
-The title attribute is used to determine the text written on the button. The progress attribute determines the message displayed while the server-side validation is in progress. The method attribute specifies the server-side method invoked by this button; this follows the stapler name mangling convention, so for example `method="testConnection"` will invoke the `doTestConnection` method. This method needs to be on the Descriptor class that owns this form fragment.
+The `title` attribute is used to determine the text written on the button. The `progress` attribute determines the message displayed while the server-side validation is in progress. The `method` attribute specifies the server-side method invoked by this button; this follows the stapler name mangling convention, so for example `method="testConnection"` will invoke the `doTestConnection` method. This method needs to be on the Descriptor class that owns this form fragment.
 
-Finally, the with attribute specifies the input fields sent to the server for the validation. They are matched against the field attribute or the name attribute of other input controls. The values of the nearest input fields above the `<f:validateButton/>` are sent to the server, so this means the button has to come after the input fields. Multiple fields can be specified by using ','.
+The `with` attribute specifies the input fields sent to the server for the validation. They are matched against the `field` attribute or the `name` attribute of other input controls. The values of the nearest input fields above the `<f:validateButton/>` are sent to the server, so this means the button has to come after the input fields. Multiple fields can be specified by using ','.
 
 On the server side, this tag invokes the standard "do"-style method like this:
 
 [source, java]
 ----
+@POST
 public FormValidation doTestConnection(@QueryParameter("accessId") final String accessId,
-        @QueryParameter("secretKey") final String secretKey) throws IOException, ServletException {
+        @QueryParameter("secretKey") final String secretKey,
+        @AncestorInPath Job job) throws IOException, ServletException {
     try {
+         if (job == null) {
+             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+         } else {
+             job.checkPermission(Item.CONFIGURE);
+         }
         ... do some tests ...
         return FormValidation.ok("Success");
     } catch (EC2Exception e) {
