@@ -96,3 +96,65 @@ To pass arguments to localized expressions without escaping them in escaped-by-d
 
 [WARNING]
 If the source of the argument to `j:out` or `Functions#rawHtml` isn't completely trusted, these might result in an XSS vulnerability.
+
+=== Passing values to JavaScript
+
+==== The bad way
+
+In a situation where you need to pass information to the JavaScript, you could be inclined to inject the value directly inside the script like in the following snippet. 
+
+[source, xml]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+  <h1>Random title</h1>
+  <div id="target-div"></div>
+
+  <script>
+     var textToInsert = "${variableFromJava}";
+     document.querySelector('#target-div').innerText = textToInsert;
+  </script>
+</j:jelly>
+----
+
+In this case, if the `variableFromJava` comes from unsafe source, it could be used to create an XSS. 
+For example the following code will be executed: `";alert(123);"`. 
+The JavaScript sent to the client will be:
+
+[source, javascript]
+----
+var textToInsert = "";alert(123);"";
+----
+
+[NOTE]
+Within the payload, we close the existing double quote, then execute our code and finally open a double quote to match the existing one.
+That will result in a script without any format error.
+
+==== The good way
+
+If you need to pass a variable to your JavaScript, we strongly recommend to use this approach instead:
+
+[source, xml]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+  <h1>Random title</h1>
+  <div id="target-div" data-inserted-from-java="${variableFromJava}"></div>
+
+  <script>
+     var targetDiv = document.querySelector('#target-div');
+     var textToInsert = targetDiv.getAttribute('data-inserted-from-java'); 
+     // equivalent of: targetDiv.dataset.insertedFromJava
+     targetDiv.innerText = textToInsert;
+  </script>
+</j:jelly>
+----
+
+// link: and the ++ are required due to the * symbol in the URL
+The use of the `data-*` attributes allow the developer either to use `getAttribute` or the `dataset` property, 
+for more information see the link:++https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes#attr-data-*++[MDN documentation].
+
+In this case you are taking advantage of the Jelly escape mechanism to ensure that the result is just a String. 
+If we try to inject a `"`, it will be automatically converted to `&amp;quot;`.
+
+In the previous (vulnerable) example, the injected code was inside a context of "code to be interpreted".
