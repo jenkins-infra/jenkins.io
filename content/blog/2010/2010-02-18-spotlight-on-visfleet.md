@@ -16,7 +16,6 @@ Similar to the spotlight on ITA Software from last week, VisFleet builds busines
 <!--break-->
 <table border="0">
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 Rasheed, thanks for talking with me today, I think I did a poor enough job
@@ -24,7 +23,6 @@ introducing <a id="aptureLink_qn9wDVslnL" href="https://twitter.com/visfleet">Vi
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 It's a pleasure. VisFleet has changed it's direction somewhat, moving from
@@ -42,14 +40,12 @@ tight iterations.
 
 
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 How long has VisFleet been using Hudson?
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 About 14 months now.
@@ -58,7 +54,6 @@ About 14 months now.
 
 
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 Did you guys work with continuous integration prior to starting to use
@@ -68,7 +63,6 @@ Hudson?
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 We didn't actually, but certainly everyone I knew who was doing continuous
@@ -79,7 +73,6 @@ integration recommended Hudson.
 
 
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 That's good to hear! How lucky you are to know so many smart people :)<br/><br/>
@@ -87,7 +80,6 @@ What kinds of projects is VisFleet building with Hudson?
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 We build and test Ruby On Rails service layer applications. We also build <a id="aptureLink_hbiB8O3Dwj" href="https://en.wikipedia.org/wiki/Adobe%20Flex">Flex</a> applications using the Flex SDK for our web-deployed RIA offering. Lastly, we build our iPhone applications using Hudson.
@@ -95,14 +87,12 @@ We build and test Ruby On Rails service layer applications. We also build <a id=
 <tr><td><br/></td></tr>
 
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 I'd say building and testing web applications alone with Hudson would be quite notable, but to add Flex and iPhone applications into the mix as well is certainly interesting! Anything specific that's interesting about VisFleet's use of Hudson?
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 It runs multiple slave types, and automates deploys to different cloud
@@ -129,7 +119,6 @@ development environment and workflow.
 
 
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 We all know Hudson isn't perfect but there's a lot of room for extending it to meet your demands if need be, what additional tools have you written to glue everything together behind
@@ -137,7 +126,6 @@ the scenes?
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 We are using '<a id="aptureLink_dcU0BLKBi3" href="https://rubyhitsquad.com/Vlad_the_Deployer.html">Vlad the Deployer</a>' and in legacy, '<a id="aptureLink_CMeh4NNwSI" href="https://www.capify.org/">Capistrano</a>' for a lot of
@@ -150,14 +138,12 @@ of time possible.
 
 
 <tr><td align="center">
-<img src="/sites/default/files/butler_tiny.png" alt="Hudson"/><br/>
 <strong>Hudson</strong>
 </td><td>
 So it sounds like you guys are all on board with Hudson, on a 1-10 scale, how important would you rate Hudson's importance to VisFleet's workflow?
 </td></tr>
 
 <tr><td align="center" valign="top">
-<img src="/sites/default/files/visfleet_sm.png" alt="Rasheed @ VisFleet"/><br/>
 <strong>Rasheed</strong>
 </td><td>
 7, aiming at 10. The missing points are just a matter of time :)
