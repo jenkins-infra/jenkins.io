@@ -1,4 +1,4 @@
-FROM nginx:1.13
+FROM nginx:1.16
 
 LABEL maintainer="infra@lists.jenkins-ci.org"
 LABEL description="jenkins.io website"
