@@ -15,7 +15,7 @@ gem 'kramdown', '~> 1.9.0'
 group :fetcher do
   gem 'faraday', '~> 0.9.2'
   gem 'faraday_middleware', '~> 0.9.2'
-  gem 'rubyzip', '~> 1.2.0'
+  gem 'rubyzip', '~> 1.3.0'
 end
 
 group :pdfs do
