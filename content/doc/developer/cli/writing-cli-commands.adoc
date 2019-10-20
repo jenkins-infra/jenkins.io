@@ -3,13 +3,13 @@ title: Writing CLI commannds
 layout: developersection
 ---
 
-Plugins can contribute additional commands to link:/doc/book/managing/cli/[Jenkins CLI] which, since Jenkins 1.445, will also be available via Jenkins SSH.
+Plugins can contribute additional commands to link:/doc/book/managing/cli/[Jenkins CLI] which.
 
 This is useful for (1) exposing administrative commands to admins, so that they can script some of the Jenkins babysitting work, and (2) exposing data and operations to builds executing inside Jenkins, so that they can interact with Jenkins in a richer way.
 
 Writing commands can be done in two ways.
 
-## By putting CLIMethod on methods of your model objects
+## Annotating a method with CLIMethod
 
 If you are exposing behaviors of your model objects as CLI commands, the easiest way to achieve it is to put link:http://javadoc.jenkins-ci.org/byShortName/CLIMethod[@CLIMethod] on a method of your model object. See link:https://javadoc.jenkins-ci.org/hudson/model/Queue.html#clear--[Queue.clear()] as an example. 
 In addition to the command name as specified in the annotation, you also need to define "CLI.command-name.shortDescription" as a message resource, which captures one line human-readable explanation of the command (see link:https://javadoc.jenkins.io/hudson/cli/CLICommand.html#getShortDescription--[CLICommand.getShortDescription()]).
@@ -21,10 +21,10 @@ public class AbstractItem {
     public synchronized void delete() throws IOException, InterruptedException {
         performDelete();
  
-        if(this instanceof TopLevelItem)
-            Hudson.getInstance().deleteJob((TopLevelItem)this);
- 
-        Hudson.getInstance().rebuildDependencyGraph();
+        if (this instanceof TopLevelItem) {
+            Jenkins.get().deleteJob((TopLevelItem)this);
+        }
+        Jenkins.get().rebuildDependencyGraph();
     }
     ...
 }
@@ -38,7 +38,7 @@ To resolve this, you also need to define a `CLI resolver`, which uses a portion 
 @CLIResolver
 public static AbstractItem resolveForCLI(
         @Argument(required=true,metaVar="NAME",usage="Job name") String name) throws CmdLineException {
-    AbstractItem item = Hudson.getInstance().getItemByFullName(name, AbstractItem.class);
+    AbstractItem item = Jenkins.get().getItemByFullName(name, AbstractItem.class);
     if (item==null)
         throw new CmdLineException(null,"No such job exists:"+name);
     return item;
@@ -48,10 +48,11 @@ public static AbstractItem resolveForCLI(
 Of all the resolver methods that are discovered, Jenkins picks the one that returns the best return type. 
 It doesn't matter where the resolver method is defined, or how it's named.
 
-Both resolver methods and CLI methods can have any number of link:https://args4j.kohsuke.org[args4j] annotations, which causes the parameters and arguments to be injected upon a method invocation. All the other unannotated parameters receive null. 
+Both resolver methods and CLI methods can have any number of link:https://args4j.kohsuke.org[args4j] annotations, which causes the parameters and arguments to be injected upon a method invocation. 
+All the other unannotated parameters receive null. 
 Combined with the stapler method binding, this enables you to make your method invokable from both CLI and HTTP.
 
-## By extending CLICommand
+## Extending CLICommand
 
 You can also implement a CLI commmand as a subtype of link:http://javadoc.jenkins-ci.org/byShortName/CLICommand[CLICommand], and put link:http://javadoc.jenkins-ci.org/byShortName/Extension[@Extension]. 
 You can use existing implementations in the core, such as link:http://javadoc.jenkins-ci.org/byShortName/GroovyCommand[GroovyCommand], as a starting point. CLICommand exposes a lower-level control of the CLI set up (such as a Channel.)
