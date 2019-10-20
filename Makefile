@@ -19,7 +19,7 @@ prepare: scripts-permission fetch depends assets
 run: prepare scripts/awestruct
 	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
 
-generate: site check-broken-links
+generate: site
 
 site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
