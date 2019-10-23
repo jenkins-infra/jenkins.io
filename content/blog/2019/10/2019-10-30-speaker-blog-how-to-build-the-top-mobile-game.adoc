@@ -8,47 +8,45 @@ tags:
 author: ignacio_fernandez
 ---
 
-You have been tasked with managing the Jenkins instance for the highest
-grossing mobile game in the world. You learn that this involves helping
-the game studio iterate their work against eight different target
-platforms, each with their SDK, on four different main pipelines, plus a
-lot of extra auxiliary jobs. And, of course, the studio wants all of
-this to go smoothly, in order to maintain a good pace of features and
-bugfixes for every release - a release happening every two weeks.
-Hitting hundreds of millions of players worldwide.
+You have been tasked with managing the Jenkins instance for the highest grossing mobile
+game in the world. You learn that this involves helping the game studio iterate their work
+against eight different target platforms, each with their SDK, on four different main pipelines,
+plus a lot of extra auxiliary jobs. And, of course, the studio wants all of this to go smoothly, in
+order to maintain a good pace of features and bugfixes for every release - a release happening
+every two weeks. Hitting hundreds of millions of players worldwide.
 
-How are you going to make sure that the environment stays correctly
-configured, with the right versions of the required software; helping
-the studio maintain stability and scalability of their pipelines;
-ensuring operability of the Jenkins instance; improving the speed of the
-builds month after month?
+How are you going to make sure that the environment stays correctly configured, with the
+right versions of the required software; helping the studio maintain stability and scalability of
+their pipelines; ensuring operability of the Jenkins instance; improving the speed of the builds
+month after month?
 
 It’s OK to sweat. You are going to need some help!
 
-This is just a regular day in the office for a build engineer working at
-King. Facing a very broad problem, with high quality standards and even
-higher stakes. Thankfully, we are not alone. We have access to a lot of
-tools - either open source tools, tools developed by the studios or
-tools developed by our stellar build infrastructure team in Barcelona -
-to help carry us all the way to the publish line. We put all of these
-tools together, and by their powers combined, we provide fast, easily
-operable workflows for the studios, cutting minutes here and there,
-ensuring the features a smooth sail from dev, to master, to release.
+This is just a regular day in the office for a build engineer working at King. Facing a very
+broad problem, with high quality standards and even higher stakes. Thankfully, we are not
+alone. We have access to a lot of tools - either open source tools, tools developed by the
+studios or tools developed by our stellar build infrastructure team in Barcelona - to help carry
+us all the way to the publish line. We put all of these tools together, and by their powers
+combined, we provide fast, easily operable workflows for the studios, cutting minutes here
+and there, ensuring the features a smooth sail from dev, to master, to release.
 
-We use on-premise elastic infrastructure, spawning machines from certain
-templates whenever they are needed. This means that for every build, we
-are getting a fresh environment - no intermediate artifacts leftover or
-anything of the sort, which is good. That also means that we need to
-clone our repositories and compile everything every time, which is bad.
-However, we have solutions for these two problems.
+I will explain all of the tricks we use at King to speed builds up, and to make Jenkins operation
+easier for our studios on December 4, 2019, at https://www.cloudbees.com/devops-world/lisbon[DevOps World | Jenkins
+World Lisbon].
+Use *JWFOSS* for 30% discount on registration!
+For now, let's take a look at some of them.
 
-We make full use of linkclones/snapshots when spawning a VM. Every night
-we run a bootstrapper that will power on the base image and perform
-whatever operations we decide on it, before turning it back into a
-template and re-creating the snapshot. In the case of Candy Crush, we
-update our caches, and this helps us cut some time off of git clone and
-compilation. We call this bootstrapper “cacheo”. It looks more or less
-like this:
+We use on-premise elastic infrastructure, spawning machines from certain templates
+whenever they are needed. This means that for every build, we are getting a fresh
+environment - no intermediate artifacts leftover or anything of the sort, which is good. That
+also means that we need to clone our repositories and compile everything every time, which is
+bad. However, we have solutions for these two problems.
+
+We make full use of linkclones/snapshots when spawning a VM. Every night we run a
+bootstrapper that will power on the base image and perform whatever operations we decide on
+it, before turning it back into a template and re-creating the snapshot. In the case of Candy
+Crush, we update our caches, and this helps us cut some time off of git clone and compilation.
+We call this bootstrapper “cacheo”. It looks more or less like this:
 
 .Cacheo
 [source,groovy]
@@ -62,14 +60,13 @@ like this:
 ----
 
 
-Every studio can specify which templates will cacheo run on, and what
-will it do in each of them. Maybe you want to make sure your Android
-license is on point. Or download some packages from artifactory. Perhaps
-pre-load your gradle dependencies. Whatever it is, cacheo does it for
-you and updates your base images every night.
+Every studio can specify which templates will cacheo run on, and what will it do in each of
+them. Maybe you want to make sure your Android license is on point. Or download some
+packages from artifactory. Perhaps pre-load your gradle dependencies. Whatever it is, cacheo
+does it for you and updates your base images every night.
 
-One of the most common uses is to pre-fill a local git cache, and when
-doing so, the improvement is very visible, especially on Windows:
+One of the most common uses is to pre-fill a local git cache, and when doing so, the
+improvement is very visible, especially on Windows:
 
 [cols=",,,",options="header",]
 |===
@@ -79,19 +76,16 @@ doing so, the improvement is very visible, especially on Windows:
 |Difference |*39% faster* |*39% faster* |*55% faster*
 |===
 
-This means, speeding up source code fetching by 55% on Windows. That is
-a LOT!!
+This means, speeding up source code fetching by 55% on Windows, on average. That is a LOT!!
 
-All of our games use the same engine, which means there is a big bunch
-of code that needs to be compiled and linked whenever we build the game.
-And it's not rare that this shared code is bigger than the actual game
-code! Thankfully, the engine team lent us a hand, and they developed a
-way to package the compiled shared code. Normally, the game code lives
-alongside a specific version of the shared code, and it doesn’t change
-much, maybe once per month. This means that we are building the exact
-same shared code for a month. Thanks to these prebuilt artifacts, we are
-able to skip a huge part of the compilation, for the cost of a simple
-artifactory download!
+All of our games use the same engine, which means there is a big bunch of code that needs to
+be compiled and linked whenever we build the game. And it's not rare that this shared code is
+bigger than the actual game code! Thankfully, the engine team lent us a hand, and they
+developed a way to package the compiled shared code. Normally, the game code lives
+alongside a specific version of the shared code, which doesn't get updated regularly. 
+Sometimes once a month, sometimes to grab a hotfix. This means that we might be compiling the 
+exact same shared code for quite some time, every time we build the game. Thanks to these 
+prebuilt artifacts, we are able to skip a huge part of the compilation, at the cost of a simple artifactory download.
 
 .Cacheo
 [source,cmake]
@@ -113,7 +107,7 @@ elif use_prebuilt_libs:
 
 The amount of time that this little thing saves is unbelievable, and it
 builds up really quickly! There are specific cases when we do choose to
-build the shared code, when we build release candidates for instance,
+build the shared code, such as when we build release candidates for instance,
 but for iterative feature work, we take advantage of this shortcut!
 
 Times on this table are on average:
@@ -164,8 +158,3 @@ def call() {
 The best part? All our Jenkins instances have these jobs, by default, so
 no one misses out on the fun.
 
-If you want to know more about the tricks we use at King to speed builds up and
-make Jenkins easier for our studios, I will be speaking about all that
-in depth on December 4, 2019, at
-https://www.cloudbees.com/devops-world/lisbon[DevOps World | Jenkins
-World Lisbon]. Use *JWFOSS* for 30% discount on registration.
