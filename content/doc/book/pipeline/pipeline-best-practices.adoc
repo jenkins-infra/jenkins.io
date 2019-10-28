@@ -18,29 +18,29 @@ endif::[]
 
 == General
 
-=== Pipeline functions as Glue
+=== Groovy Code in Pipelines as Glue
 
-Make sure to use pipeline steps as a way of wiring together a set of actions rather than the main functionality. 
-This means that rather than relying on pipeline functionality(groovy or pipeline steps) to drive the build process forward, it is better to use single steps(such as `sh`) to accomplish multiple parts of the build. 
-The less pipeline functions used, the less memory will consumed up on master. 
-Think of pipeline as a tool to accomplish a build rather than it being the core of that build.
+Make sure to use Groovy code as a way of wiring together a set of actions rather than the main functionality. 
+This means that rather than relying on Pipeline functionality(groovy or Pipeline steps) to drive the build process forward, it is better to use single steps(such as `sh`) to accomplish multiple parts of the build. 
+As the complexity of Pipelines increase (in terms of amount of Groovy code, number of steps used, etc.), they require more resources (CPU, memory, storage) on the master.
+Think of Pipeline as a tool to accomplish a build rather than it being the core of that build.
 
 Example: Using a single maven build step to drive the build through its build/test/deploy process.
 
 === Avoid complex Groovy code in Pipeline
 
-Groovy code within a pipeline uses master resources(memory and CPU). 
-For a pipeline, groovy code *always* executes on master which is why it does use master resources. 
+Groovy code within a Pipeline uses master resources(memory and CPU). 
+For a Pipeline, groovy code *always* executes on master which is why it does use master resources. 
 Because of this, the most critical action item is to reduce the number of groovy calls that need to be made (this includes the many imports of groovy methods being used). 
 The most common example methods are things such as:
-. *JsonSlurper:* This function (and other similar ones like XmlSlurper or ReadFile) would be to read in some file which is on disk into a JSON object within the pipeline so it would look something like this: `def JsonFile = new JsonSlurper().parseText(readFile("$LOCAL_FILE")))`. The issue here is that this loads that file into memory 2x on the master and if that file is very large or this command is being done very often then it will drain a lot of unnecessary memory
+. *JsonSlurper:* This function (and other similar ones like XmlSlurper or ReadFile) would be to read in some file which is on disk into a JSON object within the Pipeline so it would look something like this: `def JsonFile = new JsonSlurper().parseText(readFile("$LOCAL_FILE")))`. The issue here is that this loads that file into memory 2x on the master and if that file is very large or this command is being done very often then it will drain a lot of unnecessary memory
 .. Solution: Instead of using JsonSlurper, use a shell step and return the standard out. This shell would look something like this: `def JsonReturn = sh label: '', returnStdout: true, script: 'echo "$LOCAL_FILE"| jq "."'`. This will use agent resources to read the file and even parse the file with a good `jq` filter
 . *HttpRequest:* Many times this would be used to grab data from an external source and store it into a variable. This is not a good idea to use because not only is that request coming directly from the master(which could give incorrect results for things like HTTPS requests if the master does not have certificates loaded) but also the return is again stored twice.
 .. Solution: Again using the shell step but this time with a `curl` command is the best direction to go.Then have the request come from master and also the data size can be shrunk with filtering.
 
-=== Reduce Repetition of similar pipeline steps: 
+=== Reduce Repetition of similar Pipeline steps: 
 
-Combine pipeline steps into single steps as often as possible to reduce the size of the flow-node graph(pipeline’s way of tracking what step you are currently on). 
+Combine Pipeline steps into single steps as often as possible to reduce the size of the flow-node graph(Pipeline’s way of tracking what step you are currently on). 
 This flow node graph has to be loaded onto the stack and if it is very large it can end up causing memory issues or even a StackOverflow.
 
 Example:
@@ -48,44 +48,44 @@ Whenever doing a series of `echo` or `sh` steps make sure to combine them into a
 
 === Avoid Calling `Jenkins.getInstance`
 
-This will allow pipelines/scripts make calls as the system user(overall admin) and potentially gain access to any item in the instance. If this is an “approved” method in script security, it will give anyone who can create a job and build it `admin` level access to whatever APIs have been approved. This practice also causes additional API calls on the master which can lead to performance issues or potential memory leaks.
+Using Jenkins.instance or its accessor methods in a Pipeline or shared library indicates a code misuse within that Pipeline/shared library. Using Jenkins APIs from an unsandboxed shared library means that the shared library is both a shared library and a kind of Jenkins plugin. You need to be very careful when interacting with Jenkins APIs from a Pipeline to avoid severe security and performance issues. If you must use Jenkins APIs in your build, the recommend approach is to create a minimal plugin in Java that implements a safe wrapper around the Jenkins API you want to access using Pipeline's Step API. Using Jenkins APIs from a sandboxed Jenkinsfile directly means that you have probably had to whitelist methods that allow sandbox protections to be bypassed by anyone who can modify a Pipeline, which is a significant security risk. The whitelisted method is run as the System user meaning it has overall admin permissions and can lead to developers running with higher permissions than intended(causing the security risk).
 
 Solution: The best solution would be to work around the calls being made but if they must be done then it would be better to implement a Jenkins plugin which is able to gather the data needed.
 
 == Shared Libraries
 
-=== Just say no to overriding built-in pipeline Steps
+=== Just say no to overriding built-in Pipeline Steps
 
-Wherever possible stay away from customized/overwritten pipeline steps. 
-This is the process where the standard pipeline APIs like `sh` or `timeout` are overwritten using shared libraries. 
-It is dangerous to do this because the pipeline APIs can change at any time causing custom code to break or give different results than expected. 
+Wherever possible stay away from customized/overwritten Pipeline steps. 
+This is the process where the standard Pipeline APIs like `sh` or `timeout` are overwritten using shared libraries. 
+It is dangerous to do this because the Pipeline APIs can change at any time causing custom code to break or give different results than expected. 
 These changes can also become difficult to troubleshoot when something is breaking or causing issues. 
 So even if custom code has not changed that does not mean that after an API update it will keep working the same. 
-Lastly, because of the ubiquitous use of these steps throughout pipelines, if something is coded incorrectly/inefficiently the results can be catastrophic to Jenkins.
+Lastly, because of the ubiquitous use of these steps throughout Pipelines, if something is coded incorrectly/inefficiently the results can be catastrophic to Jenkins.
 
 === Avoid large global variable declaration files
 
-Having large variable declaration file will load every variable for every pipeline and depending on concurrency can end up using large amounts of memory for very little to no benefit. 
+Having large variable declaration file will load every variable for every Pipeline and depending on concurrency can end up using large amounts of memory for very little to no benefit. 
 It would be better to load variables which are relevant to the current execution.
 
 === Avoid very large shared libraries
 
 This will load the same shared library per-job that is currently executing which can lead to large memory overhead. 
-This can also cause a slow down of every pipeline since it will need to checkout a very large file every time before starting.
+This can also cause a slow down of every Pipeline since it will need to checkout a very large file every time before starting.
 
 == Additional FAQs
 
-=== How do I deal with Concurrency in pipelines?
+=== How do I deal with Concurrency in Pipelines?
 
-Try not to share workspaces across multiple pipeline executions or multiple distinct pipelines. 
-This can lead to either unexpected file modification within each pipeline or each workspace will get renamed unexpectedly
+Try not to share workspaces across multiple Pipeline executions or multiple distinct Pipelines. 
+This can lead to either unexpected file modification within each Pipeline or each workspace will get renamed unexpectedly
 
 Ideally shared volumes/disks are mounted somewhere else and the files are copied from one place to the current workspace. 
 Then when the build is done it can be copied back
 
 Build in distinct containers which create needed resources from scratch(cloud-type agents work great for this). 
 This will ensure that the build process happens from scratch every time and is easily repeatable. 
-If that is not going to work then make sure that either concurrency is disabled on the pipeline or use the [lockable resources plugin](https://plugins.jenkins.io/lockable-resources) to lock up the workspace when running on it and no other builds can use while it is locked.
+If that is not going to work then make sure that either concurrency is disabled on the pipeline or use the [lockable resources plugin](https://plugins.jenkins.io/lockable-resources) to lock up the workspace when running on it and no other builds can use while it is locked. Be warned that this can cause Pipelines to become blocked waiting on resources if they are arbitrarily blocked waiting on those locked resources.
 
 **Be aware that both of these slow down the time to results of builds though over being able to freely share**
 
@@ -94,4 +94,4 @@ If that is not going to work then make sure that either concurrency is disabled 
 . The @NonCPS flag is used to not serialize whatever groovy function it is called on
 .. Because of this it can potentially reduce the memory footprint of a function and allow it to run faster
 the cost of using this is not being able to resume from within the function after a restart. This means that you will have to restart the function from the beginning if an error occurs during the middle of the execution
-. *Beware that no pipeline steps can be in a @NonCPS function. They are automatically serialized regardless of the flag and that will cause the whole @NonCPS flag to be ignored*
+. *Beware that no Pipeline steps can be in a @NonCPS function. They are automatically serialized regardless of the flag and that will cause the whole @NonCPS flag to be ignored*
