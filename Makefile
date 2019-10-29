@@ -25,7 +25,7 @@ site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
 check-broken-links: site
-	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
+	./scripts/check-broken-links > build/check-broken-links.txt
 
 user-site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)

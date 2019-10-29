@@ -28,18 +28,6 @@ class Validator
        warning "Duplicate author entries for github users #{duplicates.keys}"
     end
 
-    site.logo.each do |id, logo|
-      if !logo['name']
-        warning "Missing name for logo #{id}"
-      end
-      check_file(logo['url'], "`url` of the logo #{id}")
-      check_file(logo['url_256'], "`url_256` of the logo #{id}") unless logo['url_256'].nil?
-      check_file(logo['vector'], "`vector` of the logo #{id}") unless logo['vector'].nil?
-      if !logo['url_256'] && !logo['vector']
-         warning "Either vector image or 256px preview must be defined for logo #{id}"
-      end
-    end
-
     if @warnings > 0
       raise "Found #{@warnings} issues, see log messages above"
     end
@@ -68,14 +56,6 @@ class Validator
   def check_format(value, regexp)
     if value and !value.match(regexp)
       warning "Invalid attribute value #{value}"
-    end
-  end
-
-  def check_file(path, context)
-    full = "#{File.dirname(__FILE__)}/..#{path}"
-    puts File.expand_path(full)
-    if !File.file?(full)
-      warning "Invalid file path #{path} for #{context}"
     end
   end
 
