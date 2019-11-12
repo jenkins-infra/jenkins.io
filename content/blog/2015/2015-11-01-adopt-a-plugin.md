@@ -15,4 +15,4 @@ The major problem of course is that it's often difficult to tell whether a plugi
 
 To connect plugins that aren't actively maintained with potential maintainers, we recently implemented the "Adopt-a-plugin" initiative: We built a list of plugins that are up for "adoption", and display a prominent message on the plugins' wiki pages. Anyone interested in taking over as a plugin maintainer can then contact us, and we'll set you up.
 
-Are you interested in becoming a plugin maintainer? Maybe one of your favorite plugins isn't actively maintained right now. Check out the [Adopt a Plugin wiki page](https://wiki.jenkins.io/display/JENKINS/Adopt+a+Plugin) for more details on this program, and a list of plugins that would benefit from your help.
+Are you interested in becoming a plugin maintainer? Maybe one of your favorite plugins isn't actively maintained right now. Check out the [Adopt a Plugin page](/doc/developer/plugin-governance/adopt-a-plugin/) for more details on this program, and a list of plugins that would benefit from your help.
