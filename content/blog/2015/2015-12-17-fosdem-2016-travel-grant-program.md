@@ -29,7 +29,7 @@ If you have other possible funding sources, please look to them first. This will
 
 The application process for FOSDEM, due to our poor timing, deviates from the traditional [Travel Grant Program](https://wiki.jenkins.io/display/JENKINS/Travel+Grant+Program).
 
-To apply for a travel grant, send an email with the following information to the [Governance Board](https://wiki.jenkins.io/display/JENKINS/Governance+Board) at `jenkinsci-board@googlegroups.com` before **January 6th**.
+To apply for a travel grant, send an email with the following information to the [Governance Board](/project/board) at `jenkinsci-board@googlegroups.com` before **January 6th**.
 
 * Your name
 * The event you'd like to attend
