@@ -23,8 +23,8 @@ We'll be hosting Hacksgiving **Nov 23rd** and **Nov 24** from 7:00PST - 15:00PST
 We have a few goals for Hacksgiving:
 
 1. Introduce new contributors to the process of writing code and/or documentation ([documentation hacking details here](https://wiki.jenkins.io/display/JENKINS/Hacksgiving+2015#Hacksgiving2015-Documentationhacking)).
-1. Find some plugins which [are up for adoption](https://wiki.jenkins.io/display/JENKINS/Adopt+a+Plugin#AdoptaPlugin-Whichpluginsarecurrentlyupforadoption%3F) new maintainers.
-1. Clean up or merge some existing plugins which need some care ([listed here](https://wiki.jenkins.io/display/JENKINS/Hacksgiving+2015#Hacksgiving2015-Pluginstocleanup)).
+2. Find some plugins which [are up for adoption](/doc/developer/plugin-governance/adopt-a-plugin#which-plugins-are-currently-up-for-adoption) new maintainers.
+3. Clean up or merge some existing plugins which need some care ([listed here](https://wiki.jenkins.io/display/JENKINS/Hacksgiving+2015#Hacksgiving2015-Pluginstocleanup)).
 <!--break-->
 ### Sessions to note
 
