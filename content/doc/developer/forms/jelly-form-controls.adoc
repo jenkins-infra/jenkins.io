@@ -1,0 +1,123 @@
+---
+title: Jelly form controls
+layout: developersection
+references:
+- url: https://github.com/jenkinsci/ui-samples-plugin
+  title: ui-samples-plugin
+---
+
+Most of the the jelly files in the Jenkins source have embedded documentation. See link:/doc/developer/development-environment/ide-configuration[IDE Configuration] for details on how to get this setup so you can click through to it in your IDE
+
+== Validation Button
+
+This tag creates a right-aligned button for performing server-side validation. It is suitable for situations where the validation depends on the values of multiple input fields, such as credential check that uses both username and password.
+
+[source, xml]
+----
+<f:entry title="${%Access Key ID}">
+  <f:textbox field="accessId" />
+</f:entry>
+<f:entry title="${%Secret Access Key}">
+  <f:password field="secretKey" />
+</f:entry>
+<f:validateButton
+   title="${%Test Connection}" progress="${%Testing...}"
+   method="testConnection" with="secretKey,accessId" />
+----
+
+The `title` attribute is used to determine the text written on the button. The `progress` attribute determines the message displayed while the server-side validation is in progress. The `method` attribute specifies the server-side method invoked by this button; this follows the stapler name mangling convention, so for example `method="testConnection"` will invoke the `doTestConnection` method. This method needs to be on the Descriptor class that owns this form fragment.
+
+The `with` attribute specifies the input fields sent to the server for the validation. They are matched against the `field` attribute or the `name` attribute of other input controls. The values of the nearest input fields above the `<f:validateButton/>` are sent to the server, so this means the button has to come after the input fields. Multiple fields can be specified by using ','.
+
+On the server side, this tag invokes the standard "do"-style method like this:
+
+[source, java]
+----
+@POST
+public FormValidation doTestConnection(@QueryParameter("accessId") final String accessId,
+        @QueryParameter("secretKey") final String secretKey,
+        @AncestorInPath Job job) throws IOException, ServletException {
+    try {
+         if (job == null) {
+             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+         } else {
+             job.checkPermission(Item.CONFIGURE);
+         }
+        ... do some tests ...
+        return FormValidation.ok("Success");
+    } catch (EC2Exception e) {
+        return FormValidation.error("Client error : "+e.getMessage());
+    }
+}
+----
+
+The doTestConnection method contains the validation logic. In the end, this method has to call either `FormValidation.ok`, `.warning`, or .error method. Depending on which method you use, the appropriate HTML will be rendered on the client side to indicate the status to the user.
+
+== Advanced
+
+Expandable section that shows "advanced..." button by default. Upon clicking it, a section unfolds.
+
+[source, xml]
+----
+<f:section title="Advanced Project Options">
+  <f:advanced>
+    <st:include page="configure-advanced.jelly" />
+  </f:advanced>
+</f:section>
+----
+
+== OptionalBlock
+Foldable block expanded when the menu item is checked.
+
+[source, xml]
+----
+<f:block>
+  <table>
+    <f:optionalBlock name="dynamic" title="Use existing dynamic view">
+      <f:entry title="View drive">
+        <f:textbox name="drive" value="${it.drive}"/>
+      </f:entry>
+    </f:optionalBlock>
+  </table>
+</f:block>
+----
+
+Unchecked the text box will not be displayed
+Checked the text box is displayed 
+
+== Select (drop-down menu)
+Use an `<f:entry>` tag to enclose the normal select tag.
+
+[source, xml]
+----
+<f:entry name="goalType" title="Choose Goal Type" field="goalType">
+    <select name="goalType">
+        <option value="buildGoal">Build Goal</option>
+        <option value="spotBugsGoal">SpotBugs goal</option>
+    </select>
+</f:entry>
+----
+
+== Select (drop-down menu) with model filled values
+Basically the same as above. You need to define the following method in the descriptor of your Describable instance:
+
+[source, java]
+----
+public ListBoxModel doFillGoalTypeItems() {
+    ListBoxModel items = new ListBoxModel();
+    
+    items.add("buildGoal", "Build Goal");
+    items.add("spotBugsGoal", "SpotBugs goal");
+
+    return items;
+}
+----
+
+Then, use an `<f:entry>` tag to enclose the normal select tag.
+
+[source, xml]
+----
+<f:entry field="goalType" title="Choose Goal Type">
+   <f:select />
+</f:entry>
+----
