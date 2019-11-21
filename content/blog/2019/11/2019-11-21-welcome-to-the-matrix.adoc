@@ -1,0 +1,389 @@
+---
+layout: post
+title: "Welcome to the Matrix"
+tags:
+- pipeline
+- plugins
+- declarative
+- matrix 
+author: lnewman
+---
+
+I often find myself needing to run the same actions on a bunch of different configurations.  
+Up to now, that meant I had to make multiple copies of the same stages in my pipelines. 
+When I needed to make changes, I had to make the same changes in multple places throughout my pipepine.
+Maintaining even a small number of configuration was difficult for larger pipelines.
+
+Declarative Pipeline 1.5.0-beta1 (now available from the
+link:https://updates.jenkins.io/experimental/[Jenkins Expermental Update site]) adds a new `matrix` section that lets me specify a list stages once and then run that same list in parallel on multiple configurations. Let's take a look!
+
+== Single configuration pipeline
+
+I'll start with a simple pipeline with build and test stages.  I'm using `echo` steps as placeholders for my build and test actions.
+
+.Jenkinsfile
+[source, groovy]
+----
+pipeline {
+    agent none
+    stages {
+        stage("BuildAndTest") {
+            agent any
+            stages {
+                stage("Build") {
+                    steps {
+                        echo "Do Build"
+                    }
+                }
+                stage("Test") {
+                    steps {
+                        echo "Do Test"
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+== Pipeline for multiple platforms and browsers
+
+I'd like to run my build and tests on a combination of platforms and browsers. 
+The new `matrix` directive lets me specify a set of `axes`. 
+Each `axis` has a `name` and a list of one or more `values`.
+When the pipeline is run, Jenkins will take those and run my stages on all possible combinations of values from each axis.
+All cells in a matrix run in parallel (limited only by the number of available agents).  
+Stages within each cell are run sequentially.
+
+My matrix has two axes: `PLATFORM` and `BROWSER`.
+I have three values for `PLATFORM` and four values for `BROWSER` resulting in a my stages being run with twelve different combinations being run.
+I've changed my `echo` steps to use the axis values for each cell.
+
+.Jenkinsfile
+[source, groovy]
+----
+pipeline {
+    agent none
+    stages {
+        stage("BuildAndTest") {
+            matrix {
+                agent any
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values "linux", "windows", "mac"
+                    }
+                    axis {
+                        name 'BROWSER'
+                        values "firefox", "chrome", "safari", "edge"
+                    }
+                }
+                stages {
+                    stage("Build") {
+                        steps {
+                            echo "Do Build for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                    stage("Test") {
+                        steps {
+                            echo "Do Test for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+.Log output (trucated)
+[source]
+----
+...
+[Pipeline] stage
+[Pipeline] { (BuildAndTest)
+[Pipeline] parallel
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'edge') (hide)
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'edge')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'edge')
+...
+Do Build for linux - safari
+Do Build for linux - firefox
+Do Build for windows - firefox
+Do Test for linux - firefox
+Do Build for mac - firefox
+Do Build for linux - chrome
+Do Test for windows - firefox
+...
+----
+
+
+== Excluding invalid combinations
+
+Now that I have my basic matrix created, I've noticed that I have some invalid combinations.  
+Microsoft Edge only runs on Windows and there isn't a Linux version of Safari. 
+
+I can remove invalid cells from my matrix using `exclude` directives. Each `exclude` has one or more `axis` directives with `name` and `values`.  
+The `axis` directives inside an `exclude` generate a set of combinations (similar to generating the matrix cells). 
+The matrix cells that match all the values from an `exclude` combination are removed from the matrix. 
+If I have more than one `exclude` directive, each are evaluated separately to remove cells.
+
+When dealing with a long lists of values to exclude, I can use a `notValues` instead of `values` to specify axis values we *don't* want excluded.
+Yes, that's a double negative, so it can get a litte confusing.
+I try to use it only when I really need it. 
+
+In my sample pipeline below, I specifically exclude the `linux, safari` combination and I also exclue any platform that is *not* `windows` with the `edge` browser.
+
+[IMPORTANT]
+====
+This pipele uses two axes but there is *no limit* on the number of `axis` directives. 
+
+Also, in this pipeline each `exclude` specifies values for both axes, but that is not requried.
+If we wanted to run only "linux" cells, we could use the following `exclude`: 
+[source, groovy]
+----
+exclude {
+    axis {
+        name 'PLATFORM'
+        notValues 'linux'
+    }
+}
+----
+====
+
+[source, groovy]
+----
+pipeline {
+    agent none
+    stages {
+        stage("BuildAndTest") {
+            matrix {
+                agent any
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values "linux", "windows", "mac"
+                    }
+                    axis {
+                        name 'BROWSER'
+                        values "firefox", "chrome", "safari", "edge"
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'linux'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values 'safari'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            notValues 'windows'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values "edge"
+                        }
+                    }
+                }
+                stages {
+                    stage("Build") {
+                        steps {
+                            echo "Do Build for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                    stage("Test") {
+                        steps {
+                            echo "Do Test for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+.Log output (trucated)
+[source]
+----
+...
+[Pipeline] stage
+[Pipeline] { (BuildAndTest)
+[Pipeline] parallel
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'edge')
+...
+Do Build for linux - firefox
+...
+----
+
+== Controlling cell behavior at runtime
+
+Inside the `matrix` directive I can also add "per-cell" directives. 
+These are the same directives that I would add to a `stage` and they let me control the behavior of each cell of in the matrix.
+These directives can use the axis values from their cell as part of their inputs, allowing me to customize the behavior of each cell to match its axis values. 
+
+On my Jenkins server I have configured agents with labels that match the OS for each agent ("linux-agent", "windows-agent", and "mac-agent"). 
+To run each cell in my matrix on the appropriate operating system, I configure the label for that cell using Groovy string templating. 
+
+[source, groovy]
+----
+matrix {
+    axes { ... }
+    excludes { ... }
+    agent {
+        label "${PLATFORM}-agent"
+    }
+    stages { ... }
+    // ...
+}
+----
+
+
+Occasionally I run my pipeline manually from the Jenkins Web UI. 
+When I do that, I'd like to be able to select just one platform to run, but I can't use `excludes` for this.
+The `axis` and `exclude` directives define the static set of cells that make up the matrix. 
+That set of combinations is generated before the start of the run, before any paramters. 
+
+So, I can't add or remove cells from a matrix after the job has started but I can use a "per-cell" directives. 
+I'll add a `choice` parameter with the list of platforms and a use a `when` directive inside `matrix` to control which cells in the matrix are run.
+The log below shows a portion of the output when I select `PLATFORM_FILTER = "mac"`.
+
+[source, groovy]
+----
+pipeline {
+    parameters {
+        choice(name: 'PLATFORM_FILTER', choices: ["all", "linux", "windows", "mac"], description: 'Run on specific platform')
+    }
+    agent none
+    stages {
+        stage("BuildAndTest") {
+            matrix {
+                agent {
+                    label "${PLATFORM}-agent"
+                }
+                when { anyOf {
+                    expression { params.PLATFORM_FILTER == "all" }
+                    expression { params.PLATFORM_FILTER == env.PLATFORM }
+                } }
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values "linux", "windows", "mac"
+                    }
+                    axis {
+                        name 'BROWSER'
+                        values "firefox", "chrome", "safari", "edge"
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'linux'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values 'safari'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            notValues 'windows'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values "edge"
+                        }
+                    }
+                }
+                stages {
+                    stage("Build") {
+                        steps {
+                            echo "Do Build for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                    stage("Test") {
+                        steps {
+                            echo "Do Test for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+----
+
+
+
+.Log output (trucated - PLATFORM_FILTER = "mac" )
+[source]
+----
+...
+[Pipeline] stage
+[Pipeline] { (BuildAndTest)
+[Pipeline] parallel
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'firefox')
+[Pipeline] { (Branch: Matrix - OS = 'linux', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'chrome')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'mac', BROWSER = 'safari')
+[Pipeline] { (Branch: Matrix - OS = 'windows', BROWSER = 'edge')
+...
+Stage "Matrix - OS = 'linux', BROWSER = 'chrome'" skipped due to when conditional
+Stage "Matrix - OS = 'linux', BROWSER = 'firefox'" skipped due to when conditional
+...
+Do Build for mac - firefox
+Do Build for mac - chrome
+Do Build for mac - safar
+...
+Stage "Matrix - OS = 'windows', BROWSER = 'chrome'" skipped due to when conditional
+Stage "Matrix - OS = 'windows', BROWSER = 'edge'" skipped due to when conditional
+...
+Do Test for mac - safari
+Do Test for mac - firefox
+Do Test for mac - chrome
+----
+
+
+== Conclusion 
+
+In this blog post, we've looked at how to use the `matrix` directive to make concise but powerful declarative pipelines.  An equivalent pipeline created without `matrix` would easily be several times larger, and much harder to understand and maintain. 
+
+Matrix is now available from the experimental update center. 
+It will be released to the main update center as soon as we're done putting the finishing touches on the documention and online help. 
+
+TODO: Join me at DWJW in Lisbon.
+
+== Links
+
+* link:https://updates.jenkins.io/experimental/[Jenkins Expermental Update Center]
+* link:https://stackoverflow.com/questions/37986614/jenkins-how-to-change-the-update-center[How to change your Jenkins update site]
+* 
