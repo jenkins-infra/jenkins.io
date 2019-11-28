@@ -1,22 +1,27 @@
 ---
 :layout: simplepage
-:title: "Jenkins GSoC application draft, 2019"
+:title: "Jenkins GSoC application draft, 2020"
 :tags:
 - gsoc
-- gsoc2019
+- gsoc2020
 ---
 
 <!-- This file uses Markdown intentionally.
      Google's GSoC site uses Markdown as an engine, using Markdown here allows copy-pasting
  -->
 
-The data below represents the 2019 GSoC application draft.
+The data below represents the 2020 GSoC application draft.
 Please feel free to contribute to it by proposing pull requests against the page.
+
+### TODOs:
+
+* Define the Jenkins X status: do they apply with Jenkins or as a separate org? (ETA - end of January)
+* Review text / labels / etc.
 
 ### Organization Profile
 
 * Tagline (up to 80 symbols): Open-source automation server for building great things at any scale
-* Technology tags (max 5): 
+* Technology tags (max 5):
   * java
   * groovy
   * javascript
@@ -28,7 +33,7 @@ Please feel free to contribute to it by proposing pull requests against the page
   * developer tools
   * devops
   * automation
-* Ideas list: https://jenkins.io/projects/gsoc/2019/project-ideas/ 
+* Ideas list: https://jenkins.io/projects/gsoc/2020/project-ideas/
 * Primary open-source license: MIT License
 * Category: Programming Languages and Development tools
 * Logo: https://wiki.jenkins.io/download/attachments/2916393/logo-title.png
@@ -45,7 +50,7 @@ Jenkins' motto is "Build great things at any scale".
 Using an extensible, plugin-based architecture developers have created hundreds of plugins to adapt Jenkins to a multitude of build, test, and deployment automation workloads. 
 Jenkins core is open-source ([MIT License](https://www.opensource.org/licenses/mit-license.php))
 
-The project has about 400 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc. 
+The project has about 600 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc. 
 In total we have more than 2000 components including plugins, libraries, and various utilities. 
 The main languages in the project are Java, Groovy and JavaScript, 
 but we also have components written in other languages (Go, C/C++, C#, etc.).
@@ -95,12 +100,12 @@ please feel free to contact us via the mailing list or the chat.
 In our community we are interested in more contributors in both Jenkins core and more than 1,000 of existing plugins. 
 We consider Google Summer of Code as an opportunity to find new contributors and students interested in software development automation (continuous integration and continuous delivery). 
 For us it is also a great opportunity to get existing contributors more involved into the community work. 
-We have previously participated in GSoC 2016/2018 and got much experience from it, especially regarding the student selection process. 
+We have previously participated in GSoC 2016-2019 and got much experience from it, especially regarding the student selection process. 
 We hope this will help us to improve student/mentor experience and overall results this year.
 
 #### How many potential mentors have agreed to participate?
 
-20+
+TODO
 
 #### How will you keep mentors engaged with their students?
 
@@ -158,8 +163,9 @@ They should also provide a periodic feedback on the progress of the project and 
   The students will be visible in the community even after GSoC
 
 #### Has your org been accepted as a mentoring org in Google Summer of Code before?
-Yes, in 2016 and 2018
+Yes, in 2016, 2018 and 2019
 
+2019: 5/7
 2018: 2/3 (+1 cancelled project during community bonding)
 2016: 1/5 (3 students have been failed due to major undisclosed time commitments, which impacted the project quality at the first coding phase)
 
@@ -178,15 +184,14 @@ EMPTY
 
 https://github.com/jenkinsci/ ,
 https://github.com/jenkins-x/ ,
-https://github.com/jenkins-infra/
+https://github.com/jenkins-infra/ ,
+https://github.com/jenkins-zh/
 
 #### Are you part of a foundation/umbrella organization?
 Yes, Software in the Public Interest, Inc. (https://spi-inc.org) a 501 (c) (3) non-profit organization
 
 #### Anything else we should know (optional)?
 
-There is a probability that Jenkins project migrates from SPI to Linux Foundation this year
-[ongoing discussion](https://groups.google.com/d/msg/jenkinsci-dev/1w57jl3K4S4/OFDYSEfXEwAJ). 
+Jenkins project migrates from SPI to Continuous Delivery Foundation this year. 
 GSoC org admins closely monitor this topic, 
-and we will make sure to notify GSoC Support team if this migration impacts the organization payment process.
-
+and we will change the payment instructions for the project.
