@@ -1,0 +1,122 @@
+---
+layout: post
+title: "Generic Webhook Trigger Plugin"
+tags:
+- webhooks
+- trigger
+- pipeline
+- multibranch
+- devops
+- jcasc
+- sharedlibrary
+- plugins
+- security
+- scalability
+author: tomasbjerre
+---
+
+:toc:
+
+This post will describe some common problems I've had with Jenkins and how I solved them by developing https://github.com/jenkinsci/generic-webhook-trigger-plugin/[Generic Webhook Trigger Plugin].
+
+= The Problem =
+
+I was often struggling with the same issues when working with Jenkins:
+
+ * **Code duplication and security** - `Jenkinsfiles` in every repository.
+ * **A branch is not a feature** - Parameterized jobs on `master` branch often mix parameters relevant for different features.
+ * **Poorly documented trigger plugins** - Proper documented services but poorly documented consuming plugins.
+
+== Code duplication And Security ==
+
+Having Jenkinsfiles in every Git repository allows developers to let those files diverge. Developers pushes forward with their projects and it is hard to maintain patterns to share code.
+
+I have, almost, solved code duplication with https://jenkins.io/doc/book/pipeline/shared-libraries/[shared libraries] but it does not allow me to setup a strict pattern that must be followed. Any developer can still decide to not invoke the features provided by the shared library.
+
+There is also the security aspect of letting developers run any code from the Jenkinsfiles. Developers might, for example, print passwords gathered from credentials. Letting developers execute any code on the Jenkins nodes just does not seem right to me.
+
+
+== A Branch Is Not A Feature ==
+
+In Bitbucket there are projects and each project has a collection of git repositories. Something like this:
+
+ * PROJ_1
+ ** REPO_1
+ ** REPO_2
+ * PROJ_2
+ ** REPO_3
+
+Lets think about some features we want to provide for these repositories:
+
+ * Pull request verification
+ * Building snapshot (or pre release if you will)
+ * Building releases
+
+If the developers are use to the repositories being organized like this in Bitbucket, should we not organize them the same way in Jenkins? And if they browse Jenkins should they not find one job per feature, like `pull-request`, `snapshot` and `release`? Each job with parameters only relevant for that feature. I think so! Like this:
+
+* `/` - Jenkins root
+** `/PROJ_1` - A folder, lists git repositories
+*** `/PROJ_1/REPO_1` - A folder, lists jobs relevant for that repo.
+*** `/PROJ_1/REPO_1/release` - A job, performs releases.
+*** `/PROJ_1/REPO_1/snapshot` - A job, performs snapshot releases.
+*** `/PROJ_1/REPO_1/pull-request` - A job, verifies pull requests.
+* `...`
+
+In this example, both `snapshot` and `release` jobs might work with the same git branch. The difference is the feature they provide. Their parameters can be well documented as you don't have to mix parameters relevant for releases and those relevant for snapshots. This cannot be done with https://plugins.jenkins.io/workflow-multibranch[Multibranch Pipeline Plugin] where you specify parameters as `properties` per branch.
+
+
+== Documentation ==
+
+Webhooks are often well documented in the services providing them. See:
+
+- https://confluence.atlassian.com/bitbucket/manage-webhooks-735643732.html[Bitbucket Cloud]
+- https://confluence.atlassian.com/bitbucketserver/managing-webhooks-in-bitbucket-server-938025878.html[Bitbucket Server]
+- https://developer.github.com/webhooks/[GitHub]
+- https://docs.gitlab.com/ce/user/project/integrations/webhooks.html[GitLab]
+- https://gogs.io/docs/features/webhook[Gogs] and https://docs.gitea.io/en-us/webhooks/[Gitea]
+- https://blog.assembla.com/AssemblaBlog/tabid/12618/bid/107614/Assembla-Bigplans-Integration-How-To.aspx[Assembla]
+- https://developer.atlassian.com/server/jira/platform/webhooks/[Jira]
+
+It bothered me that, even if I understood these webhooks, I was unable to use them. Because I needed to perform development in the plugin I was using in order to provide whatever value from the webhook to the build. That process could take months from PR to actual release. Such a simple thing should really not be an issue.
+
+= The Solution =
+
+My solution is pretty much *back to basics*: We have an automation server (Jenkins) and we want to trigger it on external webhooks. We want to gather information from that webhook and provide it to our build. I call it https://github.com/jenkinsci/generic-webhook-trigger-plugin/[Generic Webhook Trigger Plugin].
+
+The latest docs are available in https://github.com/jenkinsci/generic-webhook-trigger-plugin/[the repo] and I also have a fully working example with GitLab implemented using https://github.com/tomasbjerre/jenkins-configuration-as-code-sandbox[Configuration As Code].
+
+
+== Code duplication And Security ==
+
+I establish a convention that all developers must follow. Instead of letting the developers explicitly invoke the infrastructure from Jenkinsfiles. There are rules to follow, like:
+
+ * All git repositories should be built from the root of the repo.
+ * If it contains a `gradlew`
+ ** Build is done with `./gradlew build`
+ ** Release is done with `./gradlew release`
+ ** ... and so on
+ * If it contains a `package.json`
+ ** Build is done with `npm run build`
+ ** Release is done with `npm run release`
+ ** ... and so on
+
+With these rules, pipelines can be totally generic and no Jenkinsfiles are needed in the repositories. Some git repositories may, for some reason, need to disable test cases. That can be solved by allowing repositories to add a special file, perhaps `jenkins-settings.json`, let the infrastructure discover and https://github.com/tomasbjerre/jenkins-configuration-as-code-sandbox/blob/master/vars/buildRepo.groovy#L52[act on its content].
+
+This also helps the developers even when not doing CI. When they clone a new, to them unknown, repository they will know what commands can be issued and their semantics.
+
+
+== A Branch Is Not A Feature ==
+
+I implement:
+
+ * Jenkins job configurations - With https://github.com/jenkinsci/job-dsl-plugin/wiki[Job DSL].
+ * Jenkins build process - With https://jenkins.io/doc/book/pipeline/[Pipelines] and https://jenkins.io/doc/book/pipeline/shared-libraries/[Shared Library].
+
+By integrating with the git service from https://github.com/jenkinsci/job-dsl-plugin/wiki[Job DSL] I can automatically find the git repositories. I create jobs dynamically organized in folders. Also invoking the git service to setup webhooks triggering those jobs. The jobs are ordinary pipelines, not multibranch, and they don't use Jenkinsfile from Git but instead Jenksinfile configured in the job. This is all happening https://github.com/tomasbjerre/jenkins-configuration-as-code-sandbox/blob/master/jobs/applicationRepo.groovy[here].
+
+
+== Documentation ==
+
+The plugin uses `JSONPath`, and also `XPath`, to extract values from JSON and provide them to the build. Letting the user pick whatever is needed from the webhook. It also has a regular expression filter to allow not triggering for some conditions.
+
+The plugin is not very big, just being the glue between the webhook, JSONPath/XPath and regular expression. As all these parts are very well documented already and I do my best supporting the plugin. That way this is a very well documented solution to use!
