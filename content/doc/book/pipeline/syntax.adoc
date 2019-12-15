@@ -1161,11 +1161,15 @@ Example: `when { buildingTag() }`
 changelog:: Execute the stage if the build's SCM changelog contains a given regular expression pattern,
 for example: `when { changelog '.*^\\[DEPENDENCY\\] .+$' }`
 
-changeset:: Execute the stage if the build's SCM changeset contains one or more files matching the given string or glob.
+changeset:: Execute the stage if the build's SCM changeset contains one or more files matching the given pattern.
 Example: `+when { changeset "**/*.js" }+`
 +
-By default the path matching will be case insensitive, this can be turned off with the `caseSensitive` parameter,
-for example: `when { changeset glob: "ReadMe.*", caseSensitive: true }`
+The optional parameter `comparator` may be added after an attribute
+to specify how any patterns are evaluated for a match:
+`EQUALS` for a simple string comparison,
+`GLOB` (the default) for an ANT style path glob case insensitive, this can be turned off with the `caseSensitive` parameter, or
+`REGEXP` for regular expression matching.
+For example: `when { changeset pattern: ".*TEST\\.java", comparator: "REGEXP" }` or `when { changeset pattern: "**/*TEST.java", caseSensitive: true }`
 
 changeRequest:: Executes the stage if the current build is for a "change request"
 (a.k.a. Pull Request on GitHub and Bitbucket, Merge Request on GitLab or Change in Gerrit etc.).
@@ -1510,12 +1514,11 @@ pipeline {
 
 === Sequential Stages
 
-Stages in Declarative Pipeline may declare a list of nested stages to be run
-within them in sequential order. Note that a stage must have one and only one of
-`steps`, `parallel`, or `stages`, the last for sequential stages. It is not
-possible to nest a `parallel` block within a `stage` directive if that `stage`
-directive is nested within a `parallel` block itself. However, a `stage`
-directive within a `parallel` block can use all other functionality of a `stage`,
+Stages in Declarative Pipeline may have a `stages` section containing a list of nested stages to be run in sequential order.
+Note that a stage must have one and only one of `steps`, `stages`, `parallel`, or `matrix`. 
+It is not possible to nest a `parallel` or `matrix` block within a `stage` directive if that `stage`
+directive is nested within a `parallel`  or `matrix` block itself. However, a `stage`
+directive within a `parallel` or `matrix` block can use all other functionality of a `stage`,
 including `agent`, `tools`, `when`, etc.
 
 [[sequential-stages-example]]
@@ -1576,15 +1579,14 @@ pipeline {
 
 === Parallel
 
-Stages in Declarative Pipeline may declare a number of nested stages within
-a `parallel` block, which will be executed in parallel. Note that a stage must
-have one and only one of `steps`, `stages`, or `parallel`. The nested stages
-cannot contain further `parallel` stages themselves, but otherwise behave the
-same as any other `stage`, including a list of sequential stages within `stages`.
-Any stage containing `parallel` cannot contain `agent` or `tools`, since those
-are not relevant without `steps`.
+Stages in Declarative Pipeline may have a `parallel` section containing a list of nested stages to be run in parallel.
+Note that a stage must have one and only one of `steps`, `stages`, `parallel`, or `matrix`. 
+It is not possible to nest a `parallel` or `matrix` block within a `stage` directive if that `stage`
+directive is nested within a `parallel`  or `matrix` block itself. However, a `stage`
+directive within a `parallel` or `matrix` block can use all other functionality of a `stage`,
+including `agent`, `tools`, `when`, etc.
 
-In addition, you can force your `parallel` stages to all be aborted when one
+In addition, you can force your `parallel` stages to all be aborted when any one
 of them fails, by adding `failFast true` to the `stage` containing the
 `parallel`. Another option for adding `failfast` is adding an option to the
 pipeline definition: `parallelsAlwaysFailFast()`
@@ -1706,6 +1708,350 @@ pipeline {
         }
     }
 }// Script //
+----
+
+[[declarative-matrix]]
+=== Matrix
+
+Stages in Declarative Pipeline may have a `matrix` section defining a multi-dimenisional matrix of name-value combinations to be run in parallel. 
+We'll refer these combinations as "cells" in a matrix.
+Each cell in a matrix can include one or stages to be run sequentially using the configuration for that cell.
+Note that a stage must have one and only one of `steps`, `stages`, `parallel`, or `matrix`. 
+It is not possible to nest a `parallel` or `matrix` block within a `stage` directive if that `stage`
+directive is nested within a `parallel`  or `matrix` block itself. However, a `stage`
+directive within a `parallel` or `matrix` block can use all other functionality of a `stage`,
+including `agent`, `tools`, `when`, etc.
+
+In addition, you can force your `matrix` cells to all be aborted when any one
+of them fails, by adding `failFast true` to the `stage` containing the
+`matrix`. Another option for adding `failfast` is adding an option to the
+pipeline definition: `parallelsAlwaysFailFast()`
+
+The `matrix` section must include an `axes` section and a `stages` section.
+The `axes` section defines the values for each `axis` in the matrix.
+The `stages` section defines a list of ``stage``s to run sequentially in each cell.
+A `matrix` may have an `excludes` section to remove invalid cells from the matrix.
+Many of the directives available on  `stage`, including `agent`, `tools`, `when`, etc., 
+can also be added to `matrix` to control the behavior of each cell. 
+
+[[matrix-axes]]
+==== axes  
+
+The `axes` section specifies one or more `axis` directives. 
+Each `axis` consists of a `name` and a list of `values`.
+All the values from each axis are combined with the others to produce the cells. 
+
+[[matrix-axes-example]]
+===== Example
+
+.One-axis with 3 cells
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+    }
+    // ...
+}
+----
+
+.Two-axis with 12 cells (three by four)
+[source, groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+    }
+    // ...
+}
+----
+
+.Three-axis matrix with 24 cells (three by four by two)
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+        axis {
+            name 'ARCHITECTURE'
+            values '32-bit', '64-bit'
+        }
+    }
+    // ...
+}
+----
+
+
+[[matrix-stages]]
+==== stages   
+
+The `stages` section specifies one or more `stage`s to be executed sequentially in each cell. 
+This section is identical to any other
+<<#sequential-stages, `stages` section>>.  
+
+[[matrix-stages-example]]
+===== Example
+
+.One-axis with 3 cells, each cell runs three stages - "build", "test", and "deploy"
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+    }
+    stages {
+        stage('build') {
+            // ... 
+        }
+        stage('test') {
+            // ... 
+        }
+        stage('deploy') {
+            // ... 
+        }
+    }
+}
+----
+
+.Two-axis with 12 cells (three by four)
+[source, groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+    }
+    stages {
+        stage('build-and-test') {
+            // ...
+        }
+    }
+}
+----
+
+[[matrix-excludes]]
+==== excludes (optional)
+
+The optional `excludes` section lets authors specify one or more `exclude` filter expressions that select cells to be excluded from the expanded set of matrix cells (aka, sparsening). 
+Filters are constructed using a basic directive structure of one or more of exclude `axis` directives each with a `name` and `values` list. 
+
+The `axis` directives inside an `exclude` generate a set of combinations (similar to generating the matrix cells). 
+The matrix cells that match all the values from an `exclude` combination are removed from the matrix. 
+If more than one `exclude` directive is supplied, each are evaluated separately to remove cells.
+
+When dealing with a long lists of values to exclude, exclude `axis` directives can use `notValues` instead of `values`.  
+These will exclude cells that *do not* match one of values passed to `notValues`.
+
+[[matrix-excludes-example]]
+===== Example  
+
+.Three-axis matrix with 24 cells, exclude '32-bit, mac' (4 cells excluded)
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+        axis {
+            name 'ARCHITECTURE'
+            values '32-bit', '64-bit'
+        }
+    }
+    excludes {
+        exclude {
+            axis {
+                name 'PLATFORM'
+                values 'mac'
+            }
+            axis {
+                name 'ARCHITECTURE'
+                values '32-bit'
+            }
+        }        
+    }
+    // ...
+}
+----
+
+Exclude the `linux, safari` combination and exclude any platform that is *not* `windows` with the `edge` browser.
+
+.Three-axis matrix with 24 cells, exclude '32-bit, mac' and invalid browser combinations (9 cells excluded) 
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+        axis {
+            name 'ARCHITECTURE'
+            values '32-bit', '64-bit'
+        }
+    }
+    excludes {
+        exclude {
+            // 4 cells
+            axis {
+                name 'PLATFORM'
+                values 'mac'
+            }
+            axis {
+                name 'ARCHITECTURE'
+                values '32-bit'
+            }
+        }
+        exclude {
+            // 2 cells
+            axis {
+                name 'PLATFORM'
+                values 'linux'
+            }
+            axis {
+                name 'BROWSER'
+                values 'safari'
+            }
+        }
+        exclude {
+            // 3 more cells and '32-bit, mac' (already excluded)
+            axis {
+                name 'PLATFORM'
+                notValues 'windows'
+            }
+            axis {
+                name 'BROWSER'
+                values 'edge'
+            }
+        }        
+    }
+    // ...
+}
+----
+
+[[matrix-cell-directives]]
+==== Matrix cell-level directives (optional)
+
+Matrix lets users efficiently configure the overall environment for each cell, by adding stage-level directives under `matrix` itself.
+These directives behave the same as they would on a stage but they can also accept values provided by the matrix for each cell.  
+
+The `axis` and `exclude` directives define the static set of cells that make up the matrix. 
+That set of combinations is generated before the start of the pipeline run.
+The "per-cell" directives, on the other hand, are evaluated at runtime.  
+
+These directives include:
+
+* <<agent>>
+* <<environment>>
+* <<input>>
+* <<options>>
+* <<post>>
+* <<tools>>
+* <<when>>
+
+[[matrix-cell-example]]
+===== Example
+
+[source, groovy]
+----
+pipeline {
+    parameters {
+        choice(name: 'PLATFORM_FILTER', choices: ['all', 'linux', 'windows', 'mac'], description: 'Run on specific platform')
+    }
+    agent none
+    stages {
+        stage('BuildAndTest') {
+            matrix {
+                agent {
+                    label "${PLATFORM}-agent"
+                }
+                when { anyOf {
+                    expression { params.PLATFORM_FILTER == 'all' }
+                    expression { params.PLATFORM_FILTER == env.PLATFORM }
+                } }
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values 'linux', 'windows', 'mac'
+                    }
+                    axis {
+                        name 'BROWSER'
+                        values 'firefox', 'chrome', 'safari', 'edge'
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'linux'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values 'safari'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            notValues 'windows'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values 'edge'
+                        }
+                    }
+                }
+                stages {
+                    stage('Build') {
+                        steps {
+                            echo "Do Build for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                    stage('Test') {
+                        steps {
+                            echo "Do Test for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 ----
 
 [[declarative-steps]]
