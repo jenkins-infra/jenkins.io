@@ -1,0 +1,71 @@
+==== Password fields in forms how hidden by default
+
+Password fields have been redesigned to prevent password auto-fill in password fields that are not theh initial login form.
+This reduces the instances of browsers offering to update stored passwords entered into fields which are not the initial login form.
+
+This change can be reverted by setting the system property `hudson.Functions.hidingPasswordFields=false`.
+
+==== Resource domain support
+
+https://issues.jenkins-ci.org/browse/JENKINS-41891[JENKINS-41891]
+
+Static resources (HTML pages, workspace files, images, etc.) served from Jenkins are protected by default using a link:https://en.wikipedia.org/wiki/Content_Security_Policy[content security policy].
+Many Jenkins plugins need to serve static resources but have not been updated to support content security policy.
+Previously, administrators were required to define custom content security policies in order to display those pages correctly.
+
+Administrators may now choose to define a **Resource Root URL** that Jenkins will use to serve static pages without adding content security policy headers.
+
+==== Remove browser-based metadata download
+
+Jenkins will no longer inform administrators about available updates without an internet connection.
+Removes the ability to download update center metadata using the user's browser.
+We recommend the use of a local mirror of our update sites or a self-hosted update center like link:https://github.com/jenkinsci/juseppe[Juseppe] in such situations.
+
+An administrative monitor has warned users that browser-based metadata download is deprecated.
+This release removes the capability and the administrative monitor.
+
+Users maintaining Jenkins with the link:https://plugins.jenkins.io/configuration-as-code[configuration as code plugin] will need to remove the `downloadSettings` section from their configuration:
+
+[source,yaml]
+----
+security:
+  downloadSettings:
+    useBrowser: false
+----
+
+If that section is not removed from the configuration, Jenkins will fail to start.
+When it fails to start, the message in the logfile will look something like this:
+
+[source,text]
+----
+SEVERE jenkins.InitReactorRunner$1#onTaskFailed: Failed ConfigurationAsCode.init
+io.jenkins.plugins.casc.ConfiguratorException: Invalid configuration elements for type class jenkins.model.GlobalConfigurationCategory$Security : downloadSettings.
+----
+
+The Jenkins web page may also display a message like this:
+
+[source,text]
+----
+java.lang.IllegalStateException: Expected 1 instance of jenkins.security.ResourceDomainConfiguration but got 0
+----
+
+Remove the `downloadSettings` and `useBrowser` lines from the configuration as code file to resolve those errors.
+
+==== WMI Windows Agent minimum version
+
+The file `jenkins-slave.xml` has been removed from Jenkins core.
+Installations with WMI Windows Agent plugin versions before 1.3.1 will see errors.
+Administrators should upgrade their WMI Windows Agent plugin to at least version 1.3.1 (released March 14, 2017).
+
+==== Stop bundling Maven plugin and Subversion plugin with Jenkins
+
+Certain key Jenkins capabilities were initially created inside the Jenkins core.
+As Jenkins has developed further, capabilities moved from inside Jenkins core to dedicated Jenkins plugins, like the maven and subversion plugins.
+When those plugins were created, the plugins were "bundled" inside the jenkins.war file to retain compatibility for plugins that depended on their functionality to be inside Jenkins core.
+The Jenkins project is no longer publishing any plugins that require the "bundled" versions of the maven and subversion plugins.
+The Maven and Subversion plugins are no longer bundled with Jenkins.
+
+In very rare cases, this could result in problems when attempting to install plugins compatible with Jenkins before 1.310.
+In those cases, the best path forward is usually to modify the plugin that has the problem so that it requires a newer version of Jenkins core.
+
+// Not sure what to say here about link:https://github.com/jenkinsci/jenkins/pull/4245[script-security updated to 1.65].
