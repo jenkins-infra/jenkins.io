@@ -1,0 +1,108 @@
+---
+layout: section
+title: Pipeline Best Practices
+---
+ifdef::backend-html5[]
+:notitle:
+:description:
+:author: Alex Taylor
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:hide-uri-scheme:
+:toc:
+endif::[]
+
+= Applying best practices to Pipelines
+
+This guide provides a small selection of best practices for pipelines and points out the most common mistakes. 
+
+The goal is to point pipeline authors and maintainers towards patterns that result in better Pipeline execution and away from pitfalls they might otherwise not be aware of.
+This guide is not meant to be an exhaustive list of all possible Pipeline best practices but instead to provide a number of specific examples useful in tracking down common practices.
+Use it as a "do this" generally and not as an incredibly detailed "how-to".
+
+This guide is arranged by area, guideline, then listing specific examples. 
+
+== General
+
+=== Making sure to use Groovy code in Pipelines as glue
+
+Use Groovy code to connect a set of actions rather than as the main functionality of your Pipeline.
+In other words, instead of relying on Pipeline functionality (Groovy or Pipeline steps) to drive the build process forward, use single steps (such as `sh`) to accomplish multiple parts of the build. 
+Pipelines, as their complexity increases (the amount of Groovy code, number of steps used, etc.), require more resources (CPU, memory, storage) on the master.
+Think of Pipeline as a tool to accomplish a build rather than the core of a build.
+
+Example: Using a single Maven build step to drive the build through its build/test/deploy process.
+
+=== Avoiding complex Groovy code in Pipelines
+
+For a Pipeline, Groovy code *always* executes on master which means using master resources(memory and CPU). 
+Therefore, it is critically important to reduce the amount of Groovy code executed by Pipelines (this includes any methods called on classes imported in Pipelines).
+The following are the most common example Groovy methods to avoid using:
+. *JsonSlurper:* This function (and some other similar ones like XmlSlurper or readFile) can be used to read from a file on disk, parse the data from that file into a JSON object, and inject that object into a Pipeline using a command like JsonSlurper().parseText(readFile("$LOCAL_FILE")). This command loads the local file into memory on the master twice and, if the file is very large or the command is executed frequently, will require a lot of memory.
+.. Solution: Instead of using JsonSlurper, use a shell step and return the standard out. This shell would look something like this: `def JsonReturn = sh label: '', returnStdout: true, script: 'echo "$LOCAL_FILE"| jq "$PARSING_QUERY"'`. This will use agent resources to read the file and the $PARSING_QUERY will help parse down the file into a smaller size.
+. *HttpRequest:* Frequently this command is used to grab data from an external source and store it in a variable. This practice is not ideal because not only is that request coming directly from the master (which could give incorrect results for things like HTTPS requests if the master does not have certificates loaded), but also the response to that request is stored twice.
+.. Solution: Use a shell step to perform the HTTP request from the agent, for example using a tool like `curl` or `wget`, as appropriate. If the result must be later in the Pipeline, try to filter the result on the agent side as much as possible so that only the minimum required information must be transmitted back to the Jenkins master.
+
+=== Reducing repetition of similar Pipeline steps
+
+Combine Pipeline steps into single steps as often as possible to reduce the amount of overhead caused by the Pipeline execution engine itself. For example, if you run three shell steps back-to-back, each of those steps has to be started and stopped, requiring connections and resources on the agent and master to be created and cleaned up. However, if you put all of the commands into a single shell step, then only a single step needs to be started and stopped.
+
+Example:
+Instead of creating a series of  `echo` or `sh` steps, combine them into a single step or script.
+
+=== Avoiding calls to `Jenkins.getInstance`
+
+Using Jenkins.instance or its accessor methods in a Pipeline or shared library indicates a code misuse within that Pipeline/shared library. Using Jenkins APIs from an unsandboxed shared library means that the shared library is both a shared library and a kind of Jenkins plugin. You need to be very careful when interacting with Jenkins APIs from a Pipeline to avoid severe security and performance issues. If you must use Jenkins APIs in your build, the recommended approach is to create a minimal plugin in Java that implements a safe wrapper around the Jenkins API you want to access using Pipeline's Step API. Using Jenkins APIs from a sandboxed Jenkinsfile directly means that you have probably had to whitelist methods that allow sandbox protections to be bypassed by anyone who can modify a Pipeline, which is a significant security risk. The whitelisted method is run as the System user, having overall admin permissions, which can lead to developers possessing higher permissions than intended.
+
+Solution: The best solution would be to work around the calls being made, but if they must be done then it would be better to implement a Jenkins plugin which is able to gather the data needed.
+
+== Using shared libraries
+
+=== Do not override built-in Pipeline steps
+
+Wherever possible stay away from customized/overwritten Pipeline steps. 
+Overriding built-in Pipeline Steps is the process of using shared libraries to overwrite the standard Pipeline APIs like `sh` or `timeout`. 
+This process is dangerous because the Pipeline APIs can change at any time causing custom code to break or give different results than expected. 
+When custom code breaks because of Pipeline API changes, troubleshooting is difficult because even if the custom code has not changed, it may not work the same after an API update.
+So even if custom code has not changed, that does not mean after an API update it will keep working the same. 
+Lastly, because of the ubiquitous use of these steps throughout Pipelines, if something is coded incorrectly/inefficiently the results can be catastrophic to Jenkins.
+
+=== Avoiding large global variable declaration files
+
+Having large variable declaration files can require large amounts of memory for little to no benefit, because the file is loaded for every Pipeline whether the variables are needed or not. Creating small variable files that contain only variables relevant to the current execution is recommended.
+
+=== Avoiding very large shared libraries
+
+Using large shared libraries in Pipelines requires checking out a very large file before the Pipeline can start and loading the same shared library per job that is currently executing, which can lead to increased memory overhead and slower execution time.
+
+== Answering additional FAQs
+
+=== Dealing with Concurrency in Pipelines
+
+Try not to share workspaces across multiple Pipeline executions or multiple distinct Pipelines. 
+This practice can lead to either unexpected file modification within each Pipeline or workspace renaming.
+
+Ideally, shared volumes/disks are mounted in a separate place and the files are copied from that place to the current workspace.
+Then when the build is done the files can be copied back if there were updates done.
+
+Build in distinct containers which create needed resources from scratch(cloud-type agents work great for this). 
+Building these containers will ensure that the build process begins at the start every time and is easily repeatable.
+If building containers will not work, disable concurrency on the Pipeline or use the Lockable Resources Plugin to lock the workspace when it is running so that no other builds can use it while it is locked.
+**WARNING**: Disabling concurrency or locking the workspace when it is running can cause Pipelines to become blocked when waiting on resources if those resources are arbitrarily locked.
+
+**Also, be aware that both of these methods have slower time to results of builds than using unique resources for each job**
+
+=== Using @NonCPS
+
+Pipeline code is CPS-transformed so that Pipelines are able to resume after a Jenkins restart.
+That is, while the pipeline is running your script, you can shut down Jenkins or lose connectivity to an agent. 
+When it comes back, Jenkins remembers what it was doing and your pipeline script resumes execution as if it were never interrupted.
+A technique known as "link:https://en.wikipedia.org/wiki/Continuation-passing_style[continuation-passing style (CPS)]"  execution plays a key role in resuming Pipelines.
+However, some Groovy expressions do not work correctly as a result of CPS transformation.
+See link:http://jenkins.io/redirect/pipeline-cps-method-mismatches[Pipeline CPS method mismatches] for more details and some examples of things that may be problematic.
+If necessary, you can use the `@NonCPS` annotation to disable the CPS transformation for a specific method whose body would not execute correctly if it were CPS-transformed.
+Just be aware that this also means the Groovy function will have to restart completely since it is not transformed.
+
+**Note** that asynchronous Pipeline steps (such as `sh` and `sleep`) are always CPS-transformed, and may not be used inside of a method annotated with @NonCPS.
