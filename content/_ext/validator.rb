@@ -73,7 +73,6 @@ class Validator
 
   def check_file(path, context)
     full = "#{File.dirname(__FILE__)}/..#{path}"
-    puts File.expand_path(full)
     if !File.file?(full)
       warning "Invalid file path #{path} for #{context}"
     end
