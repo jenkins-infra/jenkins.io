@@ -188,7 +188,10 @@ https://github.com/jenkins-infra/ ,
 https://github.com/jenkins-zh/
 
 #### Are you part of a foundation/umbrella organization?
-Yes, Software in the Public Interest, Inc. (https://spi-inc.org) a 501 (c) (3) non-profit organization
+Yes, Jenkins is transitioning between two organizations at this time:
+
+* Software in the Public Interest, Inc. (https://spi-inc.org) a 501 (c) (3) non-profit organization
+* Continuous Delivery foundation (https://cd.foundation/about/), a non-profit Linux Foundation organization
 
 #### Anything else we should know (optional)?
 
