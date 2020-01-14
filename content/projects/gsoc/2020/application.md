@@ -55,8 +55,9 @@ In total we have more than 2000 components including plugins, libraries, and var
 The main languages in the project are Java, Groovy and JavaScript, 
 but we also have components written in other languages (Go, C/C++, C#, etc.).
 Jenkins project also includes multiple 
-[sub-projects](https://jenkins.io/projects/) (including [Jenkins X](https://jenkins-x.io/), 
-[Configuration-as-Code](https://jenkins.io/projects/jcasc/) 
+[sub-projects](https://jenkins.io/projects/) (including 
+[Configuration-as-Code](https://jenkins.io/projects/jcasc/),
+[Infrastructure](https://jenkins.io/projects/infrastructure/)
 and [Remoting](https://jenkins.io/projects/remoting/)) and 
 [special interest groups](https://jenkins.io/sigs/).
 These projects and SIGs participate in GSoC as a part of the Jenkins project.
