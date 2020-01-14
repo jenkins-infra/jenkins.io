@@ -20,13 +20,14 @@ Please feel free to contribute to it by proposing pull requests against the page
 
 ### Organization Profile
 
+* Website URL: http://jenkins.io/
 * Tagline (up to 80 symbols): Open-source automation server for building great things at any scale
 * Technology tags (max 5):
   * java
-  * groovy
   * javascript
   * docker
   * kubernetes
+  * go
 * Topic Tags (max 5)
   * continuous integration
   * continuous delivery
@@ -77,6 +78,8 @@ please feel free to contact us via the mailing list or the chat.
 
 #### Proposal tags (max - 10)
 
+TODO: Adjust according to project ideas
+
 * user experience
 * plugins
 * performance
@@ -88,11 +91,13 @@ please feel free to contact us via the mailing list or the chat.
 * containers
 * configuration-as-code
 
-#### Contents
+#### Contacts
 
 * Chat page URL: https://gitter.im/jenkinsci/gsoc-sig
 * Mailing list page URL: https://jenkins.io/projects/gsoc/#contacts 
 * General-purpose e-mail: jenkinsci-gsoc-all-public@googlegroups.com
+* Twitter: https://twitter.com/jenkinsci
+* Blog: https://jenkins.io/node/
 
 ### Application
 
@@ -106,7 +111,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 
 #### How many potential mentors have agreed to participate?
 
-TODO
+TODO: Update before the application deadline
 
 #### How will you keep mentors engaged with their students?
 
@@ -154,8 +159,7 @@ They should also provide a periodic feedback on the progress of the project and 
 
 #### How will you keep students involved with your community after GSoC?
 
-* There will be a [DevOps World - Jenkins World conference](https://www.cloudbees.com/jenkinsworld/home) in USA in August 2019 and then in Europe in Dec 2019. 
-  We plan sponsoring successful students to go to this or other Jenkins-focused conference & contributor summit.
+* We plan sponsoring successful students to go to a Jenkins-focused conference and/or contributor summit.
   The projects will be also presented at the [Jenkins Online Meetup](https://www.meetup.com/Jenkins-online-meetup/).
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course). 
   Public presentations will attract attention, and the students will be periodically contacted by users.
@@ -166,9 +170,13 @@ They should also provide a periodic feedback on the progress of the project and 
 #### Has your org been accepted as a mentoring org in Google Summer of Code before?
 Yes, in 2016, 2018 and 2019
 
-2019: 5/7
-2018: 2/3 (+1 cancelled project during community bonding)
-2016: 1/5 (3 students have been failed due to major undisclosed time commitments, which impacted the project quality at the first coding phase)
+* 2019: 5/7
+* 2018: 2/3 (+1 cancelled project during community bonding)
+* 2016: 1/5 (3 students have been failed due to major undisclosed time commitments, which impacted the project quality at the first coding phase)
+
+### Is there an organization new to GSoC that you would like to refer to the program for 2020? Feel free to add a few words about why they'd be a good fit.
+
+TODO
 
 #### If your org has applied for GSoC before but not been accepted, select the years
 2009, 2017
@@ -188,6 +196,10 @@ https://github.com/jenkins-x/ ,
 https://github.com/jenkins-infra/ ,
 https://github.com/jenkins-zh/
 
+#### Is your organization part of any government?
+
+No
+
 #### Are you part of a foundation/umbrella organization?
 Yes, Jenkins is transitioning between two organizations at this time:
 
@@ -196,6 +208,6 @@ Yes, Jenkins is transitioning between two organizations at this time:
 
 #### Anything else we should know (optional)?
 
-Jenkins project migrates from SPI to Continuous Delivery Foundation this year. 
+Jenkins project migrates from Software in the Public Interest, Inc. (https://spi-inc.org) to Continuous Delivery foundation (https://cd.foundation/about/) this year. 
 GSoC org admins closely monitor this topic, 
 and we will change the payment instructions for the project.
