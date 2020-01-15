@@ -159,7 +159,7 @@ They should also provide a periodic feedback on the progress of the project and 
 
 #### How will you keep students involved with your community after GSoC?
 
-* We plan sponsoring successful students to go to a Jenkins-focused conference and/or contributor summit.
+* We plan to sponsor successful students' travel and attendance at a Jenkins-focused conference and/or contributor summit.
   The projects will be also presented at the [Jenkins Online Meetup](https://www.meetup.com/Jenkins-online-meetup/).
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course). 
   Public presentations will attract attention, and the students will be periodically contacted by users.
@@ -208,6 +208,6 @@ Yes, Jenkins is transitioning between two organizations at this time:
 
 #### Anything else we should know (optional)?
 
-Jenkins project migrates from Software in the Public Interest, Inc. (https://spi-inc.org) to Continuous Delivery foundation (https://cd.foundation/about/) this year. 
+The Jenkins project is migrating from Software in the Public Interest, Inc. (https://spi-inc.org) to Continuous Delivery Foundation (https://cd.foundation/about/) this year. 
 GSoC org admins closely monitor this topic, 
 and we will change the payment instructions for the project.
