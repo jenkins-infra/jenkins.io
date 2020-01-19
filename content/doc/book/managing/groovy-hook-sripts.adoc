@@ -1,0 +1,62 @@
+---
+layout: section
+wip: true
+---
+ifdef::backend-html5[]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+= Groovy Hook Scripts
+
+In several places inside Jenkins, a series of "hook scripts" get executed to allow some actions to take place in reaction to some key
+events.
+
+These scripts are written in Groovy, and get executed inside the same JVM as Jenkins, allowing full access to the domain model of Jenkins. 
+For given hook _HOOK_, the following locations are searched:
+
+* `+WEB-INF/HOOK.groovy+` in `+jenkins.war+`
+* `+WEB-INF/HOOK.groovy.d/*.groovy+` in the lexical order in `+jenkins.war+`
+* `+$JENKINS_HOME/HOOK.groovy+`
+* `+$JENKINS_HOME/HOOK.groovy.d/*.groovy+` in the lexical order
+
+`+HOOK.groovy.d+` is suitable to avoid conflicts — multiple entities can
+insert stuff into the hook without worrying about overwriting each
+other's code.
+
+The following events use this mechanism:
+
+* *init*: Post-initialization script
+* *boot-failure*: Boot failure hook
+
+== Post initialization script (init hook)
+You can create a Groovy script file `+$JENKINS_HOME/init.groovy+`, or
+any `+.groovy+` file in the directory `+$JENKINS_HOME/init.groovy.d/+`,
+to run some additional things right after Jenkins starts up. 
+The script is executed happen at the very end of the initialization, and therefore this can be used to pre-configure Jenkins for a particular OEM situation.
+This script can access classes in Jenkins and all the plugins.
+So for example, you can write something like:
+
+[source, groovy]
+....
+import jenkins.model.Jenkins;
+
+// start in the state that doesn't do any build.
+Jenkins.instance.doQuietDown();
+....
+
+Output is logged to the Jenkins log file. For Debian based users, this
+is /var/log/jenkins/jenkins.log
+
+
+== Boot failure hook
+When Jenkins encounters a fatal problem during boot, it'll invoke
+"boot-failure" hook script to allow automatic corrective actions to be taken 
+(such as notifying somebody, raising alerts, restarting, and so on.)
+
+These scripts get the cause of the problem as the "exception" variable
+when run.
