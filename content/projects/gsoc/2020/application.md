@@ -49,7 +49,7 @@ Built primarily in Java, it provides hundreds of plugins to support building, te
 [Jenkins](https://jenkins.io/), originally founded in 2006 as "Hudson", is one of the leading automation servers. 
 Jenkins' motto is "Build great things at any scale".
 Using an extensible, plugin-based architecture developers have created hundreds of plugins to adapt Jenkins to a multitude of build, test, and deployment automation workloads. 
-Jenkins is open-source, [MIT License](https://www.opensource.org/licenses/mit-license.php) is used for the most of the components.
+Jenkins is open-source, [MIT License](https://www.opensource.org/licenses/mit-license.php) is used for most of the components.
 
 The project has about 600 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc.
 In total we have more than 2000 components including plugins, libraries, and various utilities. 
