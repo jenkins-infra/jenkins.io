@@ -1,0 +1,48 @@
+---
+layout: post
+title: 'WebSocket'
+tags:
+- core
+- remoting
+- agents
+- cli
+author: jglick
+---
+
+I am happy to report that jep:222[] has landed in Jenkins weeklies,
+starting in link:/changelog/#v2.217[2.217].
+This improvement brings experimental WebSocket support to Jenkins,
+available when connecting inbound agents or when running the CLI.
+The WebSocket protocol allows bidirectional, streaming communication over an HTTP(S) port.
+
+While many users of Jenkins could benefit,
+implementing this system was particularly important for CloudBees
+because of how link:https://docs.cloudbees.com/docs/cloudbees-core/latest/[CloudBees Core on modern cloud platforms]
+(i.e., running on Kubernetes) configures networking.
+When an administrator wishes to connect an inbound (formerly known as “JNLP”) external agent to a Jenkins master,
+such as a Windows virtual machine running outside the cluster and using the agent service wrapper,
+until now the only option was to use a special TCP port.
+This port needed to be opened to external traffic using low-level network configuration.
+For example, users of the nginx ingress controller
+would need to proxy a separate external port for each Jenkins service in the cluster.
+The instructions to do this are complex and hard to troubleshoot.
+
+Using WebSocket, inbound agents can now be connected much more simply when a reverse proxy is present:
+if the HTTP(S) port is already serving traffic,
+most proxies will allow WebSocket connections with no additional configuration.
+The WebSocket mode can be enabled in agent configuration,
+and support for pod-based agents in the plugin:kubernetes[Kubernetes plugin] is coming soon.
+You will need an agent link:https://github.com/jenkinsci/remoting/releases/tag/remoting-4.0[version 4.0] or later,
+which is bundled with Jenkins in the usual way (Docker images with this version are coming soon).
+
+Another part of Jenkins that was troublesome for reverse proxy users was the CLI.
+Besides the SSH protocol on port 22, which again was a hassle to open from the outside,
+the CLI already had the ability to link:/blog/2017/04/11/new-cli/[use HTTP(S) transport].
+Unfortunately the trick used to implement that confused some proxies and was not very portable.
+Jenkins 2.217 offers a new `-webSocket` CLI mode which should avoid these issues;
+again you will need to download a new version of `jenkins-cli.jar` to use this mode.
+
+The WebSocket code has been tested against a sample of Kubernetes implementations (including OpenShift),
+but it is likely that some bugs and limitations remain,
+and scalability of agents under heavy build loads has not yet been tested.
+Treat this feature as beta quality for now and let us know how it works!
