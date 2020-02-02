@@ -13,14 +13,9 @@
 The data below represents the 2020 GSoC application draft.
 Please feel free to contribute to it by proposing pull requests against the page.
 
-### TODOs:
-
-* Define the Jenkins X status: do they apply with Jenkins or as a separate org? (ETA - end of January)
-* Review text / labels / etc.
-
 ### Organization Profile
 
-* Website URL: http://jenkins.io/
+* Website URL: https://jenkins.io/
 * Tagline (up to 80 symbols): Open-source automation server for building great things at any scale
 * Technology tags (max 5):
   * java
