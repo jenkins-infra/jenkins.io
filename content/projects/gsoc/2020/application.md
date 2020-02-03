@@ -130,7 +130,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 
 #### How will you help your students stay on schedule to complete their projects?
 
-* During the the Application phase and Community Bonding phase mentors will share their expertise to define realistic project plans.
+* During the Application phase and Community Bonding phase mentors will share their expertise to define realistic project plans.
 * The student project milestones will be discussed and confirmed between mentors and students. 
   Milestones will be aligned with student evaluations and will have clear expectations set up.
 * Mentors will set up regular meetings with students (at least twice per week) in order to sync-up on projects. 
@@ -167,7 +167,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 * Students will be also advised to present their projects at local meetups
 * Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/).
 * We recommend mentors to have monthly sync-ups with the students to follow-up on projects and other events in Jenkins
-* We will nvite students to participate in other community iutreach activities like GSoC or Hacktoberfest
+* We will invite students to participate in other community outreach activities like GSoC or Hacktoberfest
 
 #### Has your org been accepted as a mentoring org in Google Summer of Code before?
 
