@@ -111,7 +111,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 
 #### How many potential mentors have agreed to participate?
 
-10+
+11-15
 
 #### How will you keep mentors engaged with their students?
 
