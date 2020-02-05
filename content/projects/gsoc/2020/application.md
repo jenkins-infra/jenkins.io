@@ -37,7 +37,7 @@ Please feel free to contribute to it by proposing pull requests against the page
 #### Short description
 
 Jenkins is an open source automation server. 
-Built primarily in Java, it provides hundreds of plugins to support building, testing, deploying and automating virtually any project.
+It provides hundreds of plugins to support building, testing, deploying and automating virtually any project.
 
 #### Long description (Markdown)
 
@@ -74,7 +74,7 @@ If it may overlap with your study, internship, work or other commitments, we rec
 
 If you have any questions about the application process,
 please feel free to contact us via the [mailing list](https://groups.google.com/forum/#!forum/jenkinsci-gsoc-all-public) or in the [jenkinsci/gsoc-sig Gitter chat](https://gitter.im/jenkinsci/gsoc-sig).
-We also have [weekly meetings](https://jenkins.io//projects/gsoc/#office-hours) which are open to everyone.
+We also have [weekly meetings](https://jenkins.io/projects/gsoc/#office-hours) which are open to everyone.
 
 #### Proposal tags (max - 10)
 
@@ -83,13 +83,13 @@ TODO: Adjust according to project ideas
 * user experience
 * plugins
 * performance
-* developer tools
-* electronic design automation
-* web interfaces
+* tools
 * REST API
 * cloud technologies
-* containers
 * configuration-as-code
+* Jenkins X
+* machine learning
+* electronic design automation
 
 #### Contacts
 
@@ -111,7 +111,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 
 #### How many potential mentors have agreed to participate?
 
-11-15
+16-20
 
 #### How will you keep mentors engaged with their students?
 
@@ -122,11 +122,8 @@ We hope this will help us to improve student/mentor experience and overall resul
 * Mentors will be directly involved into student selection and interview processes so they will establish connection with successful students early
 * We conduct [weekly meetings](https://jenkins.io//projects/gsoc/#office-hours) between mentors and org admins to sync-up on progress and any issues
 * Org admins will be monitoring mentor/student interaction starting from the application phase and intervene if needed
+* There will be regular sync-ups between org admins and mentors
 
-
-<!-- DOES NOT FIT the form size
-* There will be a private communication channel between org admins and mentors. 
--->
 
 #### How will you help your students stay on schedule to complete their projects?
 
