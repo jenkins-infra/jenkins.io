@@ -1,0 +1,114 @@
+---
+layout: gsocprojectidea
+title: "Create Boot Apps"
+goal: "Create a simple canonical way to install any helm chart in any namespace"
+category: Jenkins X
+year: 2020
+status: draft
+skills:
+- Go
+- Kubernetes
+mentors:
+- "markyjackson-taulia"
+- "jstrachan"
+links:
+  mailing list: jenkinsci-gsoc-all-public
+  draft: https://github.com/jenkins-x/enhancements/blob/master/proposals/2/README.md
+---
+
+=== Background
+
+Find out more about the Jenkins X project here: https://jenkins-x.io/
+
+Issue: https://github.com/jenkins-x/jx/issues/6442
+Old design doc: https://docs.google.com/document/d/1DL1oEeAZtWFfpJOWk5UVO54D88BnlqZDf5IDaOkGxCk/edit?usp=sharing
+
+==== Current Implementation
+
+See the Implementation Documentation for an overview of how to use helmfile and helm 3: https://github.com/jenkins-x/enhancements/blob/master/proposals/2/docs/README.md
+
+==== Requirements
+
+We want a simple canonical way to install any helm chart in any namespace without having to manually hack the `jx boot` pipeline file: `jenkins-x.yml`.
+
+This will make it easy for people or software to easily add/remove apps to any git repository for any Environment (dev / staging / production).
+
+The boot config repo has become quite complex and hard to manage upgrades to and share common config between different flavours of base boot config repos.  It’s also hard to experiment by adding new helm charts / features / applications that require changes to the boot install pipeline.
+
+We want a simpler more modular system that lets us, say, swap out nginx-controller and use gloo/knative/istio for ingress without a deep knowledge of the jenkins-x.yml pipeline for boot.
+
+What we’d really like is for folks to type commands like…
+
+```
+jx delete app nginx-controller
+jx add app istio
+jx delete app knative
+```
+
+And for it to just work and generically add those to the right namespace.
+
+==== Current Apps Model 
+
+The current apps model lets you add/remove charts fine - but there are a number of limitations:
+
+===== Only works in 1 namespace
+
+Currently apps can only work inside the dev namespace - we can’t support things like knative, gloo, cert-manager, nginx, velero which tend to be installed in separate namespaces.
+
+===== Does not handle boot phases
+
+This is not surprising as we created the App extension model before boot. But right now boot has a number of distinct phases with pipeline steps between them where we may want to add apps:
+
+* pre/post ingress setup (in the case of nip.io / nginx-controller)
+* pre/post vault setup
+* pre/post vault population of parameters
+* pre/post setup of certmanager/external dns
+
+There is currently no way for an apps to specify a namespace + specify which phase its to be installed in & have (say) the domain / certs / secrets injected easily.
+
+So rather than adding steps at the right point in a list of steps in the jenkins-x.yml it would be nice to have a more declarative YAML file to describe which apps are to be enabled.
+
+E.g. we need a new YAML file with list of charts to be installed along with metadata for which phase to install them. We also want to invoke a selection of those appss to be installed at the different phases of the boot pipeline.
+
+=====  Limitations of the current deploy model
+
+We have some issues with the current way we deploy apps in Staging / Production:
+
+=====  Composite charts hide the individual versions
+
+Right now we deploy all charts in Staging/Production as a single chart. That means if you use `helm list` we don't show any actual versions of the dependent charts - its just 1 chart (with no version).
+
+===== Removing Apps on Dev doesn't work
+
+If you remove a chart from `env/requirements.yaml`  in the Dev repository the pipeline does not remove the chart. e.g. if you add `lighthouse` and remove `prow` you need to manually delete the prow resources yourself.
+
+
+===== Limitation of boot
+
+We currently manually configure in the boot pipeline the install of multiple systems usually in separate namespaces:
+
+* velero (if enabled)
+* nginx
+* externaldns
+* cert-manager
+* acme certs chart
+
+Ideally those should be modular and optional. e.g it should be really trivial to disable nginx if folks are using, say, istio - without having to hack a pipeline yaml.
+
+We'd also like to make it easy to add a number of other systems in order in separate namespaces independently of the `Staging / Production` environment namespaces:
+
+* knative https://github.com/jenkins-x/jx/issues/6331
+* gloo
+* istio
+* linkerd https://github.com/jenkins-x/jx/issues/6330
+* flagger
+
+so it'd be nice to have a simple app model where anyone can add any systems/charts to any namespace at any point in the flow before we setup the dev/staging/production environment in the traditional way.
+
+=== Newbie Friendly issues
+
+The Jenkins X issue tracker is located in github. We also provide a list of issues that are good first issues for people looking to contribute to the project: https://github.com/jenkins-x/jx/labels/good%20first%20issue
+
+We welcome your contributions.
+
+If you're looking to build from source or get started hacking on jx, please see the CONTRIBUTING.MD or our Contributing Guide on the Jenkins X website: https://jenkins-x.io/docs/contributing/code/
