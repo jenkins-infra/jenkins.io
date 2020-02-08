@@ -1,45 +1,50 @@
 # The authorship helper helps display authorship for a given entity
 #
-# This only renders something if the author has put information in
-# content/_data/authors and the document has an `author` attribute in its
+# This only renders something if the author(s) has put information in
+# content/_data/authors and the document has an `author` or `authors` attribute in its
 # front-matter
+require 'authorlist.rb'
 module Authorship
-  # The order of preference for linking an author based on their meta-data
-  AUTHOR_LINK_PREFERENCE = [
-    [:github, 'https://github.com/VALUE'],
-    [:twitter, 'https://twitter.com/VALUE'],
-    [:blog, 'VALUE'],
-  ].freeze
+  include AuthorList::AuthorLink
 
-  def display_author_for(node, link = nil)
-    # bail early if what we were given doesn't even respond
-    return unless node.author
+  def display_author_for(node)
+    if node.author
+      display_user(node.author)
+    elsif node.authors
+      display_users(node.authors)
+    else
+      return
+    end
+  end
 
-    author = node.author.to_sym
+  def display_users(users)
+    res = Array.new
+    users.each { |user|
+      res << display_user(user)
+    }
+    return res.join(', ')
+  end
 
-    if node.author && site.authors.has_key?(author)
+  def display_user(author)
+    if site.authors.has_key? author.to_sym
       full_name = site.authors[author].name
-
-      # If the caller provided a link use it, otherwise
-      if link.nil?
-        # Let's find a nice link to give our author
-        AUTHOR_LINK_PREFERENCE.each do |link_type, url|
-          value = site.authors[author].send(link_type)
-          # If we didn't get anything, skip
-          next if value.nil?
-
-          link = url.gsub(/VALUE/, value.to_s)
-          break unless link.nil?
-        end
-
-        if link.nil?
-          return full_name
-        end
-      end
-
-      return "<a href=\"#{link}\">#{full_name}</a>"
+    else
+      raise "File with personal information (content/_data/authors/#{author}.adoc) is missing"
     end
 
-    return node.author
+    link = author_link(author)
+
+    return "<a href=\"#{link}\">#{full_name}</a>"
+  end
+
+  def display_user_no_fail(author)
+    if site.authors.has_key? author.to_sym
+      full_name = site.authors[author].name
+      link = author_link(author)
+      return "<a href=\"#{link}\">#{full_name}</a>"
+    else
+      return author
+    end
+
   end
 end

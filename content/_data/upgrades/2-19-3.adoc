@@ -1,0 +1,59 @@
+==== Expansion of the serialization blacklist
+
+https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2016-11-16[Security Advisory 2016-11-16]
+
+The major part of the security fix is an expansion of the serialization blacklist used for remoting (Jenkins CLI and master/agent communication) and XStream (XML configuration and data files).
+
+It is possible that legitimate uses of classes in blacklisted packages will no longer work. This will be indicated by any of the following in exception messages in logs:
+
+----
+Rejected: com.sun.jndi.rmi.EvilClass
+Refusing to unmarshal com.sun.jndi.rmi.EvilClass for security reasons
+Refusing to marshal com.sun.jndi.rmi.EvilClass for security reasons
+----
+
+In these examples, `com.sun.jndi.rmi.EvilClass` is a placeholder for a real class name.
+
+It is possible to customize the blacklist used by setting the `hudson.remoting.ClassFilter.DEFAULTS_OVERRIDE_LOCATION` System property for the Jenkins master `java` invocation. It is expected to be set to the path to a file containing a complete, custom blacklist overriding the default one.
+
+The default blacklist is defined in link:https://github.com/jenkinsci/remoting/blob/remoting-3.2/src/main/java/hudson/remoting/ClassFilter.java#L57...L79[`ClassFilter.java` in the remoting component]. In a configuration file as used for `hudson.remoting.ClassFilter.DEFAULTS_OVERRIDE_LOCATION`, the default blacklist would look like this:
+
+----
+^bsh[.].*
+^com[.]google[.]inject[.].*
+^com[.]mchange[.]v2[.]c3p0[.].*
+^com[.]sun[.]jndi[.].*
+^com[.]sun[.]corba[.].*
+^com[.]sun[.]javafx[.].*
+^com[.]sun[.]org[.]apache[.]regex[.]internal[.].*
+^java[.]awt[.].*
+^java[.]rmi[.].*
+^javax[.]management[.].*
+^javax[.]naming[.].*
+^javax[.]script[.].*
+^javax[.]swing[.].*
+^org[.]apache[.]commons[.]beanutils[.].*
+^org[.]apache[.]commons[.]collections[.]functors[.].*
+^org[.]apache[.]myfaces[.].*
+^org[.]apache[.]wicket[.].*
+.*org[.]apache[.]xalan.*
+^org[.]codehaus[.]groovy[.]runtime[.].*
+^org[.]hibernate[.].*
+^org[.]python[.].*
+^org[.]springframework[.](?!(\p{Alnum}+[.])*\p{Alnum}*Exception$).*
+^sun[.]rmi[.].*
+----
+
+To check whether any given class name is blacklisted, run the following command in _Manage Jenkins » Script Console_, replacing `com.sun.jndi.rmi.EvilClass` with the class name you want to check:
+
+----
+hudson.remoting.ClassFilter.DEFAULT.isBlacklisted('com.sun.jndi.rmi.EvilClass')
+----
+
+Removing or relaxing entries on this blacklist must be done carefully as to not open yourself up to known exploits. A possible alternative could be to disable the CLI via HTTP and JNLP agent port (see below) to prevent its unauthenticated use.
+
+==== Disabling the CLI
+
+Another change in Jenkins 2.19.3 is the new feature to disable the CLI over HTTP and JNLP by setting the System property `jenkins.CLI.disabled` to `true`. This is a more convenient alternative to run the https://github.com/jenkinsci-cert/SECURITY-218/[Groovy script provided as a workaround to SECURITY-218 and SECURITY-360] for users who do not want to allow unauthenticated access to the Jenkins CLI even with the security fix.
+
+While the CLI can be used using the Jenkins integrated SSH daemon as well, this requires authentication, so it's not a vector for unauthenticated attacks. To disable this feature as well, disable the SSH server port in _Manage Jenkins » Configure Jenkins » SSH Server_.

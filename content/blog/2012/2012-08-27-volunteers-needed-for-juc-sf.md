@@ -9,7 +9,7 @@
 - juc
 :author: rtyler
 ---
-<img src="http://agentdero.cachefly.net/continuousblog/images/Jenkins_SanFran_T-ShirtM.jpg" align="right"/>
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/Jenkins_SanFran_T-ShirtM.jpg" align="right"/>
 
 Recently, Jenkins User Conference organizer Alyssa Tong sent out the following request:
 

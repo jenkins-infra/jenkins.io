@@ -1,44 +1,74 @@
 ---
 title: Plugin Wiki Pages
 layout: developersection
+references:
+- url: ../documentation/
+  title: Plugin documentation
+- url: https://jenkins-wiki-exporter.jenkins.io/
+  title: Jenkins Wiki Exporter
 ---
 
-Plugins should have user documentation outside the plugin itself so that potential users can learn about the plugin without installing it.
-A common way to do this is to create a plugin wiki page on link:https://wiki.jenkins.io[the Jenkins wiki].
+WARNING: The Jenkins wiki was made 'read-only' in link:https://groups.google.com/d/msg/jenkinsci-dev/lNmas8aBRrI/eL3u7A6qBwAJ[October 2019].
+Plugin documentation should be maintained in the GitHub repository of the plugin.
+See the link:../documentation[plugin documentation guidelines] for details.
 
-== Creating a wiki page
+Plugin documentation is available from the link:https://plugins.jenkins.io[Jenkins plugins site] so that potential users can learn about the plugin without installing it.
 
-Plugin wiki pages should be organized as child pages of the https://wiki.jenkins.io/display/JENKINS/Plugins[Plugins] page.
-Go to that page, be sure to be logged in, and click _Create_ in the page header.
-The page you'll create will automatically be added as a child of the Plugins page.
+== Migrating from Wiki to GitHub
 
-== Content recommendations
+Document migration can be done in a semi-automated way using the link:https://pandoc.org[Pandoc] tool for Wiki conversion to Markdown or Asciidoc.
+This guide shows how to do so for a common case when the documentation page is going to be sourced from the README file inside the repository's root.
 
-=== Plugin macro
+NOTE: If there is no ticket for the documentation migration created by the current plugin maintainers,
+make sure to create one and then discuss with the plugin maintainers.
+Similarly, Asciidoc/Markdown preferences should be also discussed with maintainers.
 
-Use the `+{{jenkins-plugin:}}+` macro near the top of your plugin's wiki page.
-It will link to the plugin's page on the link:../plugin-site[plugin site], as well as any security warnings applicable to the plugin to warn users.footnoteref:[previously,Before the plugin site existed, the wiki macro included various statistics, but that was removed as redundant.]
+There are the following migration steps:
 
+. Fork the plugin repository in GitHub and clone it to the local machine.
+. Export the documentation. It can be done in a manual or automated way, see below
+. Add the documentation and images to the repository
+** You can merge the exported file with the existing README file or create a new one.
+. Copy-edit the documentation, see below
+. Modify the URL documentation page reference in the project file so that it points to GitHub (link:/doc/developer/publishing/documentation/#referencing-the-documentation-page-from-the-project-file[documentation]).
+. Commit changes, push them to your fork and create a pull request against the repository.
 
-=== Documentation
+=== Exporting Wiki documentation (automatic way)
 
-The wiki page should contain basic documentation that explains what the plugin does, and how to configure it in Jenkins.
-This documentation should be kept up to date as the plugin changes.
-Note that it is best to keep the documentation as a whole in mind when amending it:
-For example, don't just add new sections at the bottom when you add new features, but write the documentation so that someone new to the plugin has the best experience reading the documentation.
+The link:https://jenkins-wiki-exporter.jenkins.io/[Jenkins Wiki Exporter] can export plugin documentation to Markdown or Asciidoc.
 
+. Go to the link:https://jenkins-wiki-exporter.jenkins.io/[Jenkins Wiki Exporter] service
+. Specify the plugin Wiki URL or ID in the field
+. Select the export option. For plugins with images you will need to use _Markdown Zip_ or _Asciidoc Zip_  
+. Click _Convert_ to do the conversion. It will either show the converted file or provide the archive to download
 
-=== Changelog
+=== Exporting Wiki documentation (manual way)
 
-Include a changelog that shows the changes in every version you release.
-Keep in mind that many Jenkins users are not necessarily Java developers, so focus on the effect of a change to users, rather than exactly what code you changed.
-People can always read the source code if they want to know exactly what was changed.
+. Open the plugin's Wiki page page you want to migrate.
+. In the "..." button in the top right corner click the _View Source_ action. A new window will open.
+. Save the document as HTML to the repository, e.g. as `myplugin.html`.
+. Call `pandoc -o myplugin.md --extract-media=docs/images myplugin.html` to export Markdown.
+  Asciidoc format can be used as well, with the `.adoc` extension.
+. Cleanup documentation. 
+  link:https://jenkins-wiki-exporter.jenkins.io/[Jenkins Wiki Exporter] does some bits automatically, but you may need to apply manual updates here.
+** Remove the macro references in the top of the document, if any.
 
-=== Basic macros only
+=== Reviewing the documentation
 
-If a plugin links to its wiki page from its metadata (defined using the `<url>` tag in the `pom.xml`), the plugin site will scrape the wiki and include the page contents directly.
-If a non-wiki URL is specified, for example to a GitHub repository, it will only show a link instead.
-
-Given the limitations inherent in including scraped content, many advanced macros will not show up properly on the plugin site:
-Basically every macro that uses AJAX to load data in the background will not work.
-Since Jenkins will link to the plugin's page on the plugin site from its plugin manager, this will result in a bad experience reading broken documentation for many users.
+. Review/edit the exported file formatting
+** If the document includes "Table of contents", remove this section in Markdown 
+   or replace it by `:toc:` macros in Asciidoc (link:https://raw.githubusercontent.com/jenkinsci/.github/master/.github/release-drafter.adoc[example]).
+** If the source Wiki page includes code blocks, they will need to be manually converted. 
+   Pandoc exports them as tables.
+. Extract changelogs to a separate file
+** It is recommended to extract changelogs to a separate `CHANGELOG.md` file in the repository root.
+   It allows tools like Dependabot to read changelog summaries
+** Use versions as headers.
+   Changelogs in Wiki often include release dates, but it is better to keep them in the text below the header.
+** Examples: link:https://github.com/jenkinsci/envinject-api-plugin/blob/master/CHANGELOG.md[EnvInject API Plugin], link:https://github.com/jenkinsci/aws-java-sdk-plugin/blob/master/CHANGELOG.md[AWS Java SDK Plugin]
+. Review the text
+** Verify formatting and spelling
+** Wiki pages are often outdated, and it is nice to review them before submitting 
+   (e.g. rename "slave" to "agent", "workflow" to "pipeline", "Hudson" to "Jenkins", etc.)
+. Commit changes, push them to your fork and create a pull request against the plugin repository
+. Once the pull request is merged, create an `INFRA` Jenkins JIRA ticket to replace the content on Wiki by a link to the new jenkins.io locations 

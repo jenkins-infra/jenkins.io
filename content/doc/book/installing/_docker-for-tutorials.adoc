@@ -11,27 +11,74 @@ the sibling file _docker.adoc (used in index.adoc).
 ==== On macOS and Linux
 
 . Open up a terminal window.
+. Create a link:https://docs.docker.com/network/bridge/[bridge network] in
+  Docker using the following
+  link:https://docs.docker.com/engine/reference/commandline/network_create/[`docker network create`]
+  command:
++
+[source,bash]
+----
+docker network create jenkins
+----
+. Create the following link:https://docs.docker.com/storage/volumes/[volumes] to
+  share the Docker client TLS certificates needed to connect to the Docker
+  daemon and persist the Jenkins data using the following
+  link:https://docs.docker.com/engine/reference/commandline/volume_create/[`docker volume create`]
+  commands:
++
+[source,bash]
+----
+docker volume create jenkins-docker-certs
+docker volume create jenkins-data
+----
+. In order to execute Docker commands inside Jenkins nodes, download and run
+  the `docker:dind` Docker image using the following
+  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
+  command:
++
+ifeval::["{tutorial-for}" == "node"]
+[source,bash]
+----
+docker container run --name jenkins-docker --rm --detach \
+  --privileged --network jenkins --network-alias docker \
+  --env DOCKER_TLS_CERTDIR=/certs \
+  --volume jenkins-docker-certs:/certs/client \
+  --volume jenkins-data:/var/jenkins_home \
+  --volume "$HOME":/home \
+  --publish 3000:3000 docker:dind
+----
+endif::[]
+ifndef::tutorial-for[]
+[source,bash]
+----
+docker container run --name jenkins-docker --rm --detach \
+  --privileged --network jenkins --network-alias docker \
+  --env DOCKER_TLS_CERTDIR=/certs \
+  --volume jenkins-docker-certs:/certs/client \
+  --volume jenkins-data:/var/jenkins_home \
+  --volume "$HOME":/home docker:dind
+----
+endif::[]
 . Run the `jenkinsci/blueocean` image as a container in Docker using the
   following
-  link:https://docs.docker.com/engine/reference/commandline/run/[`docker run`]
+  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
   command (bearing in mind that this command automatically downloads the image
   if this hasn't been done):
 +
 [source]
 ----
-docker run \
-  --rm \
-  -u root \
-  -p 8080:8080 \
-  -v jenkins-data:/var/jenkins_home \ # <1>
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v "$HOME":/home \ # <2>
-  jenkinsci/blueocean
+docker container run --name jenkins-tutorial --rm --detach \
+  --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
+  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
+  --volume jenkins-data:/var/jenkins_home \ # <1>
+  --volume jenkins-docker-certs:/certs/client:ro \
+  --volume "$HOME":/home \ # <2>
+  --publish 8080:8080 jenkinsci/blueocean
 ----
 <1> Maps the `/var/jenkins_home` directory in the container to the Docker
 link:https://docs.docker.com/engine/admin/volumes/volumes/[volume] with the name
-`jenkins-data`. If this volume does not exist, then this `docker run` command
-will automatically create the volume for you.
+`jenkins-data`. If this volume does not exist, then this `docker container run`
+command will automatically create the volume for you.
 <2> Maps the `$HOME` directory on the host (i.e. your local) machine (usually
 the `/Users/<your-username>` directory) to the `/home` directory in the
 container.
@@ -41,14 +88,12 @@ copying and pasting this annotation-free version here:
 +
 [source]
 ----
-docker run \
-  --rm \
-  -u root \
-  -p 8080:8080 \
-  -v jenkins-data:/var/jenkins_home \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v "$HOME":/home \
-  jenkinsci/blueocean
+docker container run --name jenkins-tutorial --rm --detach \
+  --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
+  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
+  --volume jenkins-data:/var/jenkins_home \
+  --volume jenkins-docker-certs:/certs/client:ro \
+  --volume "$HOME":/home --publish 8080:8080 jenkinsci/blueocean
 ----
 . Proceed to the <<setup-wizard,Setup wizard>>.
 
@@ -56,21 +101,56 @@ docker run \
 ==== On Windows
 
 . Open up a command prompt window.
+. Create a link:https://docs.docker.com/network/bridge/[bridge network] in
+  Docker using the following
+  link:https://docs.docker.com/engine/reference/commandline/network_create/[`docker network create`]
+  command:
++
+[source]
+----
+docker network create jenkins
+----
+. Create the following link:https://docs.docker.com/storage/volumes/[volumes] to
+  share the Docker client TLS certificates needed to connect to the Docker
+  daemon and persist the Jenkins data using the following
+  link:https://docs.docker.com/engine/reference/commandline/volume_create/[`docker volume create`]
+  commands:
++
+[source]
+----
+docker volume create jenkins-docker-certs
+docker volume create jenkins-data
+----
+. In order to execute Docker commands inside Jenkins nodes, download and run
+  the `docker:dind` Docker image using the following
+  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
+  command:
++
+[source]
+----
+docker container run --name jenkins-docker --rm --detach ^
+  --privileged --network jenkins --network-alias docker ^
+  --env DOCKER_TLS_CERTDIR=/certs ^
+  --volume jenkins-docker-certs:/certs/client ^
+  --volume jenkins-data:/var/jenkins_home ^
+  --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
+  docker:dind
+----
 . Run the `jenkinsci/blueocean` image as a container in Docker using the
   following
-  link:https://docs.docker.com/engine/reference/commandline/run/[`docker run`]
+  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
   command (bearing in mind that this command automatically downloads the image
   if this hasn't been done):
 +
+[source]
 ----
-docker run ^
-  --rm ^
-  -u root ^
-  -p 8080:8080 ^
-  -v jenkins-data:/var/jenkins_home ^
-  -v /var/run/docker.sock:/var/run/docker.sock ^
-  -v "%HOMEPATH%":/home ^
-  jenkinsci/blueocean
+docker container run --name jenkins-blueocean --rm --detach ^
+  --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
+  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 ^
+  --volume jenkins-data:/var/jenkins_home ^
+  --volume jenkins-docker-certs:/certs/client:ro ^
+  --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
+  --publish 8080:8080 --publish 50000:50000 jenkinsci/blueocean
 ----
 For an explanation of these options, refer to the <<on-macos-and-linux,macOS
 and Linux>> instructions above.
@@ -81,13 +161,13 @@ and Linux>> instructions above.
 
 If you have some experience with Docker and you wish or need to access the
 Jenkins/Blue Ocean Docker container through a terminal/command prompt using the
-link:https://docs.docker.com/engine/reference/commandline/exec/[`docker exec`]
+link:https://docs.docker.com/engine/reference/commandline/container_exec/[`docker container exec`]
 command, you can add an option like `--name jenkins-tutorials` (with the
-link:https://docs.docker.com/engine/reference/commandline/run/[`docker run`]
+link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
 above), which would give the Jenkins/Blue Ocean Docker container the name
 "jenkins-tutorials".
 
 This means you could access the Jenkins/Blue Ocean container (through a separate
-terminal/command prompt window) with a `docker exec` command like:
+terminal/command prompt window) with a `docker container exec` command like:
 
-`docker exec -it jenkins-tutorials bash`
+`docker container exec -it jenkins-tutorial bash`

@@ -10,7 +10,7 @@
 :author: rtyler
 ---
 This week we have featured a number of proposals for what we would like to see in "[Jenkins
-2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0)", the vision of which is to make Jenkins users more efficient, productive and happy. We started with some more internally facing changes and have slowly progressed from the "inside-out" to today's topic: improving the out of the box user experience. That is to say, the experience that a brand-new Jenkins user has when getting started with the server.
+2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)", the vision of which is to make Jenkins users more efficient, productive and happy. We started with some more internally facing changes and have slowly progressed from the "inside-out" to today's topic: improving the out of the box user experience. That is to say, the experience that a brand-new Jenkins user has when getting started with the server.
 
 
 Just to recap, so far we've reviewed:
@@ -47,7 +47,7 @@ We're asking you to read the issues linked from [JENKINS-31157](https://issues.j
 
 If you have ever logged in to the [issue
 tracker](https://issues.jenkins-ci.org) or the
-[wiki](https://wiki.jenkins-ci.org/), you have a "Jenkins user account" which
+[wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.
 
@@ -60,4 +60,4 @@ approve or reject the proposal two weeks from today.
 
 
 
-This concludes this week's blog series highlighting some of the Jenkins 2.0 proposals we felt were important to discuss with the broader Jenkins user audience. Many of these, and other minor proposals, can be found on the [Jenkins 2.0 wiki page](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0).
+This concludes this week's blog series highlighting some of the Jenkins 2.0 proposals we felt were important to discuss with the broader Jenkins user audience. Many of these, and other minor proposals, can be found on the [Jenkins 2.0 wiki page](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0).

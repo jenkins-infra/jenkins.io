@@ -13,7 +13,7 @@ author: svanoort
 This is a
 link:https://www.cloudbees.com/blog/joining-big-leagues-tuning-jenkins-gc-responsiveness-and-stability[cross
 post] by link:https://github.com/svanoort[Sam Van Oort], Software Engineer at
-link:http://cloudbees.com[CloudBees] and contributor to the Jenkins project.
+link:https://cloudbees.com[CloudBees] and contributor to the Jenkins project.
 ====
 
 Today I'm going to show you how easy it is to tune Jenkins Java settings to
@@ -29,7 +29,7 @@ make your masters more responsive and stable, especially with large heap sizes.
 Now, let's look at where those came from!  We're going to focus on garbage
 collection (GC) here and dig fast and deep to strike for gold; if you're not
 familiar with GC fundamentals
-link:http://blog.takipi.com/garbage-collectors-serial-vs-parallel-vs-cms-vs-the-g1-and-whats-new-in-java-8/[take a look at this source].
+link:https://blog.takipi.com/garbage-collectors-serial-vs-parallel-vs-cms-vs-the-g1-and-whats-new-in-java-8/[take a look at this source].
 
 Because performance tuning is data driven, I'm going to use real-world data
 selected three very large Jenkins instances that I help support.
@@ -58,11 +58,11 @@ close to the default, aside from sizing the heap:
 
 After enabling garbage collection (GC) logging we see the following rough stats:
 
-image:/images/post-images/gc-tuning/s-bulkstats-CompanyA-red-parallelgc.png[HeapStats Instance A System Red CPU use-parallelGC].
+image:/images/post-images/gc-tuning/s-bulkstats-company-a-red-parallelgc.png[HeapStats Instance A System Red CPU use-parallelGC].
 
 Diving deeper, we get this chart of GC pause durations:
 
-image:/images/post-images/gc-tuning/s-duration-CompanyA-red-parallelgc.png[Instance A Jenkins Red GC duration use-parallelGC]
+image:/images/post-images/gc-tuning/s-duration-company-a-red-parallelgc.png[Instance A Jenkins Red GC duration use-parallelGC]
 
 **Key stats:**
 
@@ -107,7 +107,7 @@ Their settings:
 
 And the GC log analysis:
 
-image:/images/post-images/gc-tuning/s-duration-CompanyB-g1.png[Instance B Jenkins G1 duration]
+image:/images/post-images/gc-tuning/s-duration-company-b-g1.png[Instance B Jenkins G1 duration]
 
 **Key stats:**
 
@@ -146,7 +146,7 @@ application.  We'll look at its impacts later.
 
 Looking at the basics:
 
-image:/images/post-images/gc-tuning/s-duration-CompanyC-g1.png[Instance C G1 duration]
+image:/images/post-images/gc-tuning/s-duration-company-c-g1.png[Instance C G1 duration]
 
 Similar picture to Instance B, but it's hidden by the sheer number of points
 (this is a longer period here, 1 month).  Those same occasional Full GC
@@ -170,12 +170,12 @@ super-long pause outliers.  Let's get some more detail, by opening GC Logs in
 link:https://github.com/chewiebug/GCViewer[GCViewer].
 This tool gives a tremendous amount of information.  Too much, in fact --  I
 prefer to use
-link:http://gceasy.io/[GCEasy.io]
+link:https://gceasy.io/[GCEasy.io]
 except where needed.  Since GC logs do not contain compromising information
 (unlike heap dumps or some stack traces), web apps are a great tool for
 analysis.
 
-image:/images/post-images/gc-tuning/s-gccauses-CompanyB-g1-highlighted.png[Instance B Jenkins G1 causes]
+image:/images/post-images/gc-tuning/s-gccauses-company-b-g1-highlighted.png[Instance B Jenkins G1 causes]
 
 What we care about are at the Full GC times in the middle (highlighted).  See
 how much longer they are vs. the young and concurrent GC cycles up top (2
@@ -197,7 +197,7 @@ What triggers a full GC instead of concurrent:
 * Metadata GC Threshold: Metaspace (used for Class data mostly) has hit the
   defined size to force garbage collection or increase it.  Documentation is
   terrible for this,
-  link:http://stackoverflow.com/questions/25251388/what-is-the-metadata-gc-threshold-and-how-do-i-tune-it[Stack Overflow]
+  link:https://stackoverflow.com/questions/25251388/what-is-the-metadata-gc-threshold-and-how-do-i-tune-it[Stack Overflow]
   will be your friend.
 * Concurrent mode failure: concurrent GC can't complete fast enough to keep up
   with objects the application is creating (there are JVM arguments to trigger
@@ -224,7 +224,7 @@ Instance C also suffered the same problem with explicit GC calls, with almost
 all our outliers accounted for (230 out of 235) by slow, nonconcurrent Full GC
 cycles (all from explicit `System.gc()` calls, since they tuned metaspace):
 
-image:/images/post-images/gc-tuning/s-gccauses-CompanyC-g1-highlighted.png[Instance C Jenkins G1 GC causes]
+image:/images/post-images/gc-tuning/s-gccauses-company-c-g1-highlighted.png[Instance C Jenkins G1 GC causes]
 
 Here's what GC pause durations look like if we remove the log entries for the
 explicit `System.gc()` calls, assuming that they'll blend in with the other
@@ -232,7 +232,7 @@ concurrent GC pauses (not 100% accurate, but a good approximation):
 
 **Instance B:**
 
-image:/images/post-images/gc-tuning/s-duration-CompanyB-g1-explicitremoved.png[Instance B Jenkins GC duration - G1 - no explicit pauses]
+image:/images/post-images/gc-tuning/s-duration-company-b-g1-explicitremoved.png[Instance B Jenkins GC duration - G1 - no explicit pauses]
 
 The few long Full GC cycles at the start are from metaspace expansion -- they
 can be removed by increasing initial Metaspace size, as noted above. The
@@ -250,7 +250,7 @@ half of the maximum, to limit resizing.**
 
 **Instance C:**
 
-image:/images/post-images/gc-tuning/s-duration-CompanyC-g1-ExplicitRemoved.png[Instance C Jenkins G1 - no explicit pauses]
+image:/images/post-images/gc-tuning/s-duration-company-c-g1-explicitremoved.png[Instance C Jenkins G1 - no explicit pauses]
 
 **Stats:**
 
@@ -270,7 +270,7 @@ with concurrent collection, but what about those longer young-generation
 pauses?  Lets look at stats for the different phases and causes again in
 GCViewer.
 
-image:/images/post-images/gc-tuning/s-gccauses-CompanyB-g1-NOEXPLICIT-highlighted.png[Instance C Jenkins G1 causes -no explicit pauses]
+image:/images/post-images/gc-tuning/s-gccauses-company-b-g1-noexplicit-highlighted.png[Instance C Jenkins G1 causes -no explicit pauses]
 
 Highlighted in yellow we see the culprit: the remark phase of G1 garbage
 collection. This stop-the-world phase ensures we've identified all live
@@ -298,7 +298,7 @@ So, we add the GC flag `-XX:+ParallelRefProcEnabled` which enables us to use the
 
 Back to GCViewer we go, to see what's time consuming with the GC for Instance C.
 
-image:/images/post-images/gc-tuning/s-gccauses-CompanyC-g1-NOEXPLICIT-highlighted.png[Instance C Jenkins G1 causes -no explicit pauses]
+image:/images/post-images/gc-tuning/s-gccauses-company-c-g1-noexplicit-highlighted.png[Instance C Jenkins G1 causes -no explicit pauses]
 
 That's good, because most of the time is just sweeping out the trash
 (evacuation pause).  But the 1.8 second pause looks odd.  Let's look at the raw
@@ -335,7 +335,7 @@ Good grief, we flushed out 13 GB (!!!) of freshly-allocated garbage in one
 swoop and compacted the leftovers!  No wonder it was so slow.  I wonder how we
 accumulated so much...
 
-image:/images/post-images/gc-tuning/s-younggen-CompanyC-g1-ExplicitRemoved.png[Instance C Jenkins G1-ExplictGC removed ]
+image:/images/post-images/gc-tuning/s-younggen-company-c-g1-explicitremoved.png[Instance C Jenkins G1-ExplictGC removed ]
 
 Oh, right... we set up for 24 GB of heap initially, and each minor GC clears
 most of the young generation.  Okay, so we've set aside tons of space for trash
@@ -363,7 +363,7 @@ We mentioned StringDeduplication was on with Instance C, what is the impact?
 This only triggers on Strings that have survived a few generations (most of our
 garbage does not), has limits on the CPU time it can use, and replaces
 duplicate references to their immutable backing character arrays.
-link:http://java-performance.info/java-string-deduplication/[For more info, look here].
+link:https://java-performance.info/java-string-deduplication/[For more info, look here].
 So, we should be trading a little CPU time for improved memory efficiently
 (similarly to string interning).
 
@@ -461,7 +461,7 @@ link:https://www.cloudbees.com/so-you-want-build-worlds-biggest-jenkins-cluster[
 you know that most Jenkins instances can and should get by with 4 GB or less of
 allocated heap, even up to very large sizes.  You will want to turn on GC
 logging (suggested above) and look at stats over a few weeks (remember
-link:http://gceasy.io/[GCeasy.io]).
+link:https://gceasy.io/[GCeasy.io]).
 If you're not seeing periodic longer pause times, you're probably okay.
 
 For this post we assume we've already done the basic performance work for Jenkins:
@@ -495,9 +495,9 @@ There's still a little unpredictability, but using appropriate settings gives a
 
 === Further Reading:
 
-* link:http://product.hubspot.com/blog/g1gc-fundamentals-lessons-from-taming-garbage-collection[G1GC fundamentals]
-* link:http://mechanical-sympathy.blogspot.com/2013/07/java-garbage-collection-distilled.html[MechanicalSympathy: Garbage Collection Distilled]
-* link:http://www.oracle.com/technetwork/articles/java/g1gc-1984535.html[Oracle Garbage First Garbage Collector Tuning]
+* link:https://product.hubspot.com/blog/g1gc-fundamentals-lessons-from-taming-garbage-collection[G1GC fundamentals]
+* link:https://mechanical-sympathy.blogspot.com/2013/07/java-garbage-collection-distilled.html[MechanicalSympathy: Garbage Collection Distilled]
+* link:https://www.oracle.com/technetwork/articles/java/g1gc-1984535.html[Oracle Garbage First Garbage Collector Tuning]
 
 ===  One additional thing
 

@@ -1,0 +1,106 @@
+---
+layout: gsocproject
+title: "Plugin Installation Manager CLI Tool / Library"
+goal: "Create a new library and tools to unify plugin management across the Jenkins ecosystem "
+category: Tools
+year: 2019
+status: Completed
+showGoogleDoc: false
+student: stopalopa
+mentors:
+- "kwhetstone"
+- "batmat"
+- "jonbrohauge"
+- "arnab1896"
+- "oleg_nenashev"
+links:
+  gitter: "jenkinsci/plugin-installation-manager-cli-tool"
+  draft: https://docs.google.com/document/d/1MW4qF6izW7_4R4x9SyFE1sW13TjU4wZj1wCf0dQdT6I
+  sig: platform
+---
+There are currently many reincarnations of plugin management across Jenkins, including:
+
+  * link:https://github.com/jenkinsci/docker#preinstalling-plugins[Docker images install-plugins.sh script]
+  * link:https://github.com/jenkinsci/custom-war-packager[Custom WAR Packager]
+  * link:https://jenkins.io/projects/evergreen/[Jenkins Evergreen]
+  * link:https://github.com/ndeloof/jenkinsfile-runner-go[A Jenkinsfile Runner implementation]
+  * link:https://github.com/coreos/jenkins-os/blob/master/init.groovy[coreOS groovy script]
+
+The goal of this project is to create a new Plugin Manager CLI tool and a library which
+would unify the plugin management across different Jenkins implementations and improve plugin tooling.
+Although we looked at extracting plugin management from Jenkins Core into its own module, this proved
+to be a challenging first step (see link:https://issues.jenkins-ci.org/browse/JENKINS-57672[JENKINS-57672]).
+
+The input to the the tool is a list of plugins, either specified via the --plugins CLI option, or using the --plugin-file option
+with a .txt or yaml file. The library finds all recursive dependencies for each requested plugin, replacing every duplicate plugin
+with the highest required version of that plugin. The direct plugin dependencies first try to be resolved using the
+update center metadata. If that fails, they are determined by downloading the plugin to a temporary file and parsing the MANIFEST.MF file.
+The final set of the plugins to be downloaded is found, taking into account any currently installed or bundled plugins, which are ignored.
+The plugins are then downloaded and can be used when Jenkins starts.
+
+Below is an example of how the tool can be used with Docker.
+
+image::/images/post-images/gsoc-plugin-management-tool/chucknorris.png[Plugin Tool Input, align="center"]
+
+image::/images/post-images/gsoc-plugin-management-tool/dockerfile.png[Dockerfile, align="center"]
+
+image::/images/post-images/gsoc-plugin-management-tool/chucknorrisdetails.png[Plugin Download Details, align="center"]
+
+image::/images/post-images/gsoc-plugin-management-tool/plugininjenkins.png[Plugin Installed in Jenkins, align="center"]
+
+==== Helpful Links
+* link:https://docs.google.com/document/d/1lMCDqY5TKVXyFl67BmyMkaS9GTjRbueKr7ds395b_10/edit?usp=sharing[Original Project Proposal]
+* link:https://github.com/jenkinsci/plugin-installation-manager-tool[Code]
+* link:https://issues.jenkins-ci.org/browse/JENKINS-58199?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20plugin-installation-manager-tool[Jira tasks and feature requests]
+* link:https://docs.google.com/document/d/1G_s2CFdZcb_TPQuLD4wL99Yy8egTLdQyRULcJFwsr1E/edit?usp=sharing[Meeting notes]
+
+=== Phase 1
+Phase 1 focused on extracting the link:https://github.com/jenkinsci/docker/blob/master/install-plugins.sh[docker install-plugins bash script] to Java.
+The first alpha version of the library and CLI tool was released. It implemented basic functionality
+of the install-plugins.sh script to take in plugins and download them to a user-specified directory.
+
+The alpha release was announced in the following link:/blog/2019/07/02/plugin-management-tool-alpha-release/[blog post]
+and a live demo can be seen in link:https://youtu.be/MDs0Vr7gnnA?t=196[the Phase 1 evaluation recording]
+(link:https://docs.google.com/presentation/d/12Bo8w9SinrG5n82w-Unjx4MNq0mjkHFEOMc3Jf6rTQQ/edit#slide=id.p1[slides]).
+
+=== Phase 2
+Phase 2 focused on improving upon what was written in Phase 1, with particular focus on making parsing more robust,
+adding better Docker compatibility, and creating new CLI options that will make the plugin installation process
+more transparent. Parsing was improved to filter out comments and blank lines, and accept a yaml file listing plugins to install
+ as input. Instead of hard coding the update centers, options were added to allow update centers to be set via environment variables or CLI options.
+Windows compatible defaults for locations to find an existing Jenkins war file and setting the plugin directory were also added.
+To make the plugin installation process more transparent, options were added to view the list of plugins that would be installed prior
+to installation, and view if any of these plugins had available updates or security warnings.  This last step involved re-writing
+some of the plugin download and dependency resolution logic so that all plugins and their recursive dependencies are resolved
+before the time of download.
+
+The blog post announcing the new features can be found link:/blog/2019/07/30/plugin-management-tool-phase2-updates/[here] and the demo
+for this coding phase can be found link:https://www.youtube.com/watch?v=HlENuZZq7zc&feature=youtu.be&t=221[here]
+(link:https://docs.google.com/presentation/d/1wsM09IGgoA7gSsA9tW5fHlFAhl6B9fXlr-4iEP89SCk/edit?usp=sharing[slides])
+
+=== Phase 3
+Most of this phase was dedicated to cleaning up and testing the work done in Phase 1 and 2. Some fixes and optimizations included in
+this coding phase include throwing an exception sooner if there are problems downloading a plugin or resolving its dependencies,
+throwing an exception if the required Jenkins version listed for any of the plugins to be installed is lower than the version
+of the Jenkins war file, and improving plugin download times through a custom IO thread pool and using http HEAD instead of http GET where appropriate.
+
+I was also able to attend DevOps World and present the work I've done on this project both during the Continuous Delivery
+Contributor Summit and for the link:https://devopsworldjenkinsworld2019.sched.com/event/SQhG/community-lunch-time-demos[Jenkins Community Demos].
+
+image::/images/post-images/gsoc-plugin-management-tool/devopsworld.jpeg[DevOps World Demo]
+
+Here are the link:https://docs.google.com/presentation/d/1f8aPNCs-Nxq_yvAnM_epWtP5jXQXQzB6SybxNFFbR_s/edit?usp=sharing[slides]
+from my presentation. I detailed my time at DevOps World link:/blog/2019/08/22/devops-world/[here].
+
+I also presented my Phase 3 work at a Jenkins Online Meetup link:https://docs.google.com/presentation/d/14yiudx6uJ_FEyoSnVMsRwYdSr5KqpgXcZKVenp1ebgM/edit?usp=sharing[(slides)].
+
+=== Future Directions
+The project is very close to its first official release. After the first release, the goal is to incorporate it into the
+link:https://github.com/jenkinsci/docker[official Jenkins Docker Image], the link:https://github.com/jenkinsci/custom-war-packager[Custom War Packager], and
+to inject the library into Jenkins to install plugins before the
+link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/README.md[Configuration as Code plugin] runs.
+Other requested features include maven comptability (jira:JENKINS-58217[supporting maven as an installation source]
+and jira:JENKINS-59066[sharing a plugin cache with ~/.m2/repository]). See
+link:https://issues.jenkins-ci.org/browse/JENKINS-58199?jql=project%20%3D%20JENKINS%20AND%20component%20%3D%20plugin-installation-manager-tool[Jira]
+to see and create additional requests. To get the most up-to-date changes outside of the release cycle, you can also
+download the link:https://repo.jenkins-ci.org/incrementals/io/jenkins/plugin-management/plugin-management-cli/[incrementals binaries].

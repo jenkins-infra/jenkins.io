@@ -10,9 +10,9 @@
 - news
 :author: rtyler
 ---
-<a href="https://fosdem.org/2013" target="_blank"><img src="http://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/></a>
+<a href="https://fosdem.org/2013" target="_blank"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/></a>
 
-Earlier this year we participated in [FOSDEM 2012](/event/jenkins-fosdem-2012) in Brussels, Belgium. Overall the event was a major success and we're very happy we were able to take part in it!
+Earlier this year we participated in [FOSDEM 2012](/blog/2012/02/21/fosdem-2012-recap/) in Brussels, Belgium. Overall the event was a major success and we're very happy we were able to take part in it!
 
 For FOSDEM 2013, we'll be back in Brussels and participating in a major way. The first day of FOSDEM (February 2, 2013) will be the **2nd** birthday for the Jenkins project, and seems appropriate that project founder [Kohsuke Kawaguchi](https://github.com/kohsuke) will be giving a **keynote session** titled: "**[How we made the Jenkins community](https://fosdem.org/2013/schedule/event/keynote_vibrant_developer_community/)**"
 
@@ -36,7 +36,7 @@ We are very likely going to have a table in the hall again this year, but the FO
 
 Regardless, a **lot** of Jenkins community members will be at FOSDEM in February in addition to hundreds of other open source contributors and users from around the world.
 
-If you're interested in participating and/or meeting up with the Jenkins crowd, there's details coming together on **[the FOSDEM wiki page](https://wiki.jenkins-ci.org/display/JENKINS/FOSDEM)**.
+If you're interested in participating and/or meeting up with the Jenkins crowd, there's details coming together on **[the FOSDEM wiki page](https://wiki.jenkins.io/display/JENKINS/FOSDEM)**.
 
 We hope to see you there!
 <!--break-->

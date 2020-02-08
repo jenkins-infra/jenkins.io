@@ -9,6 +9,7 @@ def imageName = 'jenkinsciinfra/jenkinsio'
 if (!env.CHANGE_ID) {
     if (env.BRANCH_NAME == null) {
         projectProperties.add(pipelineTriggers([cron('H/30 * * * *'), pollSCM('H/5 * * * *')]))
+        projectProperties.add(disableConcurrentBuilds())
     }
 }
 
@@ -19,7 +20,7 @@ try {
     /* Assuming that wherever we're going to build, we have nodes labelled with
     * "Docker" so we can have our own isolated build environment
     */
-    node('docker') {
+    node('docker&&linux') {
         stage('Clean workspace') {
             /* Running on a fresh Docker instance makes this redundant, but just in
             * case the host isn't configured to give us a new Docker image for every
@@ -68,19 +69,14 @@ try {
                         echo "$illegal_htaccess_content" >&2
                         exit 1
                     fi
-                    '''
-            }
-        }
 
-        def container
-        stage('Build docker image'){
-            timestamps {
-                dir('docker'){
-                    /* Only update docker tag when docker files change*/
-                    def imageTag = sh(script: 'tar cf - docker | md5sum', returnStdout: true).take(6)
-                    echo "Creating the container ${imageName}:${imageTag}"
-                    container = docker.build("${imageName}:${imageTag}")
-                }
+                    illegal_filename="$( find . -name '*[<>]*' )"
+                    if [[ -n "$illegal_filename" ]] ; then
+                        echo "Failing build due to illegal filename:" >&2
+                        echo "$illegal_filename" >&2
+                        exit 1
+                    fi
+                    '''
             }
         }
 
@@ -100,11 +96,6 @@ try {
                 Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
                 withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
                     sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
-                }
-            }
-            stage('Publish docker image') {
-                infra.withDockerCredentials {
-                    timestamps { container.push() }
                 }
             }
         }

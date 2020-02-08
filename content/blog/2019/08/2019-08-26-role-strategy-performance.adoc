@@ -1,0 +1,95 @@
+---
+layout: post
+title: "Performance Improvements to Role Strategy Plugin"
+tags:
+- plugins
+- security
+- performance
+- gsoc
+- gsoc2019
+author: abhyudayasharma
+opengraph:
+  image: /images/post-images/role-strategy-performance/benchmarks2.png
+---
+
+The task for my Google Summer of Code program was to improve the performance
+of the Role Strategy Plugin. The performance issues for Role Strategy Plugin
+had been reported multiple times on Jenkins JIRA. With a large number of roles
+and with complex regular expressions, a large slow-down was visible on the Web UI.
+Even before GSoC started, there were a number of patches which tried to improve
+performance of the plugin (by link:https://github.com/deepanshnagaria[Deepansh Nagaria]
+and others).
+
+At the time, there was no way to reliably measure improvements in performance.
+Therefore, we started by creating a
+link:/blog/2019/06/21/performance-testing-jenkins/[framework]
+for running micro-benchmarks on Jenkins Plugins. Benchmarks using the framework
+were added to the plugin:role-strategy[Role Strategy Plugin] find performance
+critical parts of the plugins and to measure the improvements of a change.
+This blog post summarizes the changes that were made and performance improvements
+measured.
+
+==== Caching matching roles
+
+A couple of major changes were made to the Role Strategy Plugin to improve its
+performance. First, we started collection of roles that matched a given
+project name. The Role Strategy plugin before version 2.12 used to run over
+regular expressions for every role that it had for every permission checking
+request it got. Storing this produced set of roles in the memory provides us
+large improvements in performance and avoids repeated matching of project names
+with regular expressions. For keeping the plugin working securely, we invalidate
+the cache whenever any update is made to the roles.
+
+After this change, we were able to observe performance improvements of up to
+3300%. These improvements were visualized using
+link:[JMH Visualizer].
+
+image::/images/post-images/role-strategy-performance/benchmarks1.png[Benchmarks results after caching matching roles]
+
+More information is available at pull request on GitHub:
+https://github.com/jenkinsci/role-strategy-plugin/pull/81
+
+
+==== Calculating Implying Permisions when plugin is loaded
+
+Jenkins' permission model allows one permissions to imply other permissions.
+When a permission check is made, we need to check if the user has any of
+permissions that would imply this permisison. For every permission checking
+request that that the Role Strategy, it used to calculate all the implying
+permissions. To avoid this, we now calculate and store implying permissions
+for every permission in the Jenkins system when the plugin gets loaded.
+
+After both of these changes, we were able to experience improvements of up to
+10000%. The benchmark results show it better:
+
+image::/images/post-images/role-strategy-performance/benchmarks2.png[Benchmarks results after both changes]
+
+More information about this change can be found at the GitHub pull request:
+https://github.com/jenkinsci/role-strategy-plugin/pull/83
+
+Both of these changes were integrated into the Role Strategy Plugin and the
+improvements can be experienced starting with version
+link:https://github.com/jenkinsci/role-strategy-plugin/releases/tag/role-strategy-2.13[2.13].
+
+==== Bonus: Configuration-as-Code export now works for Role Strategy
+
+With plugin:configuration-as-code[Configuration-as-Code plugin] version
+link:https://github.com/jenkinsci/configuration-as-code-plugin/releases/tag/configuration-as-code-1.24[1.24]
+and above, export of your configuration as YAML now works!
+
+image::/images/post-images/role-strategy-performance/jcasc-export.png[Role Strategy configuration export working with JCasC 1.24]
+
+As an alternative to
+Role Strategy Plugin, I also created the brand new plugin:folder-auth[Folder Authorization Plugin].
+You can check out the link:/blog/2019/08/16/folder-auth-plugin/[blog post] for
+more information about the plugin.
+
+==== Links and Feedback
+I would love to hear your comments and suggestions. Please feel free to reach
+out to me through either the
+link:https://gitter.im/jenkinsci/role-strategy-plugin[Role Strategy Plugin Gitter chat] or through
+link:mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
+
+* link:https://drive.google.com/file/d/1lAXDljWXypCq6noiqPHI-eZJqBqaSYue/view?usp=sharing[Presentation slides for final evaluation of GSoC]
+* link:https://github.com/jenkinsci/folder-auth-plugin[The Folder Authorization Plugin]
+* link:https://youtu.be/g19o24uzy6c?t=1234[Demo for the final evaluations]

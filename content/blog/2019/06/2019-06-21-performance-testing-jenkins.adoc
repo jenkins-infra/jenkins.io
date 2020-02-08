@@ -1,0 +1,200 @@
+---
+layout: post
+title: "Micro-benchmarking Framework for Jenkins Plugins"
+tags:
+- jmh
+- plugins
+- benchmark
+- performance
+- developer
+- gsoc
+- gsoc2019
+author: abhyudayasharma
+---
+
+= Micro-benchmarking Framework for Jenkins Plugins
+
+I have been working on improving the performance of the Role Strategy Plugin as a part of my link:/projects/gsoc/2019/role-strategy-performance/[Google Summer of Code project].
+Since there was no existing way to measure performance and do benchmarks on Jenkins Plugins,
+my work for the first phase of the project was to create a framework for running
+benchmarks in Jenkins plugins with a Jenkins instance available. To make our job a bit easier,
+we chose link:http://openjdk.java.net/jeps/230[Java Microbenchmark Harness] for running these benchmarks. This
+allows us to reliably measure performance of our time-critical functions and will help make Jenkins perform faster
+for everyone.
+
+The micro-benchmarking framework was recently released in the Jenkins Unit Test Harness link:https://github.com/jenkinsci/jenkins-test-harness/releases/tag/jenkins-test-harness-2.50[2.50].
+The blog post below shows how to run benchmarks in your plugins.
+
+== Introduction
+
+The framework runs works by starting a temporary Jenkins instance for each fork of the JMH benchmark,
+just like `JenkinsRule` from Jenkins Test Harness. Benchmarks are run directly from your JUnit Tests which allows
+you to fail builds on the fly and easily run benchmarks from your IDE, just like unit tests. You can easily
+configure your benchmarks by either using your Java methods, or by using Jenkins plugin:configuration-as-code[Configuration-as-Code plugin]
+and passing the path to your YAML file.
+
+To run benchmarks from your plugins, you need to do the following:
+
+* bump up the minimum required Jenkins version to 2.60.3 or above
+* bump Plugin-POM to a version ≥ 3.46 or manually upgrade to Jenkins Test Harness ≥ 2.51.
+
+Now, to run the benchmarks, you need to have a benchmark runner that contains a `@Test` so it can run
+like a JUnit test. From inside a test method, you can use the `OptionsBuilder` provided by JMH to
+configure your benchmarks. For example:
+
+[source, java]
+----
+public class BenchmarkRunner {
+    @Test
+    public void runJmhBenchmarks() throws Exception {
+        ChainedOptionsBuilder options = new OptionsBuilder()
+                .mode(Mode.AverageTime)
+                .forks(2)
+                .result("jmh-report.json");
+
+        // Automatically detect benchmark classes annotated with @JmhBenchmark
+        new BenchmarkFinder(getClass()).findBenchmarks(options);
+        new Runner(options.build()).run();
+    }
+}
+----
+
+== Sample benchmarks
+
+Now, you can write your first benchmark:
+
+**Without any special setup**
+
+[source,java]
+----
+@JmhBenchmark
+public class JmhStateBenchmark {
+    public static class MyState extends JmhBenchmarkState {
+    }
+
+    @Benchmark
+    public void benchmark(MyState state) {
+        // benchmark code goes here
+        state.getJenkins().setSystemMessage("Hello world");
+    }
+}
+----
+
+**Using Configuration as Code**
+
+To use configuration as code, apart from the dependencies above you also need to add the following
+to your `pom.xml`:
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.jenkins</groupId>
+    <artifactId>configuration-as-code</artifactId>
+    <version>1.21</version>
+    <optional>true</optional>
+</dependency>
+<dependency>
+    <groupId>io.jenkins</groupId>
+    <artifactId>configuration-as-code</artifactId>
+    <version>1.21</version>
+    <classifier>tests</classifier>
+    <scope>test</scope>
+</dependency>
+----
+
+Now configuring a benchmark is as simple as providing path to your YAML file and specifying the class
+containing the benchmark state.
+
+[source,java]
+----
+@JmhBenchmark
+public class SampleBenchmark {
+    public static class MyState extends CascJmhBenchmarkState {
+        @Nonnull
+        @Override
+        protected String getResourcePath() {
+            return "config.yml";
+        }
+
+        @Nonnull
+        @Override
+        protected Class<?> getEnclosingClass() {
+            return SampleBenchmark.class;
+        }
+    }
+
+    @Benchmark
+    public void benchmark(MyState state) {
+        Jenkins jenkins = state.getJenkins(); // jenkins is configured and ready to be benchmarked.
+        // your benchmark code goes here...
+    }
+}
+----
+
+**More Samples**
+
+As a part of this project, a few benchmarks have been created in the Role Strategy Plugin which show
+configuring the instances for various situations. You can find them 
+link:https://github.com/jenkinsci/role-strategy-plugin/tree/master/src/test/java/jmh/benchmarks[here].
+
+== Running Benchmarks
+
+**Running benchmarks from Maven**
+
+To easily run benchmarks from Maven, a Maven profile to run the benchmarks has been created
+and is available starting Plugin-POM version 3.45. You can then run your benchmarks from the
+command line using `mvn test -Dbenchmark`.
+
+**Running benchmarks on ci.jenkins.io**
+
+If you have your plugins hosted on ci.jenkins.io, you can easily run benchmarks directly from your Jenkinsfile
+by using the `runBenchmarks()` method after the `buildPlugin()` step in your which is now available in
+link:https://github.com/jenkins-infra/pipeline-library[Jenkins Pipeline library]. 
+This function also accepts the path to your generated JMH benchmark reports as an optional 
+parameter and archives the benchmark results. Running benchmarks in pull request builds allows you to constantly 
+monitor the performance implications of a given change. For example, the Jenkinsfile from Role Strategy Plugin:
+[source, groovy]
+----
+buildPlugin()
+runBenchmarks('jmh-report.json')
+----
+
+== Visualizing benchmark results
+
+Benchmark reports generated (in JSON) can be visualized using the either the plugin:jmh-report[JMH Report Plugin]
+or by passing the benchmark reports to the link:https://jmh.morethan.io[JMH visualizer] web service. As an example, here is
+a visualized report of some benchmarks from the Role Strategy Plugin:
+
+image::/images/post-images/jmh-microbenchmark-framework/jmh-visualizer.png[Role Strategy Plugin benchmarks visualized by JMH Visualizer]
+
+These improvements seen above were obtained through a small link:https://github.com/jenkinsci/role-strategy-plugin/pull/81[pull request]
+to the plugin and shows how even seemingly small changes can bring major performance improvements. Microbenchmarks
+help to find these hot-spots and estimate the impact of changes.
+
+== Some tips and tricks
+
+* Since `BenchmarkRunner` class name in the example above does not qualify as a test according to Maven surefire plugin's
+naming conventions, the benchmarks will not interfere with your JUnit tests.
+* Benchmark methods need to be annotated by `@Benchmark` for JMH to detect them.
+* Classes containing benchmarks are found automatically by the `BenchmarkFinder`
+when annotated with `@JmhBenchmark`.
+* A reference to the Jenkins instance is available through either `JmhBenchmarkState#getJenkins()` or through
+`Jenkins.getInstance()` like you would otherwise do. 
+* `JmhBenchmarkState` provides `setup()` and `tearDown()` methods which can be overridden to configure the
+ Jenkins instance according to your benchmark's requirements.
+* The benchmark builds on ci.jenkins.io are currently throttled because of the limited availability of `highmem` nodes.
+* The benchmark framework was made available in Jenkins Test Harness 2.50, it is recommended to use version link:https://github.com/jenkinsci/jenkins-test-harness/releases/tag/jenkins-test-harness-2.51[2.51] as it includes some bug fixes.
+
+== Links and Feedback
+
+If you have any feedback, comments or questions, please feel free to reach out to me through either
+the link:https://gitter.im/jenkinsci/role-strategy-plugin[Role Strategy Plugin Gitter chat] or through 
+the link:mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
+
+* link:https://drive.google.com/file/d/1gig6u64rzvSzGKjN_PTTXTkSXQ9Ah7E5/view?usp=sharing[Presentation slides]
+* link:https://youtu.be/lyfbmhQd0Ag?t=847[Demo at Platform SIG meeting]
+* Documentation for the micro-benchmark framework:
+** link:https://github.com/jenkinsci/jenkins-test-harness/blob/master/docs/jmh-benchmarks.adoc[Writing benchmarks (Jenkins Test Harness)]
+** link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/benchmarks/jmh-benchmarks.md[Preconfiguring benchmarks using JCasC]
+** link:https://github.com/jenkinsci/plugin-pom#running-benchmarks[Running benchmarks using Plugin POM profile]
+** link:https://github.com/jenkins-infra/pipeline-library#runbenchmarks[Build Step for running benchmarks on ci.jenkins.io]

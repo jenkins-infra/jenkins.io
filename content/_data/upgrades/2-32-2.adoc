@@ -1,0 +1,72 @@
+==== Console notes security fix
+
+https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2017-02-01[SECURITY-382]
+
+Console notes, the often bold or colored additions to build logs by plugins such as plugin:timestamper[Timestamper] or plugin:ansicolor[AnsiColor], that were created before you upgrade to Jenkins 2.43 or 2.32.2 will no longer be loaded for security reasons.
+To restore the previous (unsafe) behavior, set the system property `hudson.console.ConsoleNote.INSECURE` to `true` as described on link:https://wiki.jenkins.io/display/JENKINS/Features+controlled+by+system+properties[this wiki page].
+
+Maven projects in plugin:maven-plugin[Maven Integration Plugin] 2.14 and earlier that use Maven 3.0.x to build will create console notes that can no longer be read by Jenkins, therefore parts of their build output will not be colored/bold.
+This does not affect freestyle projects.
+
+
+==== New encrypted secrets format
+
+https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2017-02-01[SECURITY-304]
+
+Encrypted secrets are no AES-128 CBC with random IV instead of AES-128 ECB without IV. Therefore the format of encrypted secrets has been changed.
+While existing secrets can still be read, saving configuration files will result in re-encryption of stored secrets in the new format.
+Repeatedly submitting the same form by clicking _Apply_ after changing a password that is stored by Jenkins as a secret will now result in configuration files being changed.
+
+
+==== Re-keying backup files removed
+
+https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2017-02-01[SECURITY-376]
+
+Re-keying, a process implemented for the Jenkins 1.480.2 security update, and performed only when upgrading Jenkins from versions 1.480.1 or 1.497 or earlier, left behind backup files with no restrictive file access permissions.
+On the first restart after applying the 2.32.2 update, Jenkins will remove these backup files, if present.
+
+If you were relying on file system permissions to protect secrets stored in Jenkins, and are operating an instance that originally was running Jenkins 1.480.1 or 1.497 (or earlier), consider changing any secrets that were stored in Jenkins then.
+
+If you are relying on file system permissions to protect secrets stored in your Jenkins home directory backups, it is recommended that you remove the directory `JENKINS_HOME/jenkins.security.RekeySecretAdminMonitor/backups` from all backups.
+
+==== Remoting blacklist addition
+
+https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2017-02-01[SECURITY-383]
+
+The remoting blacklist of classes prohibited from being used in XStream and Java object serialization has been extended. These entries were added:
+
+   ^javax[.]imageio[.].*
+   ^java[.]util[.]ServiceLoader$
+   ^java[.]net[.]URLClassLoader$
+
+No legitimate use of these types is expected, but possible. Previous advice in the link:/doc/upgrade-guide/2.19/#upgrading-to-jenkins-lts-2-19-3[upgrade guide for Jenkins 2.19.3] still applies.
+
+==== User creation via GET no longer possible
+
+https://wiki.jenkins.io/display/SECURITY/Jenkins+Security+Advisory+2017-02-01[SECURITY-406]
+
+Jenkins administrators were able to create users by accessing the URL `/user/example`. Doing so would create (for this URL) a new user with the ID `example`, if it did not exist before.
+
+While convenient, this constitutes a link:https://en.wikipedia.org/wiki/CSRF[cross-site request forgery] vulnerability, as Jenkins administrators may be tricked into creating hundreds of (not always ephemeral) users.
+Therefore this feature has been removed.
+
+When using the internal Jenkins user database, new users can be created via _Manage Jenkins » Manage Users_ instead.
+
+To restore the previous (unsafe) behavior, set the system property `hudson.model.User.allowUserCreationViaUrl` to `true` as described on link:https://wiki.jenkins.io/display/JENKINS/Features+controlled+by+system+properties[this wiki page].
+
+==== Security warnings administrative monitor
+
+https://issues.jenkins-ci.org/browse/JENKINS-40494[JENKINS-40494]
+
+Jenkins will now display warnings when installed components (plugins or core) have known security issues.
+These warnings are also shown in the plugin manager's _Available_ and _Updates_ tabs to warn you before installing a vulnerable plugin, or updating to a vulnerable version.
+As these warnings are published by your configured update sites, they are generally updated once per day. Note that third party update sites may not support this functionality (yet).
+
+==== Winstone-Jetty support for ad-hoc certificate creation on Java 8
+
+https://issues.jenkins-ci.org/browse/JENKINS-25333[JENKINS-25333]
+
+The embedded Winstone-Jetty container now supports ad-hoc SSL certificate generation when run on Java 8.
+
+However, this feature uses internal Oracle JRE APIs, so may break at any time in the future.
+Therefore it is still recommended that admins manually create self-signed certificates and use these instead.

@@ -58,13 +58,13 @@ follow the same rules as
 link:http://groovy-lang.org/syntax.html[Groovy's syntax]
 with the following exceptions:
 
-* The top-level of the Pipeline must be a _block_, specifically: `pipeline { }`
+* The top-level of the Pipeline must be a _block_, specifically: `pipeline { }`.
 * No semicolons as statement separators. Each statement has to be on its own
-  line
+  line.
 * Blocks must only consist of <<declarative-sections>>,
   <<declarative-directives>>, <<declarative-steps>>, or assignment statements.
-* A property reference statement is treated as no-argument method invocation. So for
-  example, input is treated as input()
+* A property reference statement is treated as a no-argument method invocation. So, for
+  example, `input` is treated as `input()`.
 
 You can use the
 link:../getting-started/#directive-generator[Declarative Directive Generator]
@@ -140,7 +140,8 @@ agent {
 ----
 +
 `docker` also optionally accepts a `registryUrl` and `registryCredentialsId` parameters
-which will help to specify the Docker Registry to use and its credentials.
+which will help to specify the Docker Registry to use and its credentials. The parameter
+`registryCredentialsId` could be used alone for private repositories within the docker hub.
 For example:
 +
 [source,groovy]
@@ -157,8 +158,8 @@ agent {
 
 dockerfile:: Execute the Pipeline, or stage, with a container built from a
 `Dockerfile` contained in the source repository. In order to use this option,
-the `Jenkinsfile` must be loaded from either a  Multibranch Pipeline, or a
-"Pipeline from SCM." Conventionally this is the `Dockerfile` in the root of the
+the `Jenkinsfile` must be loaded from either a *Multibranch Pipeline* or a
+*Pipeline from SCM*. Conventionally this is the `Dockerfile` in the root of the
 source repository: `agent { dockerfile true }`. If building a `Dockerfile` in
 another directory, use the `dir` option: `agent { dockerfile { dir 'someSubDir'
 } }`. If your `Dockerfile` has another name, you can specify the file name with
@@ -199,15 +200,67 @@ agent {
 }
 ----
 
+kubernetes:: Execute the Pipeline, or stage, inside a pod deployed on a Kubernetes cluster. In order to use this option,
+the `Jenkinsfile` must be loaded from either a *Multibranch Pipeline* or a
+*Pipeline from SCM*. The Pod template is defined inside the kubernetes { } block. 
+For example, if you want a pod with a Kaniko container inside it, you would define it as follows:
++
+[source,groovy]
+----
+agent {
+    kubernetes {
+        label podlabel
+        yaml """
+kind: Pod
+metadata:
+  name: jenkins-slave
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    imagePullPolicy: Always
+    command:
+    - /busybox/cat
+    tty: true
+    volumeMounts:
+      - name: aws-secret
+        mountPath: /root/.aws/
+      - name: docker-registry-config
+        mountPath: /kaniko/.docker
+  restartPolicy: Never
+  volumes:
+    - name: aws-secret
+      secret:
+        secretName: aws-secret
+    - name: docker-registry-config
+      configMap:
+        name: docker-registry-config
+"""
+   }
+----
++
+You will need to create a secret `aws-secret` for Kaniko to be able to authenticate with ECR. This secret should contain the contents of `~/.aws/credentials`. The other volume is a ConfigMap which should contain the endpoint of your ECR registry. 
+For example:
++
+[source,json]
+----
+{
+      "credHelpers": {
+        "<your-aws-account-id>.dkr.ecr.eu-central-1.amazonaws.com": "ecr-login"
+      }
+}
+----
++
+Refer to the following example for reference: https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/kaniko.groovy
 
 ===== Common Options
 
-These are a few options that can be applied two or more `agent` implementations.
+These are a few options that can be applied to two or more `agent` implementations.
 They are not required unless explicitly stated.
 
 label:: A string. The label on which to run the Pipeline or individual `stage`.
 +
-This option is valid for `node`, `docker` and `dockerfile`, and is required for
+This option is valid for `node`, `docker`, and `dockerfile`, and is required for
 `node`.
 
 customWorkspace:: A string. Run the Pipeline or individual `stage` this `agent`
@@ -225,7 +278,7 @@ agent {
 }
 ----
 +
-This option is valid for `node`, `docker` and `dockerfile`.
+This option is valid for `node`, `docker`, and `dockerfile`.
 
 reuseNode:: A boolean, false by default. If true, run the container on the node
 specified at the top-level of the Pipeline, in the same workspace, rather than
@@ -239,11 +292,10 @@ args:: A string. Runtime arguments to pass to `docker run`.
 This option is valid for `docker` and `dockerfile`.
 
 [[agent-example]]
-===== Example
-
-[pipeline]
+.Docker Agent, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent { docker 'maven:3-alpine' } // <1>
     stages {
@@ -254,16 +306,15 @@ pipeline {
         }
     }
 }
-// Script //
 ----
 <1> Execute all the steps defined in this Pipeline within a newly created container
 of the given name and tag (`maven:3-alpine`).
+=====
 
-====== Stage-level `agent` section
-
-[pipeline]
+.Stage-level Agent Section
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent none // <1>
     stages {
@@ -283,7 +334,6 @@ pipeline {
         }
     }
 }
-// Script //
 ----
 <1> Defining `agent none` at the top-level of the Pipeline ensures that
 <<../glossary#executor, an Executor>> will not be assigned unnecessarily.
@@ -291,12 +341,12 @@ Using `agent none` also forces each `stage` section to contain its own `agent` s
 <2> Execute the steps in this stage in a newly created container using this image.
 <3> Execute the steps in this stage in a newly created container using a different image
 from the previous stage.
-
+=====
 ==== post
 
 The `post` section defines one or more additional <<declarative-steps,steps>>
 that are run upon the completion of a Pipeline's or stage's run (depending on
-the location of the `post` section within the Pipeline). `post` can support any of
+the location of the `post` section within the Pipeline). `post` can support any
 of the following <<post-conditions, post-condition>> blocks: `always`,
 `changed`, `fixed`, `regression`, `aborted`, `failure`, `success`,
 `unstable`, `unsuccessful`, and `cleanup`. These condition blocks allow the execution
@@ -332,10 +382,7 @@ was successful.
 run has an "aborted" status, usually due to the Pipeline being manually aborted.
 This is typically denoted by gray in the web UI.
 `failure`:: Only run the steps in `post` if the current Pipeline's or stage's
-run has a "failed" status, typically denoted by red in the web UI. Note that if
-you manually set `currentBuild.result = 'FAILURE'` in a stage and have a
-`failure` `post` condition on that stage, the `failure` will not fire for that
-stage.
+run has a "failed" status, typically denoted by red in the web UI.
 `success`:: Only run the steps in `post` if the current Pipeline's or stage's
 run has a "success" status, typically denoted by blue or green in the web UI.
 `unstable`:: Only run the steps in `post` if the current Pipeline's or stage's
@@ -343,17 +390,16 @@ run has an "unstable" status, usually caused by test failures, code violations,
 etc. This is typically denoted by yellow in the web UI.
 `unsuccessful`:: Only run the steps in `post` if the current Pipeline's or stage's
 run has not a "success" status. This is typically denoted in the web UI depending
-on the status previously mentioned
+on the status previously mentioned.
 `cleanup`:: Run the steps in this `post` condition after every other
 `post` condition has been evaluated, regardless of the Pipeline or
 stage's status.
 
 [[post-example]]
-===== Example
-
-[pipeline]
+.Post Section, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -369,17 +415,17 @@ pipeline {
         }
     }
 }
-// Script //
 ----
 <1> Conventionally, the `post` section should be placed at the end of the
 Pipeline.
 <2> <<post-conditions, Post-condition>> blocks contain <<declarative-steps, steps>>
 the same as the <<steps>> section.
+=====
 
 ==== stages
 
 Containing a sequence of one or more <<stage>> directives, the `stages` section is where
-the bulk of the "work" described by a Pipeline will be located. At a minimum it
+the bulk of the "work" described by a Pipeline will be located. At a minimum, it
 is recommended that `stages` contain at least one <<stage>> directive for each
 discrete part of the continuous delivery process, such as Build, Test, and
 Deploy.
@@ -397,11 +443,10 @@ Deploy.
 |===
 
 [[stages-example]]
-===== Example
-
-[pipeline]
+.Stages, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages { // <1>
@@ -412,8 +457,8 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 <1> The `stages` section will typically follow the directives such as `agent`,
 `options`, etc.
 
@@ -435,11 +480,10 @@ to be executed in a given `stage` directive.
 |===
 
 [[steps-example]]
-===== Example
-
-[pipeline]
+.Single Step, Declarative Pipeline
+=====
+[source, grovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -450,9 +494,9 @@ pipeline {
         }
     }
 }
-// Script //
 ----
 <1> The `steps` section must contain one or more steps.
+=====
 
 [[declarative-directives]]
 === Directives
@@ -460,18 +504,12 @@ pipeline {
 ==== environment
 
 The `environment` directive specifies a sequence of key-value pairs which will
-be defined as environment variables for the all steps, or stage-specific steps,
+be defined as environment variables for all steps, or stage-specific steps,
 depending on where the `environment` directive is located within the Pipeline.
 
 This directive supports a special helper method `credentials()` which can be
 used to access pre-defined Credentials by their identifier in the Jenkins
-environment. For Credentials which are of type "Secret Text", the
-`credentials()` method will ensure that the environment variable specified
-contains the Secret Text contents. For Credentials which are of type "Standard
-username and password", the environment variable specified will be set to
-`username:password` and two additional environment variables will be
-automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respectively.
-
+environment. 
 
 [cols="^10h,>90a",role=syntax]
 |===
@@ -485,12 +523,34 @@ automatically be defined: `MYVARNAME_USR` and `MYVARNAME_PSW` respectively.
 | Inside the `pipeline` block, or within `stage` directives.
 |===
 
-[[environment-example]]
-===== Example
+===== Supported Credentials Type
 
-[pipeline]
+Secret Text:: 
+the environment variable specified will be set to the Secret Text content
+Secret File::
+the environment variable specified will be set to the location of the File
+file that is temporarily created
+Username and password:: 
+the environment variable specified will be set to `username:password` and two
+additional environment variables will be automatically defined: `MYVARNAME_USR`
+and `MYVARNAME_PSW` respectively.
+SSH with Private Key:: 
+the environment variable specified will be set to the location of the SSH key 
+file that is temporarily created and two additional environment variables may
+be automatically defined: `MYVARNAME_USR` and `MYVARNAME_PSW` (holding the 
+passphrase).
+
+[NOTE]
+====
+Unsupported credentials type causes the pipeline to fail with the message: `org.jenkinsci.plugins.credentialsbinding.impl.CredentialNotFoundException: No suitable binding handler could be found for type <unsupportedType>.`
+====
+
+[[environment-example]]
+.Secret Text Credentials, Declarative Pipeline
+=====
+
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     environment { // <1>
@@ -507,7 +567,6 @@ pipeline {
         }
     }
 }
-// Script //
 ----
 <1> An `environment` directive used in the top-level `pipeline` block will
 apply to all steps within the Pipeline.
@@ -516,6 +575,39 @@ given environment variables to steps within the `stage`.
 <3> The `environment` block has a helper method `credentials()` defined which
 can be used to access pre-defined Credentials by their identifier in the
 Jenkins environment.
+=====
+
+.Username and Password Credentials
+=====
+[source, groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Example Username/Password') {
+            environment {
+                SERVICE_CREDS = credentials('my-prefined-username-password')
+            }
+            steps {
+                sh 'echo "Service user is $SERVICE_CREDS_USR"'
+                sh 'echo "Service password is $SERVICE_CREDS_PSW"'
+                sh 'curl -u $SERVICE_CREDS https://myservice.example.com'
+            }
+        }
+        stage('Example Username/Password') {
+            environment {
+                SSH_CREDS = credentials('my-prefined-ssh-creds')
+            }
+            steps {
+                sh 'echo "SSH private key is located at $SSH_CREDS"'
+                sh 'echo "SSH user is $SSH_CREDS_USR"'
+                sh 'echo "SSH passphrase is $SSH_CREDS_PSW"'
+            }
+        }
+    }
+}
+----
+=====
 
 ==== options
 
@@ -549,6 +641,9 @@ disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
 be useful for preventing simultaneous accesses to shared resources, etc. For
 example: `options { disableConcurrentBuilds() }`
 
+disableResume:: Do not allow the pipeline to resume if the master restarts.
+For example: `options { disableResume() }`
+
 newContainerPerStage:: Used with `docker` or `dockerfile` top-level
 agent. When specified, each stage will run in a new container instance
 on the same node, rather than all stages running in the same container instance.
@@ -578,18 +673,11 @@ skipStagesAfterUnstable:: Skip stages once the build status has gone to UNSTABLE
 timeout:: Set a timeout period for the Pipeline run, after which Jenkins should
 abort the Pipeline. For example: `options { timeout(time: 1, unit: 'HOURS') }`
 
-timestamps:: Prepend all console output generated by the Pipeline run with the
-time at which the line was emitted. For example: `options { timestamps() }`
-
-parallelsAlwaysFailFast:: Set failfast true for all subsequent parallel stages in the pipeline.
-For example: `options { parallelsAlwaysFailFast() }`
-
 [[options-example]]
-===== Example
-
-[pipeline]
+.Global Timeout, Declarative Pipeline
+===== 
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     options {
@@ -603,10 +691,15 @@ pipeline {
         }
     }
 }
-// Script //
 ----
-<1> Specifying a global execution timeout of one hour, after which Jenkins will
-abort the Pipeline run.
+<1> Specifying a global execution timeout of one hour, after which Jenkins will abort the Pipeline run.
+=====
+
+timestamps:: Prepend all console output generated by the Pipeline run with the
+time at which the line was emitted. For example: `options { timestamps() }`
+
+parallelsAlwaysFailFast:: Set failfast true for all subsequent parallel stages in the pipeline.
+For example: `options { parallelsAlwaysFailFast() }`
 
 [NOTE]
 ====
@@ -632,18 +725,11 @@ the `agent` directive. For example: `options { skipDefaultCheckout() }`
 timeout:: Set a timeout period for this stage, after which Jenkins should
 abort the stage. For example: `options { timeout(time: 1, unit: 'HOURS') }`
 
-retry:: On failure, retry this stage the specified number of times.
-For example: `options { retry(3) }`
-
-timestamps:: Prepend all console output generated during this stage with the
-time at which the line was emitted. For example: `options { timestamps() }`
-
 [[stage-options-example]]
-====== Example
-
-[pipeline]
+.Stage Timeout, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -657,14 +743,20 @@ pipeline {
         }
     }
 }
-// Script //
 ----
-<1> Specifying a execution timeout of one hour for the `Example` stage, after
+<1> Specifying an execution timeout of one hour for the `Example` stage, after
 which Jenkins will abort the Pipeline run.
+=====
+
+retry:: On failure, retry this stage the specified number of times.
+For example: `options { retry(3) }`
+
+timestamps:: Prepend all console output generated during this stage with the
+time at which the line was emitted. For example: `options { timestamps() }`
 
 ==== parameters
 
-The `parameters` directive provides a list of parameters which a user should
+The `parameters` directive provides a list of parameters that a user should
 provide when triggering the Pipeline. The values for these user-specified
 parameters are made available to Pipeline steps via the `params` object,
 see the <<parameters-example>> for its specific usage.
@@ -691,16 +783,13 @@ booleanParam:: A boolean parameter, for example: `parameters { booleanParam(name
 
 choice:: A choice parameter, for example: `parameters { choice(name: 'CHOICES', choices: ['one', 'two', 'three'], description: '') }`
 
-file:: A file parameter, which specifies a file to be submitted by the user when scheduling a build, for example: `parameters { file(name: 'FILE', description: 'Some file to upload') }`
-
 password:: A password parameter, for example: `parameters { password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'A secret password') }`
 
 [[parameters-example]]
-===== Example
-
-[pipeline]
+.Parameters, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     parameters {
@@ -713,8 +802,6 @@ pipeline {
         choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
 
         password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
-
-        file(name: "FILE", description: "Choose a file to upload")
     }
     stages {
         stage('Example') {
@@ -732,8 +819,8 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 [NOTE]
 ====
@@ -767,7 +854,7 @@ Pipeline should be re-triggered, for example: `triggers { cron('H */4 * * 1-5') 
 pollSCM:: Accepts a cron-style string to define a regular interval at which
 Jenkins should check for new source changes. If new changes exist, the Pipeline
 will be re-triggered. For example: `triggers { pollSCM('H */4 * * 1-5') }`
-upstream:: Accepts a comma separated string of jobs and a threshold. When any
+upstream:: Accepts a comma-separated string of jobs and a threshold. When any
 job in the string finishes with the minimum threshold, the Pipeline will be
 re-triggered. For example:
 `triggers { upstream(upstreamProjects: 'job1,job2', threshold: hudson.model.Result.SUCCESS) }`
@@ -778,9 +865,9 @@ The `pollSCM` trigger is only available in Jenkins 2.22 or later.
 ====
 
 [[triggers-example]]
-===== Example
-
-[pipeline]
+.Triggers, Declarative Pipeline
+=====
+[source, groovy]
 ----
 // Declarative //
 pipeline {
@@ -796,8 +883,8 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 [[cron-syntax]]
 ==== Jenkins cron syntax
@@ -843,9 +930,9 @@ The `H` symbol can be thought of as a random value over a range,
 but it actually is a hash of the job name, not a random function, so that
 the value remains stable for any given project.
 
-Beware that for the day of month field, short cycles such as `*/3`
+Beware that for the day of month field, short cycles such as `\*/3`
 or `H/3` will not work consistently near the end of most months,
-due to variable month lengths.  For example, `*/3`j will run on the
+due to variable month lengths.  For example, `*/3` will run on the
 1st, 4th, …31st days of a long month, then again the next day of
 the next month.  Hashes are always chosen in the 1-28 range, so
 `H/3` will produce a gap between runs of between 3 and 6 days at
@@ -897,9 +984,9 @@ in one or more `stage` directives.
 |===
 
 [[stage-example]]
-===== Example
-
-[pipeline]
+.Stage, Declarative Pipeline
+=====
+[source, groovy]
 ----
 // Declarative //
 pipeline {
@@ -912,8 +999,8 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 ==== tools
 ////
@@ -943,11 +1030,10 @@ jdk::
 gradle::
 
 [[tools-example]]
-===== Example
-
-[pipeline]
+.Tools, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     tools {
@@ -961,17 +1047,17 @@ pipeline {
         }
     }
 }
-// Script //
 ----
 <1> The tool name must be pre-configured in Jenkins under *Manage Jenkins* ->
 *Global Tool Configuration*.
+=====
 
 ==== input
 
 The `input` directive on a `stage` allows you to prompt for input, using the
 link:https://jenkins.io/doc/pipeline/steps/pipeline-input-step/#input-wait-for-interactive-input[`input` step].
 The `stage` will pause after any `options` have been applied, and before
-entering the `stage`s `agent` or evaluating its `when` condition. If the `input`
+entering the `agent` block for that `stage` or evaluating the `when` condition of the `stage`. If the `input`
 is approved, the `stage` will then continue. Any parameters provided as part of
 the `input` submission will be available in the environment for the rest of the
 `stage`.
@@ -995,11 +1081,10 @@ parameters:: An optional list of parameters to prompt the submitter to provide.
 See <<parameters>> for more information.
 
 [[input-example]]
-===== Example
-
-[pipeline]
+.Input Step, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1018,8 +1103,8 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 ==== when
 
@@ -1050,8 +1135,15 @@ Nesting conditions may be nested to any arbitrary depth.
 ===== Built-in Conditions
 
 branch:: Execute the stage when the branch being built matches the branch
-pattern given, for example: `when { branch 'master' }`. Note that this only works on
+pattern (ANT style path glob) given, for example: `when { branch 'master' }`. Note that this only works on
 a multibranch Pipeline.
++
+The optional parameter `comparator` may be added after an attribute
+to specify how any patterns are evaluated for a match:
+`EQUALS` for a simple string comparison,
+`GLOB` (the default) for an ANT style path glob (same as for example `changeset`), or
+`REGEXP` for regular expression matching.
+For example: `when { branch pattern: "release-\\d+", comparator: "REGEXP"}`
 
 buildingTag:: Execute the stage when the build is building a tag.
 Example: `when { buildingTag() }`
@@ -1059,14 +1151,18 @@ Example: `when { buildingTag() }`
 changelog:: Execute the stage if the build's SCM changelog contains a given regular expression pattern,
 for example: `when { changelog '.*^\\[DEPENDENCY\\] .+$' }`
 
-changeset:: Execute the stage if the build's SCM changeset contains one or more files matching the given string or glob.
+changeset:: Execute the stage if the build's SCM changeset contains one or more files matching the given pattern.
 Example: `+when { changeset "**/*.js" }+`
 +
-By default the path matching will be case insensitive, this can be turned off with the `caseSensitive` parameter,
-for example: `when { changeset glob: "ReadMe.*", caseSensitive: true }`
+The optional parameter `comparator` may be added after an attribute
+to specify how any patterns are evaluated for a match:
+`EQUALS` for a simple string comparison,
+`GLOB` (the default) for an ANT style path glob case insensitive, this can be turned off with the `caseSensitive` parameter, or
+`REGEXP` for regular expression matching.
+For example: `when { changeset pattern: ".*TEST\\.java", comparator: "REGEXP" }` or `when { changeset pattern: "**/*TEST.java", caseSensitive: true }`
 
 changeRequest:: Executes the stage if the current build is for a "change request"
-(a.k.a. Pull Request on GitHub and Bitbucket, Merge Request on GitLab or Change in Gerrit etc.).
+(a.k.a. Pull Request on GitHub and Bitbucket, Merge Request on GitLab, Change in Gerrit, etc.).
 When no parameters are passed the stage runs on every change request,
 for example: `when { changeRequest() }`.
 +
@@ -1136,17 +1232,28 @@ condition evaluates to true.
 
 ===== Evaluating `when` before the `input` directive
 
-By default, the when condition for a stage will be evaluated before the input, if one is defined.
+By default, the when condition for a stage will not be evaluated before the input, if one is defined.
 However, this can be changed by specifying the `beforeInput` option within the when block. If `beforeInput` is set to true,
 the when condition will be evaluated first, and the input will only be entered if the when condition evaluates to true.
 
-[[when-example]]
-===== Examples
+`beforeInput true` takes precedence over `beforeAgent true`.
 
-.Single condition
-[pipeline]
+===== Evaluating `when` before the `options` directive
+
+By default, the `when` condition for a `stage` will be evaluated after
+entering the `options` for that `stage`, if any are defined. However, this can
+be changed by specifying the `beforeOptions` option within the `when`
+block. If `beforeOptions` is set to `true`, the `when` condition will be
+evaluated first, and the `options` will only be entered if the `when`
+condition evaluates to true.
+
+`beforeOptions true` takes precedence over `beforeInput true` and `beforeAgent true`.
+
+[[when-example]]
+.Single Condition, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1165,13 +1272,13 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
-.Multiple condition
-[pipeline]
+.Multiple Condition, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1191,13 +1298,13 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 .Nested condition (same behavior as previous example)
-[pipeline]
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1219,13 +1326,13 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 .Multiple condition and nested condition
-[pipeline]
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1248,13 +1355,13 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 .Expression condition and nested condition
-[pipeline]
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1277,13 +1384,13 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 .`beforeAgent`
-[pipeline]
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent none
     stages {
@@ -1306,13 +1413,13 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 .`beforeInput`
-[pipeline]
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent none
     stages {
@@ -1336,13 +1443,41 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
+
+.`beforeOptions`
+=====
+[source, groovy]
+----
+pipeline {
+    agent none
+    stages {
+        stage('Example Build') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Example Deploy') {
+            when {
+                beforeOptions true
+                branch 'testing'
+            }
+            options {
+                lock label: 'testing-deploy-envs', quantity: 1, variable: 'deploy-env'
+            }
+            steps {
+                echo "Deploying to ${deploy-env}"
+            }
+        }
+    }
+}
+----
+=====
 
 .`triggeredBy`
-[pipeline]
-----
-// Declarative //
+=====
+[source, groovy]
 pipeline {
     agent none
     stages {
@@ -1361,25 +1496,23 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 === Sequential Stages
 
-Stages in Declarative Pipeline may declare a list of nested stages to be run
-within them in sequential order. Note that a stage must have one and only one of
-`steps`, `parallel`, or `stages`, the last for sequential stages. It is not
-possible to nest a `parallel` block within a `stage` directive if that `stage`
-directive is nested within a `parallel` block itself. However, a `stage`
-directive within a `parallel` block can use all other functionality of a `stage`,
+Stages in Declarative Pipeline may have a `stages` section containing a list of nested stages to be run in sequential order.
+Note that a stage must have one and only one of `steps`, `stages`, `parallel`, or `matrix`. 
+It is not possible to nest a `parallel` or `matrix` block within a `stage` directive if that `stage`
+directive is nested within a `parallel`  or `matrix` block itself. However, a `stage`
+directive within a `parallel` or `matrix` block can use all other functionality of a `stage`,
 including `agent`, `tools`, `when`, etc.
 
 [[sequential-stages-example]]
-==== Example
-
-[pipeline]
+.Sequential Stages, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent none
     stages {
@@ -1427,30 +1560,28 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 === Parallel
 
-Stages in Declarative Pipeline may declare a number of nested stages within
-a `parallel` block, which will be executed in parallel. Note that a stage must
-have one and only one of `steps`, `stages`, or `parallel`. The nested stages
-cannot contain further `parallel` stages themselves, but otherwise behave the
-same as any other `stage`, including a list of sequential stages within `stages`.
-Any stage containing `parallel` cannot contain `agent` or `tools`, since those
-are not relevant without `steps`.
+Stages in Declarative Pipeline may have a `parallel` section containing a list of nested stages to be run in parallel.
+Note that a stage must have one and only one of `steps`, `stages`, `parallel`, or `matrix`. 
+It is not possible to nest a `parallel` or `matrix` block within a `stage` directive if that `stage`
+directive is nested within a `parallel`  or `matrix` block itself. However, a `stage`
+directive within a `parallel` or `matrix` block can use all other functionality of a `stage`,
+including `agent`, `tools`, `when`, etc.
 
-In addition, you can force your `parallel` stages to all be aborted when one
+In addition, you can force your `parallel` stages to all be aborted when any one
 of them fails, by adding `failFast true` to the `stage` containing the
 `parallel`. Another option for adding `failfast` is adding an option to the
 pipeline definition: `parallelsAlwaysFailFast()`
 
 [[parallel-stages-example]]
-==== Example
-
-[pipeline]
+.Parallel Stages, Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1503,12 +1634,13 @@ pipeline {
     }
 }
 
-// Script //
 ----
+=====
+
 .`parallelsAlwaysFailFast`
-[pipeline]
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     options {
@@ -1561,8 +1693,362 @@ pipeline {
             }
         }
     }
-}// Script //
+}
 ----
+=====
+[[declarative-matrix]]
+=== Matrix
+
+Stages in Declarative Pipeline may have a `matrix` section defining a multi-dimensional matrix of name-value combinations to be run in parallel. 
+We'll refer these combinations as "cells" in a matrix.
+Each cell in a matrix can include one or more stages to be run sequentially using the configuration for that cell.
+Note that a stage must have one and only one of `steps`, `stages`, `parallel`, or `matrix`. 
+It is not possible to nest a `parallel` or `matrix` block within a `stage` directive if that `stage`
+directive is nested within a `parallel`  or `matrix` block itself. However, a `stage`
+directive within a `parallel` or `matrix` block can use all other functionality of a `stage`,
+including `agent`, `tools`, `when`, etc.
+
+In addition, you can force your `matrix` cells to all be aborted when any one
+of them fails, by adding `failFast true` to the `stage` containing the
+`matrix`. Another option for adding `failfast` is adding an option to the
+pipeline definition: `parallelsAlwaysFailFast()`
+
+The `matrix` section must include an `axes` section and a `stages` section.
+The `axes` section defines the values for each `axis` in the matrix.
+The `stages` section defines a list of ``stage``s to run sequentially in each cell.
+A `matrix` may have an `excludes` section to remove invalid cells from the matrix.
+Many of the directives available on  `stage`, including `agent`, `tools`, `when`, etc., 
+can also be added to `matrix` to control the behavior of each cell. 
+
+[[matrix-axes]]
+==== axes  
+
+The `axes` section specifies one or more `axis` directives. 
+Each `axis` consists of a `name` and a list of `values`.
+All the values from each axis are combined with the others to produce the cells. 
+
+[[matrix-axes-example]]
+.One-axis with 3 cells
+===== 
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+    }
+    // ...
+}
+----
+=====
+
+.Two-axis with 12 cells (three by four)
+=====
+[source, groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+    }
+    // ...
+}
+----
+=====
+
+[[three-axes]]
+.Three-axis matrix with 24 cells (three by four by two)
+=====
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+        axis {
+            name 'ARCHITECTURE'
+            values '32-bit', '64-bit'
+        }
+    }
+    // ...
+}
+----
+=====
+
+[[matrix-stages]]
+==== stages   
+
+The `stages` section specifies one or more `stage`s to be executed sequentially in each cell. 
+This section is identical to any other
+<<#sequential-stages, `stages` section>>.  
+
+[[matrix-stages-example]]
+
+.One-axis with 3 cells, each cell runs three stages - "build", "test", and "deploy"
+=====
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+    }
+    stages {
+        stage('build') {
+            // ... 
+        }
+        stage('test') {
+            // ... 
+        }
+        stage('deploy') {
+            // ... 
+        }
+    }
+}
+----
+=====
+
+.Two-axis with 12 cells (three by four)
+=====
+[source, groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+    }
+    stages {
+        stage('build-and-test') {
+            // ...
+        }
+    }
+}
+----
+=====
+
+[[matrix-excludes]]
+==== excludes (optional)
+
+The optional `excludes` section lets authors specify one or more `exclude` filter expressions that select cells to be excluded from the expanded set of matrix cells (aka, sparsening). 
+Filters are constructed using a basic directive structure of one or more of exclude `axis` directives each with a `name` and `values` list. 
+
+The `axis` directives inside an `exclude` generate a set of combinations (similar to generating the matrix cells). 
+The matrix cells that match all the values from an `exclude` combination are removed from the matrix. 
+If more than one `exclude` directive is supplied, each is evaluated separately to remove cells.
+
+When dealing with a long list of values to exclude, exclude `axis` directives can use `notValues` instead of `values`.  
+These will exclude cells that *do not* match one of the values passed to `notValues`.
+
+[[matrix-excludes-example]]
+.Three-axis matrix with 24 cells, exclude '32-bit, mac' (4 cells excluded)
+=====
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+        axis {
+            name 'ARCHITECTURE'
+            values '32-bit', '64-bit'
+        }
+    }
+    excludes {
+        exclude {
+            axis {
+                name 'PLATFORM'
+                values 'mac'
+            }
+            axis {
+                name 'ARCHITECTURE'
+                values '32-bit'
+            }
+        }        
+    }
+    // ...
+}
+----
+=====
+
+Exclude the `linux, safari` combination and exclude any platform that is *not* `windows` with the `edge` browser.
+
+.Three-axis matrix with 24 cells, exclude '32-bit, mac' and invalid browser combinations (9 cells excluded) 
+=====
+[source,groovy]
+----
+matrix {
+    axes {
+        axis {
+            name 'PLATFORM'
+            values 'linux', 'mac', 'windows' 
+        }
+        axis {
+            name 'BROWSER'
+            values 'chrome', 'edge', 'firefox', 'safari' 
+        }
+        axis {
+            name 'ARCHITECTURE'
+            values '32-bit', '64-bit'
+        }
+    }
+    excludes {
+        exclude {
+            // 4 cells
+            axis {
+                name 'PLATFORM'
+                values 'mac'
+            }
+            axis {
+                name 'ARCHITECTURE'
+                values '32-bit'
+            }
+        }
+        exclude {
+            // 2 cells
+            axis {
+                name 'PLATFORM'
+                values 'linux'
+            }
+            axis {
+                name 'BROWSER'
+                values 'safari'
+            }
+        }
+        exclude {
+            // 3 more cells and '32-bit, mac' (already excluded)
+            axis {
+                name 'PLATFORM'
+                notValues 'windows'
+            }
+            axis {
+                name 'BROWSER'
+                values 'edge'
+            }
+        }        
+    }
+    // ...
+}
+----
+=====
+
+[[matrix-cell-directives]]
+==== Matrix cell-level directives (optional)
+
+Matrix lets users efficiently configure the overall environment for each cell, by adding stage-level directives under `matrix` itself.
+These directives behave the same as they would on a stage but they can also accept values provided by the matrix for each cell.  
+
+The `axis` and `exclude` directives define the static set of cells that make up the matrix. 
+That set of combinations is generated before the start of the pipeline run.
+The "per-cell" directives, on the other hand, are evaluated at runtime.  
+
+These directives include:
+
+* <<agent>>
+* <<environment>>
+* <<input>>
+* <<options>>
+* <<post>>
+* <<tools>>
+* <<when>>
+
+[[matrix-cell-example]]
+.Complete Matrix Example, Declarative Pipeline
+=====
+[source, groovy]
+----
+pipeline {
+    parameters {
+        choice(name: 'PLATFORM_FILTER', choices: ['all', 'linux', 'windows', 'mac'], description: 'Run on specific platform')
+    }
+    agent none
+    stages {
+        stage('BuildAndTest') {
+            matrix {
+                agent {
+                    label "${PLATFORM}-agent"
+                }
+                when { anyOf {
+                    expression { params.PLATFORM_FILTER == 'all' }
+                    expression { params.PLATFORM_FILTER == env.PLATFORM }
+                } }
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values 'linux', 'windows', 'mac'
+                    }
+                    axis {
+                        name 'BROWSER'
+                        values 'firefox', 'chrome', 'safari', 'edge'
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'linux'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values 'safari'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            notValues 'windows'
+                        }
+                        axis {
+                            name 'BROWSER'
+                            values 'edge'
+                        }
+                    }
+                }
+                stages {
+                    stage('Build') {
+                        steps {
+                            echo "Do Build for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                    stage('Test') {
+                        steps {
+                            echo "Do Test for ${PLATFORM} - ${BROWSER}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+----
+=====
 
 [[declarative-steps]]
 === Steps
@@ -1581,11 +2067,10 @@ hatch." `script` blocks of non-trivial size and/or complexity should be moved
 into <<shared-libraries#, Shared Libraries>> instead.
 
 [[script-example]]
-===== Example
-
-[pipeline]
+.Script Block in Declarative Pipeline
+=====
+[source, groovy]
 ----
-// Declarative //
 pipeline {
     agent any
     stages {
@@ -1603,15 +2088,15 @@ pipeline {
         }
     }
 }
-// Script //
 ----
+=====
 
 [role=syntax]
 == Scripted Pipeline
 
 Scripted Pipeline, like <<declarative-pipeline>>, is built on top of the
 underlying Pipeline sub-system. Unlike Declarative, Scripted Pipeline is
-effectively a general purpose DSL
+effectively a general-purpose DSL
 footnoteref:[dsl,link:https://en.wikipedia.org/wiki/Domain-specific_language[Domain-specific
 language]] built with
 link:http://groovy-lang.org/syntax.html[Groovy].
@@ -1624,12 +2109,13 @@ with which one can author continuous delivery pipelines.
 
 Scripted Pipeline is serially executed from the top of a `Jenkinsfile`
 downwards, like most traditional scripts in Groovy or other languages.
-Providing flow control therefore rests on Groovy expressions, such as the
+Providing flow control, therefore, rests on Groovy expressions, such as the
 `if/else` conditionals, for example:
 
-[pipeline]
+.Conditional Statement `if`, Scripted Pipeline
+=====
+[source, groovy]
 ----
-// Scripted //
 node {
     stage('Example') {
         if (env.BRANCH_NAME == 'master') {
@@ -1639,17 +2125,18 @@ node {
         }
     }
 }
-// Declarative //
 ----
+=====
 
 Another way Scripted Pipeline flow control can be managed is with Groovy's
 exception handling support. When <<scripted-steps>> fail for whatever reason
 they throw an exception.  Handling behaviors on-error must make use of
 the `try/catch/finally` blocks in Groovy, for example:
 
-[pipeline]
+.Try-Catch Block, Scripted Pipeline
+=====
+[source, groovy]
 ----
-// Scripted //
 node {
     stage('Example') {
         try {
@@ -1661,9 +2148,8 @@ node {
         }
     }
 }
-// Declarative //
 ----
-
+=====
 
 [[scripted-steps]]
 === Steps
@@ -1709,7 +2195,7 @@ implementors of Jenkins Pipeline found Groovy to be a solid foundation upon
 which to build what is now referred to as the "Scripted Pipeline" DSL.
 footnoteref:[dsl].
 
-As it is a fully featured programming environment, Scripted Pipeline offers a
+As it is a fully-featured programming environment, Scripted Pipeline offers a
 tremendous amount of flexibility and extensibility to Jenkins users. The
 Groovy learning-curve isn't typically desirable for all members of a given
 team, so Declarative Pipeline was created to offer a simpler and more

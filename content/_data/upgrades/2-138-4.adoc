@@ -1,0 +1,61 @@
+[#SECURITY-1072]
+==== Migration of user records
+
+link:/security/advisory/2018-12-05/#SECURITY-1072[SECURITY-1072]
+
+After applying this upgrade, Jenkins will migrate the user records to a slightly different storage format that uses a central index to map user IDs to directory names.
+This is a backwards incompatible change, so older releases of Jenkins will not be able to deal with the new storage format.
+We strongly recommend taking a full backup of at least the `$JENKINS_HOME/users/` directory before upgrading.
+
+If Jenkins crashes or is killed during startup, the migration may be incomplete, possibly making a subset of user records unavailable.
+To determine whether this is the case, check for the existence of the file `$JENKINS_HOME/users/users.xml`.
+If it does not exist, but user directories have been renamed as described below, the migration was interrupted.
+In such cases, if no backup is available, we recommend checking the Jenkins system log and using the information in it to restore directories to their previous names.
+The log entries look similar to the following message:
+
+----
+INFO: Migrating user 'admin' from 'users/admin/' to 'users/admin_6635238516816951048/'
+----
+
+In this case, rename the directory `$JENKINS_HOME/users/admin_6635238516816951048/` to `$JENKINS_HOME/users/admin/` while Jenkins is not running.
+Repeat this for all other user directories listed in the log.
+Doing all of the above will undo the partial migration.
+Jenkins will re-run it on the next startup.
+
+If Jenkins needs to be downgraded after an update and successfully applied user directory migration, do all of the above and additionally delete the `$JENKINS_HOME/users/users.xml` file.
+This reverts the migration and restored all user records to a format compatible with Jenkins 2.138.3 and earlier.
+
+IMPORTANT: Please note that downgrading Jenkins is not generally supported, and may fail for reasons unrelated to this migration.
+
+
+[#SECURITY-595]
+==== New restrictions on HTTP request routing
+
+link:/security/advisory/2018-12-05/#SECURITY-595[SECURITY-595]
+
+A design flaw in the Stapler web framework allowed accessing fields and invoking methods that were not intended to be invoked this way by accessing specific URLs.
+link:/security/advisory/2018-12-05/#SECURITY-595[For further details, see the security advisory].
+
+As a side effect of this security fix, some HTTP requests will no longer work as before.
+This typically results in `HTTP 404 Not Found` responses, although a very small subset of requests will be successful, but the response will simply be different than it would have been before the fix was applied.
+Whenever either happens, Jenkins write a message similar to the following to the Jenkins system log:
+
+----
+WARNING: New Stapler routing rules result in the URL "/example" no longer being allowed. If you consider it safe to use, add the following to the whitelist: "method hudson.model.Hudson doExample". Learn more: https://jenkins.io/redirect/stapler-routing
+----
+
+If this happens due to legitimate use of the Jenkins UI, the affected signature can be added to the list of approved signatures.
+To do this, run the following command in the Jenkins script console as administrator:
+
+----
+jenkins.security.stapler.StaticRoutingDecisionProvider.get().add('method hudson.model.Hudson doExample')
+----
+
+This will create a file called `stapler-whitelist.txt` in the Jenkins home directory, and add the specified entry.
+This file can also be modified manually, but the following script needs to be executed afterwards to apply any changes if Jenkins is already running:
+
+----
+jenkins.security.stapler.StaticRoutingDecisionProvider.get().reload()
+----
+
+We track known affected plugins and their status in link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+the+SECURITY-595+fix[the Jenkins wiki].
