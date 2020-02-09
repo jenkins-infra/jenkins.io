@@ -1,6 +1,5 @@
 ---
 layout: section
-wip: true
 ---
 ifdef::backend-html5[]
 :notitle:
@@ -8,15 +7,418 @@ ifdef::backend-html5[]
 :author:
 :email: jenkinsci-docs@googlegroups.com
 :sectanchors:
-:toc:
+:toc: macro
 :hide-uri-scheme:
 endif::[]
 
 = Script Console
 
-////
-Pages to mark as deprecated by this document:
+Jenkins features a Groovy script console which allows one to run
+arbitrary Groovy scripts within the Jenkins master runtime or in the
+runtime on agents.
 
-https://wiki.jenkins.io/display/JENKINS/Jenkins+Script+Console
-////
+[IMPORTANT]
+====
+It is _very_ *important* to understand all of the following points
+because it affects the integrity of your Jenkins installation. The
+Jenkins Script Console:
+
+* Access is controlled by the `+RunScripts+` permission. If any authorization strategy allows this permission to be granted to users other than Admins, then extreme care should be taken not to allow non-admins to use this.
+
+* Is a web-based Groovy shell into the Jenkins runtime. Groovy is a very
+powerful language which offers the ability to do practically anything
+Java can do including:
+
+** Create sub-processes and execute arbitrary commands on the Jenkins
+master and agents.
+** It can even read files in which the Jenkins master has access to on
+the host (like `/etc/passwd`)
+** Decrypt credentials configured within Jenkins.
+
+* Offers no administrative controls to stop a User (or Admin) once they
+are able to execute the Script Console from affecting all parts of the
+Jenkins infrastructure. Granting a normal Jenkins user Script Console
+Access is essentially the same as giving them Administrator rights
+within Jenkins.
+* Can configure any Jenkins setting. It can disable security,
+reconfigure security, even open a backdoor on the host operating system
+completely outside of the Jenkins process. Due to the mission critical
+importance many organizations place on Jenkins in their infrastructure
+this point is especially important because it would allow an attacker to
+move laterally within infrastructure with little effort.
+* Is so powerful because it was originally intended as a debugging
+interface for Jenkins developers but has since grown into an interface
+used by Jenkins Admins to configure Jenkins and debug Jenkins runtime
+issues.
+
+Because of the power offered by the Jenkins Script Console, Jenkins and
+its agents should never be run as the `root` user (on Linux) or system
+administrator on any other flavor of OS. Videos linked in this
+page demonstrate and discuss security warnings.
+
+*Be sure to secure your Jenkins instance*
+====
+
+toc::[]
+
+== Multiple contexts
+
+The Jenkins Script Console can run either on the master or any
+configured agents.
+
+=== Running Script Console on the master
+
+This feature can be accessed from "Manage Jenkins" > "Script Console". 
+Or by visiting the sub-URL `/script` on your Jenkins instance.
+
+=== Running Script Console on agents
+
+Visit "Manage Jenkins" > "Manage Nodes".  Select any node to view the
+status page.  In the menu on the left, a menu item is available to open
+a "Script Console" on that specific agent.
+
+=== Run scripts from master Script Console on agents
+
+It's also possible to run scripts from the master Script Console on
+individual agents.  The following script is an example running a script
+on agents from the master Script Console.
+
+*Script executes code on agent from Master Script Console*
+
+[source,groovy]
+----
+import hudson.util.RemotingDiagnostics
+import jenkins.model.Jenkins
+
+String agent_name = 'your agent name'
+//groovy script you want executed on an agent
+groovy_script = '''
+println System.getenv("PATH")
+println "uname -a".execute().text
+'''.trim()
+
+String result
+Jenkins.instance.slaves.find { agent ->
+    agent.name == agent_name
+}.with { agent ->
+    result = RemotingDiagnostics.executeGroovy(groovy_script, agent.channel)
+}
+println result
+----
+
+== Remote access
+
+A Jenkins Admin can execute groovy scripts remotely by sending an HTTP
+POST request to `/script/` url or `/scriptText/`.
+
+*curl example via bash*
+
+[source,shell]
+----
+curl -d "script=<your_script_here>" https://jenkins/script
+# or to get output as a plain text result (no HTML)
+curl -d "script=<your_script_here>" https://jenkins/scriptText
+----
+
+Also, https://jenkins.io/doc/book/managing/cli/[Jenkins CLI]
+offers the possibility to execute groovy scripts remotely using
+`groovy` command or execute groovy interactivelly via `groovysh`.
+However, once again curl can be used to execute groovy scripts by making
+use of bash Command Substitution. In the following example
+`somescript.groovy` is a groovy script in the current working
+directory.
+
+*Curl submitting groovy file via bash*
+
+[source,shell]
+----
+curl --data-urlencode "script=$(< ./somescript.groovy)" https://jenkins/scriptText
+----
+
+If security is configured in Jenkins, then curl can be provided options
+to authenticate using the `curl --user` option.
+
+*Curl submitting groovy file providing username and api token via bash*
+
+[source,shell]
+----
+curl --user 'username:api-token' --data-urlencode \
+  "script=$(< ./somescript.groovy)" https://jenkins/scriptText
+----
+
+Here is the equivalent command using python, not curl.
+
+*Python submitting groovy file providing username and api token*
+
+[source,python]
+----
+with open('somescript.groovy', 'r') as fd:
+    data = fd.read()
+r = requests.post('https://jenkins/scriptText', auth=('username', 'api-token'), data={'script': data})
+----
+
+== Shortcut key on script console to submit
+
+You can submit a script without mouse. Jenkins has a shortcut key which
+enables to submit with keyboard.
+
+* Windows / Linux: Ctrl + Enter
+* Mac: Command + Enter
+
+== Video Tutorials and additional learning materials
+
+Here are some recorded videos on the Jenkins Script Console:
+
+* https://www.youtube.com/watch?v=qaUPESDcsGg[Jenkins World 2017:
+Mastering the Jenkins Script Console] - 44 minutes - sample usage and
+security discussion
+* https://www.youtube.com/watch?v=T1x2kCGRY1w[LA Jenkins Area Meetup
+2016 - Hacking on Jenkins Internals - Jenkins Script Console] - 39
+minutes - sample usage
+
+To expand your ability to write script console scripts the following
+references are recommended:
+
+* http://groovy-lang.org/learn.html[Learn Groovy] - Learning Groovy is
+useful for more than writing scripts for the Script Console.  Groovy is
+also relevant for other features of Jenkins like
+https://jenkins.io/doc/book/pipeline/[Pipelines and shared pipeline
+libraries], the
+https://plugins.jenkins.io/groovy[Groovy Plugin],
+the https://plugins.jenkins.io/job-dsl[Job DSL
+plugin], and many other plugins which utilize Groovy (see section
+"Plugins enabling Groovy usage").
+* http://www.mdoninger.de/2011/11/07/write-groovy-scripts-for-jenkins-with-code-completion.html[Write
+Groovy scripts for Jenkins with Code completion] - The gist of this is
+to create a Maven project within your IDE and to depend
+on org.jenkins-ci.main:jenkins-core (and any other plugins that you
+expect present). You can then write a Groovy script with code completion
+of Jenkins API objects and methods.
+
+== Example Groovy scripts
+
+=== Out of date scripts
+
+Due to the nature of Groovy scripts accessing Jenkins source code
+directly, Script Console scripts are easily out of date from the Jenkins
+source code. It is possible to run a script and get exceptions because
+public methods and interfaces in Jenkins core or Jenkins plugins have
+changed. Keep this in mind when trying out examples. Jenkins is easily
+started from a local development machine via the following command:
+
+*Starting a local copy of Jenkins*
+
+[source,shell]
+----
+export JENKINS_HOME="./my_jenkins_home"
+java -jar jenkins.war
+----
+
+Use CTRL+C to stop Jenkins. It is not recommended to try Script Console
+examples in a production Jenkins instance.
+
+The following repositories offer solid examples of Groovy scripts for
+Jenkins.
+
+* https://github.com/cloudbees/jenkins-scripts[CloudBees jenkins-scripts
+repository].
+* link:https://github.com/jenkinsci/jenkins-scripts[Jenkins CI jenkins-scripts repository under the `scriptler/` directory] (scripts
+for the link:https://plugins.jenkins.io/scriptler[Scriptler Plugin]).
+* https://github.com/samrocketman/jenkins-script-console-scripts[Sam Gleske's jenkins-script-console-scripts repository].
+* https://github.com/samrocketman/jenkins-bootstrap-shared[Sam Gleske's jenkins-bootstrap-shared repository under the `+scripts/+` directory].
+* http://community.jboss.org/wiki/HudsonHowToDebug[Some scripts at
+JBoss.org].
+
+Browse
+all https://plugins.jenkins.io/scriptler[Scriptler
+Plugin] Groovy Scripts and *please share your scripts with the*
+*https://plugins.jenkins.io/scriptler[Scriptler
+Plugin].*
+
+* https://wiki.jenkins.io/display/JENKINS/Activate+Chuck+Norris+Plugin[Activate
+Chuck Norris Plugin] — This script activates Chuck Norris
+plugin for all jobs in your Jenkins server
+* https://wiki.jenkins.io/display/JENKINS/Add+a+Maven+Installation%2C+Tool+Installation%2C+Modify+System+Config[Add
+a Maven Installation, Tool Installation, Modify System Config]
+* https://wiki.jenkins.io/display/JENKINS/Add+a+new+label+to+slaves+meeting+a+condition[Add
+a new label to slaves meeting a condition] — This script
+shows how to alter the slave nodes' label membership. In this case we
+create a new label if the existing label contains a string. It has been
+tested from the Jenkins command window.
+* https://wiki.jenkins.io/display/JENKINS/Add+notification+plugin+to+every+job[Add
+notification plugin to every job] — This script will add
+the Notification Plugin to every job.
+* https://wiki.jenkins.io/display/JENKINS/Allow+broken+build+claiming+on+every+jobs[Allow
+broken build claiming on every jobs] — With the following
+simple script, you can activate the option on every jobs of your server
+in just one go.
+* https://wiki.jenkins.io/display/JENKINS/Batch-Update+Mercurial+branch+that+is+checked+out[Batch-Update
+Mercurial branch that is checked out] — Updates for
+multiple jobs which branch will be checked out from Hg#
+* https://wiki.jenkins.io/display/JENKINS/Bulk+rename+projects[Bulk
+rename projects]
+* https://wiki.jenkins.io/display/JENKINS/Change+JVM+Options+in+all+Maven+tasks+of+Freestyle+Jobs[Change
+JVM Options in all Maven tasks of Freestyle Jobs] — This
+script find all Maven Tasks registered in freestyle jobs and replace JVM
+Options by a new value.
+* https://wiki.jenkins.io/display/JENKINS/Change+publish+over+SSH+configuration[Change
+publish over SSH configuration]
+* https://wiki.jenkins.io/display/JENKINS/Change+SCMTrigger+for+each+project+to+disable+during+the+night+and+the+week-end[Change
+SCMTrigger for each project to disable during the night and the
+week-end] — This script lets you easily change all jobs
+running every minutes so that it gets disabled between 21:00 and 07:00
+and on Saturday and Sunday.
+* https://wiki.jenkins.io/display/JENKINS/Change+Version-Number+in+SVN-path[Change
+Version-Number in SVN-path]
+* https://wiki.jenkins.io/display/JENKINS/Clone+all+projects+in+a+View[Clone
+all projects in a View] — This script enumerates all
+projects belonging to a specific view and clones them.
+* https://wiki.jenkins.io/display/JENKINS/Convert+standard+mail+notifications+to+use+the+Mail-Ext+Publisher+plugin[Convert
+standard mail notifications to use the Mail-Ext Publisher plugin] —
+This script replace mail notifications in all projects by
+Mail-Ext publisher plugin and re-uses existing recipients.
+* https://wiki.jenkins.io/display/JENKINS/Delete+.tmp+files+left+in+workspace-files[Delete tmp files left in workspace-files] — This scripts deletes
+all the tmp files left in workspace-files directory after the build. On
+windows servers this seems pretty common.
+* https://wiki.jenkins.io/display/JENKINS/Delete+workspace+for+all+disabled+jobs[Delete
+workspace for all disabled jobs] — Deletes the workspace
+for all disabled jobs to save space#
+* https://wiki.jenkins.io/display/JENKINS/Disable+all+jobs[Disable all
+jobs] — This script disables all jobs in your Jenkins
+server#
+* https://wiki.jenkins.io/display/JENKINS/Display+Information+About+Nodes[Display
+Information About Nodes] — This scripts displays a bunch of
+information about all the slave nodes.
+* https://wiki.jenkins.io/display/JENKINS/Display+job+parameters[Display
+job parameters] — This scripts displays the parameters for
+all the jobs along with their default values (if applicable).
+* https://wiki.jenkins.io/display/JENKINS/Display+jobs+group+by+the+build+steps+they+use[Display
+jobs group by the build steps they use]
+* https://wiki.jenkins.io/pages/viewpage.action?pageId=67569264[Display
+list of projects that were built more than 1 day ago.] —
+This script to display list of projects that were built
+more than 1 day ago.
+* https://wiki.jenkins.io/display/JENKINS/Display+mail+notifications+recipients[Display
+mail notifications recipients] — This script displays for
+all jobs the list of mail recipients used for notifications.
+* https://wiki.jenkins.io/display/JENKINS/Display+monitors+status[Display
+monitors status] — Jenkins uses monitors to validate
+various behaviors. If you dismiss one, Jenkins will never propose you to
+reactivate it. This script allows you to check the status of all
+monitors and to reactivate them.
+* https://wiki.jenkins.io/display/JENKINS/Display+the+number+of+jobs+using+SCM+Polling+from+Freestyle%2C+Pipeline+and+Maven[Display
+the number of jobs using SCM Polling from Freestyle, Pipeline and Maven]
+* https://wiki.jenkins.io/display/JENKINS/Display+timer+triggers[Display
+timer triggers] — This scripts displays the timer triggers
+for all the jobs in order to better arrange them.
+* https://wiki.jenkins.io/display/JENKINS/Display+Tools+Location+on+All+Nodes[Display
+Tools Location on All Nodes] — This script can help to get
+Jenkins tools localtion on all your slaves#
+* https://wiki.jenkins.io/display/JENKINS/Enable+Timestamper+plugin+on+all+jobs[Enable
+Timestamper plugin on all jobs] — With the following simple
+script, you can activate the option on every jobs of your server in just
+one go.
+* https://wiki.jenkins.io/display/JENKINS/Failed+Jobs[Failed Jobs] —
+This scripts displays a list of all failed jobs. Addon:
+restart them.
+* https://wiki.jenkins.io/display/JENKINS/Find+builds+currently+running+that+has+been+executing+for+more+than+N+seconds[Find
+builds currently running that has been executing for more than N
+seconds]
+* https://wiki.jenkins.io/display/JENKINS/Grant+Cancel+Permission+for+user+and+group+that+have+Build+permission[Grant
+Cancel Permission for user and group that have Build permission] —
+This script will go through all groups and users in both
+Global security and per job security settings.
+* https://wiki.jenkins.io/display/JENKINS/Invalidate+Jenkins+HTTP+sessions[Invalidate
+Jenkins HTTP sessions] — This script can monitor and
+invalidate HTTP sessions if there are many open ones on your server.
+* https://wiki.jenkins.io/display/JENKINS/Manually+run+log+rotation+on+all+jobs[Manually
+run log rotation on all jobs] — Runs log rotation on all
+jobs to free space#
+* https://wiki.jenkins.io/display/JENKINS/Monitor+and+Restart+Offline+Slaves[Monitor
+and Restart Offline Slaves] — This script can monitor and
+restart offline nodes if they are not disconnected manually.
+* https://wiki.jenkins.io/display/JENKINS/Monitoring+Scripts[Monitoring
+Scripts] — Several scripts to display data about http
+sessions, threads, memory, JVM or MBeans, when using the Monitoring
+plugin.
+* https://wiki.jenkins.io/display/JENKINS/My+Test+Grovvy[My Test Grovvy]
+* https://wiki.jenkins.io/display/JENKINS/Parameterized+System+Groovy+script[Parameterized
+System Groovy script] — This script will demonstrate how to
+get parameters in a system groovy script.
+* https://wiki.jenkins.io/display/JENKINS/Preselect+username+in+Maven+Release+Build[Preselect
+username in Maven Release Build]
+* https://wiki.jenkins.io/display/JENKINS/Printing+a+list+of+credentials+and+their+IDs[Printing
+a list of credentials and their IDs]
+* https://wiki.jenkins.io/display/JENKINS/Remove+all+disabled+modules+in+Maven+jobs[Remove
+all disabled modules in Maven jobs] — To remove all
+disabled modules in Maven jobs#
+* https://wiki.jenkins.io/display/JENKINS/Remove+Deployed+Artifacts+Actions[Remove
+Deployed Artifacts Actions] — This script is used to remove
+the Deployed Artifacts list that is uselessly stored for each build by
+the Artifact Deployer Plugin. #
+* https://wiki.jenkins.io/display/JENKINS/Remove+Git+Plugin+BuildsByBranch+BuildData[Remove
+Git Plugin BuildsByBranch BuildData] — This script is used
+to remove the static list of BuildsByBranch that is uselessly stored for
+each build by the Git Plugin.
+* https://wiki.jenkins.io/display/JENKINS/Set+GitBlitRepositoryBrowser+with+custum+settings+on+all+repos[Set
+GitBlitRepositoryBrowser with custum settings on all repos] —
+This scripts allows to update the repo browser. Can be
+adapted to any other browser, not only gitblit.
+* https://wiki.jenkins.io/display/JENKINS/Update+maven+jobs+to+use+the+post+build+task+to+deploy+artifacts[Update
+maven jobs to use the post build task to deploy artifacts] —
+This script updates all maven jobs having a deploy goal by
+install and activate the post build step to deploy artifacts at the end
+of the build#
+* https://wiki.jenkins.io/display/JENKINS/Update+SVN+Browser[Update SVN
+Browser]
+* https://wiki.jenkins.io/display/JENKINS/Wipe+out+workspaces+of+all+jobs[Wipe
+out workspaces of all jobs] — This script wipes out the
+workspaces of all jobs on your Jenkins server#
+* https://wiki.jenkins.io/display/JENKINS/Wipe+workspaces+for+a+set+of+jobs+on+all+nodes[Wipe
+workspaces for a set of jobs on all nodes] — The script
+wipes workspaces of certain jobs on all nodes.
+
+== Plugins enabling Groovy usage
+
+- link:https://plugins.jenkins.io/config-file-provider[Config
+File Provider Plugin] Adds the ability to provide
+configuration files (i.e., settings.xml for maven, XML, groovy, custom
+files, etc.) loaded through the Jenkins UI which will be copied to the
+job's workspace.
+
+- link:https://plugins.jenkins.io/global-post-script[Global
+Post Script Plugin] — Execute a global configured groovy
+script after each build of each job managed by the Jenkins. +
+This is typical for cases when you need to do something based on a
+shared set of parameters, such as triggering downstream jobs managed by
+the same Jenkins or remote ones based on the parameters been passed to
+the parameterized jobs.
+
+- https://plugins.jenkins.io/groovy[Groovy plugin]
+
+- https://plugins.jenkins.io/groovy-postbuild[Groovy
+Postbuild Plugin] — This plugin executes a groovy script in
+the Jenkins JVM. Typically, the script checks some conditions and
+changes accordingly the build result, puts badges next to the build in
+the build history and/or displays information on the build summary
+page.
+
+- https://plugins.jenkins.io/groovy-remote-control[Groovy
+Remote Control Plugin] — This plugin provides
+http://groovy.codehaus.org/modules/remote/[Groovy Remote Control]'s
+receiver, and allows to control external application from Jenkins.
+
+- https://plugins.jenkins.io/matrix-groovy-execution-strategy[Matrix
+Groovy Execution Strategy Plugin] — A plugin to decide the
+execution order and valid combinations of matrix projects.
+
+- https://plugins.jenkins.io/pipeline-classpath-step[Pipeline
+Classpath Step Plugin] Pipeline DSL step to add path to
+the groovy classpath
+
+- https://plugins.jenkins.io/scriptler[Scriptler
+Plugin] — Scriptler allows you to store/edit groovy scripts
+and execute it on any of the slaves/nodes... no need to copy/paste
+groovy code anymore.
+
 
