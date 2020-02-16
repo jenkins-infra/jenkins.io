@@ -105,7 +105,7 @@ try {
 catch (exc) {
     echo "Caught: ${exc}"
 
-    String recipient = 'infra@lists.jenkins-ci.org'
+    String recipient = 'jenkins-infra@googlegroups.com'
 
     mail subject: "${env.JOB_NAME} (${env.BUILD_NUMBER}) failed",
             body: "It appears that ${env.BUILD_URL} is failing, somebody should do something about that",
