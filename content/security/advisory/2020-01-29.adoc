@@ -1,0 +1,162 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2020-01-29
+kind: core and plugins
+core:
+  lts:
+    previous: 2.204.1
+    fixed: 2.204.2
+  weekly:
+    previous: '2.218'
+    fixed: '2.219'
+issues:
+- id: SECURITY-1682
+  reporter: Thijs Alkemade from Computest
+  title: Inbound TCP Agent Protocol/3 authentication bypass
+  cve: CVE-2020-2099
+  cvss:
+    severity: High
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:L
+  description: |-
+    Jenkins 2.213 and earlier, LTS 2.204.1 and earlier includes support for the Inbound TCP Agent Protocol/3 for communication between master and agents.
+    While link:https://jenkins.io/changelog-old/#v2.128[this protocol has been deprecated in 2018] and was recently removed from Jenkins in 2.214, it could still easily be enabled in Jenkins LTS 2.204.1, 2.213, and older.
+
+    This protocol incorrectly reuses encryption parameters which allow an unauthenticated remote attacker to determine the connection secret.
+    This secret can then be used to connect attacker-controlled Jenkins agents to the Jenkins master.
+
+    Jenkins 2.204.2 no longer allows for the use of Inbound TCP Agent Protocol/3 by default.
+    The system property `jenkins.slaves.JnlpSlaveAgentProtocol3.ALLOW_UNSAFE` can be set to `true` to allow enabling the Inbound TCP Agent Protocol/3 in Jenkins 2.204.2, but doing so is strongly discouraged.
+
+    Inbound TCP Agent Protocol/3 was removed completely from Jenkins 2.214 and will not be part of Jenkins LTS after the end of the 2.204.x line.
+- id: SECURITY-1641
+  reporter: Adam Thorn, University of Cambridge
+  title: Jenkins vulnerable to UDP amplification reflection attack
+  cve: CVE-2020-2100
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:N/A:L
+  description: |-
+    Jenkins 2.218 and earlier, LTS 2.204.1 and earlier supports two network discovery services (UDP multicast/broadcast and DNS multicast) by default.
+
+    The UDP multicast/broadcast service can be used in an amplification reflection attack, as very few bytes sent to the respective endpoint result in much larger responses:
+    A single byte request to this service would respond with more than 100 bytes of Jenkins metadata which could be used in a DDoS attack on a Jenkins master.
+    Within the same network, spoofed UDP packets could also be sent to make two Jenkins masters go into an infinite loop of replies to one another, thus causing a denial of service.
+
+    Jenkins 2.219, LTS 2.204.2 now disables both UDP multicast/broadcast and DNS multicast by default.
+
+    Administrators that need these features can re-enable them again by setting the system property `hudson.DNSMultiCast.disabled` to `false` (for DNS multicast) or the system property `hudson.udp` to `33848`, or another port (for UDP broadcast/multicast).
+    These are the same system properties that controlled whether these features were enabled in the past, so any instances explicitly enabling these features by setting these system properties will continue to have them enabled.
+- id: SECURITY-1659
+  reporter: Jesse Glick, CloudBees, Inc. and, independently, Wasin Saengow
+  title: Non-constant time comparison of inbound TCP agent connection secret
+  cve: CVE-2020-2101
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: |-
+    Jenkins 2.218 and earlier, LTS 2.204.1 and earlier does not use a constant-time comparison validating the connection secret when an inbound TCP agent connection is initiated.
+    This could potentially allow attackers to use statistical methods to obtain the connection secret.
+
+    Jenkins 2.219, LTS 2.204.2 now uses a constant-time comparison function for verifying connection secrets.
+- id: SECURITY-1660
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Non-constant time HMAC comparison
+  cve: CVE-2020-2102
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: |-
+    Jenkins 2.218 and earlier, LTS 2.204.1 and earlier does not use a constant-time comparison when checking whether two HMACs are equal.
+    This could potentially allow attackers to use statistical methods to obtain a valid HMAC for an attacker-controlled input value.
+
+    Jenkins 2.219, LTS 2.204.2 now uses a constant-time comparison when validating HMACs.
+- id: SECURITY-1695
+  reporter: Daniel Beck, CloudBees, Inc. and Wadeck Follonier, CloudBees, Inc.
+  title: Diagnostic page exposed session cookies
+  cve: CVE-2020-2103
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:C/C:L/I:L/A:N
+  description: |-
+    Jenkins shows various technical details about the current user on the `/whoAmI` page.
+    In https://jenkins.io/security/advisory/2019-09-25/#SECURITY-1505[a previous fix], the `Cookie` header value containing the HTTP session ID was redacted.
+    However, user metadata shown on this page could also include the HTTP session ID in Jenkins 2.218 and earlier, LTS 2.204.1 and earlier.
+
+    This allows attackers able to exploit a cross-site scripting vulnerability to obtain the HTTP session ID value from this page.
+
+    Jenkins 2.219, LTS 2.204.2 no longer prints out the affected user metadata that might contain the HTTP session ID.
+
+    Additionally, we also redact values of further authentication-related HTTP headers in addition to `Cookie` on this page as a hardening.
+- id: SECURITY-1650
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Memory usage graphs accessible to anyone with Overall/Read
+  cve: CVE-2020-2104
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    Jenkins includes a feature that shows a JVM memory usage chart for the Jenkins master.
+
+    Access to the chart in Jenkins 2.218 and earlier, LTS 2.204.1 and earlier requires no permissions beyond the general Overall/Read, allowing users who are not administrators to view JVM memory usage data.
+
+    Jenkins 2.219, LTS 2.204.2 now requires Overall/Administer permissions to view the JVM memory usage chart.
+- id: SECURITY-1704
+  reporter: Michele Romano
+  title: Jenkins REST APIs vulnerable to clickjacking
+  cve: CVE-2020-2105
+  cvss:
+    severity: Low
+    vector: CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N
+  description: |-
+    Jenkins 2.218 and earlier, LTS 2.204.1 and earlier does not serve the `X-Frame-Options: deny` HTTP header on REST API responses to protect against clickjacking attacks.
+    An attacker could exploit this by routing the victim through a specially crafted web page that embeds a REST API endpoint in an iframe and tricking the user into performing an action which would allow for the attacker to learn the content of that REST API endpoint.
+
+    Jenkins 2.219, LTS 2.204.2 now adds the `X-Frame-Options: deny` HTTP header to REST API responses, which prevents these types of clickjacking attacks.
+- id: SECURITY-1680
+  reporter: Federico Pellegrin
+  title: Stored XSS vulnerability in PLUGIN_NAME
+  cve: CVE-2020-2106
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N
+  description: |-
+    PLUGIN_NAME 1.1.2 and earlier does not escape the filename of the coverage report used in its view.
+
+    This results in a stored cross-site scripting vulnerability that can be exploited by users able to change the job configuration.
+
+    PLUGIN_NAME 1.1.3 escapes the filename of the coverage report used in its view.
+  plugins:
+  - name: code-coverage-api
+    previous: 1.1.2
+    fixed: 1.1.3
+- id: SECURITY-1565
+  reporter: James Holderness, IB Boost
+  title: PLUGIN_NAME stored credentials in plain text
+  cve: CVE-2020-2107
+  cvss:
+    severity: Medium
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME 19.1.29 and earlier stored its proxy server password unencrypted in job `config.xml` files.
+    This password could be read by users with the Extended Read permission.
+
+    PLUGIN_NAME 19.2.30 now encrypts the proxy server password.
+  plugins:
+  - name: fortify
+    previous: 19.1.29
+    fixed: 19.2.30
+- id: SECURITY-1719
+  reporter: Cheng Gao, Alibaba Cloud Intelligence Security Team, https://www.aliyun.com/
+  title: XXE vulnerability in PLUGIN_NAME
+  cve: CVE-2020-2108
+  cvss:
+    severity: High
+    vector: CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:L
+  description: |-
+    PLUGIN_NAME 1.6.1 and earlier does not configure the XML parser to prevent XML external entity (XXE) attacks.
+    This could be exploited by a user with Job/Configure permissions to upload a specially crafted war file containing a `WEB-INF/ibm-web-ext.xml` which is parsed by the plugin.
+
+    As of publication of this advisory, there is no fix.
+  plugins:
+  - name: websphere-deployer
+    previous: 1.6.1

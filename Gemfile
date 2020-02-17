@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'colorize'
-gem 'awestruct', '~> 0.6.0.alpha3'
+gem 'awestruct', '0.6.0.RC1'
 gem 'awestruct-ibeams', '~> 0.4'
 gem 'asciidoctor-jenkins-extensions'
 gem 'asciidoctor', '~> 1.5.8'

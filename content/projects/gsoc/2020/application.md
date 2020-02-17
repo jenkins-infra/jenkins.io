@@ -13,20 +13,16 @@
 The data below represents the 2020 GSoC application draft.
 Please feel free to contribute to it by proposing pull requests against the page.
 
-### TODOs:
-
-* Define the Jenkins X status: do they apply with Jenkins or as a separate org? (ETA - end of January)
-* Review text / labels / etc.
-
 ### Organization Profile
 
+* Website URL: https://jenkins.io/
 * Tagline (up to 80 symbols): Open-source automation server for building great things at any scale
 * Technology tags (max 5):
   * java
-  * groovy
   * javascript
   * docker
   * kubernetes
+  * go
 * Topic Tags (max 5)
   * continuous integration
   * continuous delivery
@@ -41,96 +37,103 @@ Please feel free to contribute to it by proposing pull requests against the page
 #### Short description
 
 Jenkins is an open source automation server. 
-Built primarily in Java, it provides hundreds of plugins to support building, testing, deploying and automating virtually any project.
+It provides hundreds of plugins to support building, testing, deploying and automating virtually any project.
 
 #### Long description (Markdown)
 
 [Jenkins](https://jenkins.io/), originally founded in 2006 as "Hudson", is one of the leading automation servers. 
 Jenkins' motto is "Build great things at any scale".
 Using an extensible, plugin-based architecture developers have created hundreds of plugins to adapt Jenkins to a multitude of build, test, and deployment automation workloads. 
-Jenkins core is open-source ([MIT License](https://www.opensource.org/licenses/mit-license.php))
+Jenkins is open-source, [MIT License](https://www.opensource.org/licenses/mit-license.php) is used for most of the components.
 
-The project has about 600 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc. 
+The project has about 600 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc.
 In total we have more than 2000 components including plugins, libraries, and various utilities. 
-The main languages in the project are Java, Groovy and JavaScript, 
+The main languages in the project are Java, Groovy and JavaScript,
 but we also have components written in other languages (Go, C/C++, C#, etc.).
-Jenkins project also includes multiple 
-[sub-projects](https://jenkins.io/projects/) (including [Jenkins X](https://jenkins-x.io/), 
-[Configuration-as-Code](https://jenkins.io/projects/jcasc/) 
+Jenkins project includes multiple
+[sub-projects](https://jenkins.io/projects/) (including 
+[Configuration-as-Code](https://jenkins.io/projects/jcasc/),
+[Infrastructure](https://jenkins.io/projects/infrastructure/)
 and [Remoting](https://jenkins.io/projects/remoting/)) and 
 [special interest groups](https://jenkins.io/sigs/).
-These projects and SIGs participate in GSoC as a part of the Jenkins project.
+These entities participate in GSoC as a part of the Jenkins project.
+[Jenkins X](https://jenkins-x.io/) also participates in GSoC under umbrella of the Jenkins project.
 
-This year we invite students to join the Jenkins community and to work together on Jenkins plugins in order to improve Jenkins user experience and reliability.
+This year we invite students to join the Jenkins community and to work together to improve Jenkins user experience and reliability.
+We have many strategic project ideas which are important to hundreds of thousands of Jenkins users.
 
-#### Proposal process:
+#### Proposal process
 
-In order to apply to the organization, please follow the [guidelines posted on our website](https://jenkins.io/projects/gsoc/students/#student-application-process). 
+First of all, thanks for your interest!
+In order to apply to the organization, please follow the [guidelines on our website](https://jenkins.io/projects/gsoc/students/#student-application-process).
 
-Before submitting please go through the page (including the expectations section) and through the [Student guide](https://google.github.io/gsocguides/student/). 
-Participating in Google Summer of Code is a serious commitment requiring an almost full-time dedication over several months. 
-If it may overlap with your study and other commitments, we recommend to think twice before applying.
+Before submitting please go through the [GSoC student guide](https://google.github.io/gsocgides/student/)
+and through [our student guide](https://jenkins.io/projects/gsoc/students/) which documents the Jenkins specifics.
+Participating in Google Summer of Code is a major time commitment requiring an almost full-time dedication over several months.
+If it may overlap with your study, internship, work or other commitments, we recommend to think twice before applying.
 
-If you have any questions about the application process, 
-please feel free to contact us via the mailing list or the chat.
+If you have any questions about the application process,
+please feel free to contact us via the [mailing list](https://groups.google.com/forum/#!forum/jenkinsci-gsoc-all-public) or in the [jenkinsci/gsoc-sig Gitter chat](https://gitter.im/jenkinsci/gsoc-sig).
+We also have [weekly meetings](https://jenkins.io/projects/gsoc/#office-hours) which are open to everyone.
 
 #### Proposal tags (max - 10)
+
+TODO: Adjust according to project ideas
 
 * user experience
 * plugins
 * performance
-* developer tools
-* electronic design automation
-* web interfaces
+* tools
 * REST API
 * cloud technologies
-* containers
 * configuration-as-code
+* Jenkins X
+* machine learning
+* electronic design automation
 
-#### Contents
+#### Contacts
 
 * Chat page URL: https://gitter.im/jenkinsci/gsoc-sig
 * Mailing list page URL: https://jenkins.io/projects/gsoc/#contacts 
 * General-purpose e-mail: jenkinsci-gsoc-all-public@googlegroups.com
+* Twitter: https://twitter.com/jenkinsci
+* Blog: https://jenkins.io/node/
 
 ### Application
 
 #### Why does your org want to participate in Google Summer of Code?
 
-In our community we are interested in more contributors in both Jenkins core and more than 1,000 of existing plugins. 
-We consider Google Summer of Code as an opportunity to find new contributors and students interested in software development automation (continuous integration and continuous delivery). 
-For us it is also a great opportunity to get existing contributors more involved into the community work. 
-We have previously participated in GSoC 2016-2019 and got much experience from it, especially regarding the student selection process. 
+In our community we are interested to have more contributors in both the Jenkins core and 1,700+ existing plugins. 
+We consider GSoC as an opportunity to find new contributors and students interested in software development automation (continuous integration and continuous delivery).
+It also helps to get existing contributors more involved into the community work.
+We have previously participated in GSoC 2016-2019 and got much experience from it, especially regarding the student selection process.
 We hope this will help us to improve student/mentor experience and overall results this year.
 
 #### How many potential mentors have agreed to participate?
 
-TODO
+16-20
 
 #### How will you keep mentors engaged with their students?
 
+* We have explicit expectations from mentors, they are documented in [our mentor guidelines](https://jenkins.io/projects/gsoc/mentors). All mentors commit on these expectations during the project selection.
 * Each student project will have at least 2+ mentors AND an org admin advisor assigned to the project.
 * Mentors are expected to be accomplished Jenkins contributors, who are passionate about the community/mentorship work.
 * Mentors bring their own project, and they are expected to have a high interest in it
 * Mentors will be directly involved into student selection and interview processes so they will establish connection with successful students early
-* We do not require mentors to be experts in the code base, because we expect students to work with other community members.
-* Starting from Dec 2018 we conduct [weekly meetings](https://jenkins.io//projects/gsoc/#office-hours) between mentors and org admins to sync-up on progress and any issues:
-* As org admins we will be monitoring mentor/student interaction starting from the application phase. If something goes wrong, as org admins we will jump in and/or find additional mentors
+* We conduct [weekly meetings](https://jenkins.io//projects/gsoc/#office-hours) between mentors and org admins to sync-up on progress and any issues
+* Org admins will be monitoring mentor/student interaction starting from the application phase and intervene if needed
+* There will be regular sync-ups between org admins and mentors
 
-
-<!-- DOES NOT FIT the form size
-* There will be a private communication channel between org admins and mentors. 
--->
 
 #### How will you help your students stay on schedule to complete their projects?
 
-* During the Community Bonding phase mentors will share their expertise in order to define realistic project plans, design document, and effort estimations.
+* During the Application phase and Community Bonding phase mentors will share their expertise to define realistic project plans.
 * The student project milestones will be discussed and confirmed between mentors and students. 
   Milestones will be aligned with student evaluations and will have clear expectations set up.
 * Mentors will set up regular meetings with students (at least twice per week) in order to sync-up on projects. 
-  We will also recommend having retrospectives with students after evaluations.
+  We expect retrospectives with students after each evaluation.
 * Mentors should be available for questions. 
-They should also provide a periodic feedback on the progress of the project and on the performance of particular students (1x1).
+  They should also provide a periodic feedback on the progress and on the performance of particular students (1x1).
 * We will set up weekly public office-hours with students (or two meetings if time-zones require it) and private ones between mentors and org admins to sync-up
 * We will be requiring a daily push to branches so that the students always show the progress and keep changes atomic.
 
@@ -138,36 +141,42 @@ They should also provide a periodic feedback on the progress of the project and 
 * During the coding period, mentors will participate in the code reviews of their student and report to org admins if the project stalls.
 -->
 
-#### How will you get your students involved in your community during GSoC? 
-         
-* Students will cooperate with Jenkins community during the project. 
-  Org Admins will provide an introductory training (community overview, code-of-conduct, etc.), 
-  then mentors will help students to establish contacts with experts from the community
-* We will ensure that students are around in public chats and other communication channels during the “working days”
+#### How will you get your students involved in your community during GSoC?
+
+* Students will cooperate with Jenkins community during the project.
+  Community Bonding will be a critical phase for us.
 * Projects will handled under an umbrella of
   [SIGs](https://jenkins.io/sigs) or [sub-projects](https://jenkins.io/projects)
   so that there is a number of non-mentor stakeholders and early adopters
-* Students will be involved into all standard processes in our community (including pull requests, code reviews, IRC/Gitter discussions, test automation for their projects, documentation development, etc.).
-* Students will be participating in sub-project/SIG meetings and presenting their work there on a regular basis
+* Students will be participating in sub-project/SIG meetings and presenting their work on a regular basis
+* Org Admins will provide an introductory training (community overview, code-of-conduct, etc.), 
+  then mentors will help students to establish contacts with experts from the community
+* We expect students to be around in public chats and other communication channels during the “working days”
+* Students will be involved into all standard processes in our community (pull requests, code reviews, chats and mailing lists, test automation, documentation, online meetups, etc.).
 * Students will be encouraged to give updates to the wider community in the Jenkins blog
 
 #### How will you keep students involved with your community after GSoC?
 
-* There will be a [DevOps World - Jenkins World conference](https://www.cloudbees.com/jenkinsworld/home) in USA in August 2019 and then in Europe in Dec 2019. 
-  We plan sponsoring successful students to go to this or other Jenkins-focused conference & contributor summit.
+* We plan to sponsor successful students' travel and attendance at a Jenkins-focused conference and/or contributor summit.
   The projects will be also presented at the [Jenkins Online Meetup](https://www.meetup.com/Jenkins-online-meetup/).
-* Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course). 
+* Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course).
   Public presentations will attract attention, and the students will be periodically contacted by users.
-* Students will be also advised to present their projects at local Jenkins Area Meetups (https://jenkins.io/projects/jam)
-* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/). 
-  The students will be visible in the community even after GSoC
+* Students will be also advised to present their projects at local meetups
+* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/).
+* We recommend mentors to have monthly sync-ups with the students to follow-up on projects and other events in Jenkins
+* We will invite students to participate in other community outreach activities like GSoC or Hacktoberfest
 
 #### Has your org been accepted as a mentoring org in Google Summer of Code before?
+
 Yes, in 2016, 2018 and 2019
 
-2019: 5/7
-2018: 2/3 (+1 cancelled project during community bonding)
-2016: 1/5 (3 students have been failed due to major undisclosed time commitments, which impacted the project quality at the first coding phase)
+* 2019: 5/7
+* 2018: 2/3 (+1 cancelled project during community bonding)
+* 2016: 1/5 (3 students have been failed due to major undisclosed time commitments, which impacted the project quality at the first coding phase)
+
+### Is there an organization new to GSoC that you would like to refer to the program for 2020? Feel free to add a few words about why they'd be a good fit.
+
+TODO
 
 #### If your org has applied for GSoC before but not been accepted, select the years
 2009, 2017
@@ -187,6 +196,10 @@ https://github.com/jenkins-x/ ,
 https://github.com/jenkins-infra/ ,
 https://github.com/jenkins-zh/
 
+#### Is your organization part of any government?
+
+No
+
 #### Are you part of a foundation/umbrella organization?
 Yes, Jenkins is transitioning between two organizations at this time:
 
@@ -195,6 +208,6 @@ Yes, Jenkins is transitioning between two organizations at this time:
 
 #### Anything else we should know (optional)?
 
-Jenkins project migrates from SPI to Continuous Delivery Foundation this year. 
+The Jenkins project is migrating from Software in the Public Interest, Inc. (https://spi-inc.org) to Continuous Delivery Foundation (https://cd.foundation/about/) this year. 
 GSoC org admins closely monitor this topic, 
 and we will change the payment instructions for the project.

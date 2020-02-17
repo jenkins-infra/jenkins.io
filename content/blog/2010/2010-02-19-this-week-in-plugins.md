@@ -12,42 +12,39 @@ Last week's TWIP enumerated the release of **26** different plugin, this past we
 
 Making their Hudson debut are the following
 
-* [Slave Monitor for system load average](https://wiki.jenkins.io/display/JENKINS/System+Load+Average+Monitor+Plugin)
-* [Tool Environment plugin](https://wiki.jenkins.io/display/JENKINS/Tool+Environment+Plugin)
-* [Ivy plugin](https://wiki.jenkins.io/display/JENKINS/Ivy+Plugin)
+* [Slave Monitor for system load average](https://plugins.jenkins.io/systemloadaverage-monitor)
+* [Tool Environment plugin](https://plugins.jenkins.io/toolenv)
+* [Ivy plugin](https://plugins.jenkins.io/ivy)
 
 If you're interested in contributing to an existing plugin, or building your own, I highly recommend checking out the [plugin tutorial](https://wiki.jenkins.io/display/JENKINS/Plugin+tutorial) and joining the [dev@ mailing list](https://hudson.dev.java.net/servlets/ProjectMailingListList). That said, here are this week's releases, starting with last Friday.
 
 
 
 * **Feb 12th, 2010**
-  * [File System SCM 1.6 released](https://wiki.jenkins.io/display/JENKINS/File+System+SCM)
-  * [JIRA plugin 1.19 released](https://wiki.jenkins.io/display/JENKINS/JIRA+Plugin)
-  * [Job Configuration History Plugin 1.2 released](https://wiki.jenkins.io/display/JENKINS/JobConfigHistory+Plugin)
-  * [MSTest plugin 0.6 released](https://wiki.jenkins.io/display/JENKINS/MSTest+Plugin)
-  * [Slave Monitor for system load average 1.1 released](https://wiki.jenkins.io/display/JENKINS/System+Load+Average+Monitor+Plugin)
-  * [Template Project plugin 1.2 released](https://wiki.jenkins.io/display/JENKINS/Template+Project+Plugin)
+  * [File System SCM 1.6 released](https://plugins.jenkins.io/filesystem_scm)
+  * [JIRA plugin 1.19 released](https://plugins.jenkins.io/jira)
+  * [Job Configuration History Plugin 1.2 released](https://plugins.jenkins.io/jobconfighistory)
+  * [MSTest plugin 0.6 released](https://plugins.jenkins.io/mstest)
+  * [Slave Monitor for system load average 1.1 released](https://plugins.jenkins.io/systemloadaverage-monitor)
+  * [Template Project plugin 1.2 released](https://plugins.jenkins.io/template-project)
 
 * **Feb 13th, 2010**
-  * [xUnit plugin 0.5.2 released](https://wiki.jenkins.io/display/JENKINS/xUnit+Plugin)
+  * [xUnit plugin 0.5.2 released](https://plugins.jenkins.io/xunit)
 
 * **Feb 14th, 2010**
-  * [Amazon EC2 plugin 1.6 released](https://wiki.jenkins.io/display/JENKINS/Amazon+EC2+Plugin)
-  * [Build Secret plugin 1.5 released](https://wiki.jenkins.io/display/JENKINS/Build+Secret+Plugin)
-  * [Dependency Analyzer Plugin 0.5 released](https://wiki.jenkins.io/display/JENKINS/Dependency+Analyzer+Plugin)
-  * [DocLinks plugin 0.3 released](https://wiki.jenkins.io/display/JENKINS/DocLinks+Plugin)
-  * [Grails plugin 1.1 released](https://wiki.jenkins.io/display/JENKINS/Grails+Plugin)
-  * [Tool Environment plugin 1.0 released](https://wiki.jenkins.io/display/JENKINS/Tool+Environment+Plugin)
+  * [Amazon EC2 plugin 1.6 released](https://plugins.jenkins.io/ec2)
+  * [Dependency Analyzer Plugin 0.5 released](https://plugins.jenkins.io/dependencyanalyzer)
+  * [DocLinks plugin 0.3 released](https://plugins.jenkins.io/doclinks)
+  * [Tool Environment plugin 1.0 released](https://plugins.jenkins.io/toolenv)
 
 * **Feb 15th, 2010**
-  * [Artifactory Plugin 1.0.6 released](https://wiki.jenkins.io/display/JENKINS/Artifactory+Plugin)
-  * [Dimensions SCM plugin 0.6.8 released](https://wiki.jenkins.io/display/JENKINS/Dimensions+Plugin)
-  * [Perforce Plugin 1.0.20 released](https://wiki.jenkins.io/display/JENKINS/Perforce+Plugin)
+  * [Artifactory Plugin 1.0.6 released](https://plugins.jenkins.io/artifactory)
+  * [Dimensions SCM plugin 0.6.8 released](https://plugins.jenkins.io/dimensions)
 
 * **Feb 16th, 2010**
-  * [HTML Publisher plugin 0.2.2 released](https://wiki.jenkins.io/display/JENKINS/HTML+Publisher+Plugin)
+  * [HTML Publisher plugin 0.2.2 released](https://plugins.jenkins.io/htmlpublisher)
 
 * **Feb 17th, 2010**
-  * [Ivy plugin 1.0 released](https://wiki.jenkins.io/display/JENKINS/Ivy+Plugin)
-  * [JBoss Management Plugin 1.0.2 released](https://wiki.jenkins.io/display/JENKINS/JBoss+Management+Plugin)
+  * [Ivy plugin 1.0 released](https://plugins.jenkins.io/ivy)
+  * [JBoss Management Plugin 1.0.2 released](https://plugins.jenkins.io/jboss)
 <!--break-->
