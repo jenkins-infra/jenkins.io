@@ -1,0 +1,286 @@
+=== Networking parameters
+
+Jenkins networking configuration is generally controlled by command line arguments.
+The networking configuration areguments are:
+
+.Jenkins Networking Command Line Parameters
+[cols=",",options="header",]
+|===
+|Command Line Parameter
+|Description
+
+|`--httpPort=$HTTP_PORT`
+|Runs Jenkins listener on port $HTTP_PORT using standard _http_ protocol.
+The default is port 8080.
+To disable (because you're using _https_), use port `+-1+`.
+This option does not impact the root URL being generated within Jenkins logic (UI, JNLP files, etc.).
+It is defined by the Jenkins URL specified in the global configuration.
+
+|`--httpListenAddress=$HTTP_HOST`
+|Binds Jenkins to the IP address represented by $HTTP_HOST.
+The default is 0.0.0.0 — i.e. listening on all available interfaces.
+For example, to only listen for requests from localhost, you could use:
+`--httpListenAddress=127.0.0.1`
+
+|`--httpsPort=$HTTPS_PORT`
+|Uses HTTPS protocol on port $HTTPS_PORT.
+This option does not impact the root URL being generated within Jenkins logic (UI, JNLP files, etc.).
+It is defined by the Jenkins URL specified in the global configuration.
+
+|`--httpsListenAddress=$HTTPS_HOST`
+|Binds Jenkins to listen for HTTPS requests on the IP address represented by $HTTPS_HOST.
+
+|`--http2Port=$HTTP_PORT`
+|Uses HTTP/2 protocol on port $HTTP_PORT.
+This option does not impact the root URL being generated within Jenkins logic (UI, JNLP files, etc.).
+It is defined by the Jenkins URL specified in the global configuration.
+
+|`--http2ListenAddress=$HTTPS_HOST`
+|Binds Jenkins to listen for HTTP/2 requests on the IP address represented by $HTTPS_HOST.
+
+|`--prefix=$PREFIX`
+|Runs Jenkins to include the $PREFIX at the end of the URL.
+For example, set _--prefix=/jenkins_ to make Jenkins accessible at _\http://myServer:8080/jenkins_
+
+|`--ajp13Port=$AJP_PORT`
+|Runs Jenkins listener on port $AJP_PORT using standard _AJP13_ protocol.
+The default is port 8009.
+To disable (because you're using _https_), use port `+-1+`.
+
+|`--ajp13ListenAddress=$AJP_ADDR`
+|Binds Jenkins to the IP address represented by $AJP_HOST.
+The default is 0.0.0.0 — i.e. listening on all available interfaces.
+
+|`--sessionTimeout=$TIMEOUT`
+|Sets the http session timeout value
+to $SESSION_TIMEOUT minutes. Default to what webapp specifies, and then
+to 60 minutes
+|===
+
+=== Miscellaneous parameters
+
+Other Jenkins initialization configuration is also controlled by command line arguments.
+The miscellaneous configuration arguments are:
+
+.Jenkins Miscellaneous Command Line Parameters
+[cols=",",options="header",]
+|===
+|Command Line Parameter
+|Description
+
+|`--argumentsRealm.passwd.$USER=$PASS`
+|Assigns the password for user $USER.
+If Jenkins security is enabled, you must log in as a user who has an _admin_ role to configure Jenkins.
+
+|`--argumentsRealm.roles.$USER=admin`
+|Assigns user $USER the admin  role.
+The user can configure Jenkins even if security is enabled in Jenkins.
+See link:/doc/book/system-administration/security/[Securing Jenkins] for more information.
+
+|`--useJmx`
+|Enable link:https://www.eclipse.org/jetty/documentation/9.4.26.v20200117/jmx-chapter.html[Jetty Java Management Extension (JMX)]
+|===
+
+Jenkins passes all command line parameters to the Winstone servlet container.
+More information about Jenkins Winstone command line parameters is available from the
+link:https://github.com/jenkinsci/winstone#command-line-options[Winstone Command Line Parameter Reference].
+
+CAUTION: *Be Careful with Command Line Parameters* +
+Jenkins ignores command line parameters it doesn't understand instead of
+producing an error. Be careful when using command line parameters and
+make sure you have the correct spelling. For example, the parameter
+needed for defining the Jenkins administrative user is
+`--argument**s**Realm` and not `--argumentRealm`.
+
+=== Jenkins properties
+
+Some Jenkins behaviors are configured with Java properties.
+Java properties are set from the command line that started Jenkins.
+Property assignments use the form `-DsomeName=someValue` to assign the value `someValue` to the property named `someName`.
+For example, to assign the value `true` to a property `testName`, the command line argument would be `-DtestName=true`.
+
+Refer to the detailed list of link:https://wiki.jenkins.io/display/JENKINS/Features+controlled+by+system+properties#Featurescontrolledbysystemproperties-PropertiesinJenkinsCore[Jenkins properties] for more information.
+
+== Configuring HTTP
+
+=== HTTPS with an existing certificate
+
+If you're setting up Jenkins using the built-in Winstone server and want
+to use an existing certificate for HTTPS:
+
+[source,bash]
+----
+--httpPort=-1 \
+--httpsPort=443 \
+--httpsKeyStore=path/to/keystore \
+--httpsKeyStorePassword=keystorePassword
+----
+
+The keystore should be in JKS format (as created by the JDK 'keytool')
+and the keystore and target key must have the same password. (Placing
+the keystore arguments after Jenkins-specific parameters does not seem
+to work; either they are not forwarded to Winstone or Winstone ignores
+them coming after unknown parameters. So, make sure they are adjacent to
+the working `+--httpsPort+` argument.)
+
+If your keystore contains multiple certificates (e.g. you are using CA
+signed certificate) Jenkins might end-up using a incorrect one. In this
+case you can
+http://stackoverflow.com/questions/7528944/convert-ca-signed-jks-keystore-to-pem[convert
+the keystore to PEM] and use following command line options:
+
+[source,bash]
+----
+--httpPort=-1 \
+--httpsPort=443 \
+--httpsCertificate=path/to/cert \
+--httpsPrivateKey=path/to/privatekey
+----
+
+=== Using HTTP/2
+
+With Java 8 will not use HTTP/2 unless alpn boot jar is included in the bootclasspath.
+The alpn boot jar depends on your jvm version.
+Refer to the link:https://www.eclipse.org/jetty/documentation/9.4.26.v20200117/alpn-chapter.html#alpn-versions[Jetty documentation] to select the required version.
+
+You can download the required version from the link:https://repo.maven.apache.org/maven2/org/mortbay/jetty/alpn/alpn-boot/[Apache maven repository].
+
+Then you have to include it on jvm start:
+
+[source,bash]
+----
+java -Xbootclasspath/p:alpn-boot-8.1.12.v20180117.jar \
+    -jar target/jenkins.war \
+    --http2Port=9090
+----
+
+=== HTTPS certificates with Windows
+
+Creating a certificate for use within Jenkins.
+These instructions use a stock Jenkins installation on Windows Server.
+The instructions assume a certificate signed by a Certificate Authority such as Digicert.
+If making your own certificate skip steps 3, 4, and 5.
+
+This process utilizes Java's keytool.
+Use the Java `keytool` included with your Java installation.
+
+*Step 1*: Create a new keystore on your server. This will place a
+'keystore' file in your current directory.
+
+[source]
+----
+C:\>keytool -genkeypair -keysize 2048 -keyalg RSA -alias jenkins -keystore keystore
+Enter keystore password:
+Re-enter new password:
+What is your first and last name?
+[Unknown]: server.example.com
+What is the name of your organizational unit?
+[Unknown]: A Unit
+What is the name of your organization?
+[Unknown]: A Company
+What is the name of your City or Locality?
+[Unknown]: A City
+What is the name of your State or Province?
+[Unknown]: A State
+What is the two-letter country code for this unit?
+[Unknown]: US
+Is CN=server.example.com, OU=A Unit, O=A Company, L=A City, ST=A State, C=US correct?
+[no]: yes
+
+Enter key password for <jenkins>
+(RETURN if same as keystore password):
+----
+
+*Step 2*: Verify the keystore was created (your fingerprint will vary)
+
+[source]
+----
+C:\>keytool -list -keystore keystore
+Enter keystore password:
+
+Keystore type: JKS
+Keystore provider: SUN
+
+Your keystore contains 1 entry
+
+jenkins, May 6, 2015, PrivateKeyEntry,
+Certificate fingerprint (SHA1): AA:AA:AA:AA:AA:AA:AA:AA:AA:AA ...
+----
+
+*Step 3*: Create the certificate request.  This will create a
+'certreq.csr' file in your current directory.
+
+[source]
+----
+C:\>keytool -certreq -alias jenkins -keyalg RSA ^
+-file certreq.csr ^
+-ext SAN=dns:server-name,dns:server-name.your.company.com ^
+-keystore keystore
+Enter keystore password:
+----
+
+*Step 4*: Use the contents of the `+certreq.csr+` file to generate a
+certificate from your certificate provider. Request a SHA-1 certificate
+(SHA-2 is untested but will likely work). If using DigiCert, download
+the resulting certificate as Other format  "a .p7b bundle of all the
+certs in a .p7b file".
+
+*Step 5*: Add the resulting .p7b into the keystore you created above.
+
+[source]
+----
+C:\>keytool -import ^
+-alias jenkins ^
+-trustcacerts ^
+-file response_from_digicert.p7b ^
+-keystore keystore
+Enter keystore password:
+Certificate reply was installed in keystore
+----
+
+*Step 6*: Copy the 'keystore' file to your Jenkins secrets directory. On a
+stock installation, this will be at
+
+[source]
+----
+C:\Program Files (x86)\Jenkins\secrets
+----
+
+*Step 7*: Modify the <arguments> section of your
+`+C:\Program Files (x86)\Jenkins\jenkins.xml+` file to reflect the new
+certificate. Note: This example disables http via `+--httpPort=-1+` and
+places the server on `+8443+` via `+--httpsPort=8443+`.
+
+[source,xml]
+----
+<arguments>
+  -Xrs
+  -Xmx256m
+  -Dhudson.lifecycle=hudson.lifecycle.WindowsServiceLifecycle
+  -jar "%BASE%\jenkins.war"
+  --httpPort=-1
+  --httpsPort=8443
+  --httpsKeyStore="%BASE%\secrets\keystore"
+  --httpsKeyStorePassword=your.password.here
+</arguments>
+----
+
+*Step 8*: Restart the jenkins service to initialize the new configuration.
+
+[source]
+----
+net stop jenkins
+net start jenkins
+----
+
+*Step 9*: After 30-60 seconds, Jenkins will have completed the startup
+process and you should be able to access the website at _\https://server.example.com:8443_.
+Verify the certificate looks good via your browser's tools.
+If the service terminates immediately, there's an error somewhere in your configuration.
+Useful error information can be found in:
+
+[source]
+----
+C:\Program Files (x86)\Jenkins\jenkins.err.log
+C:\Program Files (x86)\Jenkins\jenkins.out.log
+----
