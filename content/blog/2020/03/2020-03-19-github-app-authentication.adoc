@@ -1,0 +1,70 @@
+---
+layout: post
+title: "GitHub app authentication released"
+tags:
+- github
+- github-branch-source
+author: timja
+---
+
+I'm excited to announce support for authenticating as a GitHub app in Jenkins.
+
+It has been released in link:https://github.com/jenkinsci/github-branch-source-plugin/releases/tag/github-branch-source-2.7.0[GitHub Branch Source 2.7.0]
+
+This has been a long awaited feature by many users,
+
+It brings many benefits:
+
+* the rate limit for a GitHub app scales with your organization size, 
+whereas a user based token has a limit of 5000 regardless of how many repositories you have,
+
+* for organization’s that have 2fa enforced - no need to manage 2fa tokens for a 'bot' user
+
+* to improve and tighten security: the Jenkins GitHub app requires a minimum, controlled set of privileges compared to a service user and its personal access token which has a much wider set of privileges
+
+== Getting started
+
+Install the link:https://plugins.jenkins.io/github-branch-source/[GitHub Branch Source plugin],
+make sure the version is at least 2.7.0.
+
+Follow the link:https://github.com/jenkinsci/github-branch-source-plugin/blob/master/docs/github-app.adoc[setup guide], it's also linked to from the plugins README on GitHub.
+
+Once you've finished setting it up, Jenkins will validate your credential and you should see your new rate limit,
+here's an example on a large org:
+
+image:/images/github-app-rate-limit.png[GitHub app rate limit]
+
+== How do I get an API token in my pipeline?
+
+You can access the Bearer token for the GitHub API by just loading a 'Username/ Password' credential as usual,
+the plugin will handle authenticating with GitHub in the background:
+
+[source, groovy]
+----
+
+pipeline {
+  agent any
+
+  stages{
+    stage('Check run') { 
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'githubapp-jenkins', usernameVariable: 'GITHUB_APP', passwordVariable: 'GITHUB_JWT_TOKEN')]) {
+            sh '''
+            curl -H "Content-Type: application/json" -H "Accept: application/vnd.github.antiope-preview+json" -H "authorization: Bearer ${GITHUB_JWT_TOKEN}" -d '{ "name": "check_run", "head_sha": "'${GIT_COMMIT}'", "status": "in_progress", "external_id": "42", "started_at": "2020-03-05T11:14:52Z", "output": { "title": "Check run from Jenkins!", "summary": "This is a check run which has been generated from Jenkins as GitHub App", "text": "...and that iss awesome"}}' https://api.github.com/repos/<org>/<repo>/check-runs
+            '''
+        }
+      }
+    }
+  }
+}
+
+
+----
+
+== What's next
+
+There's a proposed Google Summer of Code project: link:https://jenkins.io/projects/gsoc/2020/project-ideas/github-checks/[GitHub Checks API for Jenkins Plugins]. 
+
+This is looking at integrating with the link:https://developer.github.com/v3/checks/[checks api], with a focus on reporting issues found using the link:https://plugins.jenkins.io/warnings-ng/[warnings-ng plugin] directly onto the GitHub pull request, along with test results summary on GitHub.
+
+If you want to get involved with this join the link:https://gitter.im/jenkinsci/gsoc-sig[gitter channel] and ask how you can help, there's already students sending in their proposals.
