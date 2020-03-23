@@ -1,7 +1,8 @@
-function createRoadmapCategory(categoryName) {
+(function() {
+  function createRoadmapCategory(categoryName) {
     return $('<tr class="status-category"><td class="cat-name"><span>' + categoryName + '</span></td><td></td><td></td><td></td><td></td><td></td></tr>');
   }
-  
+
   function tooltip(item) {
     if (item['description']) {
       return item.description;
@@ -22,7 +23,7 @@ function createRoadmapCategory(categoryName) {
       }
     }
   }
-  
+
   function mapStatusToStyle(status) {
     switch (status) {
         case 'released':
@@ -48,8 +49,8 @@ function createRoadmapCategory(categoryName) {
     return $('<tr class="status-' + mapStatusToStyle(item.status) + '">' + inner + '</tr>')
   }
 
-  
-  
+
+
   function buildTable(roadmap) {
     var rows = [];
     for (var categoryName in roadmap.categories) {
@@ -64,7 +65,7 @@ function createRoadmapCategory(categoryName) {
     $('.roadmap-table tbody').append(rows);
     initToolTips();
   }
-  
+
   function fetchRoadmap() {
     // $('.roadmap-table tbody').empty();
     var req = new XMLHttpRequest();
@@ -75,5 +76,6 @@ function createRoadmapCategory(categoryName) {
     req.open("GET", '/project/roadmap/data.json');
     req.send();
   }
-  
-  $(fetchRoadmap);
+
+  $(document).ready(fetchRoadmap);
+})();
