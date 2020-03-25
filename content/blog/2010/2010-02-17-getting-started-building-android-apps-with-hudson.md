@@ -76,20 +76,20 @@ There is are some issues with this approach however. As you might have noticed:
 * Replacements are done in the workspace, we are not really building __exactly__ what's in svn
 * Each new build should start out fresh for that reason, for example by using the svn revert option.
 
-Additionally I can not yet tag the release version with the updated files, because the [subversion tagging plugin](https://wiki.jenkins.io/display/JENKINS/Subversion+Tagging+Plugin) doesn't support this by design. This could be worked around by adding svn statements in the build.xml however.  For now I don't really mind as I make minor changes to the resource files, but I'll be looking at improving this situation.
+Additionally I can not yet tag the release version with the updated files, because the [subversion tagging plugin](https://plugins.jenkins.io/subversion-tagging) doesn't support this by design. This could be worked around by adding svn statements in the build.xml however.  For now I don't really mind as I make minor changes to the resource files, but I'll be looking at improving this situation.
 
 ## Things to add: unit testing, coverage...
-One thing that I'd really like to add is unit testing. This is a little bit more complicated though, since unit tests require a running emulator and a running emulator requires a gui. The Hudson [Xvnc](https://wiki.jenkins.io/display/JENKINS/Xvnc+Plugin) plugin could be very helpful here.
+One thing that I'd really like to add is unit testing. This is a little bit more complicated though, since unit tests require a running emulator and a running emulator requires a gui. The Hudson [Xvnc](https://plugins.jenkins.io/xvnc) plugin could be very helpful here.
 
-The Android build scripts for test projects already include [EMMA](https://emma.sourceforge.net/) output, it shouldn't be to hard to use the Hudson [plugin](https://wiki.jenkins.io/display/JENKINS/Emma+Plugin) for that.
+The Android build scripts for test projects already include [EMMA](http://emma.sourceforge.net/) output, it shouldn't be to hard to use the Hudson [plugin](https://plugins.jenkins.io/emma) for that.
 
-When Hudson is running on a local machine, the [Batch task](https://wiki.jenkins.io/display/JENKINS/Batch+Task+Plugin) plugin can automate installing the apk on a device to automate things further.
+When Hudson is running on a local machine, the [Batch task](https://plugins.jenkins.io/batch-task) plugin can automate installing the apk on a device to automate things further.
 
 ## Summary
 Building Android applications with Hudson is not that hard, since the builds are based on Ant. By hooking in to the standard Android build targets it's easy to update files like *AndroidManifest.xml* which in turn makes sure the release process is controlled and predictable.  
 Android unit tests depend on the emulator which is a little bit more challenging to set up, but Hudson already has some plugins available to make this easier.
 
 ----
-**Editor's Note:** Hugo Visser is the developer of [Rainy Days](https://code.neenbedankt.com/my-first-published-android-app-rainy-days) and [Engine Watch](https://code.neenbedankt.com/monitor-your-app-engine-application-from-your) for Android. You can
+**Editor's Note:** Hugo Visser is the developer of [Rainy Days](https://code.neenbedankt.com/my-first-published-android-app-rainy-days) and [Engine Watch](https://code.neenbedankt.com/monitor-your-app-engine-application-from-your-pocket-with-engine-watch-for-android/) for Android. You can
 follow him [on Twitter](https://twitter.com/botteaap) and [on his blog](https://code.neenbedankt.com).
 <!--break-->

@@ -1,0 +1,85 @@
+---
+layout: gsocprojectidea
+title: "Git plugin performance improvements"
+goal: "Improve git plugin performance"
+category: Plugins
+year: 2020
+status: published
+sig: platform
+mentors:
+- "markewaite"
+- "fcojfernandez"
+- "oleg_nenashev"
+skills:
+- Java
+- Git
+- Benchmarking
+- JMH
+links:
+  gitter: "jenkinsci/git-plugin"
+  draft: https://docs.google.com/document/d/1bmpgW_8cg38ulp0uFdn2BRfVlIrZ03FFhWpe0MVHyyI
+---
+
+Improve Jenkins git plugin performance by fixing known issues in performance critical areas.
+Implement performance comparisons between the command line git and JGit implementations using the Java Microbenchmark Harness.
+Improve the performance of git operations that use the command line git implementation by selectively replacing CLI implementations with JGit when benchmarks show a significant performance gain.
+
+=== Fix Known Issues - Avoid Redundant Fetch
+
+The Jenkins git plugin copies remote git repositories into Jenkins workspaces on agents as part of a 'checkout'.
+The checkout creates an empty git repository in the workspace, configures it with 'git config', and populates it with 'git fetch'.
+Unfortunately, the most commonly used path through the code will call 'git fetch' twice.
+
+The second call to 'git fetch' is useless when it is using the same arguments as the first call.
+It wastes server time, network bandwidth, and job time.
+With large repositories, that waste of time may be a minute or more.
+
+. Implement at least one automated test to detect the redundant fetch
+. Implement changes in the git plugin and the git client plugin to avoid the second call to 'git fetch' when using the same arguments as the first call to 'git fetch'.
+
+=== Performance Comparisons
+
+. Compare link:https://github.com/jenkinsci/git-client-plugin/blob/master/src/main/java/org/jenkinsci/plugins/gitclient/CliGitAPIImpl.java[CliGitAPIImpl] and link:https://github.com/jenkinsci/git-client-plugin/blob/master/src/main/java/org/jenkinsci/plugins/gitclient/JGitAPIImpl.java[JGitAPIImpl] using the link:https://jenkins.io/blog/2019/06/21/performance-testing-jenkins/[Java Microbenchmark Harness] by writing benchmark tests that compare performance of the same operations using the two different implementations.
+. Present the results of those comparisons.
+. Use the results of the comparisons and common use cases to prioritize operations for performance improvement.
+
+=== Performance Improvements
+
+. Confirm that existing automated tests adequately verify the existing implementations.
+If they do not adequately verify implementation behaviors, write additional automated tests to verify the existing implementations.
+. Replace a command line git implementation with a JGit implementation in cases where benchmarks show JGit is faster.
+. Confirm that benchmark tests show the performance improvement.
+. Confirm that automated tests confirm no loss of functionality.
+
+=== Quickstart
+
+The project idea is expected to require changes in both the git client plugin and the git plugin.
+
+Install a git client plugin development environment by following the link:https://github.com/jenkinsci/git-client-plugin/blob/master/CONTRIBUTING.adoc[contributing instructions].
+Compile the plugin, run its automated tests, and confirm that the automated tests are passing.
+Enable coverage reporting and review the coverage report.
+
+Install a git plugin development environment by following the link:https://github.com/jenkinsci/git-plugin/blob/master/CONTRIBUTING.adoc[contributing instructions].
+Compile the plugin, run its automated tests, and confirm that the automated tests are passing.
+Enable coverage reporting and review the coverage report.
+
+Install an integrated development environment (Netbeans, Eclipse, IntelliJ, ...).
+Run the git plugin in the development environment.
+Set a breakpoint and confirm that the breakpoint is reached in the development environment.
+
+Alternately, use the coverage report to identify an interesting area that has insufficient test coverage.
+Submit one or more tests to improve coverage.
+For example, more tests could be created for link:https://github.com/jenkinsci/git-plugin/blob/master/src/main/java/jenkins/plugins/git/MergeWithGitSCMExtension.java[MergeWithGitSCMExtension]
+or more tests could be added to link:https://github.com/jenkinsci/git-plugin/blob/master/src/main/java/hudson/plugins/git/extensions/impl/PreBuildMerge.java[PreBuildMerge]
+or added to link:http://mark-pc2.markwaite.net:8080/job/Git-Folder/job/git-plugin/lastBuild/jacoco/hudson.plugins.git.extensions.impl/UserIdentity/[UserIdentity].
+
+=== Newbie-friendly issues
+
+Consider implementing a fix for one or more of the link:https://issues.jenkins-ci.org/issues/?jql=(component%3Dgit-plugin%20OR%20component%20%3D%20git-client-plugin)%20and%20labels%20%3D%20newbie-friendly%20and%20status%20in%20(Open%2CReopened)[newbie friendly issues].
+
+=== Links
+
+* link:https://groups.google.com/d/msg/jenkinsci-gsoc-all-public/bJUtxIxcT64/0Ddt_LZvCQAJ[Jenkins GSoC mailing list discussion of redundant fetch removal idea]
+* link:https://groups.google.com/d/msg/jenkinsci-gsoc-all-public/SXeSeo3yRl4/I8QeJYVvCQAJ[Jenkins GSoC mailing list discussion of JMH benchmark idea]
+* link:https://issues.jenkins-ci.org/browse/JENKINS-49757[JENKINS-49757] - Git plugin calls fetch twice per checkout
+* link:https://issues.jenkins-ci.org/browse/JENKINS-56404[JENKINS-56404] - Exclude redundant fetch

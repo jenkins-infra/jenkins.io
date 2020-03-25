@@ -63,7 +63,7 @@ languages/build system(s)? What platforms is Hudson performing builds? What kind
 </td><td>
 Our Hudson environments (yes, we have more than one) have been optimized for building C++, Java (all <a id="aptureLink_dkCKWMZxl1" href="https://en.wikipedia.org/wiki/Apache%20Maven">maven</a> based), Lisp (a surprise to some to be sure <a href="https://itasoftware.com/careers/l_e_t_lisp.html?catid=8" target="_blank">more about that here</a>), and Python on Linux build slaves (Fedora and CentOS).
 
-Our jobs are (loosely) grouped into one of three categories: rpm (we are primarily RedHat based), tests, and tools. The rpm jobs are the actual code builds and individual component unit tests. The test jobs (thank you <a id="aptureLink_ZDsnAh3cPt" href="https://wiki.jenkins.io/display/JENKINS/Parameterized+Trigger+Plugin">parameterized trigger plugin</a>!) are part of a larger cross-component integration testing and promotion scheme. The (handful of) tools jobs support us in tasks such as cleaning up stale sandbox database connections.
+Our jobs are (loosely) grouped into one of three categories: rpm (we are primarily RedHat based), tests, and tools. The rpm jobs are the actual code builds and individual component unit tests. The test jobs (thank you <a id="aptureLink_ZDsnAh3cPt" href="https://plugins.jenkins.io/parameterized-trigger">parameterized trigger plugin</a>!) are part of a larger cross-component integration testing and promotion scheme. The (handful of) tools jobs support us in tasks such as cleaning up stale sandbox database connections.
 </td></tr>
 <tr><td><br/></td></tr>
 

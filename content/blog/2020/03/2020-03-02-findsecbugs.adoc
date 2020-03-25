@@ -1,0 +1,97 @@
+---
+layout: post
+title: "Findsecbugs for Developers"
+tags:
+- jenkins
+- security
+- developer
+author: jeffret-b
+description: "Adding findsecbugs to spotbugs for detecting common security bugs"
+---
+[.lead]
+link:https://spotbugs.github.io/[Spotbugs] is a utility used in Jenkins and many other Java projects to detect common Java coding mistakes and bugs. It is integrated into the build process to improve the code before it gets merged and released. link:https://find-sec-bugs.github.io/[Findsecbugs] is a plugin for Spotbugs that adds 135 vulnerability types focused on the link:https://owasp.org/www-project-top-ten/[OWASP TOP 10] and the link:https://cwe.mitre.org/[Common Weakness Enumeration (CWE)]. I'm working on integrating findsecbugs into our Jenkins ecosystem.
+
+== Background
+Spotbugs traces its history through Findbugs, which started in 2006. As Findbugs it was widely adopted by many projects. About 2016, the Findbugs project ground to a halt. Like the mythical phoenix, the Spotbugs project rose from the ashes to keep the capabilities alive. Most things are completely compatible between the two systems.
+
+Jenkins has used Findbugs and now Spotbugs for years. This is integrated as a build step into parent Maven poms, including the link:https://github.com/jenkinsci/plugin-pom/[plugin parent pom] and the link:https://github.com/jenkinsci/pom[parent pom for libraries and core components]. There are various properties that can be set to control the detection threshold, the effort, and findings or categories to exclude. Take a look at the effective pom for a project to see the settings.
+
+== Conundrums
+There is a fundamental conundrum with introducing an analysis tool into a project. The best time to have done it is always in the past, particularly when the project first started. There are always difficulties in introducing it into an existing project. Putting it off for later just delays the useful results and makes later implementation more difficult. The best time to do it is now, as early as possible.
+
+All analysis tools are imperfect. They report some issues that don't actually exist. They miss some important issues. This is worse in legacy code, making the adoption more difficult. Findings have to be examined and evaluated. Some are code weaknesses but don't indicate necessary fixes. For example, MD5 has been known for years as a weak algorithm, unsuitable for security uses. It can be used for non-security purposes, such as fingerprinting, but even there other algorithms (SHA-2) are preferred. We should replace all usages of MD5, but in some cases that's difficult and it's not exactly a problem.
+
+Ultimately, the gain from these analysis tools isn't so much from finding issues in existing code. The value comes more from catching new regressions that might be introduced or improving new code. This is one reason why it is valuable to add useful new analysis such as findsecbugs now, so that we can begin reaping the benefits.
+
+With a security tool like findsecbugs, there is another paradox. Adding the tool makes it easier to find potential security issues. Attackers could take advantage of this information. However, security by obscurity is not a good design. Anyone can run findsecbugs now without the project integrating it. Integrating it makes it easier for legitimate developers to resolve issues and prevent future ones.
+
+== Implementation
+
+I've been working on integrating findsecbugs into the Jenkins project for several months. It is working in several repos. There are several others where I have presented draft PRs to demonstrate what it will look like once it is enabled. As soon as we can disseminate the information enough, I propose to enable it in the parent poms for widespread use.
+
+=== Existing
+
+I started by enabling findsecbugs in two major components where I have a high degree of familiarity, Remoting, and Jenkins. Most of the work here involves examining each finding and figuring out what to do with it. In most cases this results in using one of the suppression mechanisms to ignore the finding. In some cases, the code can be removed or improved.
+
+Findsecbugs reported a significant number of false positives in Remoting for a couple of notable reasons. (See the link:https://github.com/jenkinsci/remoting/pull/361[PR].) Remoting uses Spotbugs aggressively with a Low threshold setting. This produces more results. Findsecbugs targets Java web applications. As the communication layer between agents and master, Remoting uses some mechanisms that would be a problem on the server side but are acceptable on the agent.
+
+Even without all its plugins, Jenkins is a considerable collection of code. Findsecbugs reported a smaller number of false positives for Jenkins (See the link:https://github.com/jenkinsci/jenkins/pull/4381[PR].) It runs Spotbugs at a High threshold, so it only reports issues it deems more concerning. A number of these indicate code debt, deprecated code to remove, or areas that could be improved. I created Jira tickets for many of these.
+
+=== Demonstrated
+
+I have created draft PRs to demonstrate how findsecbugs will look in several plugins. The goal is not to use these PRs directly but instead integrate findsecbugs at the parent pom level. These PRs serve as reference documentation.
+
+link:https://github.com/jenkinsci/credentials-plugin/pull/137[Credentials]::
+This one is particularly interesting because here findsecbugs correctly detects the remains of a valid security vulnerability (link:https://jenkins.io/security/advisory/2019-05-21/[CVE-2019-10320]). Currently, this code is safely used only for migration of old data. If we had run findsecbugs on this plugin a year ago, it would have detected this valid vulnerability.
+link:https://github.com/jenkinsci/ssh-slaves-plugin/pull/177[SSH Build Agents]::
+This one is interesting because it flags MD5 as a concern. Since it is used for fingerprinting, it isn't a valid vulnerability, but since the hash isn't stored it is easy to improve the code here.
+link:https://github.com/jenkinsci/ec2-plugin/pull/432[EC2]::
+In this case, findsecbugs found some valid concerns, but the code isn't used so it can be removed. Also, MD5 is harder to remove here but should be considered technical debt and removed when possible.
+link:https://github.com/jenkinsci/platformlabeler-plugin/pull/165[Platform Labeler]::
+Findsecbugs didn't find any concerns here. This means adapting to it requires no work. In this demonstration, I added a fake finding to prove that it was working.
+link:https://github.com/jenkinsci/file-leak-detector-plugin/pull/9[File Leak Detector]::
+There is one simple finding noted here. Because it is part of the configuration performed by an administrator we can ignore it.
+link:https://github.com/jenkinsci/credentials-binding-plugin/pull/88[Credentials Binding]::
+Nothing was found here so integration requires no effort.
+
+=== Proposed
+
+My proposal is to integrate findsecbugs configuration into the parent poms as soon as we can. The delay is currently mostly around sharing the information to prepare developers by blog post, email list discussion, and presentation.
+
+Even before I started working on this, link:https://github.com/StefanSpieker[StefanSpieker] proposed a link:https://github.com/jenkinsci/pom/pull/61[PR] to integrate into the parent Jenkins pom. This will apply to Jenkins libraries and core components. Once this is integrated, I will pull out the changes I made to the Jenkins and Remoting project poms.
+
+I also plan on integrating findsecbugs into the plugin and Stapler parent poms. Once it is added to the plugin parent pom all plugins will automatically perform these checks when they upgrade their parent pom version. If there are any findings, developers will need to take care of them as described in the next section.
+
+== What do you need to do?
+
+Once developers upgrade to a parent pom version that integrates findsecbugs, they may have to deal with evaluating, fixing, or suppressing findings. The parent pom versions do not yet exist but are in process or proposed.
+
+=== Extraneous build message
+
+In some cases, an extraneous message may show up in the build logs. It starts with a line like this `The following classes needed for analysis were missing:` followed by lines listing some methods by name. Ignore this message. It results from SpotBugs printing some internal, debug information that isn't helpful here.
+
+=== Examine findings
+
+If findsecbugs reports any findings, then a developer needs to examine and determine what to do about each one.
+
+Excluding issues::
+You can exclude an issue, so that it is never reported in a project. This is done by configuring an exclusion file. If you encounter the findings CRLF_INJECTION_LOGS or INFORMATION_EXPOSURE_THROUGH_AN_ERROR_MESSAGE feel free to add these to an exclusion file. These are not considered a concern in Jenkins. See the link:https://github.com/jenkinsci/jenkins/pull/4381/files#diff-a3a723b46e92f2a14061ff6b9a589d67R16[Jenkins project exclusion file] for an example. You should be cautious about including other issue types here.
+
+_Temporarily_ disable findsecbugs::
+You may disable findsecbugs by adding `<Bug category="SECURITY"/>` to the exclusion file. I strongly encourage you to only disable findsecbugs temporarily when genuinely needed.
+
+Suppress a finding::
+After determining that a finding is not important, you can suppress it by annotating a method or a class with `@SuppressFBWarnings(value = “...”, justification=”...”)`. I encourage you to suppress narrowly. Never suppress at the class level when you can add it to a method. For a long method, extract the problematic part into a small method and add the suppression there. I also encourage you to always add a meaningful justification.
+
+Improve code::
+Whenever possible improve the code such that the problematic code no longer exists. This can include removing deprecated or unused code, using improved algorithms, or improving structure or implementation. This is where the significant gains come from with SpotBugs and findsecbugs. Also, as you make changes or add new features make sure to implement them so as not to introduce new issues.
+
+Report security vulnerabilities::
+If you encounter a finding related to a valid security vulnerability, please report it via the link:https://jenkins.io/security/reporting/[Jenkins security reporting process]. This is the responsible behavior that benefits the community. Try not to discuss or call attention to the issue before it can be disclosed in a Jenkins security advisory.
+
+Create tasks::
+If you discover an improvement area that is too large to fit into your current work or release plan, I encourage you to record a task to get it done. You can do this in Jira, like I did for several issues in Jenkins core, or in whatever task management system you use.
+
+== Conclusion
+
+SpotBugs has long been used in Jenkins to catch bugs and improve code quality. Findsecbugs adds valuable security-related bug definitions. As we integrate it into the existing Jenkins code base it will require analysis and suppression for legacy code. This identifies areas we can improve and enhances quality as we move forward. Please responsibly link:https://jenkins.io/security/reporting/[report] any security vulnerabilites you discover.
