@@ -24,7 +24,7 @@ Some of the tidbits from our highlight reel:
 * There are now over 450 different plugins available for Jenkins
 * Over 80 donors participated in our [end of year fundraising drive](/content/fundraising-drive-update-thank-you-everyone)
 * 5 "Long Term Support" releases have been published by the Jenkins community, offering users a slower moving upgrade target (supported even further by CloudBees' [Enterprise Jenkins](https://www.cloudbees.com/jenkins-enterprise-by-cloudbees-available-plugins.cb) product)
-* Public project governance meetings are held and [recorded](https://meetings.jenkins-ci.org/jenkins/) (almost) every couple of weeks.
+* Public project governance meetings are held and [recorded](http://meetings.jenkins-ci.org/jenkins/) (almost) every couple of weeks.
 * More than 340 individuals contribute [on GitHub](https://github.com/jenkinsci) to the project in some form or another.
 * About 750 members of the [developers mailing list](https://groups.google.com/group/jenkinsci-dev?lnk=) and around 1700 on the [users mailing list](https://groups.google.com/group/jenkinsci-users?lnk=)
 
