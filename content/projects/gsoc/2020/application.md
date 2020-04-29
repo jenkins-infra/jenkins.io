@@ -15,7 +15,7 @@ Please feel free to contribute to it by proposing pull requests against the page
 
 ### Organization Profile
 
-* Website URL: https://jenkins.io/
+* Website URL: [Jenkins](https://jenkins.io/)
 * Tagline (up to 80 symbols): Open-source automation server for building great things at any scale
 * Technology tags (max 5):
   * java
