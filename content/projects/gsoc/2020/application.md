@@ -10,8 +10,7 @@
      Google's GSoC site uses Markdown as an engine, using Markdown here allows copy-pasting
  -->
 
-The data below represents the 2020 GSoC application draft.
-Please feel free to contribute to it by proposing pull requests against the page.
+The data below represents the 2020 GSoC application.
 
 ### Organization Profile
 
