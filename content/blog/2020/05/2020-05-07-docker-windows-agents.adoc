@@ -24,46 +24,88 @@ image:/images/docker/dockerJenkins.png[Jenkins and Docker, role=center, float=ri
 
 == Deeper Dive
 
+=== jenkins/agent
+
+This is a base image for Docker, which includes the JDK and the Jenkins agent executable (agent.jar). This executable is an instance of the Jenkins Remoting library. Multiple images are published for different versions of the JDK (8 or 11)
+as well as windowsservercore and nanoserver versions. This image is mainly useful as a base image for other images (`FROM jenkins/agent:jdk8-nanoserver-1809` in your Dockerfile). When using this agent, select `Launch agent by connecting it to the master` in the `Launch method` drop-down box. You will also want to specify the `Remote root directory` as a directory you prefer, or a good default to specify is `C:\Users\jenkins\Agent`.
+
+The agent image has a user `jenkins` which is used to run tasks on the Windows agent. The `jenkins` user is a member of the Administrators group inside the container.
+
+When the agent is created, it will show you the information needed to pass to agent.jar to run the agent and have it connect to the master. Here is an example of that command:
+
+```
+java -jar agent.jar -jnlpUrl https://JENKINS_URL/jenkins/computer/AGENTNAME/slave-agent.jnlp -secret SOMESECRETVALUE -workDir "C:\Users\jenkins\Agent"
+```
+
+This can be passed to the `docker run` command to connect the agent to the master (make sure to specify the correct values for JENKINS_URL, SOMESECRETVALUE, AGENTNAME and the workDir, which should match the value you specified in agent setup above).
+
+```
+docker run --name agent jenkins/agent:jdk8-nanoserver-1809 java -jar agent.jar -jnlpUrl https://JENKINS_URL/jenkins/computer/AGENTNAME/slave-agent.jnlp -secret SOMESECRETVALUE -workDir "C:\Users\jenkins\Agent"
+```
+
+You can also specify a volume for the work directory if desired (e.g., to keep certain files around in cached form or similar).
+
+```
+docker run -i --rm --name agent -v agent-workdir:C:/Users/jenkins/Work jenkins/agent java -jar C:/ProgramData/Jenkins/agent.jar -jnlpUrl https://JENKINS_URL/jenkins/computer/AGENTNAME/slave-agent.jnlp -secret SOMESECRETVALUE -workDir C:/Users/jenkins/Work
+```
+
+Just make sure this directory doesn't already exist or is empty inside the container (this is a requirement of volumes with Docker on Windows).
 
 
+=== jenkins/inbound-agent
 
-== Upgrading and Compatibility Notes
+The inbound-agent Docker image tries to provide a higher level interaction with the agent.jar executable. It provides a PowerShell wrapper script around agent.jar and it is specified as the entrypoint so that you just need to pass in some command line arguments to run the agent. Several of these can also be passed using environment variables instead (they are listed in all capitals).
 
-Good news, there are no breaking changes caused by this renaming.
-All images have been already modified to use the new terminology internally.
-If you use the recent versions of the previous images,
-you can just replace the old names with the new ones.
-These names may be referenced in your Dockerfiles, scripts, and Jenkins configurations.
+Command line arguments include:
 
-We will keep updating the old images on DockerHub for at least 3 months (until August 05, 2020).
-There will be no new configurations and platforms added to the old images,
-but all existing ones will remain available (Debian for Java 1.8 and 11, Alpine for Java 1.8, etc.).
-After August 05, 2020, the old images will no longer receive updates, but previous versions will remain available to users on Dockerhub.
+* `-Url <URL>` or JENKINS_URL - the Jenkins master URL (this should NOT include the computer/NAME/slave-agent.jnlp part)
+* `-Secret <SECRET>` or JENKINS_SECRET - the secret as shown on the master after creating the agent
+* `-Name <NAME>` or JENKINS_AGENT_NAME - the name of the agent, it should match the name you specified when creating the agent on the master
+* `-Tunnel <HOST:PORT>` or JENKINS_TUNNEL - A tunnel host to route the TCP traffic through when connecting to the master
+* `-WorkDir <WORKDIR>` or JENKINS_AGENT_WORKDIR - same as the -workDir parameter mentioned above in the jenkins/agent image information.
+* `-WebSocket` or JENKINS_WEB_SOCKET=true - when present the connection to the master will be done via WebSocket instead of TCP networking.
+* `-DirectConnection <HOST:PORT>` or JENKINS_DIRECT_CONNECTION - Connect directly to this TCP agent port, skipping the HTTP(S) connection parameter download.
+* `-InstanceIdentity <BASE64VALUE>` or JENKINS_INSTANCE_IDENTITY - The base64 encoded InstanceIdentity byte array of the Jenkins master. When this is set, the agent skips connecting to an HTTP(S) port for connection info
+* `-Protocols <PROTOCOLS>` or JENKINS_PROTOCOLS - Specify the remoting protocols to attempt when instanceIdentity is provided
+* `-JavaHome <JAVA_HOME>` or JAVA_HOME  - An override for the default JAVA_HOME baked into the image (different for JDK8 vs. JDK11)
+
+Example:
+
+```
+docker run jenkins/inbound-agent:windowsservercore-1809 -Url http://jenkins-server:port -WorkDir=C:/Users/jenkins/Agent -Secret <SECRET> -Name <AGENTNAME>
+```
+
+Example using environment variables:
+
+```
+docker run -e "JENKINS_URL=http://jenkins-server:port" -e "JENKINS_AGENT_NAME=AGENTNAME" jenkins/inbound-agent:windowsservercore-1809 -WorkDir=C:/Users/jenkins/Agent -Secret <SECRET> -Name <AGENTNAME>
+```
+
+The URL, Name and Secret parameters are required, but can be specified as either command line parameters or environment variables.
+
+== jenkins/ssh-agent
+
+As mentioned above the jenkins/ssh-agent docker image is based on SSH communication with the master, rather than the remoting TCP or WebSocket protocols. This communication is initiated by the master rather than the agent connecting to the master is is done with jenkins/agent and jenkins/inbound-agent.
+
+The image sets up a `jenkins` user and the OpenSSH server so that the master can connect to the agent via SSH. The image expects an SSH public key as a parameter and puts that key into the authorized_keys file for the jenkins user. The private key should be specified in the agent configuration on the master to allow the master to connect correctly.
+
+Example:
+
+```
+docker run jenkins/ssh-agent "<public key>"
+```
+
+You can also pass the public key as an environment variable when using `docker run`.
+
+Example:
+
+```
+docker run -e "JENKINS_AGENT_SSH_PUBKEY=<public key>" jenkins/ssh-agent
+```
+
+You will then be able to connect this agent using the link:plugins.jenkins.io/ssh-slaves/[SSH Build Agents plugin] as "jenkins" with the matching private key.
+
 
 == What's next?
 
-We will continue renaming of the Docker images in Jenkins components which reference old image names.
-There is also a set of link:https://github.com/jenkinsci/jnlp-agents[convenience Docker images] which include build tools like Maven or Gradle which will be renamed later.
-The `jenkins/ssh-agent` image might be renamed again in the future as well;
-see the ongoing discussion in this developer link:https://groups.google.com/forum/#!msg/jenkinsci-dev/oxD-Hd_7l9k/WAbvqD-wEQAJ[mailing list thread].
-
-If you are rather interested in new features in Jenkins Docker packaging,
-stay tuned for future announcements!
-There are multiple ongoing initiatives which you can find on the link:/project/roadmap/[public Jenkins roadmap]
-(in the draft stage, see jep:14[]).
-Some stories:
-
-- General availability of Windows images.
-- Support for more platforms (AArch64, IBM s390x, PowerPC).
-- Switching to AdoptOpenJDK.
-- Introducing multi-platform Docker images.
-
-If you are interested in any of these projects and would like to contribute,
-please reach out to the link:/sigs/platform[Platform Special Interest Group] which coordinates initiatives related to Jenkins in Docker.
-
-Regarding the agent terminology cleanup outside Docker images,
-we will keep working on this project in the link:/sigs/advocacy-and-outreach[Advocacy & Outreach SIG].
-If you see the usage of the obsolete "slave" term anywhere in the Jenkins organization (Web UI, documentation, etc.),
-please feel free to submit a pull request or to report an issue in the jira:JENKINS-42816[Slave to Agent renaming leftovers] EPIC.
-There are "just" link:https://github.com/search?q=org%3Ajenkinsci+slave&type=Code[3000 occurences] left in the `jenkinsci` GitHub organization, but we will get there.
-Any contributions will be appreciated!
+There is an link:github.com/jenkinsci/docker/pull/924[open PR] to create a Windows based Docker image for a Jenkins master. There hasn't been a lot of requests for this, but to make the offerings complete for Windows users, the PR was created.
