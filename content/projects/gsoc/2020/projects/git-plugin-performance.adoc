@@ -1,11 +1,10 @@
 ---
 layout: gsocproject
 title: "Git Plugin Performance Improvements"
-goal: "Improve git plugin performance"
+goal: "To improve end-to-end performance of git-plugin and git-client-plugin"
 category: Plugins
 year: 2020
 status: "Active"
-showGoogleDoc: true
 sig: platform
 tags:
 - gsoc2020
@@ -23,4 +22,41 @@ links:
   idea: /projects/gsoc/2020/project-ideas/git-plugin-performance
 ---
 
-// TODO: add details here, remove `showGoogleDoc: true`
+The project aims to improve overall performance of git plugins by applying micro-benchmarking principles to create a comparitive study of the two implementations of "git" in the plugins. The comparitive study can be used to codify the optimal selection of git implementation for an operation. Furthermore, it aims to fix non-trivial issues related to redundancy at hot code paths in git plugin.
+
+=== Project Deliverables
+* Integration of JMH: micro-benchmark module addition to test module of git plugins
+  ** This includes both utilities to support the creation of a performance benchamrking test environment in git-plugin and benchmark tests written for git operations critical to the plugin's end-to-end performance
+* A new additional behavior in GitSCM checkout in build configuration
+  ** The behavior is supposed to enable performance, which will in turn selectively prioritize CliGitAPIImpl or JGitAPIImpl for the best performance
+* A working fix for link:https://github.com/jenkinsci/git-plugin/pull/845[git double/redundant fetch issue]
+  ** A fix which ensures no repository/user data loss if second fetch is removed with automated tests to confirm the intended behaviour
+* Comparison of git clone and git fetch performance
+  ** Implementation of git clone with credentials support without breaking compatibility
+
+=== Performance Benchmarking CliGitAPIImpl vs JGitAPIImpl
+* Creation of a test environment and utilities
+  ** Any git operation requires a local and remote git repository to work with, there is a need for a utility class which        allows the creation of a local git repository for the lifetime of a benchmark test
+  ** Integration of JMH into git plugins
+* Selection of git operations for evaluation
+  ** git operations which involve both network and I/O interactions with the system take most of the time, for example git fetch or git clone are some of the essential operations to be evaluated
+* Parameters to test git operations
+  ** size of repository
+  ** different operating platforms (Testing on Windows, which is an important platform for Jenkins users and has different          multi-process characteristics than Linux)
+  ** git operations with multiple options (narrow refspec vs wide refspec, use of shallow clones)
+* Creation of a comprehensive report which captures the performance difference in both the implementations
+
+=== Performance improvement as an "opt-in" feature
+The idea behind this implementation is to safely introduce the option of selectively switching the implementation of a GitClient API from CliGitAPIImpl to JGitAPIImpl or vice-versa depending upon which is found to perform better in a particular scenario.
+Here is a graphical representation of the proposed implementation:
+
+image:/images/post-images/gsoc-git-performance-improvement/git-additional-behavior.png[title="Performance improvement as an opt-in feature" role="center" width=1000,height=600]
+
+=== Fixing known issues to improve performance link:https://issues.jenkins-ci.org/browse/JENKINS-49757[JENKINS-49757]
+On an agent, the git plugin checks out copies of remote git repositories and it does so by creating empty git repositories (git init) in the workspace, configures them with “git config” and fills them with “git fetch”. After adding a new behavior of honoring refspec on initial clone, the git-plugin faced an issue of a redundant fetch after the initial git-clone operation (which is actually a git init + git fetch) operation. This section of code is a hot code path.
+
+link:https://github.com/jenkinsci/git-plugin/pull/845[PR-845] describes an attempt to fix this issue.
+
+=== Benchmarking strategy and preliminary results
+
+Here is the https://github.com/jenkinsci/git-client-plugin/pull/521 which provides the code and results from the initial investigation of performance comparison between CliGitAPIImpl and JGitAPIImpl.
