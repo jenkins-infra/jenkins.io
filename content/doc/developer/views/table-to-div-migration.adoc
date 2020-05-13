@@ -1,0 +1,88 @@
+---
+title: Table to div layout migration
+layout: developerguide
+---
+
+Jenkins core has changed its form layout from 'table' to 'div' as of Jenkins v2.237.
+
+All core taglib's and views were updated in link:https://github.com/jenkinsci/jenkins/pull/3895[jenkins#3895]
+as part of jira:JENKINS-56109[].
+
+For 99% of plugins they do not require any changes at all as they just use the standard jelly tags
+in Jenkins for their form, such as `f:entry`, `f:textbox`, `f:checkbox`.
+
+== Examples of area which may require changes
+
+Below is some areas that may require you to adjust the form layout or JavaScript in your plugin:
+
+* Adding the td / tr elements directly instead of using the `f:entry` tag, e.g. link:https://github.com/jenkinsci/config-rotator-plugin/pull/2[config-rotator-plugin#2]
+
+* Custom javascript that is brittle to the Jenkins form UI layout, we’ve done our best to introduce shims, to not cause breakage here, 
+but if you have written JavaScript that is reliant on the DOM structure you may need to make adjustments,
+take a look at the JavaScript changes in link:https://github.com/jenkinsci/jenkins/pull/3895[jenkins#3895].
+
+* Forking jelly taglibs from core and extending them, i.e. link:https://github.com/jenkinsci/multiple-scms-plugin/pull/25[multiple-scms-plugin#25],
+it would be good to contribute fixes or enhancements to core rather than doing this where possible.
+
+* Using tables in the plugin for layout, link:https://github.com/jfrog/jenkins-artifactory-plugin/pull/266[jenkins-artifactory-plugin#266], link:https://github.com/jenkinsci/matrix-auth-plugin/pull/83[matrix-auth-plugin#83]
+
+
+== Maintaining support for tables and div layout
+
+There is a jelly property set on Jenkins instances that use div's for form layout called `divBasedFormLayout`,
+you can use this to adapt your plugin UI based on the presence of this property
+
+Jelly example:
+
+[source,xml]
+----
+<d:taglib uri="local">
+  <d:tag name="blockWrapper">
+        <j:choose>
+            <j:when test="${divBasedFormLayout}">
+                <div>
+                    <d:invokeBody/>
+                </div>
+            </j:when>
+            <j:otherwise>
+                <table style="width:100%">
+                    <d:invokeBody/>
+                </table>
+            </j:otherwise>
+        </j:choose> 
+    </d:tag>
+<d:taglib>
+
+<local:blockWrapper>
+...
+</local:blockWrapper>
+----
+
+This will use a table on Jenkins instances that don't have `divBasedFormLayout` and will use a div when it is set,
+
+_Note: you will likely need more tags to adapt the 'tr' and 'td' tags to divs see link:https://github.com/jenkinsci/multiple-scms-plugin/pull/25[multiple-scms-plugin#25] for a full example._
+
+Groovy example:
+
+[source,groovy]
+----
+blockWrapper {
+    p('Hello, World!')
+}
+
+def blockWrapper(Closure closure) {
+    if (context.getVariableWithDefaultValue("divBasedFormLayout", "false") == "true") {
+        div() {
+            closure.call()
+        }
+    } else {
+        table(style: "width: 100%") {
+            closure.call()
+        }
+    }
+}
+----
+
+== I still need more help?
+
+Contact the link:/sigs/ux[UX sig] on link:https://gitter.im/jenkinsci/ux-sig[Gitter] or on the link:https://groups.google.com/forum/#!forum/jenkinsci-ux[mailing list].
