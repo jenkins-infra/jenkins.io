@@ -1,7 +1,7 @@
 ---
 name: "🐛 Bug report"
 labels: bug
-about: Create a bug report to help us improve
+about: Create a bug report to the website
 ---
 
 <!-- Describe the expected and actual behavior here. -->
