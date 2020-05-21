@@ -4,12 +4,17 @@ labels: bug
 about: Create a bug report to the website
 ---
 
-<!-- Describe the expected and actual behavior here. -->
+Problem with this page:
+TODO: provide a link
 
-## Steps to reproduce
+TODO: Describe the expected and actual behavior here
 
-<!-- Please clarify how to reproduce the issue. If it requires a special environment, please document it (e.g. browser, mobile phone) -->
+## Screenshots
+
+ TODO: Add screenshots if possible
 
 ## Possible Solution
 
 <!-- If you have suggestions on a fix for the bug, please describe it here. -->
+
+N/A
