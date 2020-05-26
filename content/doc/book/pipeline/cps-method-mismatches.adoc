@@ -14,7 +14,7 @@ ifndef::env-github[:imagesdir: ../../resources]
 :toc:
 endif::[]
 
-= Introduction
+= Pipeline CPS Method Mismatches
 
 Jenkins Pipeline uses a library called Groovy CPS to run Pipeline
 scripts. While Pipeline uses the Groovy parser and compiler, unlike a
@@ -55,9 +55,9 @@ code to call CPS-transformed code. If you try, there will be a mismatch
 between the method that the CPS interpreter thought it was calling and
 the method that it actually got a return value from.
 
-= Common problems and solutions
+== Common problems and solutions
 
-== Use of Pipeline steps from `+@NonCPS+` 
+=== Use of Pipeline steps from `+@NonCPS+`
 
 Sometimes users will apply the `+@NonCPS+`  annotation to a method
 definition, which bypasses the CPS transform inside that method. This
@@ -68,7 +68,7 @@ substantial overhead). However such methods must not call
 CPS-transformed code such as Pipeline steps. For example, the following
 will not work:
 
-[source,syntaxhighlighter-pre]
+[source,groovy]
 ----
 @NonCPS
 def compileOnPlatforms() {
@@ -94,7 +94,7 @@ To fix this case, simply remove the annotation—it was not needed.
 (Longtime Pipeline users might have thought it was, prior to the fix of 
 https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481].)
 
-== Calling non-CPS-transformed methods with CPS-transformed arguments
+=== Calling non-CPS-transformed methods with CPS-transformed arguments
 
 Some Groovy and Java methods take complex types as parameters to support
 dynamic behavior. A common case is sorting methods that allow callers to
@@ -103,7 +103,7 @@ Many similar methods in the Groovy standard library work correctly after the fix
 for https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481], but some methods remain unfixed.
 For example, the following will not work:
 
-[source,syntaxhighlighter-pre]
+[source,groovy]
 ----
 def sortByLength(List<String> list) {
   list.toSorted { a, b -> Integer.valueOf(a.length()).compareTo(b.length()) }
@@ -131,7 +131,7 @@ method, and annotating the outer method with `+@NonCPS+`, or by creating
 an explicit class for the argument and annotating the relevant methods
 on that class with `+@NonCPS+`.
 
-== Constructors
+=== Constructors
 
 Occasionally, users may attempt to use CPS-transformed code such as
 Pipeline steps inside of a constructor in a Pipeline script.
@@ -139,7 +139,7 @@ Unfortunately, the construction of objects via the `+new+` operator in
 Groovy is not something that can be CPS-transformed (https://issues.jenkins-ci.org/browse/JENKINS-26313[JENKINS-26313]), and so this will not work. Here is an example that calls a
 CPS-transformed method in a constructor:
 
-[source,syntaxhighlighter-pre]
+[source,groovy]
 ----
 class Test {
   def x
@@ -166,7 +166,7 @@ To fix this case, ensure that any methods defined in a Pipeline script
 that are called from inside of a constructor are annotated
 with `+@NonCPS+` and that constructors do not call any Pipeline steps.
 
-== Overrides of non-CPS-transformed methods
+=== Overrides of non-CPS-transformed methods
 
 Users may create a class in a Pipeline Script that extends a preexisting
 class defined outside of the Pipeline script, for example from the Java
@@ -176,7 +176,7 @@ use any CPS-transformed code internally. Otherwise, the overriding
 methods will fail if called from a non-CPS context. For example, the
 following will not work:
 
-[source,syntaxhighlighter-pre]
+[source,groovy]
 ----
 class Test {
   @Override
@@ -204,7 +204,7 @@ method, and remove any uses of CPS-transformed code such as Pipeline
 steps from the method.
 
 [[PipelineCPSmethodmismatches-ClosuresinsideGString]]
-== Closures inside `+GString+` 
+=== Closures inside `+GString+` 
 
 In Groovy, it is possible to use a closure in a `+GString+` so that the
 closure is evaluated every time the `+GString+` is used as a `+String+`.
@@ -212,7 +212,7 @@ However, in Pipeline scripts, this will not work as expected, because
 the closure inside of the GString will be CPS-transformed. Here is an
 example:
 
-[source,syntaxhighlighter-pre]
+[source,groovy]
 ----
 def x = 1
 def s = "x = ${-> x}"
@@ -234,7 +234,7 @@ returns a GString that uses a normal expression rather than a closure,
 and then call the closure where you would have used the original
 `+GString+` as follows:
 
-[source,syntaxhighlighter-pre]
+[source,groovy]
 ----
 def x = 1
 def s = { -> x = "${x}" }
@@ -242,8 +242,7 @@ x = 2
 echo(s())
 ----
 
-[[PipelineCPSmethodmismatches-FalsePositives]]
-= False Positives
+== False Positives
 
 Unfortunately, some expressions may incorrectly trigger this warning
 even though they execute correctly. If you run into such a case, please
