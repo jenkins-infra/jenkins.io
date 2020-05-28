@@ -16,15 +16,260 @@ endif::[]
 
 == General Guidelines
 
+=== Jenkins Behind Proxy
+
+There are several background jobs in Jenkins which try and reach out on the Internet during normal operation. 
+While this isn't an issue as long as the machine you're running Jenkins on has direct Internet access, 
+it can lead to all kind of (sometimes inconsistent) issues as soon as the only way to get out on 
+the Internet from Jenkins' perspective is an HTTP and / or HTTPS proxy server. 
+This page tries to provide an overview and is supposed to help people who want to 
+make sure they can use Jenkins properly behind a proxy server.
+
+[[JenkinsBehindProxy-Background:Whatkindofproxy]]
+==== Background: What kind of proxy?
+
+In order to understand your problem, you may want to find out what kind
+of proxy is deployed in your network. 
+Actually, there are different major flavors of proxies and some of them 
+come with subtle differences in individual implementations.
+
+Please note that NAT (Network Address Translation) is not a proxy. 
+In case your network just uses NAT to access the Internet, 
+you should be fine and can stop reading here.
+
+Just especially in larger and sometimes more conservative organizations
+network administrators think that access to the Internet needs to be
+mediated to say the least. 
+As simple NAT does not provide any means of either filtering any content or of doing any caching, 
+HTTP(S) proxies are usually introduced. 
+If you can access you browser's network connection settings and there is anything configured 
+like "HTTP proxy: some.proxy.net:1234" then you seem to be using an HTTP(S) proxy. 
+Also in case there is any automated proxy configuration (proxy.pac or "determine
+proxy settings automatically") the automatically configured setup will
+most likely involve an HTTP(S) proxy.
+
+How to find out the address and port number of your proxy to use is an
+exercise left to the reader. 
+Use your preferred search engine if you have no idea how to find this 
+out or ask your network administrator for more information.
+
+_Disclaimer:_
+
+_Nothing explained in thi section is meant to circumvent any policies that
+the network administrator has set or to access any content from the
+Internet which you couldn't also access using your web browser. 
+The whole purpose of making Jenkins talk through proxies directly 
+through the Internet is convenience. 
+For example, Jenkins has a very convenient update mechanism for plugins. 
+Any running instance of Jenkins will check the plugin repository on the 
+Internet for newly available or updated plugins and allow you to install 
+or update a plugin with just a mouse click. 
+If Jenkins cannot achieve that because it cannot pass the proxy server and 
+cannot reach out on the Internet, 
+you could achieve the same by manually downloading the plugins and installing them. 
+It means just more work for you._
+
+[[JenkinsBehindProxy-HowJenkinshandlesProxyServers]]
+==== How Jenkins handles Proxy Servers
+
+You can configure the proxy server that Jenkins will use by going to
+*Manage Jenkins* > *Manage Plugins* > *Advanced*. 
+This is preferred over setting JVM properties.
+
+Here's a screenshot showing an example configuration:
+
+image::proxy-configuration.png["Proxy Configuration"]
+
+[cols=",",]
+|===
+|*Field* |*Description*
+
+|Server |Host name or address of the proxy server. Example:
+`+proxy.example.com+`
+
+|Port |The port the proxy server listens on. Example: `+8080+`
+
+|User name |If the proxy server requires authentication, enter the name
+of the user here.
+
+|Password |If the proxy server requires authentication, enter the
+password here.
+
+|No Proxy Host |If certain hosts must be contacted directly (without
+going through the proxy), you can specify their names here. You can even
+use `+*+` as a wildcard. Example: `+*jenkins-test*+``+.example.com+`
+
+|Test URL |Enter the *full URL* of a host to use for testing the proxy
+configuration. Example: http://jenkins-ci.org/
+|===
+
+To temporarily disable the proxy configuration, you can add a single
+wildcard character `+*+` on the first line. 
+Erasing the value of *Server* will _discard all values_ and disable 
+the use of a proxy server.
+
+[[JenkinsBehindProxy-Whichpluginssupportaproxyserver]]
+===== Which plugins support a proxy server?
+
+[cols=",,,,",]
+|===
+|*Plugin* |*Since version* |*Supports HTTPS?* |*Supports Exclusions?*
+|*Supports authentication?*
+
+|https://wiki.jenkins.io/display/JENKINS/Fortify+On+Demand+Uploader+Plugin[Fortify
+On Demand Uploader Plugin]
+|https://github.com/jenkinsci/fortify-on-demand-uploader-plugin/releases/tag/fortify-on-demand-uploader-1.08[1.08]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+
+|https://wiki.jenkins.io/display/JENKINS/Git+Plugin[Git Plugin]
+|https://github.com/jenkinsci/git-plugin/releases/tag/git-2.1.0[2.1.0]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+
+|https://wiki.jenkins.io/display/JENKINS/Azure+DevOps+and+Team+Foundation+Server+Plugin[Azure
+DevOps and Team Foundation Server Plugin]
+|https://github.com/jenkinsci/tfs-plugin/releases/tag/tfs-5.1.0[5.1.0]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+
+|https://wiki.jenkins.io/display/JENKINS/Openid+Connect+Authentication+Plugin[Openid
+Connect Authentication Plugin]
+|https://github.com/jenkinsci/oic-auth-plugin/releases/tag/oic-auth-1.4[1.4]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+|image:../../resources/managing/check.svg[(tick)]
+|===
+
+=== Jenkins says my reverse proxy setup is broken
+
+NOTE: Since Jenkins 1.572 this message can also appear if you don't access
+Jenkins through a reverse proxy: Make sure the Jenkins URL configured in
+the System Configuration matches the URL you're using to access Jenkins.
+
+[[Jenkinssaysmyreverseproxysetupisbroken-Symptoms]]
+==== Symptoms
+
+An error message is displayed in the "Manage Jenkins" page - "It appears
+that your reverse proxy set up is broken"
+
+[[Jenkinssaysmyreverseproxysetupisbroken-Background]]
+==== Background
+
+For a reverse proxy to work correctly, it needs to rewrite both the
+request and the response. 
+Request rewriting involves receiving an inbound HTTP call and then making 
+a forwarding request to Jenkins (sometimes with some HTTP headers modified, sometimes not). 
+Failing to configure the request rewriting is easy to catch, because you 
+just won't see any pages at all.
+
+But correct reverse proxying also involves one of two options, EITHER
+
+* rewriting the response (for more information
+see https://wiki.jenkins.io/display/JENKINS/Hyperlinks+in+HTML[Hyperlinks in HTML]). 
+The primary place where this needs to happen is the
+"Location" header in the response, which is used during redirects.
+Jenkins will send back "Location:
+http://actual.server:8080/jenkins/foobar" and the reverse proxy needs to
+rewrite this to "Location: http://nice.name/jenkins/foobar".
+Unfortunately, failing to configure this correctly is harder to catch;
+OR
+* Setting the `+X-Forwarded-Host+` (and perhaps `+X-Forwarded-Port+`)
+header on the forwarded request. 
+Jenkins will parse those headers and generate all the redirects and other 
+links on the basis of those headers. 
+Depending on your reverse proxy it may be easier to set `+X-Forwarded-Host+` 
+and `+X-Forwarded-Port+` to the hostname and port in the original `+Host+` 
+header respectively or it may be easier to just pass the original `+Host+` 
+header through as  `+X-Forwarded-Host+` and delete the `+X-Forwarded-Port+` #
+header from the request. 
+You will also need to set the `+X-Forwarded-Proto+` header if your reverse 
+proxy is changing from `+https+` to `+http+` or vice-versa.
+
+So Jenkins has a proactive monitoring to make sure this is configured correctly. 
+It uses XmlHttpRequest to request a specific URL in Jenkins (via relative path, 
+so this will always get through provided the request is properly rewritten), 
+which will then redirect the user to another page in Jenkins (this only works
+correctly if you configured the response rewriting correctly), which then returns 200.
+
+This error message indicates that this test is failing - and the most
+likely cause is that the response rewriting is misconfigured. 
+See the *Server Configuration Guides* (below) for additional tips about
+configuring a reverse proxy. 
+
+NOTE: The reverse proxy tests were improved in release 1.552 so users
+with previously working proxy setups may start to receive proxy
+warnings. 
+
+Be sure to set the `+X-Forwarded-Proto+` header if your reverse proxy is
+accessed via HTTPS and then Jenkins itself is accessed via HTTP i.e.
+proxying HTTPS to HTTP.
+
+Changing the context path of Jenkins with a reverse proxy is fraught with danger. 
+There are lots of URLs that you need to rewrite correctly,
+and even if you get the ones in HTML files you may miss some in
+javascript, CSS or XML resources.
+
+The recommendation is to ensure that Jenkins is running at the context
+path that your reverse proxy is serving Jenkins at. 
+You will have the least pain if you keep to this principle.
+
+While it is technically possible to use rewrite rules to change the context path, 
+you should be aware that it would be a lot of work to find and fix everything in 
+your rewrite rules and the reverse proxy will spend most of its time rewriting
+responses from Jenkins. 
+Much easier to change Jenkins to run at the context path your reverse proxy is
+expecting, e.g. if your reverse proxy is forwarding requests at
+https://manchu.example.org/foobar/ to Jenkins then you could just use
+`+java -jar jenkins.war --prefix /foobar+` to start jenkins using
+`+/foobar+` as the context path
+
+[[Jenkinssaysmyreverseproxysetupisbroken-FurtherDiagnosis]]
+==== Further Diagnosis
+
+For further diagnosis, try using cURL:
+
+[source,sh]
+----
+curl -iL -e http://your.reverse.proxy/jenkins/manage \
+   http://your.reverse.proxy/jenkins/administrativeMonitor/hudson.diagnosis.ReverseProxySetupMonitor/test
+----
+
+(assuming your Jenkins is located at
+http://your.reverse.proxy/jenkins/ - and is open to anonymous read
+access)
+
+[[Jenkinssaysmyreverseproxysetupisbroken-ServerConfigurationGuides]]
+==== Server Configuration Guides
+
+While the pages talk primarily about Apache / NGinX / HAProxy / Squid,
+they also have information that applies to other reverse proxies.
+
+* <<Running Jenkins behind Apache>>
+* <<Running Jenkins behind Nginx>>
+* <<Running Jenkins behind HAProxy>>
+* <<Running Jenkins behind Squid>>
+* <<Running Jenkins behind IIS>>
+
+If using Apache check that _nocanon_ is set on _ProxyPass_ and
+that _AllowEncodedSlashes_ is set as per the Apache link above.
+
+_AllowEncodedSlashes_ is not inherited in Apache configs, so this
+directive must be placed inside the _VirtualHost_ definition.
+
+
 == Configuration Examples
 
-=== Apache
+=== Running Jenkins behind Apache
 
-In situations where you have existing web sites on your server, you may
-find it useful to run Jenkins (or the servlet container that Jenkins
-runs in) behind Apache, so that you can bind Jenkins to the part of a
-bigger website that you may have. This section discusses some of the
-approaches for doing this.
+In situations where you have existing web sites on your server, 
+you may find it useful to run Jenkins (or the servlet container
+that Jenkins runs in) behind Apache, so that you can bind Jenkins 
+to the part of a bigger website that you may have. 
+This section discusses some of the approaches for doing this.
 
 *Make sure that you change the Jenkins httpListenAddress from its
 default of 0.0.0.0 to 127.0.0.1 or any Apache-level restrictions can be
@@ -90,9 +335,9 @@ ProxyPass / http://localhost:8080 nocanon     # wont work
 ....
 
 Note that this does *not* apply to the `+ProxyPassMatch+` directive,
-which behaves differently than `+ProxyPass+`. Below is an example of
-`+ProxyPassMatch+` to proxy all URLs other than `+/.well-known+` (a URL
-required by letsencrypt):
+which behaves differently than `+ProxyPass+`. 
+Below is an example of `+ProxyPassMatch+` to proxy all URLs other than 
+`+/.well-known+` (a URL required by letsencrypt):
 
 ....
 ProxyPassMatch  ^/(?\!.well-known)  http://localhost:8080 nocanon
@@ -155,16 +400,16 @@ ProxyPreserveHost On
 
 If you'd like to run Jenkins with reverse proxy in HTTPS, one user
 reported that HTTPS needs to be terminated at Jenkins, not at the
-front-end Apache. See
-http://hudson.361315.n4.nabble.com/Hudson-behind-an-Apache-Reverse-Proxy-w-SSL-td370997.html[this
+front-end Apache. 
+See http://hudson.361315.n4.nabble.com/Hudson-behind-an-Apache-Reverse-Proxy-w-SSL-td370997.html[this
 e-mail thread] for more discussion.
 
 Note that you also may need to have access to your host via regular
 http, else the admin interface test will report a broken proxy setup.
 
 Alternatively, you can add an additional `+ProxyPassReverse+` directive
-to redirect non-SSL URLs generated by Jenkins to the SSL side. Assuming
-that your webserver is `+your.host.com+`, placing the following within
+to redirect non-SSL URLs generated by Jenkins to the SSL side. 
+Assuming that your webserver is `+your.host.com+`, placing the following within
 the SSL virtual host definition will do the trick:
 
 ....
@@ -183,9 +428,9 @@ ProxyPassReverse  /jenkins  http://your.host.com/jenkins
 ....
 
 Yet another option is to rewrite the Location headers that contain
-non-ssl URL's generated by Jenkins. If you want to access Jenkins from
-https://www.example.com/jenkins, placing the following within the SSL
-virtual host definition also works:
+non-ssl URL's generated by Jenkins. 
+If you want to access Jenkins from https://www.example.com/jenkins, 
+placing the following within the SSL virtual host definition also works:
 
 ....
 ProxyRequests     Off
@@ -219,8 +464,9 @@ originating port.)
 The collection of snippets above simply don't work out of the box (July
 2014), here is a full Apache-oriented "sites-enabled" file (ex:
 "sites-enabled/example") for a dedicated Jenkins host, combining the
-ideas from snippets #1 and #3. This was formulated on the TurnKeyLinux
-Jenkins appliance (v 13.0), after having updated Jenkins to "1.572".
+ideas from snippets #1 and #3. 
+This was formulated on the TurnKeyLinux Jenkins appliance (v 13.0), 
+after having updated Jenkins to "1.572".
 TODO (if anyone understands how to do so): Define a more selective path
 for the <Proxy *> tag, instead of *; I currently have the impression
 that the <Proxy> section is not even needed.
@@ -260,8 +506,8 @@ More info welcome. Probably we should move the contents from
 https://wiki.jenkins.io/display/JENKINS/Tomcat[here]
 
 I wanted to have Jenkins running in a different workspace than my normal
-Tomcat server, but both available via the Apache web server. So, first
-up, modify Jenkins to use a different web and ajp port than Tomcat:
+Tomcat server, but both available via the Apache web server. 
+So, first up, modify Jenkins to use a different web and ajp port than Tomcat:
 
 ....
 HTTP_PORT=9080
@@ -387,10 +633,10 @@ ProxyRequests     Off
 </Proxy>
 ....
 
-This assumes that you run Jenkins on port 8081. For this set up to work,
-the context path of Jenkins must be the same between your Apache and
-Jenkins (that is, you can't run Jenkins on http://localhost:8081/ci and
-have it exposed at http://localhost:80/jenkins)
+This assumes that you run Jenkins on port 8081. 
+For this set up to work, the context path of Jenkins must be the same 
+between your Apache and Jenkins (that is, you can't run Jenkins on 
+http://localhost:8081/ci and have it exposed at http://localhost:80/jenkins)
 
 The _ProxyRequests Off_ prevents Apache from functioning as a forward
 proxy server (except for _ProxyPass_), it is advised to include it
@@ -406,141 +652,874 @@ if your plugin works behind an Apache reverse proxy.
 ==== Proxying CLI commands using the HTTP(S) transport with Jenkins >= 2.54
 
 Using the plain CLI protocol with the HTTP(S) transport to access
-Jenkins >= 2.54 through an Apache reverse proxy does not work. (See
-https://issues.jenkins-ci.org/browse/JENKINS-47279[JENKINS-47279] - 
+Jenkins >= 2.54 through an Apache reverse proxy does not work. 
+(See https://issues.jenkins-ci.org/browse/JENKINS-47279[JENKINS-47279] - 
 Full-duplex HTTP(S) transport with plain CLI protocol does not work with Apache reverse proxy in Jenkins >= 2.54, 
 and update it if you have settings that do work!) As a workaround,
 you can use the https://jenkins.io/doc/book/managing/cli/#ssh[CLI over
 SSH].
 
+=== Running Jenkins behind Nginx
 
-=== Jenkins Behind Proxy
+In situations where you have existing web sites on your server, you may
+find it useful to run Jenkins (or the servlet container that Jenkins
+runs in) behind http://nginx.org/[Nginx], so that you can bind Jenkins
+to the part of a bigger website that you may have. 
+This section discusses some of the approaches for doing this.
 
-There are several background jobs in Jenkins which try and reach out on
-the Internet during normal operation. While this isn't an issue as long
-as the machine you're running Jenkins on has direct Internet access, it
-can lead to all kind of (sometimes inconsistent) issues as soon as the
-only way to get out on the Internet from Jenkins' perspective is an HTTP
-and / or HTTPS proxy server. This page tries to provide an overview and
-is supposed to help people who want to make sure they can use Jenkins
-properly behind a proxy server.
+When a request arrives for certain URLs, Nginx becomes a proxy and
+further forward that request to Jenkins, then it forwards the response
+back to the client. A typical set up for mod_proxy would look like this:
 
-[[JenkinsBehindProxy-Background:Whatkindofproxy]]
-==== Background: What kind of proxy?
+....
+upstream jenkins {
+  keepalive 32; # keepalive connections
+  server 127.0.0.1:8080; # jenkins ip and port
+}
+ 
+server {
+  listen          80;       # Listen on port 80 for IPv4 requests
 
-In order to understand your problem, you may want to find out what kind
-of proxy is deployed in your network. Actually, there are different
-major flavors of proxies and some of them come with subtle differences
-in individual implementations.
+  server_name     jenkins.example.com;
 
-Please note that NAT (Network Address Translation) is not a proxy. In
-case your network just uses NAT to access the Internet, you should be
-fine and can stop reading here.
+  #this is the jenkins web root directory (mentioned in the /etc/default/jenkins file)
+  root            /var/run/jenkins/war/;
 
-Just especially in larger and sometimes more conservative organizations
-network administrators think that access to the Internet needs to be
-mediated to say the least. As simple NAT does not provide any means of
-either filtering any content or of doing any caching, HTTP(S) proxies
-are usually introduced. If you can access you browser's network
-connection settings and there is anything configured like "HTTP proxy:
-some.proxy.net:1234" then you seem to be using an HTTP(S) proxy. Also in
-case there is any automated proxy configuration (proxy.pac or "determine
-proxy settings automatically") the automatically configured setup will
-most likely involve an HTTP(S) proxy.
+  access_log      /var/log/nginx/jenkins/access.log;
+  error_log       /var/log/nginx/jenkins/error.log;
+  ignore_invalid_headers off; #pass through headers from Jenkins which are considered invalid by Nginx server.
 
-How to find out the address and port number of your proxy to use is an
-exercise left to the reader. Use your preferred search engine if you
-have no idea how to find this out or ask your network administrator for
-more information.
+  location ~ "^/static/[0-9a-fA-F]{8}\/(.*)$" {
+    #rewrite all static files into requests to the root
+    #E.g /static/12345678/css/something.css will become /css/something.css
+    rewrite "^/static/[0-9a-fA-F]{8}\/(.*)" /$1 last;
+  }
 
-_Disclaimer:_
+  location /userContent {
+    #have nginx handle all the static requests to the userContent folder files
+    #note : This is the $JENKINS_HOME dir
+    root /var/lib/jenkins/;
+    if (!-f $request_filename){
+      #this file does not exist, might be a directory or a /**view** url
+      rewrite (.*) /$1 last;
+      break;
+    }
+    sendfile on;
+  }
 
-_Nothing explained in thi section is meant to circumvent any policies that
-the network administrator has set or to access any content from the
-Internet which you couldn't also access using your web browser. The
-whole purpose of making Jenkins talk through proxies directly through
-the Internet is convenience. For example, Jenkins has a very convenient
-update mechanism for plugins. Any running instance of Jenkins will check
-the plugin repository on the Internet for newly available or updated
-plugins and allow you to install or update a plugin with just a mouse
-click. If Jenkins cannot achieve that because it cannot pass the proxy
-server and cannot reach out on the Internet, you could achieve the same
-by manually downloading the plugins and installing them. It means just
-more work for you._
+  location / {
+      sendfile off;
+      proxy_pass         http://jenkins;
+      proxy_redirect     default;
+      proxy_http_version 1.1;
 
-[[JenkinsBehindProxy-HowJenkinshandlesProxyServers]]
-==== How Jenkins handles Proxy Servers
+      proxy_set_header   Host              $host;
+      proxy_set_header   X-Real-IP         $remote_addr;
+      proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+      proxy_set_header   X-Forwarded-Proto $scheme;
+      proxy_max_temp_file_size 0;
 
-You can configure the proxy server that Jenkins will use by going to
-*Manage Jenkins* > *Manage Plugins* > *Advanced*. This is preferred over
-setting JVM properties.
+      #this is the maximum upload size
+      client_max_body_size       10m;
+      client_body_buffer_size    128k;
 
-Here's a screenshot showing an example configuration:
+      proxy_connect_timeout      90;
+      proxy_send_timeout         90;
+      proxy_read_timeout         90;
+      proxy_buffering            off;
+      proxy_request_buffering    off; # Required for HTTP CLI commands in Jenkins > 2.54
+      proxy_set_header Connection ""; # Clear for keepalive
+  }
 
-image::proxy-configuration.png["Proxy Configuration"]
+}
+....
 
-[cols=",",]
-|===
-|*Field* |*Description*
+This assumes that you run Jenkins on port 8080. 
+Remember to create the folder /var/log/nginx/jenkins.
 
-|Server |Host name or address of the proxy server. Example:
-`+proxy.example.com+`
+For this set up to work, the context path of Jenkins must be the same
+between your Nginx and Jenkins (that is, you can't run Jenkins on
+http://localhost:8081/ci and have it exposed at
+http://localhost:80/jenkins).
 
-|Port |The port the proxy server listens on. Example: `+8080+`
+Set the context path by modifying the hudson.xml configuration file and
+adding --prefix=/hudson (or similar) to the <arguments> entry.
 
-|User name |If the proxy server requires authentication, enter the name
-of the user here.
+If you are having problems with some paths (eg folders) with *Blue
+Ocean*, you may need to add the following snippet to your proxy
+configuration:
 
-|Password |If the proxy server requires authentication, enter the
-password here.
+[source,sh]
+----
+if ($request_uri ~* "/blue(/.*)") {
+    proxy_pass http://YOUR_SERVER_IP:YOUR_JENKINS_PORT/blue$1;
+    break;
+}
+----
 
-|No Proxy Host |If certain hosts must be contacted directly (without
-going through the proxy), you can specify their names here. You can even
-use `+*+` as a wildcard. Example: `+*jenkins-test*+``+.example.com+`
+To give nginx permission to read Jenkins web root folder, add nginx to
+Jenkins group: 
 
-|Test URL |Enter the *full URL* of a host to use for testing the proxy
-configuration. Example: http://jenkins-ci.org/
-|===
+[source,sh]
+----
+useradd \-aG Jenkins nginx
+----
 
-To temporarily disable the proxy configuration, you can add a single
-wildcard character `+*+` on the first line. Erasing the value of
-*Server* will _discard all values_ and disable the use of a proxy
-server.
+If you are experiencing timeouts when attempting to run long CLI
+commands through a proxy in Jenkins > 2.80, you can increase the
+`+proxy_read_timeout+` setting as necessary. 
+Older versions of Jenkins may not respect the `+proxy_read_timeout+` setting.
 
-[[JenkinsBehindProxy-Whichpluginssupportaproxyserver]]
-===== Which plugins support a proxy server?
+If you are experiencing the following error when attempting to run long
+CLI commands in Jenkins > 2.80, and Jenkins is running behind Nginx, it
+is probably due to Nginx timing out the CLI connection. 
+You can increase the `+proxy_read_timeout+` setting as necessary so the command will
+complete successfully. 
+Versions of Jenkins before 2.80 may not respect the `+proxy_read_timeout+` setting.
 
-[cols=",,,,",]
-|===
-|*Plugin* |*Since version* |*Supports HTTPS?* |*Supports Exclusions?*
-|*Supports authentication?*
+....
+WARNING: null
+hudson.cli.DiagnosedStreamCorruptionException
+Read back: 0x00 0x00 0x00 0x1e 0x07 'Started reverse-proxy-test #68' 0x00 0x00 0x00 0x01 0x07 0x0a
+Read ahead: 
+Diagnosis problem:
+    java.io.IOException: Premature EOF
+        at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+        ...
+    at hudson.cli.FlightRecorderInputStream.analyzeCrash(FlightRecorderInputStream.java:82)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:153)
+Caused by: java.io.IOException: Premature EOF
+    at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+    ...
+    at java.io.DataInputStream.readInt(DataInputStream.java:387)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:111)
+....
 
-|https://wiki.jenkins.io/display/JENKINS/Fortify+On+Demand+Uploader+Plugin[Fortify
-On Demand Uploader Plugin]
-|https://github.com/jenkinsci/fortify-on-demand-uploader-plugin/releases/tag/fortify-on-demand-uploader-1.08[1.08]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
+[[RunningJenkinsonPort80or443usingiptables-ForwardingWithiptables]]
+=== Forwarding With Iptables
 
-|https://wiki.jenkins.io/display/JENKINS/Git+Plugin[Git Plugin]
-|https://github.com/jenkinsci/git-plugin/releases/tag/git-2.1.0[2.1.0]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
+The default Jenkins installation runs on ports 8080 and 8443. 
+Typically, HTTP/HTTPS servers run on ports 80 and 443, respectively. 
+But these ports are considered privileged on Unix/Linux systems, 
+and the process using them must be owned by root. 
+Running Jenkins as root is not recommended - it should be run as its own user. 
+One solution is to front Jenkins with a web server such as Apache, and let 
+it proxy requests to Jenkins, but this requires maintaining the Apache installation as well.
+In situations where you are wanting to run Jenkins on port 80 or 443
+(i.e. HTTP/HTTPS), but you do not want to setup a proxy server you can
+use _iptables_ on Linux to forward traffic.
 
-|https://wiki.jenkins.io/display/JENKINS/Azure+DevOps+and+Team+Foundation+Server+Plugin[Azure
-DevOps and Team Foundation Server Plugin]
-|https://github.com/jenkinsci/tfs-plugin/releases/tag/tfs-5.1.0[5.1.0]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
+[[RunningJenkinsonPort80or443usingiptables-UbuntuInstallations]]
+==== Ubuntu Installations
 
-|https://wiki.jenkins.io/display/JENKINS/Openid+Connect+Authentication+Plugin[Openid
-Connect Authentication Plugin]
-|https://github.com/jenkinsci/oic-auth-plugin/releases/tag/oic-auth-1.4[1.4]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
-|image:../../resources/managing/check.svg[(tick)]
-|===
+The article https://wiki.jenkins.io/display/JENKINS/Installing+Jenkins+on+Ubuntu[Installing
+Jenkins on Ubuntu] includes a similar procedure that has been
+independently verified to work on Ubuntu 16 LTS, whereas the procedures
+shown below did not.
+
+[[RunningJenkinsonPort80or443usingiptables-Prerequisites]]
+==== Prerequisites
+
+In order to forward traffic from 80/443 to 8080/8443, first you must
+ensure that iptables has allowed traffic on all 4 of these ports. 
+Use the following command to list the current iptables configuration:
+
+[source,sh]
+----
+ iptables -L -n
+----
+
+You should should see in the output entries for 80, 443, 8080,and 8443.
+Here is an example output for comparison.
+
+[source,sh]
+----
+ain INPUT (policy ACCEPT)target     prot opt source               destination         Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:443
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:80
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:8080
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:8443
+ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0           state RELATED,ESTABLISHED
+ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0
+ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           state NEW tcp dpt:22
+REJECT     all  --  0.0.0.0/0            0.0.0.0/0           reject-with icmp-host-prohibited
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+REJECT     all  --  0.0.0.0/0            0.0.0.0/0           reject-with icmp-host-prohibited
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+target     prot opt source        
+----
+
+If you don't see entries for these ports, then you need to run commands
+(as root or with sudo) to add those ports. 
+For example, if you see none of these and need to add them all, 
+you would need to issue the following commands:
+
+[source,sh]
+----
+sudo iptables -I INPUT 1 -p tcp --dport 8443 -j ACCEPT
+sudo iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT
+sudo iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
+sudo iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+----
+
+NOTE:: I used -I INPUT 1. In a lot of iptables
+documentation/examples, you will see -A INPUT. 
+The difference is that -A appends to the list of rules, 
+while -I INPUT 1 inserts before the first entry. 
+Usually when adding new accept ports to iptables configuration, 
+you want to put them at the beginning of the ruleset, not the end. 
+Run iptables -L -n again and you should now see entries for these 4 ports.
+
+[[RunningJenkinsonPort80or443usingiptables-Forwarding]]
+==== Forwarding
+
+Once traffic on the required ports are allowed, you can run the command
+to forward port 80 traffic to 8080, and port 443 traffic to 8443. 
+The commands look like this:
+
+[source,sh]
+----
+sudo iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
+sudo iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 8443
+----
+
+You can verify the forwarding rules using below command.
+
+[source,sh]
+----
+[root@xyz~]# iptables -L -t nat
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination
+REDIRECT   tcp  --  anywhere             anywhere             tcp dpt:http redir ports 8080
+REDIRECT   tcp  --  anywhere             anywhere             tcp dpt:https redir ports 8443
+
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain POSTROUTING (policy ACCEPT)
+target     prot opt source               destination
+----
+
+ +
+
+Once these rules are set and confirmed with iptables -L -n, and once
+your Jenkins instance is up and running on port 8080, attempt to access
+your Jenkins instance on port 80 instead of 8080. 
+It should work and your URL should stay on port 80 - in other words, 
+it should not get redirected to 8080. 
+The fact that forwarding from 80 to 8080 (or 443 to 8443) should remain 
+hidden from the client.
+
+===== Saving iptables Configuration
+
+Using the iptables command to change port configuration and routing
+rules only changes the current, in-memory configuration. 
+It does not persist between restarts of the iptables service. 
+So, you need to make sure you save the configuration to make the changes permanent.
+
+Saving the configuration is slightly different between RedHat-based and
+Debian-based systems. 
+On a RedHat-based system (Fedora, CentOS, RHEL, etc), issue the following command:
+
+[source,sh]
+----
+sudo iptables-save > /etc/sysconfig/iptables
+----
+
+On a Debian-based system (Debian, Ubuntu, Mint, etc), issue the
+following command:
+
+[source,sh]
+----
+sudo sh -c "iptables-save > /etc/iptables.rules"
+----
+
+The iptables-restore command will need to be executed manually, or your
+system configured to automatically run it on boot, against the
+/etc/iptables.rules file you have created, in order for your iptables
+configuration to be retained across reboots. 
+On Ubuntu fastest way is to install iptables-persistent after configuring iptables - 
+it will automatically create necessery files from current configuration and load
+them on boot.
+
+[source,sh]
+----
+sudo apt-get install iptables-persistent
+----
+
+See https://help.ubuntu.com/community/IptablesHowTo for other Ubuntu
+options. 
+There are many other resources describing this; please consult
+your system's documentation or search on the internet for information
+specific to your flavor of Linux.
+
+If you are unsure at all about what kind of system you have, consult
+that system's documentation on how to update iptables configuration.
+
+[[RunningJenkinsonPort80or443usingiptables-AlternateSolution]]
+==== Alternate Solution
+
+Note that an earlier version of this documentation had different
+iptables commands for forwarding ports. 
+I found that these did not work for me, and so I researched and 
+came up with the information above. 
+I do not believe that DNAT is required, as it is typically used to publish a
+service from an internal network to a publicly accessible IP. 
+But, if the above forwarding commands do not work for you, you might want to
+consider trying the commands below. 
+Keep in mind that the rules to allow incoming traffic are still required in 
+order for these rules to work:
+
+*iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j DNAT
+--to-destination 127.0.0.1:8080*
+
+The first rule uses -j DNAT target of the PREROUTING chain in NAT to
+specify a destination IP address and port where incoming packets
+requesting a connection to your Jenkins service can be forwarded.
+
+If you have a default policy of DROP in your FORWARD chain, you will
+need to add a rule to forward all incoming traffic.
+
+*iptables -A FORWARD -i eth0 -m state --state NEW -m tcp -p tcp -d
+127.0.0.1 --dport 8080 -j ACCEPT*
+
+For HTTPS you will need to repeat the above steps but specify port 443
+instead of port 80.
+
+[[RunningJenkinsonPort80or443usingiptables-Usingfirewalld]]
+==== Using firewalld
+
+Newer Linux distributions (CentOS 7, RHEL 7, etc.) ship with firewalld
+which serves as a front-end for iptables.  
+Configuration thru firewalld is done via the *firewall-cmd* command.  
+Instead of using any of the iptables commands mentioned above, 
+all you should need to do is something like:
+
+[source,sh]
+----
+sudo firewall-cmd --add-port=80/tcp --permanent   (allow incoming connections on port 80.  You can also use --add-service=http instead of adding a port number)
+sudo firewall-cmd --add-port=443/tcp --permanent  (allow incoming connections on port 443.  You can also use --add-service=https instead of adding a port number)
+sudo firewall-cmd --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080 --permanent
+sudo firewall-cmd --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443 --permanent
+sudo firewall-cmd --reload
+----
+
+With the above commands, jenkins can be configured to run on
+localhost:8080 and/or localhost:8443 (depending if you need or want to
+do SSL or not)
+
+firewalld will then create the required iptables rules so that incoming
+connections on port 80 are forwarded to jenkins on 8080 (and 443 is
+forwarded to 8443).
+
+
+=== Running Jenkins behind HAProxy
+
+In situations where you want a user friendly URL, different public
+ports, or to terminate SSL connections before they reach Jenkins, you
+may find it useful to run Jenkins (or the servlet container that Jenkins
+runs in) behind HAProxy. 
+This section discusses some of the approaches for doing this.
+
+[[RunningJenkinsbehindHAProxy-PlainHTTP]]
+==== Plain HTTP
+
+Using HAProxy 1.7.9, here is an example HAProxy.cfg to proxy over plain
+HTTP:
+
+....
+# If you already have an haproxy.cfg file, you can probably leave the
+# global and defaults section as-is, but you might need to increase the 
+# timeouts so that long-running CLI commands will work.
+global 
+    maxconn 4096 
+    log 127.0.0.1 local0 debug
+
+defaults
+   log global
+   option httplog
+   option dontlognull
+   option forwardfor
+   maxconn 20
+   timeout connect 5s
+   timeout client 60s
+   timeout server 60s
+
+frontend http-in
+   bind *:80
+   mode http
+   acl prefixed-with-jenkins  path_beg /jenkins/
+   acl host-is-jenkins-example   hdr(host) eq jenkins.example.com
+   use_backend jenkins if host-is-jenkins-example prefixed-with-jenkins
+
+backend jenkins
+   server jenkins1 127.0.0.1:8080
+   mode http
+   reqrep ^([^\ :]*)\ /(.*) \1\ /\2
+   acl response-is-redirect res.hdr(Location) -m found
+   rspirep ^Location:\ (http|https)://127.0.0.1:8080/jenkins/(.*) Location:\ \1://jenkins.example.com/jenkins/\2 if response-is-redirect
+....
+
+This assumes Jenkins is running locally on port 8080.
+
+This assumes that you are using the /jenkins/ context path for both the
+site exposed from HAProxy, and Jenkins itself. 
+If this is not the case, you will need to adjust the configuration.
+
+If you are experiencing the following error when attempting to run long
+CLI commands in Jenkins > 2.80, and Jenkins is running behind HAProxy,
+it is probably due to HAProxy timing out the CLI connection. 
+You can increase the `+timeout client+` and `+timeout server+` settings as
+necessary so the command will complete successfully. 
+Versions of Jenkins before 2.80 might not respect the `+proxy_read_timeout  +`setting.
+
+....
+WARNING: null
+hudson.cli.DiagnosedStreamCorruptionException
+Read back: 0x00 0x00 0x00 0x1e 0x07 'Started reverse-proxy-test #68' 0x00 0x00 0x00 0x01 0x07 0x0a
+Read ahead: 
+Diagnosis problem:
+    java.io.IOException: Premature EOF
+        at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+        ...
+    at hudson.cli.FlightRecorderInputStream.analyzeCrash(FlightRecorderInputStream.java:82)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:153)
+Caused by: java.io.IOException: Premature EOF
+    at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+    ...
+    at java.io.DataInputStream.readInt(DataInputStream.java:387)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:111)
+....
+
+[[RunningJenkinsbehindHAProxy-WithSSL]]
+==== With SSL
+
+Using HAProxy 1.7.9, here is an example HAProxy.cfg to connect to the
+proxy using SSL, terminate the SSL connection, and then talk to Jenkins
+using plain HTTP:
+
+....
+# If you already have an haproxy.cfg file, you can probably leave the
+# global and defaults section as-is, but you might need to increase the 
+# timeouts so that long-running CLI commands will work.
+global 
+    maxconn 4096 
+    log 127.0.0.1 local0 debug
+
+defaults
+   log global
+   option httplog
+   option dontlognull
+   option forwardfor
+   maxconn 20
+   timeout connect 5s
+   timeout client 5min
+   timeout server 5min
+ 
+frontend http-in
+    bind *:80
+    bind *:443 ssl crt /usr/local/etc/haproxy/ssl/server.pem
+    mode http
+    redirect scheme https if !{ ssl_fc } # Redirect http requests to https
+    use_backend jenkins if { path_beg /jenkins/ }
+
+backend jenkins
+    server jenkins1 127.0.0.1:8080
+    mode http
+    http-request set-header X-Forwarded-Port %[dst_port]
+    http-request add-header X-Forwarded-Proto https if { ssl_fc }
+    reqrep ^([^\ :]*)\ /(.*)     \1\ /\2
+    acl response-is-redirect res.hdr(Location) -m found
+    rspirep ^Location:\ (http)://127.0.0.1:8080/(.*)   Location:\ https://jenkins.example.com:443/\2  if response-is-redirect
+....
+
+=== Running Jenkins behind IIS
+
+In situations where you have existing web sites on your server, you may
+find it useful to run Jenkins (or the servlet container that Jenkins
+runs in) behind http://nginx.org/[Nginx], so that you can bind Jenkins
+to the part of a bigger website that you may have. 
+This section discusses some of the approaches for doing this.
+
+*Make sure that you change the Jenkins httpListenAddress from its
+default of 0.0.0.0 to 127.0.0.1 or configure the firewall to block
+request on the port Jenkins is bound to, otherwise any IIS-level
+restrictions can be easily bypassed by hitting the Jenkins port
+directly.*
+
+[[RunningJenkinsbehindIIS-Requirements]]
+==== Requirements
+
+* IIS 7.0 or greater.
+** IIS 8.5 or greater if you want
+https://docs.microsoft.com/en-us/iis/get-started/whats-new-in-iis-85/certificate-rebind-in-iis85[Certificate
+Rebind].
+* https://www.iis.net/downloads/microsoft/url-rewrite[URL Rewrite 2.1]
+or greater.
+** As the https://blogs.iis.net/iisteam/url-rewrite-v2-1[announcement]
+explains, it introduces a feature flag to turn off the default
+non-compliant-RFC3986 behavior. Which is what we want.
+* https://www.iis.net/downloads/microsoft/application-request-routing[Application
+Request Routing]  3.0 or greater.
+* Server access
+
+[[RunningJenkinsbehindIIS-Exampleusecase]]
+==== Example use case
+
+I have a dedicated Jenkins installation on a Windos Server 2012 R2
+server with a Common Name of *VRTJENKINS01* in the Active Directory
+domain *acme.example* and is reachable by the Fully Qualified Domain
+Name *vrtjenkins01.acme.example*. 
+Additionally Jenkins runs on port *8080* and already listens to *127.0.0.1* 
+instead of 0.0.0.0 and the server has additional DNS names: *jenkins* and 
+*jenkins.acme.example*.
+
+I want to have an IIS installation which acts as a TLS/SSL terminating
+reverse proxy. 
+In combination with our in-house Active Directory Certificate Services 
+(ADCS, Microsoft's Certificate Authority software) this should make 
+certificate management a lot easier since Windows can be configured to 
+automatically renew certificates, and the IIS 8.5+ Certificate Rebind 
+feature can listen to renewal events (which contain the fingerprints of 
+both the old and new certificate) and update the relevant bind(s) to use 
+the fresh certificate. 
+This would ensure that after the initial manual request it would only be 
+necessary to manually change TLS/SSL related settings when the set of 
+Alternate Subject Names on the certificate IIS presents should change.
+
+IIS will only have to act as 1) a reverse proxy for Jenkins 2) redirect
+non-canonical URLs to the canonical URL: _https://jenkins.acme.example/_
+
+I have installed the IIS (8.5) role using the _Add Roles and Features
+Wizard_ with the all the default and also the following non-default
+features:
+
+* HTTP Redirection (Under _Common HTTP Features_, to
+redirect [.nolink]#http(s)://jenkins/,# etc. to
+https://jenkins.acme.example/)
+* WebSocket Protocol (Under _Application Development_, because I felt
+like it)
+
+Then I installed URL Rewrite and Application Request Routing.
+
+[[RunningJenkinsbehindIIS-ConfigurationTime]]
+==== Configuration Time
+
+[[RunningJenkinsbehindIIS-EnablingReverseProxyfunctionality]]
+===== Enabling Reverse Proxy functionality
+
+. In the _Internet Information Services (IIS) Manager_ click on the
+VRTJENKINS01 server.
+. Go to _Application Request Routing Cache_.
+. In the _Actions_ panel click on _Server Proxy Settings..._
+. Enable the proxy
+. Disable the _Reverse rewrite host in response header_
+.. Don't worry, it will work, just follow the rest of the instructions
+. Set the _Response buffer threshold (KB)_ to 0.
+.. This helps to prevent HTTP 502 errors on Jenkin's Replay pages.
+. Apply (the _Actions_ panel again)
+
+[[RunningJenkinsbehindIIS-ConfiguringTLS/SSL]]
+===== Configuring TLS/SSL
+
+Out of scope, there are enough tutorials on the rest of the interwebs
+for this part. 
+The rest of this tutorial will assume it has been configured with a 
+certificate trusted by your browser of choice.
+
+[[RunningJenkinsbehindIIS-Configuringrulesforresponserewriting]]
+===== Configuring rules for response rewriting
+
+. Go to the _Default Web Site_
+. Go to __URL Rewrite__
+. In the _Actions_ panel click _View Server Variables..._
+. Add the following is not already define on the server level:
+.. Name: *HTTP_FORWARDED*
+. Click on _Back to Rules_
+. _Click on Add Rule(s)..._
+. Select _Reverse Proxy_ and click on OK
+. Enter _jenkins.acme.example_ and click on OK
+. Open the rule you just created
+. Under _Conditions_ add:
+.. Condition input: *\{CACHE_URL}*
+.. Pattern: *^(http|ws)s://*
+. Under _Server Variables_ add:
+.. Name: *HTTP_FORWARDED*, Value:
+*for=\{REMOTE_ADDR};by=\{LOCAL_ADDR};host="\{HTTP_HOST}";proto="https"*,
+Replace: yes
+... Jenkins runs under Jetty, Jetty supports
+https://tools.ietf.org/html/rfc7239[RFC7239], so all should be well.
+. Under Action change:
+..  Rewrite URL to
+*\{C:1}[.nolink]#://jenkins.acme.example:8080\{UNENCODED_URL#}*
+... Note that there is no slash between the port number and the opening
+curly bracket
+.. *Remove* the check from the *Append query string* checkbox
+. Apply the changes.
+. Edit _C:\Windows\System32\drivers\etc\hosts_ so that
+*jenkins.acme.example* points to 127.0.0.1
+.. When resolving names Windows will check if the name is its own name
+before consulting the hosts file. Meaning that adding _vrtjenkins01_ or
+_vrtjenkins01.acme.example_ to the hosts file won't have any effect.
+... The hosts file will however be consulted before consulting the DNS
+infrastructure
+
+[[RunningJenkinsbehindIIS-ExperiencingthedreadedItappearsthatyourreverseproxysetupisbroken.errorforyourself]]
+===== Experiencing the dreaded "It appears that your reverse proxy set up is broken." error for yourself
+
+. [.nolink]#https://jenkins.acme.example/configure#
+. Configure the _Jenkins URL_ to
+be **[.nolink]#[.nolink]#https://jenkins.acme.example/##**[.nolink]##[.nolink]#
+and###[.nolink]#[.nolink]# Save the change##
+. [.nolink]#[.nolink]#Go to _Configure Global Security_ and enable
+_Enable proxy compatibility_ if you have already enabled _Prevent Cross
+Site Request Forgery exploits_ +
+##
+. Go to [.nolink]#[.nolink]#https://jenkins.acme.example/manage ##
+. [.nolink]#You will still experience the "It appears that your reverse
+proxy set up is broken." as expected#
+.. [.nolink]##[.nolink]#[.nolink]# ####[.nolink]##If you do not get that
+at this point, then that is very weird... Continue anyway.##[.nolink]# #
+. [.nolink]#Right click the _Configure System_ link and choose to
+inspect the element. +
+#
+.. [.nolink]#Make sure you are still on the Manage page as you will want
+it as your referrer#
+. [.nolink]#Change the value of the _href_ attribute to be
+_administrativeMonitor/hudson.diagnosis.ReverseProxySetupMonitor/test_#
+. [.nolink]#Open the link you just changed in a new tab.#
+.. [.nolink]#Keep this tab open#
+. [.nolink]#Observe the "[.nolink]#https://jenkins.acme.example/manage#
+vs http:" error and bask in its glory#
+.. [.nolink]#a white page served with HTTP status code is 200 indicates
+all is well#
+... [.nolink]#If you do get that at this point, then that is very
+weird... Continue anyway.#
+
+[[RunningJenkinsbehindIIS-Fixingtheerrors]]
+===== [.nolink]#Fixing the errors#
+
+. [.nolink]#In IIS Manager got to _Application Pools_ then edit
+_DefaultAppPool_ so that the _.NET CLR version_ is *No Managed Code* #
+.. [.nolink]#You might find that this is not necessary (at far as you
+can tell) for your setup, since IIS will only act as a TLS/SSL
+offloading reverse proxy, we don't need it. IIS on Windows 7 does appear
+to need this to be turned off for some urls
+([.nolink]#https://jenkins.acme.example/*)# +
+#
+. [.nolink]#Then go to _Sites_ → _Default Web Site_ → _Request
+Filtering_ and in the _Actions_ panel choose _Edit Feature Settings..._
+and turn on *Allow doube escaping* #
+.. [.nolink]#This is so IIS forwards URLs like
+[.nolink]#https://jenkins.acme.example/%2525# to Jenkins instead of
+showing an IIS error page#
+. [.nolink]#Last, but not least, go to [.nolink]##_Sites_ → _Default Web
+Site_ → ##__Configuration Editor__ and change the _Section_ to
+_system.webServer/rewrite/rules_#
+. [.nolink]#Now you should see the URL Rewrite 2.1 property
+_useOriginalURLEncoding_ listed, if not install URL Rewrite 2.1 using
+the x86 or x64 installer, not the WebPI one and resume from here after a
+reboot.#
+. [.nolink]#Change [.nolink]##_useOriginalURLEncoding_ ##to *False*#
+.. [.nolink]#As the URL Rewrite 2.1 announcement this will change the
+value of \{UNENCODED_URL} to make it _RFC3986_ and usable for reverse
+proxy forwarding purposes#
+.. [.nolink]#original as in pre 2.1 behaviour. +
+#
+. [.nolink]#Refresh that tab you were supposed to keep open, or recreate
+it.#
+.. [.nolink]#Again, take some time to bask in its glory +
+#
+. [.nolink]#It should now be white, also the Manage page should no
+longer complain!#
+
+[[RunningJenkinsbehindIIS-ContinueconfiguringIIS]]
+===== [.nolink]#Continue configuring IIS#
+
+[.nolink]#Some of the things you might want but I won't cover:#
+
+* [.nolink]#_Hypertext Strict Transport Security_ headers#
+* [.nolink]#Redirecting from non canonical URLs to the canonical URL
+(ok, sort of covered this in the web.config example) +
+#
+* [.nolink]#The X-UA-Compatibility header so that Internet Explorer 11
+(or 9, or ...) won't claim to be IE 7 for intranet sites#
+* [.nolink]#Use IIS Crypto to configure cipher suites#
+* [.nolink]#...#
+
+[[RunningJenkinsbehindIIS-Aworkingweb.config]]
+===== [.nolink]#A working web.config#
+
+*web.config*
+
+[source,sh]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <rewrite>
+            <rules useOriginalURLEncoding="false">
+                <rule name="CanonicalHostNameRule2" stopProcessing="true">
+                    <match url="(.*)" />
+                    <conditions trackAllCaptures="true">
+                        <add input="{CACHE_URL}" pattern="^(http|ws)://" />
+                        <add input="{HTTP_HOST}" pattern="^jenkins$|^jenkins\.acme\.example$|^vrtjenkins01$|^vrtjenkins01\.acme\.example$" />
+                    </conditions>
+                    <action type="Redirect" url="{C:1}s://jenkins.acme.example{UNENCODED_URL}" appendQueryString="false" redirectType="Permanent" />
+                </rule>
+                <rule name="CanonicalHostNameRule1" stopProcessing="true">
+                    <match url="(.*)" />
+                    <conditions trackAllCaptures="true">
+                        <add input="{CACHE_URL}" pattern="^(https|wss)://" />
+                        <add input="{HTTP_HOST}" pattern="^jenkins$|^vrtjenkins01$|^vrtjenkins01\.acme\.example$" />
+                    </conditions>
+                    <action type="Redirect" url="{C:1}://jenkins.acme.example{UNENCODED_URL}" appendQueryString="false" redirectType="Permanent" />
+                </rule>
+                <rule name="ReverseProxyInboundRule1" stopProcessing="true">
+                    <match url="(.*)" />
+                    <action type="Rewrite" url="{C:1}://jenkins.acme.example:8080{UNENCODED_URL}" appendQueryString="false" />
+                    <serverVariables>
+                        <set name="HTTP_FORWARDED" value="for={REMOTE_ADDR};by={LOCAL_ADDR};host=&quot;{HTTP_HOST}&quot;;proto=&quot;https&quot;" />
+                    </serverVariables>
+                    <conditions trackAllCaptures="true">
+                        <add input="{CACHE_URL}" pattern="^(http|ws)s://" />
+                        <add input="{HTTP_HOST}" pattern="^jenkins\.acme\.example$" />
+                    </conditions>
+                </rule>
+            </rules>
+        </rewrite>
+        <security>
+            <requestFiltering allowDoubleEscaping="true" />
+        </security>
+    </system.webServer>
+</configuration>
+----
+
+
+[[RunningJenkinsbehindIIS-Complainaboutitstillnotworking]]
+===== Complain about it still not working
+
+Leave a comment or complain to me over at twitter
+(@Darsstar) +
+
+=== Running Jenkins behind Squid
+
+In situations where you want a user friendly url to access Jenkins (Not
+port 8080), it makes sense to have Jenkins runs behind Squid, so that
+you can access Jenkins on port 80 or 443. 
+This section discusses some of the approaches for doing this.
+
+[[RunningJenkinsbehindSquid-Squid2.6]]
+==== Squid 2.6
+
+Using Squid 2.6 (default on Centos 5.3):
+
+[source,sh]
+----
+acl all src 0.0.0.0/0.0.0.0
+acl localhost src 127.0.0.1/255.255.255.255
+acl manager proto cache_object
+acl to_localhost dst 127.0.0.0/8
+acl valid_dst dstdomain .YOUR_DOMAIN ci
+
+
+cache_replacement_policy heap LFUDA
+memory_replacement_policy heap GDSF
+
+cache_dir ufs /var/spool/squid 512 16 256
+cache_mem 512 MB
+maximum_object_size 12000 KB
+
+## http --> https redirect
+## don't forget to update "Jenkins URL" on https://ci.YOUR_DOMAIN/configure
+#acl httpPort myport 80
+#http_access deny httpPort
+#deny_info https://ci.YOUR_DOMAIN/ httpPort
+
+
+cache_peer localhost parent 8080 0 originserver name=myAccel
+coredump_dir /var/spool/squid
+hierarchy_stoplist cgi-bin
+http_access allow localhost
+http_access allow manager localhost
+http_access allow valid_dst
+http_access deny all
+http_access deny manager
+
+## mkdir /etc/squid/ssl/ && cd /etc/squid/ssl/ # to generate your self-signed certificate
+## openssl genrsa -out jenkins.key 1024
+## openssl req -new -key jenkins.key -x509 -out jenkins.crt -days 999
+http_port 80 vhost
+#https_port 443 cert=/etc/squid/ssl/jenkins.crt key=/etc/squid/ssl/jenkins.key vhost
+
+http_reply_access allow all
+icp_access allow all
+
+refresh_pattern -i \.jp(e?g|gif|png|ico)   300  20%  600 override-expire
+
+
+logformat combined %>a %ui %un \[%tl\] "%rm %ru HTTP/%rv" %Hs %<st "%{Referer}>h" "%{User-Agent}>h" %Ss:%Sh
+strip_query_terms off
+access_log /var/log/squid/access.log combined
+
+visible_hostname ci.YOUR_DOMAIN
+----
+
+This assumes that you run Jenkins on localhost port 8080. 
+But you can have it on an other server / different port 
+(adjust line starting with cache_peer) +
+
+Of course replace  YOUR_DOMAIN with your domain. +
+
+[[RunningJenkinsbehindSquid-Withssl]]
+===== With ssl
+
+Remove one level of comment
+
+[source,sh]
+----
+ sed s/^#// /etc/squid/squid.conf
+----
+
+/!\ If you use the swarm client plugin , the nodes will complain about :
+
+[source,sh]
+----
+Caused by: sun.security.validator.ValidatorException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+        at sun.security.validator.PKIXValidator.doBuild(PKIXValidator.java:285)
+        at sun.security.validator.PKIXValidator.engineValidate(PKIXValidator.java:191)
+        at sun.security.validator.Validator.validate(Validator.java:218)
+        at com.sun.net.ssl.internal.ssl.X509TrustManagerImpl.validate(X509TrustManagerImpl.java:126)
+        at com.sun.net.ssl.internal.ssl.X509TrustManagerImpl.checkServerTrusted(X509TrustManagerImpl.java:209)
+        at com.sun.net.ssl.internal.ssl.X509TrustManagerImpl.checkServerTrusted(X509TrustManagerImpl.java:249)
+        at com.sun.net.ssl.internal.ssl.ClientHandshaker.serverCertificate(ClientHandshaker.java:1014)
+        ... 13 more
+Caused by: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+----
+
+Fix : +
+http://www.nabble.com/Re:-Getting-hudson-slaves-to-connect-to-https-hudson-with-self-signed-certificate-p21061658.html
+
+[[RunningJenkinsbehindSquid-Notes]]
+===== Notes
+
+We use Active Directory internally to authenticate our users, it was
+mandatory to allow https access only.
+
+
+
+
+
+
+
 
  
