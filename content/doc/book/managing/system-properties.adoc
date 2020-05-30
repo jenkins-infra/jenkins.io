@@ -18,7 +18,7 @@ $(function () {
 ++++
 
 Jenkins has several "hidden" features that can be enabled with system properties.
-This page describes how to configure them on your instance.
+This page documents many of them and explain how to configure them on your instance.
 
 == Usage
 
@@ -46,6 +46,9 @@ If you find some of those useful, please file a ticket to promote it to the offi
 
 
 == Properties in Jenkins Core
+
+[NOTE]
+Due to the very large number of system properties used, often just added as a "safety valve" or "escape hatch" in case a change causes problems, this is list is not expected to be complete.
 
 ++++
 <style>
@@ -77,12 +80,13 @@ dd {
     **Default:** `false` +
     **Since:** n/a +
     **Description:** Disable the bytecode transformer that retains compatibility at runtime after changing public Java APIs.
-
+////
+TODO: This may not actually be used anymore. We probably should document deprecated/obsolete system properties in a separate section.
 `hudson.ClassicPluginStrategy.useAntClassLoader`::
     **Default:** `false` +
     **Since:** 1.316 +
-    **Description:** TODO: This may not actually be used anymore.
-
+    **Description:** +
+////
 `hudson.cli.CLI.pingInterval`::
     **Default:** 3000 +
     **Since:** 2.199 +
@@ -534,9 +538,9 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
     **Description:** Regex for legal user names in Jenkins user database. See link:/security/advisory/2018-05-09/#SECURITY-786[SECURITY-786].
 
 `hudson.security.HudsonPrivateSecurityRealm.maximumBCryptLogRound`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+    **Default:** 18 +
+    **Since:** 2.161 +
+    **Description:** Limits the number of rounds for pre-computed BCrypt hashes of user passwords for the Jenkins user database to prevent excessive computation.
 
 `hudson.security.LDAPSecurityRealm.groupSearch`::
     **Default:** TBD +
@@ -544,9 +548,9 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
     **Description:** LDAP filter to look for groups by their names
 
 `hudson.security.TokenBasedRememberMeServices2.skipTooFarExpirationDateCheck`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+    **Default:** `false` +
+    **Since:** 2.160 and 2.150.2 +
+    **Description:** Escape hatch for https://www.jenkins.io/security/advisory/2019-01-16/#SECURITY-868[SECURITY-868]
 
 `hudson.security.WipeOutPermission`::
     **Default:** `false` +
@@ -569,19 +573,21 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
     **Description:** Timeout for each https://wiki.jenkins.io/display/JENKINS/Ping+Thread[ping between the master and slaves], in seconds
 
 `hudson.slaves.ConnectionActivityMonitor.enabled`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+// This looks like a dead feature? Introduced 2011 and disabled by default?
+    **Default:** `false` +
+    **Since:** 1.326 +
+    **Description:** Whether to enable this feature that checks whether agents are alive and cuts them off if not.
 
 `hudson.slaves.ConnectionActivityMonitor.frequency`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+// Actually dual use: Both for timeout (4 minutes) and time to ping (3 minutes). Possibly copy & paste issue and bug in core?
+    **Default:** 10000 (10 seconds) +
+    **Since:** 1.326 +
+    **Description:** How frequently to check for channel activity, in milliseconds.
 
 `hudson.slaves.ConnectionActivityMonitor.timeToPing`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+    **Default:** 180000 (3 minutes) +
+    **Since:** 1.326 +
+    **Description:** How long to wait after startup to start checking agent connections, in milliseconds.
 
 `hudson.slaves.NodeProvisioner.initialDelay`::
     **Default:** TODO +
@@ -664,19 +670,20 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
     **Description:** Pass blame information to downstream jobs
 
 `hudson.util.AtomicFileWriter.DISABLE_FORCED_FLUSH`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
-
+// The code is really confusing; there are two flags, one is always false, and will be forcibly set to false here, except using a new constructor that was deprecated in the same PR it was introduced in.
+    **Default:** `alse` +
+    **Since:** 2.102 +
+    **Description:** Disables the forced flushing when calling `#close()`.
+    Not expected to be used.
 `hudson.util.CharacterEncodingFilter.disableFilter`::
-    **Default:** TODO +
+    **Default:** `false` +
     **Since:** n/a +
-    **Description:** TODO
+    **Description:** Set to `true` to disable the filter that sets request encoding to UTF-8 if it's undefined and its content type is `text/xml` or `application/xml` (API submissions).
 
 `hudson.util.CharacterEncodingFilter.forceEncoding`::
-    **Default:** TODO +
+    **Default:** `false` +
     **Since:** n/a +
-    **Description:** TODO
+    **Description:** Set to `true` to force the request encoding to UTF-8 even if a different character set is declared.
 
 `hudson.Util.deletionRetryWait`::
     **Default:** 100 +
@@ -727,12 +734,15 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
 `hudson.util.Secret.provider`::
     **Default:** n/a +
     **Since:** 1.360 +
-    **Description:** Force a particular crypto provider; with Glassfish Enterprise set value to `+SunJCE+` to workaround a https://issues.jenkins-ci.org/browse/JENKINS-6459[known issue].
+    **Description:** Force a particular crypto provider; with Glassfish Enterprise set value to `+SunJCE+` to workaround https://issues.jenkins-ci.org/browse/JENKINS-6459[JENKINS-6459].
 
 `hudson.util.StreamTaskListener.AUTO_FLUSH`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+// https://github.com/jenkinsci/jenkins/pull/3961
+    **Default:** `false` +
+    **Since:** 2.173 +
+    **Description:** Jenkins no longer automatically flushes streams for code running remotely on agents for better performance.
+    This may lead to loss of messages for plugins which print to a build log from the agent machine but do not flush their output.
+    Use this flag to restore the previous behavior for freestyle builds.
 
 `hudson.Util.symlinkEscapeHatch`::
     **Default:** `false` +
@@ -754,6 +764,12 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
     **Since:** n/a +
     **Description:** TODO
 
+`HUDSON_HOME`::
+    **Default:** n/a +
+    **Since:** n/a +
+    **Description:** Backward compatible fallback name for `JENKINS_HOME`.
+    See documentation there.
+
 `jenkins.CLI.disabled`::
     **Default:** `false` +
     **Since:** 2.32 and 2.19.3 +
@@ -771,7 +787,7 @@ Some implementations that can be individually configured (see _FullyQualifiedCla
 
 `jenkins.model.Jenkins.buildsDir`::
     **Default:** `$\{ITEM_ROOTDIR}/builds` +
-    **Since:** 2.119 + 
+    **Since:** 2.119 +
     **Description:** The configuration of a given job is located under `+$JENKINS_HOME/jobs/[JOB_NAME]/config.xml+` and its builds are under `+$JENKINS_HOME/jobs/[JOB_NAME]/builds+` by default.
     This option allows you to store builds elsewhere, which can be useful with finer-grained backup policies, or to store the build data on a faster disk such as an SSD.
     The following placeholders are supported for this value:
@@ -997,9 +1013,10 @@ mv $JENKINS_HOME/jobs/[ORG_NAME]/jobs/[REPO_NAME]/branches/[BRANCH_NAME]/builds 
     **Description:** TODO
 
 `jenkins.telemetry.Telemetry.endpoint`::
-    **Default:** TODO +
-    **Since:** n/a +
-    **Description:** TODO
+// https://github.com/jenkinsci/jenkins/pull/3604
+    **Default:** `+https://uplink.jenkins.io/events+` +
+    **Since:** 2.143 +
+    **Description:** Change the endpoint that JEP-214/Uplink telemetry sends data to. Expected to be used for testing only.
 
 `jenkins.ui.refresh`::
     **Default:** `false` +
@@ -1007,14 +1024,15 @@ mv $JENKINS_HOME/jobs/[ORG_NAME]/jobs/[REPO_NAME]/branches/[BRANCH_NAME]/builds 
     **Description:** `+true+` to enable the new experimental UX on Jenkins. See https://issues.jenkins-ci.org/browse/JENKINS-60920[JENKINS-60920]. Also see https://www.jenkins.io/sigs/ux/[Jenkins UX SIG].
 
 `jenkins.util.ProgressiveRendering.DEBUG_SLEEP`::
-    **Default:** TODO +
+    **Default:** 0 +
     **Since:** n/a +
-    **Description:** TODO
+    **Description:** Debug/development option to slow down the cancelling of progressive rendering when the client fails to send a heartbeat.
 
 `JENKINS_HOME`::
-    **Default:** TODO +
+    **Default:** `~/.jenkins` +
     **Since:** n/a +
-    **Description:** TODO
+    **Description:** While typically set as an environment variable, Jenkins also looks up the path to its home directory as a system property.
+    `JENKINS_HOME` set via JNDI context has higher priority than this, but this takes precedence over the environment variable.
 
 `org.jenkinsci.main.modules.sshd.SSHD.idle-timeout`::
     **Default:** undefined +
@@ -1027,7 +1045,7 @@ mv $JENKINS_HOME/jobs/[ORG_NAME]/jobs/[REPO_NAME]/branches/[BRANCH_NAME]/builds 
     **Description:** How long to wait for remote calls (see https://issues.jenkins-ci.org/browse/JENKINS-46507[JENKINS-46507]).
 
 `stapler.jelly.noCache`::
-    **Default:** false +
+    **Default:** TODO +
     **Since:** n/a +
     **Description:** TODO
 
