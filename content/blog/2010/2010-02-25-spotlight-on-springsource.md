@@ -59,13 +59,13 @@ And HP-UX! The matrix of SIGAR's supported OS + kernel version + architecture + 
 <tr><td align="center">
 <strong>Hudson</strong>
 </td><td>
-What do you consider to be noteworthy about your Hudson implementation? Besides, clearly, that you're running Hudson slaves on just about every OS that will run Java :)
+What do you consider to be noteworthy about your Hudson implementation? Besides, clearly, that you're running Hudson agents on just about every OS that will run Java :)
 </td></tr>
 
 <tr><td align="center" valign="top">
 <strong>Doug</strong>
 </td><td>
-<p>The majority of our x86/x64 nodes are virtualized on VMware ESX and VMware Server.  We also have a fine collection of PPC, PA-RISC and Sparc hardware in house, with IA-64 and s390x hosted elsewhere by third parties.  Some of these systems are too old to support Java 1.5 and/or Git.  As a simple work-around, the nodes share an NFS workspace where the slave node takes care of 'SCM' and 'Post-build Actions', but the 'Build' step in between is invoked via ssh.
+<p>The majority of our x86/x64 nodes are virtualized on VMware ESX and VMware Server.  We also have a fine collection of PPC, PA-RISC and Sparc hardware in house, with IA-64 and s390x hosted elsewhere by third parties.  Some of these systems are too old to support Java 1.5 and/or Git.  As a simple work-around, the nodes share an NFS workspace where the agent node takes care of 'SCM' and 'Post-build Actions', but the 'Build' step in between is invoked via ssh.
 </p><p>
 The SIGAR distribution includes about two dozen native binaries that are compatible with most of the supported platform matrix.  There's a Hudson job for each Git branch that rolls these binaries into a release bundle. Another job flavor uses the Hudson URL SCM plugin to download and unit test the binary releases on the rest of the platform matrix.  This is key to testing binary compatibility.  Similar for the <a href="https://collectd.org">collectd</a> project, each Git branch has a job that runs automake, autoconf, etc. and 'make dist' into the collectd release flavor tarball.  So a push to git.verplant.org by octo in Germany triggers an update of the collectd release artifact, which in turn triggers the URL SCM jobs to download the tarball, unpack and build over here at our west coast locations.
 </p><p>
@@ -82,7 +82,7 @@ We have four Hudson servers in different locations, three of which are managing 
 <tr><td align="center" valign="top">
 <strong>Doug</strong>
 </td><td>
-Other than some Hudson plugin tweaks and additions, the Perl script I mentioned earlier was converted to generate the majority of our Hudson jobs and includes a simple templating system.  The same script generates jobs to build collectd and a few other projects.  We've outgrown this flavor of the script and have started working on integrating <a href="https://www.opscode.com/chef">Opscode Chef</a> to automate our Hudson configration along with the systems we build and test on. And of course, we're using Hyperic HQ to monitor our Hudson server instances, slaves and node machines.
+Other than some Hudson plugin tweaks and additions, the Perl script I mentioned earlier was converted to generate the majority of our Hudson jobs and includes a simple templating system.  The same script generates jobs to build collectd and a few other projects.  We've outgrown this flavor of the script and have started working on integrating <a href="https://www.opscode.com/chef">Opscode Chef</a> to automate our Hudson configration along with the systems we build and test on. And of course, we're using Hyperic HQ to monitor our Hudson server instances, agent and node machines.
 </td></tr>
 <tr><td><br/></td></tr>
 
