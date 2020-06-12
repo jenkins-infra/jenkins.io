@@ -45,7 +45,7 @@ Finishing off the second week in March, the Hudson team rolled Hudson 1.350 off 
     On RPM/DEB/etc installation, don't offer the self upgrade. It should be done by the native package manager.
     (<a href="https://n4.nabble.com/RPM-for-Hudson-1-345-does-not-Upgrade-Automatically-tp1579580p1579580.html">report</a>)
   <li class=bug>
-    Fixed a possible lock up of agnts.
+    Fixed a possible lock up of agents.
 </ul>
 
 <br clear="all"/>
