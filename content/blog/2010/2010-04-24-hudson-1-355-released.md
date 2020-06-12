@@ -30,8 +30,6 @@ I won't go into details on some of the infrastructure changes we have lined up j
   <li class=bug> 
     Make <tt>dropdownList</tt> work in repeatable content, such as a build step.
   <li class=bug> 
-    Fixed a bug where a job created via XML didn't properly receive upstream/downstream computation.
-    (<a href="https://n4.nabble.com/Hudson-API-td1747758.html#a1747758">report</a>)
 </ul>
 
 
