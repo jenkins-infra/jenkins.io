@@ -28,7 +28,7 @@ You will then see a set of options for agents. To activate version enforcement, 
 
 ![](/sites/default/files/images/versioncolumn-plugin-screenshot-2.png)
 
-When you update Jenkins, there’s a chance it’ll come with a new version of `slave.jar`. Now if the `slave.jar` on a particular agent doesn’t get updated automatically, the master will take it offline and show a warning next to the out-of-date agents version number:
+When you update Jenkins, there’s a chance it’ll come with a new version of `slave.jar`. Now if the `slave.jar` on a particular agent doesn’t get updated automatically, the master will take it offline and show a warning next to the out-of-date agent version number:
 
 ![](/sites/default/files/images/versioncolumn-plugin-screenshot-3.png)
 
