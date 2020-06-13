@@ -30,18 +30,13 @@ I won't go into details on some of the infrastructure changes we have lined up j
   <li class=bug> 
     Make <tt>dropdownList</tt> work in repeatable content, such as a build step.
   <li class=bug> 
-    Fixed a bug where a job created via XML didn't properly receive upstream/downstream computation.
-    (<a href="https://n4.nabble.com/Hudson-API-td1747758.html#a1747758">report</a>)
-  <li class=bug> 
-    Argument masking wasn't working correctly for commands run on slaves
-    (<a href="https://n4.nabble.com/Password-masking-when-running-commands-on-a-slave-tp1753033p1753033.html">report</a>)
 </ul>
 
 
 #### Enhancements
 <ul>
   <li class=rfe> 
-    Added the slave retention strategy based on a schedule.
+    Added the agent retention strategy based on a schedule.
   <li class=rfe> 
     Added to configure charset option of Mailer.
 </ul>

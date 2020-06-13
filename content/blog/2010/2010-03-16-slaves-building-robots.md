@@ -1,6 +1,6 @@
 ---
 :layout: post
-:title: Slaves building robots
+:title: Agents building robots
 :nodeid: 174
 :created: 1268747100
 :tags:

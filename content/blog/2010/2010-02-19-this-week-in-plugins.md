@@ -12,7 +12,7 @@ Last week's TWIP enumerated the release of **26** different plugin, this past we
 
 Making their Hudson debut are the following
 
-* [Slave Monitor for system load average](https://plugins.jenkins.io/systemloadaverage-monitor)
+* [Agent Monitor for system load average](https://plugins.jenkins.io/systemloadaverage-monitor)
 * [Tool Environment plugin](https://plugins.jenkins.io/toolenv)
 * [Ivy plugin](https://plugins.jenkins.io/ivy)
 
@@ -25,7 +25,7 @@ If you're interested in contributing to an existing plugin, or building your own
   * [JIRA plugin 1.19 released](https://plugins.jenkins.io/jira)
   * [Job Configuration History Plugin 1.2 released](https://plugins.jenkins.io/jobconfighistory)
   * [MSTest plugin 0.6 released](https://plugins.jenkins.io/mstest)
-  * [Slave Monitor for system load average 1.1 released](https://plugins.jenkins.io/systemloadaverage-monitor)
+  * [Agent Monitor for system load average 1.1 released](https://plugins.jenkins.io/systemloadaverage-monitor)
   * [Template Project plugin 1.2 released](https://plugins.jenkins.io/template-project)
 
 * **Feb 13th, 2010**
