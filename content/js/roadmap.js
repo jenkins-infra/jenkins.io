@@ -16,7 +16,7 @@ function filterRoadmap() {
   categoryHeaders = document.getElementsByClassName("status-category")
   categoryInitiatives = document.getElementsByClassName("category-initiatives")
     
-  for (categoryId = 0; categoryId < selectors.length; categoryId++) {
+  for (categoryId = 0; categoryId < categoryInitiatives.length; categoryId++) {
     initiatives = categoryInitiatives[categoryId].getElementsByClassName("initiative");
     hasInitiativesToDisplay = false
 
