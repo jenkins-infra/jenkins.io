@@ -14,13 +14,10 @@ endif::[]
 
 = Managing Nodes
 
-### Monitor and Restart Offline Agents
+=== Monitor and Restart Offline Agents
+
 This script can monitor and restart offline nodes if they are not disconnected manually.
-
-
-Of course you can disable email notification. Thanks author for email notification.
-
-This script runs in the Jenkins Script Console or can run periodically as a Jenkins job with the plugin:groovy[Groovy plugin].
+It can be executed in the Jenkins Script Console or can run periodically as a Jenkins job with the plugin:groovy[Groovy plugin].
 
 Also see link:https://wiki.jenkins-ci.org/display/JENKINS/Display+Information+About+Nodes[Display Information About Nodes]
 
@@ -31,17 +28,17 @@ import hudson.node_monitors.*
 import hudson.slaves.*
 import java.util.concurrent.*
  
-jenkins = Hudson.instance
+jenkins = Jenkins.instance
  
 import javax.mail.internet.*;
 import javax.mail.*
 import javax.activation.*
  
  
-def sendMail (slave, cause) {
+def sendMail (agent, cause) {
    
- message = slave + " slave is down. Check http://JENKINS_HOSTNAME:JENKINS_PORT/computer/" + slave + "\nBecause " + cause
- subject = slave + " slave is offline"
+ message = agent + " agent is down. Check http://JENKINS_HOSTNAME:JENKINS_PORT/computer/" + agent + "\nBecause " + cause
+ subject = agent + " agent is offline"
  toAddress = "JENKINS_ADMIN@YOUR_DOMAIN"
  fromAddress = "JENKINS@YOUR_DOMAIN"
  host = "SMTP_SERVER"
@@ -85,37 +82,35 @@ def getEnviron(computer) {
    env
 }
 
-def slaveAccessible(computer) {
+def agentAccessible(computer) {
     getEnviron(computer)?.get('PATH') != null
 }
 
 def numberOfflineNodes = 0
 def numberNodes = 0
-for (slave in jenkins.slaves) {
-   def computer = slave.computer
+for (agent in jenkins.getNodes()) {
+   def computer = agent.computer
    numberNodes ++
    println ""
    println "Checking computer ${computer.name}:"
-   def isOK = (slaveAccessible(computer) && !computer.offline)
+   def isOK = (agentAccessible(computer) && !computer.offline)
    if (isOK) {
      println "\t\tOK, got PATH back from slave ${computer.name}."
      println('\tcomputer.isOffline: ' + slave.getComputer().isOffline());
      println('\tcomputer.isTemporarilyOffline: ' + slave.getComputer().isTemporarilyOffline());
      println('\tcomputer.getOfflineCause: ' + slave.getComputer().getOfflineCause());
      println('\tcomputer.offline: ' + computer.offline);
-     
-     
    } else {
      numberOfflineNodes ++
-     println "  ERROR: can't get PATH from slave ${computer.name}."
-     println('\tcomputer.isOffline: ' + slave.getComputer().isOffline());
-     println('\tcomputer.isTemporarilyOffline: ' + slave.getComputer().isTemporarilyOffline());
-     println('\tcomputer.getOfflineCause: ' + slave.getComputer().getOfflineCause());
+     println "  ERROR: can't get PATH from agent ${computer.name}."
+     println('\tcomputer.isOffline: ' + agent.getComputer().isOffline());
+     println('\tcomputer.isTemporarilyOffline: ' + agent.getComputer().isTemporarilyOffline());
+     println('\tcomputer.getOfflineCause: ' + agent.getComputer().getOfflineCause());
      println('\tcomputer.offline: ' + computer.offline);
-     sendMail(computer.name, slave.getComputer().getOfflineCause().toString())
-     if (slave.getComputer().isTemporarilyOffline()) {
-       if (!slave.getComputer().getOfflineCause().toString().contains("Disconnected by")) {
-         computer.setTemporarilyOffline(false, slave.getComputer().getOfflineCause())
+     sendMail(computer.name, agent.getComputer().getOfflineCause().toString())
+     if (agent.getComputer().isTemporarilyOffline()) {
+       if (!agent.getComputer().getOfflineCause().toString().contains("Disconnected by")) {
+         computer.setTemporarilyOffline(false, agent.getComputer().getOfflineCause())
        }
      } else {
          computer.connect(true)
