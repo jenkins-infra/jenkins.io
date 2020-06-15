@@ -14,7 +14,7 @@ This past week <a id="aptureLink_z1tlMXupZM" href="https://twitter.com/pycon">Py
 
 <center><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/just_use_hudson.png" alt="Just use Hudson" width="500"/></center>
 
-Titus has some notable quotes "just use Hudson" but overall a good introduction of CI and a breakdown of some of the challenges behind continuous integration. He also does a good job going over getting started with Hudson, setting up a basic Python project that incorporates JUnit XML reporting and slaves. 
+Titus has some notable quotes "just use Hudson" but overall a good introduction of CI and a breakdown of some of the challenges behind continuous integration. He also does a good job going over getting started with Hudson, setting up a basic Python project that incorporates JUnit XML reporting and agents. 
 
 > "Yeah, we used Buildbot until recently, then I switched us to Hudson and my life got a lot better"
 
