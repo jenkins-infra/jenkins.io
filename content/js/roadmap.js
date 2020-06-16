@@ -12,9 +12,14 @@ function filterRoadmap() {
         }
     }
 
-   // table = document.getElementsByClassName("roadmap-table");
-    initiatives = document.getElementsByClassName("initiative");
-  
+  //table = document.getElementsByClassName("roadmap-table");
+  categoryHeaders = document.getElementsByClassName("status-category")
+  categoryInitiatives = document.getElementsByClassName("category-initiatives")
+    
+  for (categoryId = 0; categoryId < categoryInitiatives.length; categoryId++) {
+    initiatives = categoryInitiatives[categoryId].getElementsByClassName("initiative");
+    hasInitiativesToDisplay = false
+
     // Loop through all table rows, and hide those who don't match the search query
     for (i = 0; i < initiatives.length; i++) {
       initiative = initiatives[i];
@@ -26,10 +31,17 @@ function filterRoadmap() {
         }
       }
       if (display) {
-          initiative.style.display = "";
-        } else {
-          initiative.style.display = "none";
-        }
+        hasInitiativesToDisplay = true
+        initiative.style.display = "";
+      } else {
+        initiative.style.display = "none";
+      }
     }
+
+    if (hasInitiativesToDisplay) {
+      categoryHeaders[categoryId].style.display = "";
+    } else {
+      categoryHeaders[categoryId].style.display = "none";
+    }
+  }
 }
-  
