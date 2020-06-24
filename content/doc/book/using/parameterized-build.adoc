@@ -1,0 +1,427 @@
+---
+layout: section
+title: Parameterized Build
+---
+ifdef::backend-html5[]
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:toclevels: 4
+:hide-uri-scheme:
+ifdef::env-github[:imagesdir: ../resources/using/parameterized-build]
+ifndef::env-github[:imagesdir: ../../resources/using/parameterized-build]
+endif::[]
+
+= Parameterized Build
+
+Parameters allow you to prompt users for one or more inputs that will be passed into a build.
+
+For example, you might have a project that runs tests on demand by allowing users to upload a zip file with binaries to be tested. This could be done by adding a File Parameter here.
+
+Or you might have a project that releases some software, and you want users to enter release notes that will be uploaded along with the software. This could be done by adding a Multi-line String Parameter here.
+
+Each parameter has a Name and some sort of Value, depending on the parameter type. These name-value pairs will be exported as environment variables when the build starts, allowing subsequent parts of the build configuration (such as build steps) to access those values, e.g. by using the ${PARAMETER_NAME} syntax (or %PARAMETER_NAME% on Windows).
+
+This also implies that each parameter defined here should have a unique Name.
+
+When a project is parameterized, the usual `Build Now` link will be replaced with a `Build with Parameters` link, where users will be prompted to specify values for each of the defined parameters. 
+
+[Imagem de comparação]
+
+If they choose not to enter anything, the build will start with the default value for each parameter.
+
+If a build is started automatically, for example if started by an SCM trigger, the default values for each parameter will be used.
+
+When a parameterized build is in the queue, attempting to start another build of the same project will only succeed if the parameter values are different, or if the Execute concurrent builds if necessary option is enabled.
+
+== Creating a parameterized build
+
+1. Go to dashboard;
+2. Select the `new Item` option;
+3. Fill the item name (e.g.: Parameterized Build);
+4. Pick the `Pipeline` option and press **OK**;
++
+image:parameterized-build-1.png[parameterized-build-1]
+
+5. Go to `Pipeline tab`, click on the link: `Pipeline Syntax`. A new window/tab will be open;
+* It is the Pipeline Syntax helps page it will help us to create the code in the right way;
++
+image:parameterized-build-2.png[parameterized-build-2]
+
+6. Pick the option `properties: Set job properties` at Sample Step field;
+7. Check the option `This project is parameterized` 
+8. Press the button `Add Parameter`
+9. Pick the prefered option (e.g.: Boolean Parameter)
++
+image:parameterized-build-3.png[parameterized-build-3]
+
+10. Fill a unique name (e.g.: SEND_EMAIL_REPORT)
+11. Fill a description (e.g.: Send a email status report when build it is completed);
+12. Press the buttom `Generate Pipeline Script`. The helper will generate the following, copy it into your clipboard;
++
+```
+properties(
+    [
+        parameters(
+            [
+                booleanParam(
+                    defaultValue: false, 
+                    description: 'Send a email status report when build it is completed', 
+                    name: 'SEND_EMAIL_REPORT'
+                )
+            ]
+        )
+    ]
+)
+``` 
+
+13. Back to previous window/tab paste the code in Script field at Pipeline section.
+14. Now add the bollow code at the next frre line in the Script field: 
++
+```
+node{
+    stage('Checking send email report option'){
+        echo "SEND_EMAIL_REPORT value is: ${params.SEND_EMAIL_REPORT}"
+    }
+}
+```
+15. Now press the save button and will be redirect to Parameterized Build Details page
++
+image:parameterized-build-4.png[parameterized-build-4]
+
+16. Click on `Run build` link at side menu, the first job run it allways run with the default values.
+17. Now refresh the page an notice the option `Run build` become `Run build with parameters`, click on it;
+18. Now jenkins will prompt the params. 
+
+== Avaliable parameterized types
+
+.snippet of pipeline script 
+----
+booleanParam(
+     defaultValue: false,
+     description: 'Send a email status report when build it is completed',
+     name: 'SEND_EMAIL_REPORT'
+)
+----
+
+=== Boolean Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:boolean-parameter.png[boolean-parameter]
+a|
+* Render a checkbox field;
+* The default is false.
+2+a|
+.snippet of pipeline script 
+----
+booleanParam(
+     defaultValue: false,
+     description: 'your description',
+     name: 'your unique field name'
+)
+----
+
+|===
+
+=== Choice Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:choice-parameter.png[boolean-parameter]
+a|
+* Allow user to pick one choice from a predetermined list; 
+* Each line of chice field will became a option; 
+* The first choice will be the default option.
+2+a|
+.snippet of pipeline script 
+----
+choice(
+    choices: ['OP1','OP2','OP3','OP4'],
+    description: 'your description',
+    name: 'your unique field name'
+)
+----
+
+|===
+
+=== Credential Parameter
+
+[cols="1,3"]
+|===
+| Field appearance | Description 
+ 
+| image:credential-parameter.png[credential-parameter]
+a|
+* Defines a credentials parameter, which you can use during a build.
+* For security reasons, the credential is NOT directly exposed, the ID of the credential is exposed.
+* A supporting plugin can thus use, visit the plugin plugin:[credentials] pages;
+* All credential will be handled by Jenkins Credentials Provider
+* Avaliable Credential types:
+** Any
+** Username with password
+** Github App
+** SSH with Username with private key
+** Secret file
+** Secret text
+** Certificate
+* The first choice will be the default option.
+2+a|
+.snippet of pipeline script 
+----
+credentials(
+    credentialType: 'CHOSEN_CREDENTIAL_TIPE', 
+    defaultValue: '', 
+    description: '', 
+    name: 'GIT_CREDENTIAL', 
+    required: true
+)
+----
+|===
+
+
+=== File Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:file-parameter.png[file-parameter]
+a|
+* Accepts a file submission from a browser as a build parameter; 
+* The uploaded file will be placed at the specified location in the workspace, which your build can then access and use; 
+* File upload is optional. If a user chooses not to upload anything, Jenkins will simply skips this parameter and will not place anything (but it also will not delete anything that's already in the workspace.);
+* This is useful for many situations, such as:
+** Letting people run tests on the artifacts they built.
+** Automating the upload/release/deployment process by allowing the user to place the file.
+** Perform data processing by uploading a dataset.
+2+a|
+.snippet of pipeline script 
+----
+file(
+    description: 'your description',
+    name: 'your unique field name'
+)
+----
+
+|===
+
+=== List Subversion tags
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:svn-tags-parameter.png[svn-tags-parameter]
+a|
+* Specify the Subversion repository URL which contains the tags to be listed when triggering a new build;
+* If this root contains the trunk, branches and tags folders, then the dropdown will display trunk, all the branches and all the tags;
+* If the root does not contain these three folders, then all its subfolders are listed in the dropdown;
+* If access requires authentication, you'll be prompted for the necessary credential.
+2+a|
+.snippet of pipeline script 
+----
+[
+    $class: 'ListSubversionTagsParameterDefinition', 
+    credentialsId: '', 
+    defaultValue: '', 
+    maxTags: '', 
+    name: 'SVN_TAG', 
+    reverseByDate: false, 
+    reverseByName: false, 
+    tagsDir: 'https://SVN_URL', 
+    tagsFilter: ''
+]
+----
+
+|===
+
+=== Multi-line Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:multi-parameter.png[multi-parameter]
+a|
+* Specifies the default value of the field, which allows the user to save typing the actual value.
+* It renders a simple html text area field to receive plain text.
+2+a|
+.snippet of pipeline script 
+----
+text(
+    defaultValue: 'Write here ...', 
+    description: 'A Multi-Line field sample', 
+    name: 'MULTI_LINE'
+)
+----
+
+|===
+
+=== Password Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:pass-parameter.png[pass-parameter]
+a|
+* Specifies the default value of the field, which allows the user to save typing the actual value;
+* It renders a simple html password field.
+2+a|
+.snippet of pipeline script 
+----
+password(
+    defaultValue: '',
+    description: 'Please type your password',
+    name: 'PASSWORD'
+)
+----
+
+|===
+
+=== Run Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:run-parameter.png[run-parameter]
+a|
+* The field projectName refers to one of your pipeline items;
+* Any of the previous executed builds it will avaliable to chose;
+* Defines the job from which the user can pick runs. 
+* The last run will be the default. 
+* These parameters are exposed to the build as environment variables:
+** PARAMETER_NAME=<jenkins_url>/job/<job_name>/<run_number>/
+** PARAMETER_NAME_JOBNAME=<job_name>
+** PARAMETER_NAME_NUMBER=<run_number>
+** PARAMETER_NAME_NAME=<display_name>
+** PARAMETER_NAME_RESULT=<run_result>
+2+a|
+.snippet of pipeline script 
+----
+run(
+    description: '',
+    filter: 'ALL',
+    name: 'RUN_FIELD', 
+    projectName: 'My_Project'
+)
+----
+
+|===
+
+=== String Parameter
+
+[width=90%]
+|===
+| Field appearance | Description 
+ 
+| image:string-parameter.png[string-parameter]
+a|
+* Specifies the default value of the field, which allows the user to save typing the actual value;
+* It renders a simple html input text field.
+2+a|
+.snippet of pipeline script 
+----
+string(
+    defaultValue: '', 
+    description: 'Fill your first name', 
+    name: 'Author', 
+    trim: false
+)
+----
+
+|===
+
+== Script sample using each parameter type
+
+Here is the union of each snippet used at the page:
+
+=== Image with saple of each field
+
+image:full-parameterized-build.png[full-parameterized-build]
+
+=== Complete pipeline script sample
+
+.complete pipeline script 
+----
+properties(
+    [
+        parameters(
+            [
+                booleanParam(
+                    defaultValue: false,
+                    description: 'your description',
+                    name: 'your unique field name'
+                )
+                choice(
+                    choices: ['JAN','FEV','MAR','APR'], 
+                    description: 'Sample month Field', 
+                    name: 'MONTH'
+                ),
+                credentials(
+                    credentialType: 'CHOSEN_CREDENTIAL_TIPE',
+                    defaultValue: '',
+                    description: '',
+                    name: 'GIT_CREDENTIAL',
+                    required: true
+                )
+                file(
+                    description: 'External users e-mails',
+                    name: 'EXTERNAL_USERS'
+                ),
+                [
+                    $class: 'ListSubversionTagsParameterDefinition',
+                    credentialsId: '',
+                    defaultValue: '',
+                    maxTags: '',
+                    name: 'SVN_TAG',
+                    reverseByDate: false,
+                    reverseByName: false,
+                    tagsDir: 'https://SVN_URL',
+                    tagsFilter: ''
+                ],
+				text(
+                    defaultValue: 'Write here ...', 
+                    description: 'A Multi-Line field sample', 
+                    name: 'MULTI_LINE'
+                ),
+                password(
+                    defaultValue: '',
+                    description: 'Please type your password',
+                    name: 'PASSWORD'
+                ),
+                run(
+                    description: '',
+                    filter: 'ALL',
+                    name: 'BUILD_ITEM', 
+                    projectName: 'Parameterized Build'
+                ),
+                string(
+                    defaultValue: '', 
+                    description: 'Fill your first name', 
+                    name: 'Author', 
+                    trim: false
+                )
+            ]
+        )
+    ]
+)
+
+node{
+    stage('Checking send email report option'){
+        echo "SEND_EMAIL_REPORT value is: ${params.SEND_EMAIL_REPORT}"
+        echo "MONTH value is: ${params.MONTH}"
+        echo "other lines are ommited"
+    }
+}
+----
+
+
