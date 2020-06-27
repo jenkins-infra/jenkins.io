@@ -41,7 +41,7 @@ If you're a regular reader of the Hudson Labs blog, you may also notice that thi
 #### Enhancements
 <ul>
   <li class=rfe> 
-    Avoid pointless and harmful redirection when downloading slave.jar. 
+    Avoid pointless and harmful redirection when downloading agent.jar. 
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5752">issue 5752</a>)
   <li class=rfe> 
     Cache downloaded JDKs.
