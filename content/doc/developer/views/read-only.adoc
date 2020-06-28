@@ -3,7 +3,7 @@ title: Read only view
 layout: developerguide
 ---
 
-Extended read (and the up-coming system read) permission allow read only access
+Extended read and system read permission allow read only access
 to parts of Jenkins.
 
 The jelly taglib's in core will render a read only look and feel,
@@ -12,25 +12,39 @@ if the user only has access to read the view.
 This is handled for developers transparently if they are already using one
 of the supported views, like the `job` configure view.
 
+== Enabling permissions that use read-only views
+
+There are 3 permissions currently that interact with read-only views:
+
+* Overall/SystemRead
+* Agent/ExtendedRead
+* Job/ExtendedRead
+
+They are currently not enabled by default, the easiest way to enable them is to install
+the plugin:extended-read-permission[Extended read permission plugin] v3.2 or above.
+
 == Enabling read-only view support
 
-In the view file add:
+Jelly example:
 
 [source,xml]
 ----
-<j:choose>
-    <j:when test="${app.hasPermission(it.CONFIGURE)}">
-        <j:set var="readOnlyMode" value="false" />
-    </j:when>
-    <j:otherwise>
-        <j:set var="readOnlyMode" value="true" />
-    </j:otherwise>
-</j:choose>
+<!-- configure permissions on a job required for write access -->
+<j:set var="readOnlyMode" value="${!it.hasPermission(it.CONFIGURE)}" />
+
+<!-- administrator permissions required for write access -->
+<j:set var="readOnlyMode" value="${!app.hasPermission(app.ADMINISTER)}" />
 ----
+
+Groovy example:
 
 [source,groovy]
 ----
-set("readOnlyMode", h.hasPermission(it.CONFIGURE) ? "false" : "true")
+// configure permissions on a job required for write access
+set("readOnlyMode", !it.hasPermission(it.CONFIGURE))
+
+// administrator permissions required for write access
+set("readOnlyMode", !app.hasPermission(app.ADMINISTER))
 ----
 
 === Partial view read-only
@@ -59,7 +73,9 @@ If you provide your own taglib that isn't in Jenkins core you may need to make s
 Depending on what change is required there are a few different changes you might need to make,
 here are a few examples.
 
-Rendering plain text instead of a control, and adding a default text when it is empty:
+=== Rendering plain text instead of a control
+
+We also add a default text when it is empty (N/A in this case):
 
 [source,xml]
 ----
@@ -78,8 +94,10 @@ Rendering plain text instead of a control, and adding a default text when it is 
 </j:choose>
 ----
 
-Disabling the control, it is preferable to render plain text or some other
-method that is obvious to the user what is going on (disabled controls aren't very obvious), but a lot of the javascript
+=== Disabling the control
+
+It is preferable to render plain text or some other method that is obvious to the user 
+what is going on (disabled controls aren't very obvious), but a lot of the javascript
 and jelly taglibs depend on inputs of specific types being there for rendering,
 so sometimes it is preferable to just disable the control:
 
@@ -91,7 +109,9 @@ so sometimes it is preferable to just disable the control:
 />
 ----
 
-Removing controls from a page, like an X button on a repeatable element:
+=== Removing controls from a page
+
+Like an X button on a repeatable element:
 
 [source,xml]
 ----
@@ -102,6 +122,120 @@ Removing controls from a page, like an X button on a repeatable element:
     </div>
     </f:block>
 </j:if>
+----
+
+== Allowing access to a view
+
+Normally in Jenkins the layout tag of a page will have a permission
+attribute which governs which permission is required to access the page. 
+
+Jenkins has a concept of 'impliedBy' in it's permission, which means that each permission is allowed to be automatically granted by another one.
+_Job/ExtendedRead_ is implied by _Job/Configure_, which means that requiring _Job/ExtendedRead_
+to access a view, will also grant _Job/Configure_ access.
+
+Here are some examples that show what you will need to update the layout tag to:
+
+Requiring the _Job/ExtendedRead_ permission in Jelly:
+
+[source,xml]
+----
+<l:layout permission="${it.EXTENDED_READ}">
+...
+</l:layout>
+----
+
+_Overall/SystemRead_ Jelly:
+
+[source,xml]
+----
+<l:layout permission="${app.SYSTEM_READ}">
+...
+</l:layout>
+----
+
+_Overall/SystemRead_ Groovy:
+
+[source,groovy]
+----
+l.layout(permission: app.SYSTEM_READ) {
+...
+}
+----
+
+== Removing part of a view
+
+Often it makes sense to remove parts of a view, such as 'Save' or 'Apply' buttons.
+
+For system read the simplest way to do this is to use the `l:isAdmin` tag:
+
+_isAdmin_ Jelly:
+
+[source,xml]
+----
+<l:isAdmin>
+
+</l:isAdmin>
+----
+
+_isAdmin_ Groovy:
+
+[source,groovy]
+----
+l.isAdmin() {
+...
+}
+----
+
+There's also a `l:hasAdministerOrManage` tag that can be used to check for the `Jenkins/Administer or `Jenkins/Manage` permissions.
+
+If those don't fit, then you can write your own permission check:
+
+_hasPermission_ Jelly:
+
+[source,xml]
+----
+<j:if test="${it.hasPermission(it.CONFIGURE)">
+
+</j:if>
+----
+
+_hasPermission_ Groovy:
+
+[source,groovy]
+----
+if (!it.hasPermission(it.CONFIGURE)) {
+...
+}
+----
+
+== Server side changes required
+
+Firstly you will need to update any server side permission checks to now check
+on load for the _Read_ permission, rather than the _Configure_  or _Administer_ permission.
+See link:https://www.jenkins.io/doc/developer/security/read-access/#using-staplerproxy[Using `StaplerProxy`] for more information
+on this feature.
+
+i.e.
+
+[source,java]
+----
+public Object getTarget() {
+    checkPermission(Jenkins.SYSTEM_READ);
+}
+----
+
+Then you will need to review if additional permission checks are required,
+i.e. any methods that allow saving or sensitive data access should now require the
+permission that was previously in use.
+
+Searching for 'public .* do' is a good start as web methods normally start with 'do', but
+you should carefully review to make sure nothing is now exposed that shouldn't be.
+
+[source,java]
+----
+public void doInstallPlugin() {
+    checkPermission(Jenkins.ADMINISTER);
+}
 ----
 
 == Compatibility with Jenkins core version
