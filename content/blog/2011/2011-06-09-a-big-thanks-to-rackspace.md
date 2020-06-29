@@ -10,7 +10,7 @@
 ---
 This post is long over-due and I really apologize for that.
 
-Some months ago we put out the call for "more slave machines!" through the
+Some months ago we put out the call for "more agent machines!" through the
 mailing lists, sky-writers and twitter. We had a serious problem, for a
 continuous integration project, a **large** number of our plugins and
 dependencies weren't being built in a continuous and automated fashion!
