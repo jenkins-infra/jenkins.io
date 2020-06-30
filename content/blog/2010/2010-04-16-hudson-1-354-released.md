@@ -29,7 +29,7 @@ One of the infrastructure issues that's half-way resolved is the question of Deb
     Raw console output contains garbage.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6034">issue 6034</a>)
   <li class=bug> 
-    Fixed a file handle leak in the slave connection.
+    Fixed a file handle leak in the agents connection.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6137">issue 6137</a>)
   <li class=bug> 
     Quiet period wasn't taking effect properly when doing parameterized builds.
