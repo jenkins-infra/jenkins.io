@@ -86,7 +86,8 @@ ProxyRequests     Off
 AllowEncodedSlashes NoDecode
 
 # Local reverse proxy authorization override
-# Most unix distribution deny proxy by default (ie /etc/apache2/mods-enabled/proxy.conf in Ubuntu)
+# Most unix distribution deny proxy by default
+# See /etc/apache2/mods-enabled/proxy.conf in Ubuntu
 <Proxy http://localhost:8081/jenkins*>
   Order deny,allow
   Allow from all
@@ -310,7 +311,10 @@ So, first up, modify Jenkins to use a different web and ajp port than Tomcat:
 HTTP_PORT=9080
 AJP_PORT=9009
 ...
-nohup java -jar "$WAR" --httpPort=$HTTP_PORT --ajp13Port=$AJP_PORT --prefix=/jenkins >> "$LOG" 2>&1 &
+nohup java -jar "$WAR" \
+           --httpPort=$HTTP_PORT \
+           --ajp13Port=$AJP_PORT \
+           --prefix=/jenkins >> "$LOG" 2>&1 &
 ----
 
 Then setup Apache so that it knows that the prefix `+/jenkins+` is being
@@ -374,7 +378,10 @@ Configuration is a snap too, in three simple steps:
 HTTP_PORT=-1
 AJP_PORT=9009
 ...
-nohup java -jar "$WAR" --httpPort=$HTTP_PORT --ajp13Port=$AJP_PORT --prefix=/jenkins >> "$LOG" 2>&1 &
+nohup java -jar "$WAR" \
+           --httpPort=$HTTP_PORT \
+           --ajp13Port=$AJP_PORT \
+           --prefix=/jenkins >> "$LOG" 2>&1 &
 ----
 
 {empty}2. Enable mod_proxy_ajp in Apache:
@@ -427,7 +434,8 @@ ProxyPassReverse  /jenkins        http://localhost:8081/jenkins
 ProxyRequests     Off
 
 # Local reverse proxy authorization override
-# Most unix distribution deny proxy by default (ie /etc/apache2/mods-enabled/proxy.conf in Ubuntu)
+# Most unix distribution deny proxy by default
+# See /etc/apache2/mods-enabled/proxy.conf in Ubuntu
 <Proxy http://localhost:8081/jenkins*>
   Order deny,allow
   Allow from all
@@ -488,12 +496,13 @@ server {
 
   server_name     jenkins.example.com;
 
-  #this is the jenkins web root directory (mentioned in the /etc/default/jenkins file)
+  # this is the jenkins web root directory
+  # (mentioned in the /etc/default/jenkins file)
   root            /var/run/jenkins/war/;
 
   access_log      /var/log/nginx/jenkins/access.log;
   error_log       /var/log/nginx/jenkins/error.log;
- # pass through headers from Jenkins which are considered invalid by Nginx server.
+  # pass through headers from Jenkins that Nginx considers invalid
   ignore_invalid_headers off;
 
   location ~ "^/static/[0-9a-fA-F]{8}\/(.*)$" {
@@ -503,7 +512,7 @@ server {
   }
 
   location /userContent {
-    #have nginx handle all the static requests to the userContent folder files
+    # have nginx handle all the static requests to userContent folder
     #note : This is the $JENKINS_HOME dir
     root /var/lib/jenkins/;
     if (!-f $request_filename){
@@ -534,7 +543,7 @@ server {
       proxy_send_timeout         90;
       proxy_read_timeout         90;
       proxy_buffering            off;
-      proxy_request_buffering    off; # Required for HTTP CLI commands in Jenkins > 2.54
+      proxy_request_buffering    off; # Required for HTTP CLI commands
       proxy_set_header Connection ""; # Clear for keepalive
   }
 
@@ -588,7 +597,9 @@ Versions of Jenkins before 2.80 may not respect the `+proxy_read_timeout+` setti
 ----
 WARNING: null
 hudson.cli.DiagnosedStreamCorruptionException
-Read back: 0x00 0x00 0x00 0x1e 0x07 'Started reverse-proxy-test #68' 0x00 0x00 0x00 0x01 0x07 0x0a
+Read back: 0x00 0x00 0x00 0x1e 0x07
+           'Started reverse-proxy-test #68'
+           0x00 0x00 0x00 0x01 0x07 0x0a
 Read ahead:
 Diagnosis problem:
     java.io.IOException: Premature EOF
@@ -811,13 +822,15 @@ all you should need to do is something like:
 # allow incoming connections on port 80.
 # You can also use --add-service=http instead of adding a port number
 sudo firewall-cmd --add-port=80/tcp --permanent
-sudo firewall-cmd --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080 --permanent
+sudo firewall-cmd --permanent \
+                  --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080
 
 # allow incoming connections on port 443.
 # You can also use --add-service=https instead of adding a port number
 sudo firewall-cmd --add-port=443/tcp --permanen
 t
-sudo firewall-cmd --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443 --permanent
+sudo firewall-cmd --permanent \
+                  --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443
 sudo firewall-cmd --reload
 ----
 
@@ -873,7 +886,9 @@ backend jenkins
    mode http
    reqrep ^([^\ :]*)\ /(.*) \1\ /\2
    acl response-is-redirect res.hdr(Location) -m found
-   rspirep ^Location:\ (http|https)://127.0.0.1:8080/jenkins/(.*) Location:\ \1://jenkins.example.com/jenkins/\2 if response-is-redirect
+   # Must combine following two lines into a SINGLE LINE for HAProxy
+   rspirep ^Location:\ (http|https)://127.0.0.1:8080/jenkins/(.*)
+           Location:\ \1://jenkins.example.com/jenkins/\2 if response-is-redirect
 ----
 
 This assumes Jenkins is running locally on port 8080.
@@ -893,7 +908,9 @@ Versions of Jenkins before 2.80 might not respect the `+proxy_read_timeout  +`se
 ----
 WARNING: null
 hudson.cli.DiagnosedStreamCorruptionException
-Read back: 0x00 0x00 0x00 0x1e 0x07 'Started reverse-proxy-test #68' 0x00 0x00 0x00 0x01 0x07 0x0a
+Read back: 0x00 0x00 0x00 0x1e 0x07
+           'Started reverse-proxy-test #68'
+           0x00 0x00 0x00 0x01 0x07 0x0a
 Read ahead:
 Diagnosis problem:
     java.io.IOException: Premature EOF
@@ -947,7 +964,9 @@ backend jenkins
     http-request add-header X-Forwarded-Proto https if { ssl_fc }
     reqrep ^([^\ :]*)\ /(.*)     \1\ /\2
     acl response-is-redirect res.hdr(Location) -m found
-    rspirep ^Location:\ (http)://127.0.0.1:8080/(.*)   Location:\ https://jenkins.example.com:443/\2  if response-is-redirect
+    # Must combine following two lines into a SINGLE LINE for HAProxy
+    rspirep ^Location:\ (http)://127.0.0.1:8080/(.*)
+            Location:\ https://jenkins.example.com:443/\2 if response-is-redirect
 ----
 
 === Running Jenkins behind IIS
@@ -1164,10 +1183,14 @@ Some of the things you might want but I won't cover:
                   <match url="(.*)" />
                   <conditions trackAllCaptures="true">
                       <add input="{CACHE_URL}" pattern="^(http|ws)://" />
-                      <add input="{HTTP_HOST}" pattern="^jenkins$|^jenkins\.acme\.example$|
-                      ^vrtjenkins01$|^vrtjenkins01\.acme\.example$" />
+                      <add input="{HTTP_HOST}"
+                           pattern="^jenkins$|^jenkins\.acme\.example$|
+                                    ^vrtjenkins01$|^vrtjenkins01\.acme\.example$" />
                   </conditions>
-                  <action type="Redirect" url="{C:1}s://jenkins.acme.example{UNENCODED_URL}" appendQueryString="false" redirectType="Permanent" />
+                  <action type="Redirect"
+                          url="{C:1}s://jenkins.acme.example{UNENCODED_URL}"
+                          appendQueryString="false"
+                          redirectType="Permanent" />
               </rule>
               <rule name="CanonicalHostNameRule1" stopProcessing="true">
                   <match url="(.*)" />
@@ -1176,14 +1199,21 @@ Some of the things you might want but I won't cover:
                       <add input="{HTTP_HOST}" pattern="^jenkins$|^vrtjenkins01$|
                       ^vrtjenkins01\.acme\.example$" />
                   </conditions>
-                  <action type="Redirect" url="{C:1}://jenkins.acme.example{UNENCODED_URL}" appendQueryString="false" redirectType="Permanent" />
+                  <action type="Redirect"
+                          url="{C:1}://jenkins.acme.example{UNENCODED_URL}"
+                          appendQueryString="false" redirectType="Permanent" />
               </rule>
               <rule name="ReverseProxyInboundRule1" stopProcessing="true">
                   <match url="(.*)" />
-                  <action type="Rewrite" url="{C:1}://jenkins.acme.example:8080{UNENCODED_URL}" appendQueryString="false" />
+                  <action type="Rewrite"
+                          url="{C:1}://jenkins.acme.example:8080{UNENCODED_URL}"
+                          appendQueryString="false" />
                   <serverVariables>
-                      <set name="HTTP_FORWARDED" value="for={REMOTE_ADDR};by={LOCAL_ADDR};
-                      host=&quot;{HTTP_HOST}&quot;;proto=&quot;https&quot;" />
+                      <set name="HTTP_FORWARDED"
+                           value="for={REMOTE_ADDR};
+                                  by={LOCAL_ADDR};
+                                  host=&quot;{HTTP_HOST}&quot;;
+                                  proto=&quot;https&quot;" />
                   </serverVariables>
                   <conditions trackAllCaptures="true">
                       <add input="{CACHE_URL}" pattern="^(http|ws)s://" />
@@ -1245,7 +1275,8 @@ http_access allow valid_dst
 http_access deny all
 http_access deny manager
 
-## mkdir /etc/squid/ssl/ && cd /etc/squid/ssl/ # to generate your self-signed certificate
+## mkdir /etc/squid/ssl/ && cd /etc/squid/ssl/
+## to generate your self-signed certificate
 ## openssl genrsa -out jenkins.key 1024
 ## openssl req -new -key jenkins.key -x509 -out jenkins.crt -days 999
 http_port 80 vhost
@@ -1256,7 +1287,10 @@ icp_access allow all
 
 refresh_pattern -i \.jp(e?g|gif|png|ico)   300  20%  600 override-expire
 
-logformat combined %>a %ui %un \[%tl\] "%rm %ru HTTP/%rv" %Hs %<st "%{Referer}>h" "%{User-Agent}>h" %Ss:%Sh
+# Combine following THREE LINES into a SINGLE LINE for Squid
+logformat combined %>a %ui %un \[%tl\]
+          "%rm %ru HTTP/%rv" %Hs %<st
+          "%{Referer}>h" "%{User-Agent}>h" %Ss:%Sh
 strip_query_terms off
 access_log /var/log/squid/access.log combined
 
@@ -1389,8 +1423,9 @@ For further diagnosis, try using cURL:
 
 [source,sh]
 ----
+BASE=administrativeMonitor/hudson.diagnosis.ReverseProxySetupMonitor
 curl -iL -e http://your.reverse.proxy/jenkins/manage \
-   http://your.reverse.proxy/jenkins/administrativeMonitor/hudson.diagnosis.ReverseProxySetupMonitor/test
+            http://your.reverse.proxy/jenkins/${BASE}/test
 ----
 
 (assuming your Jenkins is located at
