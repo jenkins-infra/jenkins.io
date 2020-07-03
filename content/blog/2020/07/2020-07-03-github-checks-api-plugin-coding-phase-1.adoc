@@ -1,0 +1,104 @@
+---
+layout: post
+title: "GitHub Checks API Plugin Project - Coding Phase 1"
+tags:
+- github
+- api
+- plugins
+- gsoc
+- gsoc2020
+author: XiongKezhi
+opengraph:
+  image: /images/gsoc/opengraph.png
+---
+
+== Introduction
+
+This blog post is about our coding phase 1 progress on GSoC project: link:/projects/gsoc/2020/projects/github-checks/[GitHub Checks API Plugin].
+In general, the GitHub Checks API is a highly customized way to integrate CI tools to make reports for PRs. 
+It allows users to see CI reports on GitHub pages directly.
+
+image:/images/post-images/2020/07-github-checks-api-plugin-coding-phase-1/github-check-run.png[GitHub Checks API]
+
+What's more exciting is that it can leave annotations on specific lines of code, just as the comments people left while reviewing.
+
+image:/images/post-images/2020/07-github-checks-api-plugin-coding-phase-1/github-check-annotations.png[Annotations]
+
+While on Jenkins' side, the source code view provided by link:https://plugins.jenkins.io/warnings-ng/[Warnings Next Generation Plugin] does pretty much the same thing.
+
+image:/images/post-images/2020/07-github-checks-api-plugin-coding-phase-1/source-view.png[Source Code View]
+
+So if we could utilize such features through GitHub Checks API, it would make Jenkins more convenient to GitHub users.
+
+== Features from Coding Phase 1
+
+In the past month, our team was mostly working on the general checks API and an implementation for GitHub checks API.
+
+=== General Checks API
+
+Although the general checks API is developed based on the semantic meaning of GitHub Checks API, we still want to prepare it for similar concepts on other platforms like link:https://docs.gitlab.com/ee/api/commits.html#commit-status[Commit Status API] from GitLab. Contributions for implementations on these platforms are always welcomed!
+
+=== GitHub Checks API Implmentation
+
+Since we now have implemented the support for GitHub Checks API, plugin developers can easily create a GitHub check run for a GitHub branch source project by consuming our API.
+
+**Example:** To create a check run like:
+
+image:/images/post-images/2020/07-github-checks-api-plugin-coding-phase-1/created-check-run.png[Created Check Run]
+
+Consumers just need to use our API in this way:
+
+[source, java]
+----
+
+ChecksDetails details = new ChecksDetailsBuilder()
+        .withName("Jenkins")
+        .withStatus(ChecksStatus.COMPLETED)
+        .withDetailsURL("https://ci.jenkins.io")
+        .withStartedAt(LocalDateTime.now(ZoneOffset.UTC))
+        .withCompletedAt(LocalDateTime.now(ZoneOffset.UTC))
+        .withConclusion(ChecksConclusion.SUCCESS)
+        .withOutput(new ChecksOutputBuilder()
+                .withTitle("Jenkins Check")
+                .withSummary("# A Successful Build")
+                .withText("## 0 Failures")
+                .withAnnotations(Arrays.asList(
+                        new ChecksAnnotationBuilder()
+                                .withPath("Jenkinsfile")
+                                .withLine(1)
+                                .withAnnotationLevel(ChecksAnnotationLevel.NOTICE)
+                                .withMessage("say hello to Jenkins")
+                                .withStartColumn(0)
+                                .withEndColumn(20)
+                                .withTitle("Hello Jenkins")
+                                .withRawDetails("a simple echo command")
+                                .build(),
+                        new ChecksAnnotationBuilder()
+                                .withPath("Jenkinsfile")
+                                .withLine(2)
+                                .withAnnotationLevel(ChecksAnnotationLevel.WARNING)
+                                .withMessage("say hello to GitHub Checks API")
+                                .withStartColumn(0)
+                                .withEndColumn(30)
+                                .withTitle("Hello GitHub Checks API")
+                                .withRawDetails("a simple echo command")
+                                .build()))
+                .build())
+        .withActions(Collections.singletonList(
+                new ChecksAction("re-run", "re-run Jenkins build", "#0")))
+        .build();
+
+ChecksPublisher publisher = ChecksPublisherFactory.fromRun(run);
+publisher.publish(details);
+
+----
+
+== Future Works
+
+As mentioned in <<Introduction>>, utilizing some features from other plugins can improve the Jenkins user experience on GitHub. Thus, our next step is letting link:https://plugins.jenkins.io/warnings-ng/[Warnings Next Generation Plugin] and link:https://plugins.jenkins.io/code-coverage-api/[Code Coverage API Plugin] consume our API. Besides, pipeline support is in our plan as well.
+
+== Resources and link
+
+* link:https://github.com/XiongKezhi/checks-api-plugin[GitHub Repository]
+* link:/projects/gsoc/2020/projects/github-checks/[Project Page]
+* link:https://gitter.im/jenkinsci/github-checks-api[Gitter Channel]
