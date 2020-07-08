@@ -1,0 +1,426 @@
+---
+layout: section
+title: Agents architecture
+---
+ifdef::backend-html5[]
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:toclevels: 4
+:hide-uri-scheme:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+endif::[]
+
+= Jenkins node agents architecture
+
+== What is the Jenkins node agents architecture? 
+
+Jenkins node agents architecture is useful for distributed build environments.
+It Allow us to use different environments for each build project balancing 
+the workload among multiple agent nodes and work with parallel executions. 
+
+In the Jenkins node agents architecture, we have the main agent who it is the node with the normal Jenkins installation. 
+and we can have one or several number of side node agents that could be local or cloud ones.
+
+The side agent nodes requires no the jenkins installation, they only need the java installation and a connection with the main node.
+
+The main node will do the whole administration work such as 
+scheduling jobs, monitoring other nodes, show the build result, and it will delegate
+the job's execution to another's nodes.
+
+== How to setup node agents using docker
+
+At next sections will show how to create agent nodes using docker and connect to them by SSH.
+
+=== Environment requisites
+
+To run this guide you will need a machine with:
+
+* Java installation
+* Jenkins installation
+* Docker installation
+* SSH key pair
+
+[NOTE]
+====
+* If you need help to install java, jenkins and docker please visit the section link:[Installing Jenkins.]
+====
+
+=== Generating your SSH key pair
+
+==== SSH Keys on MacOS or Linux
+
+1. in a terminal window do the command: `ssh-keygen`
+2. Will be prompt a location to stores the keys or press enter to use the default location; (e.g:`~/.ssh`)
++
+[IMPORTANT]
+====
+If you have previously generated a key pair, you will be prompt  to overwrite it.
+if you chose overwrite the keys make sure to have a safe copy of them, it will be a irreversible action.
+====
+
+3. Next prompt will ask for a passphrase to use with the key. we recommended to use one, but it is optional.
+4. if everything went well you will receive a similar message:
++
+[source,bash]
+----
+ubuntu@DESKTOP-LUFH4P5:~$ ssh-keygen
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/ubuntu/.ssh/id_rsa):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/ubuntu/.ssh/id_rsa
+Your public key has been saved in /home/ubuntu/.ssh/id_rsa.pub
+The key fingerprint is:
+SHA256:XqxxjqsLlvDD0ZHm9Y2iR7zC6IbsUlMEHo3ffy8TzGs ubuntu@DESKTOP-LUFH4P5
+The key's randomart image is:
++---[RSA 3072]----+
+|  o+             |
+| ...o  .         |
+|  .o .+ .        |
+|    o+.+ o o     |
+|  ... o.So* .    |
+|  o+ = +.X=      |
+| o oO + *..+     |
+|. oo.o o .E .    |
+| o... oo.. o     |
++----[SHA256]-----+
+ubuntu@DESKTOP-LUFH4P5:$
+----
+
+==== Registering your SSH key at jenkins Credentials
+
+1. Go to your jenkins dashboard; 
+2. Go to `Manage Jenkins` option in main menu;
++++
+<span>
+  <button 
+    data-target="#credentials-1" 
+    aria-controls="credentials-1"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="credentials-1">
+  <div class="card card-body my-3">
++++
+    image:node/credentials-1.png[credentials menu]
++++
+  </div>
+</div>
++++
+3. select the drop option `add Credentials` from the global item;
++++
+<span>
+  <button 
+    data-target="#credentials-2" 
+    aria-controls="credentials-2"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="credentials-2">
+  <div class="card card-body my-3">
++++
+    image:node/credentials-2.png[add credentials option]
++++
+  </div>
+</div>
++++
+
+4. Fill the form:
+** Kind:  SSH Username with private key;
+** id: jenkins
+** description: The jenkins ssh key
+** username: jenkins
+** Private Key: select `Enter directly` and press the Add button to insert yout private key;
++
+[NOTE]
+====
+If you generate it at the default location use the command to print it on terminal: `cat ~/.ssh/id_rsa`
+====
+** Passphrase: fill your passphrase used to generate the SSH keys and then press OK.
++++
+<span>
+  <button 
+    data-target="#credentials-3" 
+    aria-controls="credentials-3"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="credentials-3">
+  <div class="card card-body my-3">
++++
+    image:node/credentials-3.png[credentials filled form]
++++
+  </div>
+</div>
++++
+
+
+
+=== Creating your agent at docker
+
+Here we will use the link:https://github.com/jenkinsci/docker-ssh-agent[docker-ssh-agent image] to create the agent containers.
+
+1. run the command to start your first agent:
++
+[source,bash]
+----
+docker run -d --rm --name=agent1 -p 22:22 \
+-e "JENKINS_AGENT_SSH_PUBKEY=[your-public-key]" \
+jenkins/ssh-agent:jdk11 
+----
++
+[NOTE]
+====
+* Remember to replace the tag [your-public-key] for your own SSH *public* key.
+* If you generate it at the default location use the command to print it on terminal: `cat ~/.ssh/id_rsa.pub`
+====
+2. Now run the follow command to update the container environment:
++
+[source,bash]
+----
+docker exec  agent1 sh -c "env | egrep -v '^(HOME=|USER=|MAIL=|LC_ALL=|LS_COLORS=|LANG=|HOSTNAME=|PWD=|TERM=|SHLVL=|LANGUAGE=|_=)' >> /etc/environment"
+----
++
+[NOTE]
+====
+The step 2 it's necessary because the image can't find, so we need to force the path mapping.
+when the link:https://github.com/jenkinsci/docker-ssh-agent/issues/33[issue #33] fix it so we can ignore this step.
+====
+3. Now the container agent1 it is running and ready to connections. +
+execute the command `docker ps` to check if the container it is running,Something similar will be shown:
++
+[source,bash]
+----
+ubuntu@DESKTOP-LUFH4P5:~$ docker ps
+CONTAINER ID        IMAGE                     COMMAND                  CREATED             STATUS              PORTS                    NAMES
+7bf0214a9bfa        jenkins/ssh-agent:jdk11   "setup-sshd"             31 seconds ago      Up 28 seconds       0.0.0.0:22->22/tcp       agent1
+d0116c8021c0        ruby:2.6                  "bundle exec awestru…"   41 minutes ago      Up 41 minutes       0.0.0.0:4242->4242/tcp   eloquent_lamport
+ubuntu@DESKTOP-LUFH4P5:~$
+----
+
+
+=== Setup up the agent1 on jenkins.
+
+1. Go to your jenkins dashboard; 
+2. Go to `Manage Jenkins` option in main menu;
+3. Go to `Manage Nodes and clouds` item;
++++
+<span>
+  <button 
+    data-target="#node-1" 
+    aria-controls="node-1"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-1">
+  <div class="card card-body my-3">
++++
+    image:node/node-1.png[Menage node menu]
++++
+  </div>
+</div>
++++
+
+4. Go to `New Node` option in side menu;
+5. Fill the Node/agent name and select the type; (e.g. Name: agent1, Type: Permanent Agent)
+6. Now fill the fields: 
+** Remote root directory; (e.g.: /home/jenkins )
+** label; (e.g.: agent1 ) 	
+** usage; (e.g.: only build jobs with label expression...)
+** Launch method; (e.g.: Launch agents by SSH )
+*** Host; (e.g.: localhost or your IP address )
+*** Credentials; (e.g.: jenkins )
+*** Host Key verification Strategy; (e.g.: Manually trusted key verification ... )
++++
+<span>
+  <button 
+    data-target="#node-2" 
+    aria-controls="node-2"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-2">
+  <div class="card card-body my-3">
++++
+    image:node/node-2.png[node create form]
++++
+  </div>
+</div>
++++
+
+7. Press the button save and the agent1 will be registered, but offline. Click on it.
++++
+<span>
+  <button 
+    data-target="#node-3" 
+    aria-controls="node-3"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-3">
+  <div class="card card-body my-3">
++++
+   image:node/node-3.png[node offline]
++++
+  </div>
+</div>
++++
+
+8. Now press the button `Launch agent` and wait some seconds, then you should receive +
+the message: `Agent successfully connected and online` on the last log line.
++++
+<span>
+  <button 
+    data-target="#node-4" 
+    aria-controls="node-4"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-4">
+  <div class="card card-body my-3">
++++
+   image:node/node-4.png[Agent successfully connected]
++++
+  </div>
+</div>
++++
+
+
+=== Delegating the first job to agent1
+
+1. Go to your jenkins dashboard; 
+2. Select `New Item` on side menu;
+3. Enter a name. (e.g.: First Job to Agent1)
+4. Select the `Freestyle project` and press OK;
+5. Check the option: `Restrict where this project can be run`;
+6. Fill the field: label with the agent1 label; (e.g.: agent1)
++++
+<span>
+  <button 
+    data-target="#node-5" 
+    aria-controls="node-5"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-5">
+  <div class="card card-body my-3">
++++
+   image:node/node-5.png[Agent job 1]
++++
+  </div>
+</div>
++++
++
+[NOTE]
+====
+Be careful with white spaces before or after the label.
+====
+
+7. Now Select the option `Execute shell` at Build Section;
++++
+<span>
+  <button 
+    data-target="#node-6" 
+    aria-controls="node-6"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-6">
+  <div class="card card-body my-3">
++++
+   image:node/node-6.png[Agent job 2]
++++
+  </div>
+</div>
++++
+
+8. Fill the with command: `NODE_NAME` and the name +
+of the agent will be printed inside the log when this job run;
+9. press the save button and then select the option `Build Now`;
+10. Wait some seconds ant the go to `Console Output` page
++++
+<span>
+  <button 
+    data-target="#node-7" 
+    aria-controls="node-7"
+    aria-expanded="false" class="btn btn-secondary btn-sm" type="button" data-toggle="collapse" 
+    >
+    <svg class="bi bi-exclamation-circle-fill" width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4zm.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+    </svg>
+    Info
+  </button>
+</span>
+<div class="collapse" id="node-7">
+  <div class="card card-body my-3">
++++
+   image:node/node-7.png[Agent job 3]
++++
+  </div>
+</div>
++++
+
+11. you should receive a output similar to:
++
+[source,bash]
+----
+Started by user Admin User
+Running as SYSTEM
+Building remotely on agent1 in workspace /home/jenkins/workspace/First Job to Agent1
+[First Job to Agent1] $ /bin/sh -xe /tmp/jenkins15623311211559049312.sh
+Finished: SUCCESS
+----
+
+== How to setup node agents on Windows 10
+
+under construction...
+
