@@ -9,6 +9,9 @@ tags:
 - gsoc
 - gsoc2020
 author: XiongKezhi
+description: "Google Summer of Code 2020 - GitHub Checks API Plugin project update for Coding Phase 2"
+opengraph:
+  image: /images/gsoc/opengraph.png
 ---
 
 Another great coding phase for link:https://www.jenkins.io/projects/gsoc/2020/projects/github-checks/[GitHub Checks API Project] ends!
@@ -53,15 +56,39 @@ Therefore, you can get those checks for your own GitHub project just in a few st
 
 1. Update Warnings NG plugin to 8.4.0
 2. Install link:https://plugins.jenkins.io/checks-api/[Checks API plugin] and link:https://plugins.jenkins.io/github-checks/[GitHub Checks plugin] on your Jenkins instance
-3. Configure warnings-ng plugin as usual for a multi-branch project or a GitHub organization project
+3. Use warnings-ng plugin in your Jenkinsfile for the multi-branch project or GitHub organization project, e.g.
 
-=== Pipeline Usage:
+[source, groovy]
+----
+node {
+    stage ('Checkout') {
+        checkout scm
+    }
 
-Pipeline users can control this feature through a boolean field `skipPublishingChecks`, e.g.
+    stage ('Build and Static Analysis') {
+        withMaven {
+            sh 'mvn -V -e clean verify -Dmaven.test.failure.ignore'
+        }
 
-```
-recordIssues tool: errorProne(), healthy: 1, unhealthy: 20, skipPublishingChecks: false
-```
+        recordIssues tools: [java(), javaDoc()], aggregatingResults: 'true', id: 'java', name: 'Java'
+        recordIssues tool: errorProne(), healthy: 1, unhealthy: 20
+        recordIssues tools: [checkStyle(pattern: 'target/checkstyle-result.xml'),
+            spotBugs(pattern: 'target/spotbugsXml.xml'),
+            pmdParser(pattern: 'target/pmd.xml'),
+            cpd(pattern: 'target/cpd.xml')],
+            qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]]
+    }
+}
+----
+
+_For more about the pipeline usage of warnings-ng plugin, please see link:https://github.com/jenkinsci/warnings-ng-plugin/blob/master/doc/Documentation.md#pipeline-configuration[the official documentation]._
+
+However, if you don't want to publish the warnings to GitHub, you can definitely disable it by using a boolean field `skipPublishingChecks`, e.g.
+
+[source, groovy]
+----
+recordIssues enabledForFailure: true, tools: [java(), javaDoc()], skipPublishingChecks: true
+----
 
 == Coverage Checks
 
@@ -78,14 +105,41 @@ Besides, the `Details` page will contain some other things:
 
 image::/images/post-images/2020/07-github-checks-api-plugin-coding-phase-2/coverage-details.png[Coverage Details]
 
-The link:https://github.com/jenkinsci/code-coverage-api-plugin/pull/169[pull request] for this feature will soon be merged and will be included in the next release of Coverage Checks API plugin.
+The link:https://github.com/jenkinsci/code-coverage-api-plugin/pull/169[pull request] for this feature will soon be merged and will be included in the next release of Coverage Checks API plugin. After that, you can use it by adding the below section to your pipeline script:
+
+[source, groovy]
+----
+node {
+    stage ('Checkout') {
+        checkout scm
+    }
+
+    stage ('Line and Branch Coverage') {
+        withMaven {
+            sh "mvn -V -U -e jacoco:prepare-agent test jacoco:report -Dmaven.test.failure.ignore"
+        }
+        publishCoverage adapters: [jacocoAdapter('**/*/jacoco.xml')], sourceFileResolver: sourceFiles('STORE_ALL_BUILD')
+    }
+}
+----
+
+Like the warning checks, you can also disable the coverage checks by setting the field `skipPublishingChecks`, e.g.
+
+[source, groovy]
+----
+publishCoverage adapters: [jacocoAdapter('**/*/jacoco.xml')], sourceFileResolver: sourceFiles('STORE_ALL_BUILD'), skipPublishingChecks: true
+----
 
 == Next Phase
 
-In the next phase, we will turn our attention back to link:https://plugins.jenkins.io/checks-api/[Checks API Plugin] and link:https://plugins.jenkins.io/github-checks/[GitHub Checks Plugin]. 
-Pipeline support will be added: users can publish checks directly in a pipeline script without requiring a consumer plugin that supports the checks.
-Re-run request for Jenkins build through Checks API will be added as well. 
-Hopefully, we will also release the first official version for both plugins.
+In the next phase, we will turn our attention back to link:https://plugins.jenkins.io/checks-api/[Checks API Plugin] and link:https://plugins.jenkins.io/github-checks/[GitHub Checks Plugin]:
+
+* Pipeline support will be added, so users can publish checks directly in a pipeline script without requiring a consumer plugin that supports the checks.
+* Re-run request for Jenkins build through Checks API will be added as well. 
+
+Hopefully, we will also release the 1.0.0 version for both plugins.
+
+Lastly, it is exciting to inform that we are currently making the checks feature available on link:ci.jenkins.io[ci.jenkins.io] for hosted plugins, please see link:https://issues.jenkins-ci.org/browse/INFRA-2694[INFRA-2694] for more.
 
 == Resources
 
