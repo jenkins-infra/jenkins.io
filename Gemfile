@@ -9,7 +9,7 @@ gem 'asciidoctor', '~> 1.5.8'
 # Support for various template engines we use
 gem 'haml', '~> 5.1.0'
 gem 'liquid', '~> 3.0'
-gem 'kramdown', '~> 1.9.0'
+gem 'kramdown', '~> 2.3.0'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
