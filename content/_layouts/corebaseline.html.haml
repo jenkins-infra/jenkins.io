@@ -1,0 +1,31 @@
+---
+layout: developersection
+---
+
+:ruby
+    oldest_weekly = site._generated[:core_tiers].weeklyCores[0]
+
+    # For this file, assume that the the entries are in increasing order and get the second column (which is the last pre-split version)
+    # TODO Figure out a way to obtain this content differently, this is terrible
+    split_versions = open('https://raw.githubusercontent.com/jenkinsci/jenkins/master/core/src/main/resources/jenkins/split-plugins.txt').read.lines.select { |l| l.strip.length > 0 && !(l.strip =~ /^#/) }.map { |l| l.split(' ')[1] }
+    latest_split = split_versions[-1]
+
+    lts = site._generated[:core_tiers].stableCores
+    oldest_lts = lts[0]
+
+    lts_1 = lts.select { |v| v =~ /.1$/ }
+
+    oldest_lts_1 = 'undefined'
+    next_lts_1 = 'undefined'
+    # Iterate in reverse order over all split versions, and choose the first set of releases with at least 2 LTS.1 releases that are newer
+    # This attempts to balance wanting few implied dependencies, but also not requiring a very recent core
+    split_versions.reverse_each do |split_version|
+        lts_1_split = lts_1.select { |v| Gem::Version.new(v) > Gem::Version.new("#{split_version}.999") }
+        if lts_1_split.length > 1
+            oldest_lts_1 = lts_1_split[0]
+            next_lts_1 = lts_1_split[1]
+            break
+        end
+    end
+
+= page.content.gsub('PLACEHOLDER_SECOND_OLDEST_LTS_POINT_ONE', next_lts_1).gsub('PLACEHOLDER_OLDEST_LTS_POINT_ONE', oldest_lts_1).gsub('PLACEHOLDER_OLDEST_LTS', oldest_lts).gsub('PLACEHOLDER_OLDEST_WEEKLY', oldest_weekly).gsub('PLACEHOLDER_LATEST_SPLIT', latest_split)
