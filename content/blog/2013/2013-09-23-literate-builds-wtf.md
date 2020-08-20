@@ -112,7 +112,7 @@ The first section containing the word `environment` identifies the section that 
 
             echo hello\ world
 
-When Jenkins sees bullet points in the `environment` section it assumes each bullet point corresponds to an environment to run the build on. Each environment is specified by at least one code snippet which helps define the requirements of the environment. By default Jenkins will look for tool installers with the same name as the labels. If it cannot find any matching tool installers it assumes that the labels are Jenkins slave node labels. (The strategy is plugable, but not yet exposed in the UI of literate builds)
+When Jenkins sees bullet points in the `environment` section it assumes each bullet point corresponds to an environment to run the build on. Each environment is specified by at least one code snippet which helps define the requirements of the environment. By default Jenkins will look for tool installers with the same name as the labels. If it cannot find any matching tool installers it assumes that the labels are Jenkins agent node labels. (The strategy is plugable, but not yet exposed in the UI of literate builds)
 
 When you have multiple environments on which to build and test, you have two choices on your build instructions. You can either:
 

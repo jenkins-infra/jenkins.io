@@ -49,7 +49,7 @@ Now the breakdown for this release:
     Improved the form validation mechanism to support multiple controls.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5610">issue 5610</a>)
   <li class=rfe> 
-    Added message to slave log when it has successfully come online.
+    Added message to agent log when it has successfully come online.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5630">issue 5630</a>)
 </ul>
 
