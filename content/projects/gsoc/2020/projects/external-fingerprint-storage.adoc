@@ -20,76 +20,172 @@ tags:
 - gsoc2020
 - pluggable-storage
 - fingerprints
+- Redis
+- PostgreSQL
 ---
 
 === Abstract
 
-File fingerprinting is a way to track which version of a file is being used by a job/build, making dependency tracking easy.
+File fingerprinting is a way to track which version of a file is being used by a job/build, making dependency tracking
+easy.
 The fingerprint engine of Jenkins can track usages of artifacts, credentials, files, etc. within the system.
 It does this by maintaining a local XML-based database.
 This leads to dependence on the physical disk of the Jenkins master.
 
-The core idea of this project is to extend Jenkins core to support storing of fingerprints in an external storage, which would also allow tracking them across the entire CI/CD flow.
+The core idea of this project was to extend Jenkins core to support storing of fingerprints in external storages.
+External storage plugins can then be used to configure connection to the storage, and fingerprint handling happens
+in a seamless way.
+The project led to the creation of two plugins, backed by Redis and PostgreSQL.
 
-image:/images/post-images/gsoc-external-fingerprint-storage-for-jenkins/overview.png[title="External Fingerprint Storage for Jenkins Overview" role="center" width=700 height=400 ]
+image:/images/post-images/gsoc-external-fingerprint-storage-for-jenkins/overview.png[title="External Fingerprint
+Storage for Jenkins Overview" role="center" width=700 height=400 ]
 
-=== Overview of Goals
+=== Getting the Code
 
-* Build a pluggable storage engine, which would allow fingerprints to be stored in external storages managed by storage system specific plugins.
+All the links mentioned below correspond to code which has been merged. There is no unmerged code.
 
-* Implementation of one such plugin (for Redis). This implementation should act as a reference for the development of other such external storage plugins for fingerprints.
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis fingerprint storage plugin repository]
+was created for the purpose of this project and the project
+link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/blob/master/README.adoc[README] contains
+installation and usage instructions.
 
-* Build the Fingerprint External Storage API Plugin to track the flow of fingerprints across the entire CI/CD flow.
+* PostgreSQL fingerprint storage plugin repository was also created for the purpose of this project and README.adoc
+contains installation and usage instructions.
 
-=== Trying it out!
+* The external fingerprint storage API was created in link:https://github.com/jenkinsci/jenkins[Jenkins core].
+Following are the relevant PRs:
+
+** link:https://github.com/jenkinsci/jenkins/pull/4731[PR-4731]
+
+*** Introduced External Fingerprint storage API in Jenkins core.
+*** Released in link:https://www.jenkins.io/changelog/#v2.242[Jenkins-2.242]
+
+** link:https://github.com/jenkinsci/jenkins/pull/4817[PR-4817]
+
+*** Introduced fingerprint cleanup functionality.
+*** Released in link:https://www.jenkins.io/changelog/#v2.242[Jenkins-2.248]
+
+** link:https://github.com/jenkinsci/jenkins/pull/4825[PR-4825]
+
+*** Introduced fingerprint migration.
+*** Released in link:https://www.jenkins.io/changelog/#v2.242[Jenkins-2.251]
+
+** link:https://github.com/jenkinsci/jenkins/pull/4834[PR-4834]
+
+*** Introduced `FingerprintStorageDescriptor` to offer a unified interface for configuring any external fingerprint
+storage plugin.
+*** Released in link:https://www.jenkins.io/changelog/#v2.242[Jenkins-2.248]
+
+** link:https://github.com/jenkinsci/jenkins/pull/4888[PR-4888]
+
+*** Exposes fingerprint methods for plugins
+*** Released in link:https://www.jenkins.io/changelog/#vTODO[Jenkins-TODO]
+
+=== The External Fingerprint Storage API
+
+This section explains the external fingerprint storage API that was created in Jenkins core.
+For further details, please refer to jep:226[] which explains the design decisions in detail.
+
+We created the `FingerprintStorage` class which defines the API for allowing building of custom storage engines.
+We exposed the following methods in the API for plugin developers:
+
+* `void save()`
+
+** Saves the given Fingerprint in the storage.
+
+* `Fingerprint load(String id)`
+
+** Returns the Fingerprint with the given unique ID. The unique ID for a fingerprint is defined by
+Fingerprint#getHashString().
+
+* `void delete(String id)`
+
+** Deletes the Fingerprint with the given unique ID.
+
+* `boolean isReady()`
+
+** Returns true if there is some data in the fingerprint database corresponding to the particular Jenkins instance.
+
+For more details, please refer to the Javadoc for link:[] and link:[].
+
+==== Fingerprint Cleanup
+
+Fingerprint cleanup thread works by periodically iterating over the fingerprints and editing the job and build
+information of the ones based on whether they are still present in the system.
+It also deletes the fingerprints which do not have any build or job associated with them.
+
+We extend this fingerprint cleanup functionality to be supported by external storages.
+FingerprintStorage API was extended with the following methods:
+
+* `iterateAndCleanupFingerprints(TaskListener taskListener)`
+
+** Plugins can implement this method (which is called by Jenkins core periodically) to iterate and cleanup the
+fingerprints.
+The reason to design it this way, and not to iterate all the fingerprints via core, is because external storages
+may be able to implement more efficient traversal strategies on their own.
+
+* `boolean cleanFingerprint(Fingerprint fingerprint, TaskListener taskListener)`
+
+** This provides a reference implementation of cleanup, which external storages can use to cleanup a fingerprint.
+They may use this, or extend it to provide custom implementations.
+
+Finally, we introduce the option to turn off fingerprint cleanup. This is done because it may be the case that storing extra data may be cheaper than performing cleanups, especially with external storages.
+
+==== Fingerprint Migration
+
+We implemented a lazy migration strategy to transfer the fingerprints from local storage to the newly
+configured external storage.
+Once an external fingerprint storage is configured, the new fingerprints are stored directly in the new storage
+engine.
+However, the old fingerprints present on the disk storage are migrated as and when they are used.
+
+This allows the fingerprints to be migrated gradually from the local storage to the external storage and
+prevent huge migrations in one go.
+One caveat is that in case the fingerprint cleanup is turned on, the fingerprints will get transferred whenever
+cleanup is triggered.
+
+=== Redis Fingerprint Storage Plugin
+
+=== PostgreSQL Fingerprint Storage Plugin
+
+=== Trying it Out!
 
 If you are a Jenkins user, consider trying out the link:https://plugins.jenkins.io/redis-fingerprint-storage/[Redis
-Fingerprint Storage Plugin].
-We appreciate you trying out the plugin, and welcome any suggestions, feature requests, bug reports, etc.
+Fingerprint Storage Plugin] and the .
+We appreciate you trying out the plugins, and welcome any suggestions, feature requests, bug reports, etc.
 
-Feel free to reach out to us for any questions, feedback, etc. on the project’s link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel] or the Jenkins Developer
-Mailing list.
+=== Further Details
+
+The phase wise progress can be found in the following posts:
+
+* link:/blog/2020/06/27/external-fingerprint-storage/[Phase-1 Post]
+
+* link:/blog/2020/07/24/external-fingerprint-storage-phase-2/[Phase-2 Post]
+
+* link:/blog/TODO/[Phase-3 Post]
+
+=== Future Directions
+
+=== Acknowledgements
+
+Special thanks to link:https://github.com/oleg-nenashev[Oleg Nenashev],
+link:https://github.com/afalko[Andrey Falko], link:https://github.com/mikecirioli[Mike Cirioli],
+and the entire Jenkins community for all the contribution to this project.
+
+=== Reaching Out
+
+Feel free to reach out to us for any questions, feedback, etc. on the project's
+link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel] or the
+mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
 We use Jenkins link:https://issues.jenkins-ci.org/[Jira] to track issues.
-Feel free to file issues under `redis-fingerprint-storage-plugin` component.
-
-=== Deliverables
-
-==== Phase 1
-
-The following deliverables were planned for phase-1:
-
-* Jenkins core ready with support for pluggable storage extension point (beta API), that can be used by plugins (lacking migration and fingerprint cleanup support)
-* FileFingerprintStorage designed, implemented and conforms to maintain backwards compatibility.
-* POC reference implementation for Redis Fingerprint Storage Plugin.
-* Documentation as well as tests written for the points mentioned above.
-
-We were able to successfully achieve them.
-Details can be found in the link:/blog/2020/06/27/external-fingerprint-storage/[phase-1 blog post].
-
-==== Phase 2
-
-The following deliverables were planned for phase-2:
-
-* Alpha version of Redis Fingerprint Storage Plugin released.
-* Migration handling support added.
-* Fingerprint cleanup support added.
-* Blog Post (Phase 2)
-
-The phase-2 deliverables were achieved, and some more.
-link:/blog/2020/07/24/external-fingerprint-storage-phase-2/[Phase-2 blog post] explains them in detail.
-
-==== Phase 3
-
-* 1.0 version of Redis plugin released.
-* FingerprintStorage API removed from Beta.
-* Setup Guides, README and contributing guide explaining how to setup, use and contribute to the plugin.
-* Alpha version of PostgreSQL Fingerprint Storage Plugin released.
-* Blog Post (Phase 3)
+Feel free to file issues under `redis-fingerprint-storage-plugin` or `postgresql-fingerprint-storage-plugin`
+components.
 
 === Meetings
 
 Meetings are held every Monday at 15:00 UTC and every Thursday at 14:30 UTC.
-Meeting notes are available link:https://docs.google.com/document/d/1_0lH_s5NpV860NjLmZT8cKd26Z4GrtXpgkBydDt103M/edit?usp=sharing[here].
+Meeting notes are available
+link:https://docs.google.com/document/d/1_0lH_s5NpV860NjLmZT8cKd26Z4GrtXpgkBydDt103M/edit?usp=sharing[here].
 
 === Other Links
 
@@ -99,5 +195,6 @@ https://docs.google.com/document/d/13IJWd91uwZ3bGGSHfTx5ulue0rTD9XV8owvncIELkF0/
 https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin Repository] +
 https://github.com/jenkinsci/postgresql-fingerprint-storage-plugin[PostgreSQL Fingerprint Storage Plugin Repository] +
 jep:226[] +
-link:/blog/2020/06/27/external-fingerprint-storage/[Phase 1 Blog Post]
-link:/blog/2020/07/24/external-fingerprint-storage-phase-2/[Phase 2 Blog Post]
+link:/blog/2020/06/27/external-fingerprint-storage/[Phase 1 Blog Post] +
+link:/blog/2020/07/24/external-fingerprint-storage-phase-2/[Phase 2 Blog Post] +
+link:/blog/TODO/[Phase 3 Blog Post] +
