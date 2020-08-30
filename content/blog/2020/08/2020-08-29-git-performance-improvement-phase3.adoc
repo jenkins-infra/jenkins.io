@@ -22,9 +22,9 @@ To achieve this goal, we laid out a path:
 * Use the results to create a feature which would improve the overall performance of git plugin
 * Also, fix existing user reported performance issues
 
-Let's take a journey to understand how we've build the new features. If you'd like to skip the journey part, you can directly skip to the end section to see what we've done!
+Let's take a journey to understand how we've built the new features. If you'd like to skip the journey part, you can directly go to the <<major performance improvements>> section and the <<minor performance section>> to see what we've done!
 
-== Journey to the release of Git Plugin 4.4.0 and Git Client Plugin 3.4.0
+== Journey to release
 
 The project started with deciding to choose a git operation and then trying to compare the performance of that operation by using `command line git` and then with `JGit`.
 
@@ -35,23 +35,29 @@ image:/images/post-images/2020/07-git-plugin-performance-improvement/git-fetch-r
 * The performance of git fetch (average execution time/op) is strongly correlated to the size of a repository
 * There exists an inflection point on the scale of repository size after which the nature of `JGit` performance changes (it starts to degrade)
 * After running multiple benchmarks, it is safe to say that for a large sized repository `command line git` would be a better choice of implementation.
-* We can use this insight to implement a feature which avoids `JGit` when it comes to large repositories.
+* We can use this insight to implement a feature which avoids `JGit` with large repositories.
 
-=== Stage 2: Validate the benchmark results across multiple platforms
+=== Stage 2: Comparing platforms
+
+The project was also concerned that there might be important differences between operating systems.
+For example, what if command line Git for Windows performed very differently than command line Git on Linux or FreeBSD?
+Benchmarks were run to compare fetch performance on several platforms.
 
 Running git fetch operation for a 400 MiB sized repository on:
 
-* `Windows`
-* `FreeBSD-12`
-* `ppc64le`
-* `s390x`
+* AMD64 Microsoft Winders
+* AMD64 FreeBSD
+* IBM PowerPC 64 LE Ubuntu 18
+* IBM System 390 Ubuntu 18
 
 The result of running this experiment is given below:
 
 image:/images/post-images/2020/07-git-plugin-performance-improvement/git-multiple-platforms.png[Performance on multiple platforms]
 
 
-*Observation*: The difference in performance between `git` and `JGit` remains constant across all platforms which means any insight taken from the benchmarks to develop a solution will be platform agnostic in general.
+NOTE: The difference in performance between `git` and `JGit` remains constant across all platforms.
+
+Benchmark results on one platform are applicable to all platforms.
 
 === Stage 3: Performance of git fetch and repository structure
 
@@ -65,9 +71,9 @@ The area of the circle enclosing each parameter signifies the strength of the po
 
 *After running these experiments from Stage-1 to Stage-3, we developed a solution called the `GitToolChooser` which is explained in the next stage*
 
-=== Stage 4: Enabling faster checkouts with an automatic git tool chooser
+=== Stage 4: Faster checkout with Git tool chooser
 
-This feature takes the responsibility of choosing the optimal implementation from the *user* and hands it to the *plugin*. It takes the decision of recommending an implementation on the basis of the size of the repository. link:/blog/2020/07/2020-07-29-git-performance-improvement-phase2.adoc[Here is how it works].
+This feature takes the responsibility of choosing the optimal implementation from the *user* and hands it to the *plugin*. It takes the decision of recommending an implementation on the basis of the size of the repository. link:/blog/2020/07/29/git-performance-improvement-phase2/[Here is how it works].
 
 image:/images/post-images/2020/07-git-plugin-performance-improvement/git-perf-improv.png[title="Faster checkouts with GitToolChooser" role="center", width=938]
 
@@ -75,7 +81,7 @@ The image above depicts the performance enhancements we have performed over the 
 
 Let's talk about performance improvements in two parts.
 
-== Major Performance Improvements
+== Major performance improvements
 
 image:/images/post-images/2020/07-git-plugin-performance-improvement/git-major-perf.png[Major performance enhancements, align='center', width=400]
 
@@ -84,7 +90,7 @@ The result is consistent multiple platforms.
 
 The reason for such a decrease is the fact that `JGit` degrades in performance when we are talking about large sized repositories. Since the GitToolChooser is aware of this fact, it chooses to recommend `command line git` instead which saves the user some time.
 
-== Minor Performance Improvements
+== Minor performance improvements
 
 *Note: Enable JGit before using the new performance features to let GitToolChooser work with more options* -> link:https://plugins.jenkins.io/git-client/#enabling-jgit[Here's how]
 
@@ -94,12 +100,12 @@ Building the git plugin (~ 20 MiB) using a Jenkins pipeline, there is a drop of 
 
 The reason for this change is the fact that `JGit` performs better than `command line git` for small sized repositories (<50MiB) as an already warmed up JVM favors the native Java implementation.
 
-== Release
+== Releases
 
-* Git Plugin 4.4.0 -> https://github.com/jenkinsci/git-plugin/releases/tag/git-4.4.0
+* link:https://github.com/jenkinsci/git-plugin/releases/tag/git-4.4.0[Git Plugin 4.4.0]
   ** Add GitToolChooser
   ** Remove redundant fetch
-* Git Client Plugin 3.4.0 -> https://github.com/jenkinsci/git-client-plugin/releases/tag/git-client-3.4.0
+* link:https://github.com/jenkinsci/git-client-plugin/releases/tag/git-client-3.4.0[Git Client Plugin 3.4.0]
   ** Add support to communicate compatibility of JGit with certain additional SCM behaviors
 
 == The Road Ahead
