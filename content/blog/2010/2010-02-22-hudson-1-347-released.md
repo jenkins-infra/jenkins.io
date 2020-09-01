@@ -30,7 +30,7 @@ Now the breakdown for this release:
     Fix javascript problem showing test failure detail for test name with a quote character.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-1544">issue 1544</a>)
   <li class=bug> 
-    Hudson can incorrectly configure labels for the master when bleeding edge EC2 plugin is used.
+    Hudson can incorrectly configure labels for the controller when bleeding edge EC2 plugin is used.
   <li class=bug> 
     Fixed the regression wrt the whitespace trimming caused by 1.346.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5633">issue 5633</a>)
