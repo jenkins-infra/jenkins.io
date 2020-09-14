@@ -120,11 +120,39 @@ io.jenkins.plugins.casc.ConfiguratorException: 'statusFilter' is deprecated
 
 ==== Alternate URL removed from inbound agent
 
-Jenkins 2.249.1 no longer provides a fallback URL in the inbound agent launch file.
+Jenkins 2.249.1 no longer provides a fallback URL in the inbound agent launch file (the "slave-agent.jnlp" file).
 Prior releases allowed the administrator to configure a second URL for inbound agents that was different from the Jenkins root URL.
 If the root URL was unreachable by the agent, the second URL was used.
 
-Jenkins includes automatic reverse proxy configuration warnings if the root URL is not configured or is configured incorrectly.
-An alternate URL to connect to the Jenkins server should only be needed in very rare cases.
+If the Jenkins root URL is not accessible to an inbound agent, the agent must connect through TCP using options available from `agent.jar`.
+TCP inbound agent connection is more complicated than the typical inbound agent connection because it requires the instance identity in addition to the usual inbound agent data.
 
-When an alternate URL is required, the "Tunnel connection through" option that is part of "Advanced" agent configuration can provide an alternate address and port to be used instead of the Jenkins root URL.
+Obtain the instance identity from the link:/doc/book/managing/script-console/[Jenkins groovy script console] using the instructions in the link:https://github.com/jenkinsci/remoting/blob/master/docs/inbound-agent.md#connect-directly-to-tcp-port[inbound agent documentation].
+An example groovy script to report instance identity looks like this:
+
+[source,groovy]
+----
+def id=org.jenkinsci.main.modules.instance_identity.InstanceIdentity.get()
+hudson.remoting.Base64.encode(id.getPublic().getEncoded())
+----
+
+Obtain the secret string and agent name from the Jenkins agent definition page.
+
+Start the agent by using those values in a script like this:
+
+[source,bash]
+----
+$ WORKDIR=/home/agent/workdir
+$ HOST_PORT=localhost:50000
+$ INSTANCE_IDENTITY=<value-from-groovy-script-console>
+$ SECRET_STRING=<secret-from-agent-definition-page>
+$ AGENT_NAME=<agent-name-from-agent-definition-page>
+$ java -cp agent.jar hudson.remoting.jnlp.Main \
+  -headless \
+  -workDir $WORKDIR \
+  -direct $HOST_PORT \
+  -protocols JNLP4-connect \
+  -instanceIdentity $INSTANCE_IDENTITY \
+  $SECRET_STRING \
+  $AGENT_NAME
+----
