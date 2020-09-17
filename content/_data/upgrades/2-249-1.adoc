@@ -124,7 +124,28 @@ Jenkins 2.249.1 no longer provides a fallback URL in the inbound agent launch fi
 Prior releases allowed the administrator to configure a second URL for inbound agents that was different from the Jenkins root URL.
 If the root URL was unreachable by the agent, the second URL was used.
 
-If the Jenkins root URL is not accessible to an inbound agent, the agent must connect through TCP using options available from `agent.jar`.
+With Jenkins 2.249.1, the alternate URL must be provided as an argument to the `agent.jar` command.
+The inbound agent can connect to the alternate URL using commands like this:
+
+[source,bash]
+----
+$ WORKDIR=<work-dir-from-agent-definition-page>
+$ ALTERNATE_URL=<alternate-url-used-to-access-Jenkins>
+$ SECRET_STRING=<secret-from-agent-definition-page>
+$ AGENT_NAME=<agent-name-from-agent-definition-page>
+$ java -cp agent.jar hudson.remoting.jnlp.Main \
+  -headless \
+  -workDir $WORKDIR \
+  -url $ALTERNATE_URL \
+  $SECRET_STRING \
+  $AGENT_NAME
+----
+
+////
+// This section describes a capability that is unchanged from previous releases.
+// Intentionally commented so it is not included in the document
+
+If an alternate URL is *not* accessible to an inbound agent, the agent must connect using the `-direct` TCP option available from `agent.jar`.
 TCP inbound agent connection is more complicated than the typical inbound agent connection because it requires the instance identity in addition to the usual inbound agent data.
 
 Obtain the instance identity from the link:/doc/book/managing/script-console/[Jenkins groovy script console] using the instructions in the link:https://github.com/jenkinsci/remoting/blob/master/docs/inbound-agent.md#connect-directly-to-tcp-port[inbound agent documentation].
@@ -136,14 +157,12 @@ def id=org.jenkinsci.main.modules.instance_identity.InstanceIdentity.get()
 hudson.remoting.Base64.encode(id.getPublic().getEncoded())
 ----
 
-Obtain the secret string and agent name from the Jenkins agent definition page.
-
 Start the agent by using those values in a script like this:
 
 [source,bash]
 ----
-$ WORKDIR=/home/agent/workdir
-$ HOST_PORT=localhost:50000
+$ WORKDIR=<work-dir-from-agent-definition-page>
+$ HOST_PORT=<hostname-and-port-number-from-Jenkins-configuration>
 $ INSTANCE_IDENTITY=<value-from-groovy-script-console>
 $ SECRET_STRING=<secret-from-agent-definition-page>
 $ AGENT_NAME=<agent-name-from-agent-definition-page>
@@ -151,8 +170,10 @@ $ java -cp agent.jar hudson.remoting.jnlp.Main \
   -headless \
   -workDir $WORKDIR \
   -direct $HOST_PORT \
-  -protocols JNLP4-connect \
   -instanceIdentity $INSTANCE_IDENTITY \
   $SECRET_STRING \
   $AGENT_NAME
 ----
+
+// End of intentionally commented section
+////
