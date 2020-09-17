@@ -59,3 +59,121 @@ the following extra upgrade steps are required:
 2. Upgrade agents with .NET Framework 4.0+ by downloading the recent Windows Service Wrapper 2.x
   version from link:https://github.com/winsw/winsw/releases[WinSW GitHub Releases]
   and manually replacing the wrapper ".exe" files in the agent workspaces.
+
+==== View statusFilter removed from configuration as code
+
+As part of a performance improvement for list views, the `statusFilter` key is now an optional, separate item in the Jenkins view configuration.
+The `statusFilter` key in link:https://plugins.jenkins.io/configuration-as-code/[configuration as code] view definitions will need to be removed or replaced with a new entry as part of the upgrade to Jenkins 2.249.1.
+
+Previous configuration::
+The previous configuration looked like this:
++
+----
+  views:
+  - list:
+      columns:
+      - "status"
+      - "weather"
+      - "jobName"
+      description: "Jobs failing recently"
+      jobFilters:
+      - jobStatusFilter:
+          aborted: true
+          failed: true
+          includeExcludeTypeString: "includeMatched"
+      name: "Failed Jobs"
+      statusFilter: true # This must be removed
+----
+
+New configuration::
+The new configuration looks like this:
++
+----
+  views:
+  - list:
+      columns:
+      - "status"
+      - "weather"
+      - "jobName"
+      description: "Jobs failing recently"
+      jobFilters:
+      - jobStatusFilter:
+          aborted: true
+          failed: true
+          includeExcludeTypeString: "includeMatched"
+      - statusFilter: # This is the replacement section
+          statusFilter: true
+      name: "Failed Jobs"
+----
+
+If the  `statusFilter` key is not updated or removed from the YAML file, Jenkins halts during startup with a stack trace.
+The initial section of the failure stack trace looks like this:
+
+.Configuration as code stack trace
+----
+SEVERE  jenkins.InitReactorRunner$1#onTaskFailed: Failed ConfigurationAsCode.init
+io.jenkins.plugins.casc.ConfiguratorException: 'statusFilter' is deprecated
+        at io.jenkins.plugins.casc.BaseConfigurator.configure(BaseConfigurator.java:321)
+        at io.jenkins.plugins.casc.BaseConfigurator.configure(BaseConfigurator.java:270)
+        ...
+----
+
+==== Alternate URL removed from inbound agent
+
+Jenkins 2.249.1 no longer provides a fallback URL in the inbound agent launch file (the `slave-agent.jnlp` file).
+Prior releases included an alternate URL in the inbound agent launch file when the launch file was requested through a URL that is not the Jenkins root URL.
+If the Jenkins root URL was unreachable by the agent, the alternate URL was used.
+
+The alternate URL must be provided as an argument to the `agent.jar` command for Jenkins 2.249.1 and later.
+The inbound agent can connect to the alternate URL using commands like this:
+
+[source,bash]
+----
+$ WORKDIR=<work-dir-from-agent-definition-page>
+$ ALTERNATE_URL=<alternate-url-used-to-access-Jenkins>
+$ SECRET_STRING=<secret-from-agent-definition-page>
+$ AGENT_NAME=<agent-name-from-agent-definition-page>
+$ java -cp agent.jar hudson.remoting.jnlp.Main \
+  -headless \
+  -workDir $WORKDIR \
+  -url $ALTERNATE_URL \
+  $SECRET_STRING \
+  $AGENT_NAME
+----
+
+////
+// This section describes a capability that is unchanged from previous releases.
+// Intentionally commented so it is not included in the document
+
+If an alternate URL is *not* accessible to an inbound agent, the agent must connect using the `-direct` TCP option available from `agent.jar`.
+TCP inbound agent connection is more complicated than the typical inbound agent connection because it requires the instance identity in addition to the usual inbound agent data.
+
+Obtain the instance identity from the link:/doc/book/managing/script-console/[Jenkins groovy script console] using the instructions in the link:https://github.com/jenkinsci/remoting/blob/master/docs/inbound-agent.md#connect-directly-to-tcp-port[inbound agent documentation].
+An example groovy script to report instance identity looks like this:
+
+[source,groovy]
+----
+def id=org.jenkinsci.main.modules.instance_identity.InstanceIdentity.get()
+hudson.remoting.Base64.encode(id.getPublic().getEncoded())
+----
+
+Start the agent by using those values in a script like this:
+
+[source,bash]
+----
+$ WORKDIR=<work-dir-from-agent-definition-page>
+$ HOST_PORT=<hostname-and-port-number-from-Jenkins-configuration>
+$ INSTANCE_IDENTITY=<value-from-groovy-script-console>
+$ SECRET_STRING=<secret-from-agent-definition-page>
+$ AGENT_NAME=<agent-name-from-agent-definition-page>
+$ java -cp agent.jar hudson.remoting.jnlp.Main \
+  -headless \
+  -workDir $WORKDIR \
+  -direct $HOST_PORT \
+  -instanceIdentity $INSTANCE_IDENTITY \
+  $SECRET_STRING \
+  $AGENT_NAME
+----
+
+// End of intentionally commented section
+////
