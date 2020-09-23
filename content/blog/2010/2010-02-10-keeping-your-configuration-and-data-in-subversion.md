@@ -22,7 +22,7 @@ We have a Hudson job which runs nightly, performs the appropriate SVN commands, 
 1.  Check it in! `svn ci --non-interactive --username=mrhudson -m "automated commit of Hudson configuration"`
 You’ll want to make sure to use the `--non-interactive` option for any automated svn operations, as this ensures Subversion won’t hang asking a question but instead fail immediately. You may also need to provide your password with the `--password` option.
 
-To make such a Hudson job, create a new job, tie it to the master (since this is where the configuration files are), set it to build periodically (we use “@midnight”), and add an “Execute shell” build step. Here’s the full script we use, to put into the build step:
+To make such a Hudson job, create a new job, tie it to the controller (since this is where the configuration files are), set it to build periodically (we use “@midnight”), and add an “Execute shell” build step. Here’s the full script we use, to put into the build step:
 
 <code type="bash">
 # Change into your HUDSON_HOME.

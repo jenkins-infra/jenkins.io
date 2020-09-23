@@ -1,0 +1,86 @@
+---
+layout: post
+title: "Git Plugin Performance Improvement: Phase-1"
+tags:
+- plugins
+- git
+- platform-sig
+- developer
+- performance
+- gsoc
+- gsoc2020
+author: rishabhbudhouliya
+opengraph:
+  image: /images/post-images/2020/07-git-plugin-performance-improvement/gsoc-git-opengraph.png
+---
+
+link:/projects/gsoc/2020/projects/git-plugin-performance/[Git Plugin Performance Improvement] is a link:/projects/gsoc/#gsoc-2020[Google Summer of Code 2020 project].
+It aims to improve the performance of the git plugin, which provides fundamental git functionalities.
+
+Internally, the plugin provides these functionalities using two implementations: link:https://www.git-scm.com/[command line git] and link:https://www.eclipse.org/jgit/[JGit (pure java implementation)].
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-intro.png[git-intro, width=938]
+
+*CLI git is the default implementation for the plugin, a user can switch to JGit if needed*
+
+The project is divided into two parallel stages:
+
+* *Stage 1*: Create benchmarks which evaluate the execution time of a git operation provided by CLI git and JGit using JMH, a micro benchmarking test harness.
+* *Stage 2*: Implement the insights gained from the analysis into the plugin to improve the overall performance of the plugin.
+
+The project also aims to fix any existing performance bottlenecks within the plugin as well.
+
+
+== Benchmarks
+
+The benchmarks are written using link:https://openjdk.java.net/projects/code-tools/jmh/[JMH]. It was introduced in a link:https://www.jenkins.io/blog/2019/06/21/performance-testing-jenkins/[GSoC 2019 project] to Jenkins.
+
+* JMH is provided within the plugin through the Jenkins Unit Test Harness POM dependency.
+* The JMH link:https://github.com/jenkinsci/git-client-plugin/tree/master/src/test/java/jmh/benchmark[benchmarks] are created and run within the git client plugin
+* During phase-1, we have created benchmarks for two operations: "git fetch" and "git ls-remote"
+
+== Results and Analysis
+
+The benchmark analysis for git fetch:
+
+=== Git fetch results
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-fetch-results.png[git-fetch-results, width=938]
+
+* The performance of git fetch (average execution time/op) is strongly correlated to the size of a repository
+* There exists an inflection point on the scale of repository size after which the nature of JGit performance changes (it starts to degrade)
+* After running multiple benchmarks, it is safe to say that for a large sized repository *CLI-git* would be a better choice of implementation.
+* We can use this insight to implement a feature which avoids JGit when it comes to large repositories.
+
+Please refer to link:https://github.com/jenkinsci/git-client-plugin/pull/521[PR-521] for an elaborate explanation on these results
+
+*Note:* Repository size means `du -h .git`
+
+== Fixing redundant fetch issue
+
+The git plugin performs two fetch operations instead of one while performing a fresh checkout of a remote git repository.
+
+To link:https://github.com/jenkinsci/git-plugin/pull/904[fix] this issue, we had to safely remove the second fetch keeping multiple use-cases in mind. The fix itself was not difficult to code, but to do that safely without breaking any existing use-case was a challenging task.
+
+== Further Plan
+
+After consolidating a benchmarking strategy during Phase 1, the next steps will be:
+
+* Provide functionality to the git plugin, which enables it to estimate the size of the repository without cloning it.
+* Broaden the scope of benchmarking strategy
+    ** Consider parameters like number of branches, references and commit history to find a relation with the performance of a git operation
+    ** The git plugin depends on other plugins like Credentials which might require benchmarking the plugin itself and the effects of these external dependencies on the plugin's performance
+* Focus on other use-cases of the plugin
+    ** For phase-1, I focused on the checkout step and the operations involved with it
+    ** For the next phase, the focus will shift to other areas like Multibranch pipelines or Organisation Folders
+
+== How can you help?
+
+If you have reached this far of the blog, you might be interested in the project.
+
+To help, you can
+
+* Review the benchmarks in the link:https://github.com/jenkinsci/git-client-plugin/tree/master/src/test/java/jmh/benchmark[benchmarks module]
+* Analyse the benchmarks results available on link:https://ci.jenkins.io/job/Plugins/job/git-client-plugin/job/master/[ci.jenkins.io] [soon]
+
+Come visit our Gitter channel: https://gitter.im/jenkinsci/git-plugin
