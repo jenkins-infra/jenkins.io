@@ -335,3 +335,190 @@ Forwarding from [::1]:8080 -> 8080
 ----
 
 Visit http://127.0.0.1:8080/ and log in using `admin` as the username and the password you retrieved earlier.
+
+==== Installing Jenkins on Kubernetes using a set of YAML files
+
+This section describes how to use a set of YAML (Yet Another Markup Language) files to install Jenkins on a Kubernetes cluster. The .yaml files are easily tracked, edited, and can be reused indefinitely.
+
+===== Create Jenkins Deployment File
+
+Use your preferred text editor to create a jenkins-deployment.yaml file in the “jenkins” namespace we created in this link:/doc/book/installing/#create-a-namespace-for-the-jenkins-deployment[section] above.
+
+ jenkins-deployment.yaml
+[source,bash]
+----
+---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: jenkins
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: jenkins
+      template:
+        metadata:
+          labels:
+            app: jenkins
+        spec:
+          containers:
+          - name: jenkins
+            image: jenkins/jenkins:lts
+            ports:
+            - containerPort: 8080
+            volumeMounts:
+              - name: jenkins-home
+                mountPath: /var/jenkins_home
+          volumes:
+            - name: jenkins-home
+              emptyDir: {}
+----
+
+* The file is defining a Deployment as indicated by the kind field.
+* The Deployment specifies a single replica. This ensures one and only one instance 
+will be maintained by the Replication Controller in the event of failure.
+* The container image name is jenkins and version is 2.32.2
+*The list of ports specified within the spec are a list of ports to expose from 
+the container on the Pods IP address.
+** Jenkins running on (http) port 8080.
+** The Pod exposes the port 8080 of the jenkins container.
+* The volumeMounts section of the file creates a Persistent Volume. 
+This volume is mounted within the container at the path /var/jenkins_home and so 
+modifications to data within /var/jenkins_home are written to the volume. 
+This volume is mounted within the container at the path /var/jenkins_home and 
+so modifications to data within /var/jenkins_home are written to the volume. 
+The role of a persistent volume is to store basic Jenkins data and preserve it 
+beyond the lifetime of a pod. 
+
+Exit and save the changes once you add the content to the Jenkins deployment file.
+
+===== Deploy Jenkins
+
+To create the deployment execute:
+
+[source,bash]
+----
+kubectl create -f jenkins-deployment.yaml --namespace jenkins
+----
+
+The command also instructs the system to install Jenkins within the jenkins namespace. 
+
+To validate that creating the deployment was successful you can invoke:
+
+[source,bash]
+----
+kubectl get deployments --namespace jenkins
+----
+
+===== Exposing Jenkins
+
+We have a Jenkins instance deployed but it is still not accessible. 
+The Jenkins Pod has been assigned an IP address that is internal to the Kubernetes cluster. It’s possible to log into the Kubernetes Node and access Jenkins from there but that’s not a very useful way to access the service.
+
+To make Jenkins accessible outside the Kubernetes cluster the Pod needs to be exposed as a Service. A Service is an abstraction that exposes Jenkins to the wider network. 
+It allows us to maintain a persistent connection to the pod regardless of the changes 
+taking place within the cluster. 
+With a local deployment, this means creating a NodePort service type. 
+A NodePort service type exposes a service on a port on each node in the cluster. 
+It’s then possible to access the service given the Node IP address and the service nodePort. 
+A simple service is defined below:
+
+[source,bash]
+----
+jenkins-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: jenkins
+----
+
+* The file is defining a Service as indicated by the kind field.
+* The Service is of type NodePort. Other options are ClusterIP (only accessible within the cluster) and LoadBalancer (IP address assigned by a cloud provider e.g. AWS Elastic IP).
+* The list of ports specified within the spec is a list of ports exposed by this service.
+** The port is the port that will be exposed by the service.
+** The target port is the port to access the Pods targeted by this service. A port name may also be specified.
+* The selector specifies the selection criteria for the Pods targeted by this service.
+
+To create the service execute:
+
+[source,bash]
+----
+kubectl create -f jenkins-service.yaml --namespace jenkins
+----
+
+To validate that creating the service was successful you can run:
+
+[source,bash]
+----
+$ kubectl get services --namespace jenkins
+NAME       TYPE        CLUSTER-IP       EXTERNAL-IP    PORT(S)           AGE       
+jenkins    NodePort    10.103.31.217    <none>         8080:32664/TCP    59s
+----
+
+===== Access Jenkins Dashboard
+
+So now we have created a deployment and service, how do we access Jenkins?
+
+From the output above we can see that the service has been exposed on port 322664. 
+We also know that because the service is of type NodeType the service will route 
+requests made to any node on this port to the Jenkins pod. 
+All that’s left for us is to determine the IP address of the minikube VM. 
+Minikube have made this really simple by including a specific command that outputs 
+the IP address of the running cluster:
+
+[source,bash]
+----
+$ minikube ip
+192.168.99.100
+----
+
+Now we can access the Jenkins instance at http://192.168.99.100:30104/
+
+To access Jenkins, you initially need to enter your credentials. 
+The default username for new installations is admin. 
+The password can be obtained in several ways. 
+This example uses the Jenkins deployment pod name. 
+
+To find the name of the pod, enter the following command:
+
+[source,bash]
+----
+kubectl get pods --namespace jenkins
+----
+
+Once you locate the name of the pod, use it to access the pod’s logs.
+
+[source,bash]
+----
+kubectl logs <pod_name> --namespace jenkins
+----
+
+The password is at the end of the log formatted as a long alphanumeric string:
+
+[source,bash]
+----
+*************************************************************
+*************************************************************
+*************************************************************
+
+Jenkins initial setup is required. An admin user has been created and a password generated.
+Please use the following password to proceed to installation:
+
+94b73ef6578c4b4692a157f768b2cfef
+
+This may also be found at: /var/jenkins_home/secrets/initialAdminPassword
+
+*************************************************************
+*************************************************************
+*************************************************************
+----
+
+You have successfully installed Jenkins on your Kubernetes cluster and can use it to create new and efficient development pipelines.
