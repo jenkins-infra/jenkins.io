@@ -37,7 +37,7 @@ user-site: prepare scripts/awestruct
 # NOTE: Fetch only runs once until flag is reset
 fetch: $(BUILD_DIR)/fetch
 
-# force fetching of resources
+# Force fetching of resources.
 fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
@@ -64,22 +64,22 @@ $(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node 
 #######################################################
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
-# update dependencies to latest within the allowed version ranges
-# When we update we also clean ensure build output includes only dependencies.
+# Update dependencies to latest within the allowed version ranges.
+# When we update we also clean to ensure build output includes only dependencies.
 update: clean depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
-# when we pull dependencies also pull docker image
-# without this images can get stale and out of sync from CI system
+# When we pull dependencies, also pull docker image.
+# Without this, images can get stale and out of sync from CI system.
 # If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch $(BUILD_DIR)/ruby
 
-# when we pull dependencies also pull docker image
-# without this images can get stale and out of sync from CI system
+# When we pull dependencies, also pull docker image.
+# Without this, images can get stale and out of sync from CI system.
 # If the dev deletes node_modules independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
@@ -123,7 +123,7 @@ archive: generate
 
 # Miscellaneous tasks
 #######################################################
-# build targets for directories
+# Build targets for directories.
 $(OUTPUT_DIR) node_modules vendor/gems content/_tmp:
 	mkdir -p $@
 
