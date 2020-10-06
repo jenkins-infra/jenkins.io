@@ -11,89 +11,69 @@ the sibling file _docker.adoc (used in index.adoc).
 ==== On macOS and Linux
 
 . Open up a terminal window.
-. Create a link:https://docs.docker.com/network/bridge/[bridge network] in
-  Docker using the following
-  link:https://docs.docker.com/engine/reference/commandline/network_create/[`docker network create`]
-  command:
-+
-[source,bash]
-----
-docker network create jenkins
-----
-. Create the following link:https://docs.docker.com/storage/volumes/[volumes] to
-  share the Docker client TLS certificates needed to connect to the Docker
-  daemon and persist the Jenkins data using the following
-  link:https://docs.docker.com/engine/reference/commandline/volume_create/[`docker volume create`]
-  commands:
-+
-[source,bash]
-----
-docker volume create jenkins-docker-certs
-docker volume create jenkins-data
-----
-. In order to execute Docker commands inside Jenkins nodes, download and run
-  the `docker:dind` Docker image using the following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command:
-+
-ifeval::["{tutorial-for}" == "node"]
-[source,bash]
-----
-docker container run --name jenkins-docker --rm --detach \
-  --privileged --network jenkins --network-alias docker \
-  --env DOCKER_TLS_CERTDIR=/certs \
-  --volume jenkins-docker-certs:/certs/client \
-  --volume jenkins-data:/var/jenkins_home \
-  --volume "$HOME":/home \
-  --publish 3000:3000 docker:dind
-----
-endif::[]
-ifndef::tutorial-for[]
-[source,bash]
-----
-docker container run --name jenkins-docker --rm --detach \
-  --privileged --network jenkins --network-alias docker \
-  --env DOCKER_TLS_CERTDIR=/certs \
-  --volume jenkins-docker-certs:/certs/client \
-  --volume jenkins-data:/var/jenkins_home \
-  --volume "$HOME":/home docker:dind
-----
-endif::[]
-. Run the `jenkinsci/blueocean` image as a container in Docker using the
-  following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command (bearing in mind that this command automatically downloads the image
-  if this hasn't been done):
+. Customise official Jenkins Docker image, by executing below two steps:
+.. Create Dockerfile with the folloing content:
 +
 [source]
 ----
-docker container run --name jenkins-tutorial --rm --detach \
-  --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
-  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
+FROM jenkins/jenkins:2.249.1-lts
+USER root
+RUN apt-get update && apt-get install -y \
+       apt-transport-https \
+       ca-certificates \
+       curl \
+       gnupg2 \
+       software-properties-common
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+RUN apt-key fingerprint 0EBFCD88
+RUN add-apt-repository \
+       "deb [arch=amd64] https://download.docker.com/linux/debian \
+       $(lsb_release -cs) \
+       stable"
+RUN apt-get update && apt-get install -y docker-ce-cli
+USER jenkins
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/jenkins.sh"]
+----
+.. Build a new docker image from this Dockerfile and assign the image meaningful name, e.g. "myjenkins:1.0":
++
+[source]
+----
+docker build -t "myjenkins:1.0" .
+----
+Keep in mind that described above process will automatically download official Jenkins Docker image 
+if this hasn't been done before.
+
+. Run your own `myjenkins:1.0` image as a container in Docker using the
+  following
+  link:https://docs.docker.com/engine/reference/run/[`docker run`]
+  command:
++
+[source]
+----
+docker run --rm -u root --name jenkins-tutorial \
   --volume jenkins-data:/var/jenkins_home \ # <1>
-  --volume jenkins-docker-certs:/certs/client:ro \
   --volume "$HOME":/home \ # <2>
-  --publish 8080:8080 jenkinsci/blueocean
+  --volume /var/run/docker.sock:/var/run/docker.sock \ # <3>
+  --publish 8080:8080 myjenkins:1.0
 ----
 <1> Maps the `/var/jenkins_home` directory in the container to the Docker
 link:https://docs.docker.com/engine/admin/volumes/volumes/[volume] with the name
-`jenkins-data`. If this volume does not exist, then this `docker container run`
-command will automatically create the volume for you.
+`jenkins-data`.
 <2> Maps the `$HOME` directory on the host (i.e. your local) machine (usually
 the `/Users/<your-username>` directory) to the `/home` directory in the
 container.
+<3> Enables socket communication for the docker image.
+
 +
 *Note:* If copying and pasting the command snippet above doesn't work, try
 copying and pasting this annotation-free version here:
 +
 [source]
 ----
-docker container run --name jenkins-tutorial --rm --detach \
-  --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
-  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
+docker run --rm -u root --name jenkins-tutorial \
   --volume jenkins-data:/var/jenkins_home \
-  --volume jenkins-docker-certs:/certs/client:ro \
-  --volume "$HOME":/home --publish 8080:8080 jenkinsci/blueocean
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  --volume "$HOME":/home --publish 8080:8080 myjenkins:1.0
 ----
 . Proceed to the <<setup-wizard,Setup wizard>>.
 
@@ -106,71 +86,34 @@ See the Docker documentation for instructions to link:https://docs.docker.com/do
 Once configured to run `Linux Containers`, the steps are:
 
 . Open up a command prompt window.
-. Create a link:https://docs.docker.com/network/bridge/[bridge network] in
-  Docker using the following
-  link:https://docs.docker.com/engine/reference/commandline/network_create/[`docker network create`]
-  command:
-+
-[source]
-----
-docker network create jenkins
-----
-. Create the following link:https://docs.docker.com/storage/volumes/[volumes] to
-  share the Docker client TLS certificates needed to connect to the Docker
-  daemon and persist the Jenkins data using the following
-  link:https://docs.docker.com/engine/reference/commandline/volume_create/[`docker volume create`]
-  commands:
-+
-[source]
-----
-docker volume create jenkins-docker-certs
-docker volume create jenkins-data
-----
-. In order to execute Docker commands inside Jenkins nodes, download and run
-  the `docker:dind` Docker image using the following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command:
-+
-[source]
-----
-docker container run --name jenkins-docker --rm --detach ^
-  --privileged --network jenkins --network-alias docker ^
-  --env DOCKER_TLS_CERTDIR=/certs ^
-  --volume jenkins-docker-certs:/certs/client ^
-  --volume jenkins-data:/var/jenkins_home ^
-  --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
-  docker:dind
-----
-. Run the `jenkinsci/blueocean` image as a container in Docker using the
-  following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command (bearing in mind that this command automatically downloads the image
-  if this hasn't been done):
-+
-[source]
-----
-docker container run --name jenkins-tutorial --rm --detach ^
-  --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
-  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 ^
-  --volume jenkins-data:/var/jenkins_home ^
-  --volume jenkins-docker-certs:/certs/client:ro ^
-  --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
-  --publish 8080:8080 --publish 50000:50000 jenkinsci/blueocean
-----
-For an explanation of these options, refer to the <<on-macos-and-linux,macOS
+. Customise official Jenkins Docker image using the <<on-macos-and-linux,macOS
 and Linux>> instructions above.
+
+. Run your own `myjenkins:1.0` image as a container in Docker using the
+  following
+  link:https://docs.docker.com/engine/reference/run/[`docker run`]
+  command:
++
+[source]
+----
+docker run --rm -u root --name jenkins-tutorial ^
+  --volume jenkins-data:/var/jenkins_home ^
+  --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
+  --volume /var/run/docker.sock:/var/run/docker.sock ^
+  --publish 8080:8080 myjenkins:1.0
+----
 . Proceed to the <<setup-wizard,Setup wizard>>.
 
 
-==== Accessing the Jenkins/Blue Ocean Docker container
+==== Accessing the Docker container
 
-If you have some experience with Docker and you wish or need to access the
-Jenkins/Blue Ocean Docker container through a terminal/command prompt using the
-link:https://docs.docker.com/engine/reference/commandline/container_exec/[`docker container exec`]
+If you have some experience with Docker and you wish or need to access your
+Docker container through a terminal/command prompt using the
+link:https://docs.docker.com/engine/reference/commandline/exec/[`docker exec`]
 command, you can add an option like `--name jenkins-tutorial` to the `docker exec` command.
 That will access the Jenkins Docker container named "jenkins-tutorial".
 
-This means you could access the Jenkins/Blue Ocean container (through a separate
-terminal/command prompt window) with a `docker container exec` command like:
+This means you could access your docker container (through a separate
+terminal/command prompt window) with a `docker exec` command like:
 
-`docker container exec -it jenkins-tutorial bash`
+`docker exec -it jenkins-tutorial bash`
