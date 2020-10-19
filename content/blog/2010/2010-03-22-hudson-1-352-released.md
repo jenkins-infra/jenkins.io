@@ -34,7 +34,7 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
     Fixed a bug where Hudson can put a wrong help file link.
     (<a href="https://n4.nabble.com/Resolution-of-help-files-in-jelly-entries-tp1592533p1592533.html">report</a>)
   <li class=bug> 
-    Fixed Maven site goal archiving from slaves.
+    Fixed Maven site goal archiving from agents.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5943">issue 5943</a>)
   <li class=bug> 
     Fixed a regression with NetBeans Hudson plugin progressive console output.
