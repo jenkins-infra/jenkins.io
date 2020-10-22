@@ -21,6 +21,6 @@ Well, good news! Jenkins is here to help!  With the [Join Plugin](https://wiki.j
 
 We’ve got that one covered for you too with the [Parameterized Trigger Plugin](https://wiki.jenkins.io/display/JENKINS/Parameterized+Trigger+Plugin).  And here’s the best part, these two can work together!  With both plugins installed you can follow the steps listed in the Build Parameters section of the Join Plugin.
 
-<center><a href="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/join_trigger.png" target="_blank"><img alt="Click to enlarge" title="Click to enlarge" src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/join_trigger.png" width="540" /></a></center>
+<center><a href="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/join_trigger.png" target="_blank" rel="noreferrer noopener"><img alt="Click to enlarge" title="Click to enlarge" src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/join_trigger.png" width="540" /></a></center>
 
 And as they say, *now you're cooking with gas!*

@@ -10,7 +10,7 @@
 - news
 :author: rtyler
 ---
-<a href="https://fosdem.org/2013" target="_blank"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/></a>
+<a href="https://fosdem.org/2013" target="_blank" rel="noreferrer noopener"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/fosdem-2013.png" align="right"/></a>
 
 Earlier this year we participated in [FOSDEM 2012](/blog/2012/02/21/fosdem-2012-recap/) in Brussels, Belgium. Overall the event was a major success and we're very happy we were able to take part in it!
 
