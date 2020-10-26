@@ -106,7 +106,7 @@ We will deploy  Jenkins on our cluster
 
 * The Jenkins workspace will start installing, wait a couple of minutes 
 
-![Jenkins-install](/content/images/IBMCloud/mainin-progress.png)
+![Jenkins-install](/content/images/IBMCloud/in-progress.png)
 
 * Your  Jenkins workspace has been successfully deployed
 
