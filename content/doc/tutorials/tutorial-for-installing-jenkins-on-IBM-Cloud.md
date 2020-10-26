@@ -126,7 +126,7 @@ We will deploy  Jenkins on our cluster
 
 * Click **install** - wait couple of minutes 
 
-![terminal-install](/content/images/IBMCloudn/terminal-install.jpg)
+![terminal-install](/content/images/IBMCloud/terminal-install.jpg)
 
 * Click on **Actions**
 * Click **Web terminal** --> a terminal will open up
@@ -136,7 +136,7 @@ We will deploy  Jenkins on our cluster
  ```sh
 $ kubectl get ns
 ```
-![get-ns](/content/images/IBMCloudn/get-ns.png)
+![get-ns](/content/images/IBMCloud/get-ns.png)
 
 
  ```sh
