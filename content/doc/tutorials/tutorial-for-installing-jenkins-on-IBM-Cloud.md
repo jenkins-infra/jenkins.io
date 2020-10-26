@@ -176,3 +176,4 @@ You have succesfully deployed Jenkins on IBM Cloud!
    [enable Vlan spanning]: <https://cloud.ibm.com/docs/vlans?topic=vlans-vlan-spanning#vlan-spanning>
    [endpoints]: <https://cloud.ibm.com/docs/account?topic=account-service-endpoints-overview>
    [tags]: <https://cloud.ibm.com/docs/account?topic=account-tag>
+   [Resource groups]: <https://cloud.ibm.com/docs/account?topic=account-account_setup#bp_resourcegroups>
