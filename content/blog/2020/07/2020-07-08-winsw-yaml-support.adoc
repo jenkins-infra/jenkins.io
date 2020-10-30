@@ -1,0 +1,195 @@
+---
+layout: post
+title: "Windows Service Wrapper : YAML Configuration Support - GSoC Phase - 01 Updates"
+tags:
+- winsw
+- windows
+- jenkins
+- gsoc
+- gsoc2020
+author: buddhikac96
+description: "This blog post discusses about phase 01 updates of Windows Service Wrapper Yaml support project of GSoC - 2020"
+opengraph:
+  image: /images/post-images/2020-07-08-winsw-yaml-support/opengraph.png
+---
+
+Hello all, I am Buddhika Chathuranga from Sri Lanka and I am a final year undergraduate at the Faculty of IT, University of Moratuwa. I am participating in GSoC 2020 with Jenkins. 
+I am working on the link:/projects/gsoc/2020/projects/winsw-yaml-configs/[Windows Service Wrapper Project]. 
+So the Coding Phase 01 of GSoC 2020 is now over and this blog post describes what I have done so far.
+
+Windows Service Wrapper is an executable, which we can use to run applications as Windows Services on Windows machines, which has almost one million downloads. 
+In Jenkins, we use Windows service wrapper to run Jenkins server and agents as Windows services to gain more robustness. 
+This feature is bundled into Jenkins's core. Currently, the Windows Service wrapper is configured by an XML file. 
+However, there is a limited number of configuration checks and there is no XML schema. 
+
+XML is not such a human-friendly way to do that. It is quite verbose and not easy to identify the schema without some effort. 
+Usually, users misconfigure the service wrapper. This is a sample XML configuration file that we can use to provide configurations to Windows Service Wrapper. 
+
+=== Sample XML Configuration File
+
+```xml
+<service>
+    <id>jenkins</id>
+    <name>Jenkins</name>
+    <description>This service runs Jenkins automation server.</description>
+    <env name="JENKINS_HOME" value="%LocalAppData%\Jenkins.jenkins"/>
+    <executable>C:\Program Files\Java\jdk1.8.0_201\bin\java.exe</executable>
+    <arguments>-Xrs -Xmx256m -Dhudson.lifecycle=hudson.lifecycle.WindowsServiceLifecycle 
+    -jar "C:\Program Files\Jenkins\jenkins.war" --httpPort=8081 --webroot="%LocalAppData%\Jenkinswar"</arguments>
+    <logmode>rotate</logmode>
+
+    <onfailure action="restart"/>
+
+    <extensions>
+        <extension enabled="true" className="winsw.Plugins.RunawayProcessKiller.RunawayProcessKillerExtension" id="killOnStartup">
+        <pidfile>%LocalAppData%\Jenkinsjenkins.pid</pidfile>
+        <stopTimeout>10000</stopTimeout>
+        <stopParentFirst>false</stopParentFirst>
+        </extension>
+    </extensions>
+</service>
+```
+
+The usage of YAML could simplify configuration management in Jenkins, especially when automated and configuration management tools are used.
+So what we are doing under GSoC - 2020 is to update the Windows Service Wrapper to support YAML configurations. 
+After finishing this project, users will be able to provide configurations to the Windows Service Wrapper as a YAML file. 
+
+This is a sample YAML configuration file for Windows Service Wrapper and you can see it is less verbose than XML or JSON and much more human friendly. 
+Users can read and edit this without a big effort.
+
+=== Sample YAML Configuration File
+
+```yaml
+id: jenkins
+name: Jenkins
+description: This service runs Jenkins automation server.
+env:
+    _name: JENKINS_HOME
+    _value: '%LocalAppData%\Jenkins.jenkins'
+executable: 'C:\Program Files\Java\jdk1.8.0_201\bin\java.exe'
+arguments: >-
+    -Xrs -Xmx256m -Dhudson.lifecycle=hudson.lifecycle.WindowsServiceLifecycle 
+    -jar "C:\Program Files\Jenkins\jenkins.war" --httpPort=8081 --webroot="%LocalAppData%\Jenkinswar"
+logmode: rotate
+onfailure:
+    _action: restart
+extensions:
+    -
+        pidfile: '%LocalAppData%\Jenkinsjenkins.pid'
+        stopTimeout: '10000'
+        stopParentFirst: 'false'
+        _enabled: 'true'
+        _className: winsw.Plugins.RunawayProcessKiller.RunawayProcessKillerExtension
+        _id: killOnStartup
+
+```
+
+=== Advantages of YAML as a configuration file
+
+- It is less verbose and much more human friendly than XML.
+- Since YAML is not using extra delimiters, it is lightweight.
+- Nowadays YAML has become more popular among configuration management tools.
+
+== Project Scope
+
+During this project, I will add the following features to Windows Service Wrapper.
+
+- YAML Configuration support
+- YAML Schema validation
+- New CLI for the Windows Service Wrapper
+- Support for XML Schema validation via XML Schema Definition (XSD)
+
+== Phase 01 Updates
+
+In GSoC - 2020 phase 01, I have done the following updates to the Windows Service Wrapper.
+
+- Project Structure overview document. https://github.com/winsw/winsw/blob/master/doc/developer/projectStructure.md[(Published)]
+- YAML configurations support (Not released yet) - https://github.com/winsw/winsw/pull/543[Pull Request]
+- New CLI (Not released yet) - https://github.com/winsw/winsw/pull/565[Pull Request]
+- XML Schema validation (Not released yet) - https://github.com/winsw/winsw/pull/460[Pull Request]
+
+video::9qyo1f2rKQw[youtube, start=1620, end=3040, width=640, height=360]
+
+You can find Phase 01 Demo slides in this https://docs.google.com/presentation/d/1E_Y0OJJzNn3gAol-cM4jN6dWrD-EbP6Eatis8olRjzQ/edit?usp=sharing[link].
+
+Below you can find more details about the deliverables listed above.
+
+=== Project Structure overview
+
+The project structure overview document describes how files and directories are organized in the Windows Service Wrapper project. 
+It will help contributors as well as users, to understand the codebase easily. 
+Also, it helps me a lot to understand the codebase. You can find the document from the given link.
+
+=== YAML configurations support
+
+As I explained before, in this project, configurations will be provided as a YAML file. 
+I used YamlDotNet library which has more than 2.2k stars on GitHub, to deserialize the YAML file into an Object graph. 
+In this YAML file, users can specify configurations in a more structured way than in XML configuration files. 
+As an example, now users can specify all the log related configurations under the log config. 
+Users can specify all service account related configurations under serviceaccount config etc.
+
+At the moment, I am working on a design document for YAML configuration support. I will add it to the GitHub Issue once ready
+
+=== New CLI
+
+Before moving into Phase 01 updates, it’s better to explain why we needed a new CLI for Windows Service Wrapper. 
+In the early phases of Windows Service Wrapper, we will keep the XML configuration support as well. 
+So we should allow users to specify the configurations file separately. 
+The current approach is, configurations file should be in the same directory, where Windows Service Wrapper executable exists and the file name of the XML file should be the same as the Windows Service Wrapper executable file name.
+Also, users should be able to redirect logs if they need to and they should be allowed to elevate command prompt using Windows Service Wrapper. 
+Also, we thought that it's better to allow users to skip schema validation if they needed. So we decided to move into a new CLI. 
+
+As I explained, after releasing this, users will have options in addition to commands. 
+It will make the WinSW CLI more flexible so that we can easily extend it later. These are the options users are allowed to use.
+These options are available with all the commands except help and version 
+
+* *--redirect / -r [string]*
+** Users can specify the redirect path for the logs if needed
+** Not required | Default value is null
+
+* *--elevated / -e [boolean]*
+** Elevate the command prompt before executing the command
+** Not required | Default value is false
+
+* *--configFile / -c [string]*
+** Users can specify the configurations file as a path
+** Not Required | Default value is null
+
+* *--skipConfigValidation / -s [boolean]*
+** Users can skip schema validation for configurations file if needed
+** Not required | Default value is true
+
+* *--help / -h*
+** User can find what options are available with a particular command with this option
+
+This option is available with the install command
+
+* *--profile / -f [boolean]*
+** If this option is true, then users can provide a service account for installation explicitly.
+** Not required | Default value is false
+
+We used commandlineparser/commandline library to parse the command line argument which has more than 2k stars in GitHub. At a glance, the library is compatible with .NET Framework 4.0+, Mono 2.1+ Profile, .NET Standard, and .NET Core.
+
+=== XML Schema validation
+
+As I mentioned before, there was no schema validation for XML in Windows Service Wrapper. 
+Hence, I was working on schema validation for XML. I use XSD to validate XML files. The XSD file will be shipped as an embedded resource with the executable. 
+You can find the XSD file in my pull request.
+
+== Future updates
+
+In the next phase, for GSoC 2020 the listed deliverables features will be released and the YAML schema validation feature will be added. 
+Also, we hope to publish a design document for the new features, which will help contributors.
+
+== How to contribute
+
+You can find the GitHub repository in this link. Issues and Pull requests are always welcome. 
+Also, you can communicate with us in the WinSW Gitter channel, which is a great way to get in touch and there are project sync up meetings every Tuesday at 13:30 UTC on the Gitter channel. 
+
+== Some useful links
+
+* link:/projects/gsoc/2020/projects/winsw-yaml-configs[Project Page]
+* https://github.com/winsw/winsw[Project Repository]
+* https://gitter.im/winsw/winsw[Gitter Channel]
+* https://github.com/aaubry/YamlDotNet[YamlDotNet library]
+* https://github.com/commandlineparser/commandline[Command Line Parser library]

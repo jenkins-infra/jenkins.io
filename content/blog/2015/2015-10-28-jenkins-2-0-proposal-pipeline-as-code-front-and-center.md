@@ -12,7 +12,7 @@
 :author: rtyler
 ---
 We have been featuring a few proposals this week for what "[Jenkins
-2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0)" is going to include, today we're discussing my personal favorite, which I believe will have a tremendously positive impact for years to come (not to be too biased!): moving the "Pipeline as Code" support in Jenkins to the front and center.
+2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" is going to include, today we're discussing my personal favorite, which I believe will have a tremendously positive impact for years to come (not to be too biased!): moving the "Pipeline as Code" support in Jenkins to the front and center.
 
 Thus far in this blog series we have reviewed proposals covering:
 
@@ -21,7 +21,7 @@ Thus far in this blog series we have reviewed proposals covering:
 
 Today's proposal comes from project founder [Kohsuke Kawaguchi](https://github.com/kohsuke) titled "**[Pipeline as code front and center](https://issues.jenkins-ci.org/browse/JENKINS-31152)**" and represents perhaps the most important and dramatic shift we hope to make in Jenkins 2.0.
 
-This functionality has existed through the [workflow plugin](https://wiki.jenkins-ci.org/display/JENKINS/Workflow+Plugin), which we have discussed at various Jenkins events before but if you're not aware of some of the power behind it, check out this presentation from [Jesse Glick](https://github.com/jglick):
+This functionality has existed through the [workflow plugin](https://wiki.jenkins.io/display/JENKINS/Workflow+Plugin), which we have discussed at various Jenkins events before but if you're not aware of some of the power behind it, check out this presentation from [Jesse Glick](https://github.com/jglick):
 
 <center><iframe width="480" height="360" src="https://www.youtube-nocookie.com/embed/Q2pZdzaaCXg?rel=0" frameborder="0" allowfullscreen></iframe></center>
 
@@ -53,7 +53,7 @@ feedback if you have it.
 
 If you have ever logged in to the [issue
 tracker](https://issues.jenkins-ci.org) or the
-[wiki](https://wiki.jenkins-ci.org/), you have a "Jenkins user account" which
+[wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.
 

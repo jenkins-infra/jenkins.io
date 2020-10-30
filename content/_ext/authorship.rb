@@ -1,16 +1,28 @@
 # The authorship helper helps display authorship for a given entity
 #
-# This only renders something if the author has put information in
-# content/_data/authors and the document has an `author` attribute in its
+# This only renders something if the author(s) has put information in
+# content/_data/authors and the document has an `author` or `authors` attribute in its
 # front-matter
 require 'authorlist.rb'
 module Authorship
   include AuthorList::AuthorLink
 
   def display_author_for(node)
-    # bail early if what we were given doesn't even respond
-    return unless node.author
-    display_user(node.author)
+    if node.author
+      display_user(node.author)
+    elsif node.authors
+      display_users(node.authors)
+    else
+      return
+    end
+  end
+
+  def display_users(users)
+    res = Array.new
+    users.each { |user|
+      res << display_user(user)
+    }
+    return res.join(', ')
   end
 
   def display_user(author)
@@ -23,5 +35,10 @@ module Authorship
     link = author_link(author)
 
     return "<a href=\"#{link}\">#{full_name}</a>"
+  end
+
+  def display_user_optional(author)
+    return display_user(author) unless author == "TBD"
+    return author
   end
 end

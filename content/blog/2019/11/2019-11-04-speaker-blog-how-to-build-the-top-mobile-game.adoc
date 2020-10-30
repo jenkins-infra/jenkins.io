@@ -1,0 +1,172 @@
+---
+layout: post
+title: "How to build the top mobile game for every platform imaginable"
+tags:
+- jenkinsworld
+- jenkinsworld2019
+- mobile-game
+author: ignacio_fernandez
+---
+
+=== Context
+
+You have been tasked with managing the Jenkins instance for the highest grossing mobile
+game in the world. You learn that this involves helping the game studio iterate their work
+against eight different target platforms, each with their SDK, on four different main pipelines,
+plus a lot of extra auxiliary jobs. And, of course, the studio wants all of this to go smoothly, in
+order to maintain a good pace of features and bugfixes for every release - a release happening
+every two weeks. Hitting hundreds of millions of players worldwide.
+
+How are you going to make sure that the environment stays correctly configured, with the
+right versions of the required software; helping the studio maintain stability and scalability of
+their pipelines; ensuring operability of the Jenkins instance; improving the speed of the builds
+month after month?
+
+It’s OK to sweat. You are going to need some help!
+
+This is just a regular day in the office for a build engineer working at King. Facing a very
+broad problem, with high quality standards and even higher stakes. Thankfully, we are not
+alone. We have access to a lot of tools - either open source tools, tools developed by the
+studios or tools developed by our stellar build infrastructure team in Barcelona - to help carry
+us all the way to the publish line. We put all of these tools together, and by their powers
+combined, we provide fast, easily operable workflows for the studios, cutting minutes here
+and there, ensuring the features a smooth sail from dev, to master, to release.
+
+I will explain all of the tricks we use at King to speed builds up, and to make Jenkins operation
+easier for our studios on December 4, 2019, at https://www.cloudbees.com/devops-world/lisbon[DevOps World | Jenkins
+World Lisbon].
+Use *JWFOSS* for 30% discount on registration!
+For now, let's take a look at some of them.
+
+=== Where do we start?
+
+We use on-premise elastic infrastructure, spawning machines from certain templates
+whenever they are needed. This means that for every build, we are getting a fresh
+environment - no intermediate artifacts leftover or anything of the sort, which is good. That
+also means that we need to clone our repositories and compile everything every time, which is
+bad. However, we have solutions for these two problems.
+
+We make full use of linkclones/snapshots when spawning a VM. Every night we run a
+bootstrapper that will power on the base image and perform whatever operations we decide on
+it, before turning it back into a template and re-creating the snapshot. In the case of Candy
+Crush, we update our caches, and this helps us cut some time off of git clone and compilation.
+We call this bootstrapper “cacheo”. It looks more or less like this:
+
+.Cacheo
+[source,groovy]
+----
+1. Start elastic agent template image
+2. Connect it to Jenkins
+3. Perform cleanup
+4. Trigger git reference cache jobs
+5. Trigger all the builds you want cached
+6. Turn off template image, delete the agent and recreate the linked clone snapshot
+----
+
+
+Every studio can specify on which templates will cacheo run, and what will it do in each of them. 
+Maybe you want to make sure your Android license is on point. Or download some
+packages from artifactory. Perhaps pre-load your gradle dependencies. Whatever it is, cacheo
+does it for you and updates your base images every night.
+
+One of the most common uses is to pre-fill a local git cache, and when doing so, the
+improvement is very visible, especially on Windows:
+
+[cols=",,,",options="header",]
+|===
+| |Linux |MacOS |Windows
+|NFS |2 min 11s |2min 34s |8min 32s
+|Local |1 min 20s |1min 35s |3min 49s
+|Difference |*39% faster* |*39% faster* |*55% faster*
+|===
+
+This means, speeding up source code fetching by 55% on Windows, on average. That is a LOT!!
+
+=== But what about actual compilation?
+
+All of our major games use the same engine; we bring this code in by means of submodules. This means 
+there is a big bunch of shared code that needs to be compiled and linked whenever we build the game. 
+And it's not rare that this shared code is bigger than the actual game code! 
+Thankfully, the engine team lent us a hand, and they developed a way to package the compiled shared code. 
+Normally, the game code lives alongside a specific version of the shared code, which doesn't get updated too frequently. 
+Sometimes once a month, sometimes to grab a hotfix. This translates to us potentially compiling the 
+exact same shared code for quite some time, every time we build the game. Thanks to these 
+prebuilt artifacts, we are able to skip a huge part of the compilation, at the cost of a simple artifactory download.
+
+.Cacheo
+[source,cmake]
+----
+if generate_prebuilt_libs:
+    compile_project()
+
+    generate_empty_cmakelists()
+
+    for dependency in dependencies:
+        merge_compiled_dependency_into_metalib(dependency)
+        write_dependency_to_generated_cmakelists_as_alias_for_metalib(dependency)
+
+elif use_prebuilt_libs:
+    add_generated_cmakelists_with_metalib_as_dependency()
+
+    compile_project()
+----
+
+Thanks to these prebuilt libraries, we are able to skip a big chunk of the compilation,
+and it builds up really quickly! Iterative work on several branches, as long as they have
+the same engine version, gets sped up in noticeable ways.
+There are, however, specific cases when we do choose to build the shared code regardless, such as 
+when we build release candidates for instance.
+
+Just so you get an idea, times on this table are on average:
+
+[cols=",,",options="header",]
+|===
+| |iOS |Windows
+|No prebuilts |20min 17s |40min 30s
+|Prebuilts |10min 2s |23min 20s
+|Difference |*51% faster* |*43% faster*
+|===
+
+== I just don't want to have to deal with bureaucracy
+
+Operating Jenkins can be quite complicated. Talk about “Tell me
+something I don’t know”, right? And with so many moving pieces (elastic
+infrastructure, plugins, dirty workspaces), it might not be easy for
+everyone to run specific maintenance tasks. We have a lot of small
+pipelines, created by the build infrastructure group, that we can use to
+diagnose and work around certain errors, as well as gather useful
+information that might be otherwise difficult to find. These pipelines
+do things like printing all the installed plugins, deleting offline
+on-demand agents, cleaning disconnected VMs from vSphere, or re-run
+puppet in a specific Jenkins instance. And any user can run these jobs,
+there is no need to be an admin. This allows the team to unblock
+themselves if they need to by using these jobs. Here's one that I
+particularly like. How many times have you modified a pipeline and, when
+trying to run it, the first thing that happens is that Jenkins says that
+it needs approval?
+
+.Script Approval
+[source,groovy]
+----
+import org.jenkinsci.plugins.scriptsecurity.scripts.*
+
+@NonCPS
+
+// Disclaimer - this can have serious security consequences
+// Be mindful when you run this!
+
+def call() {
+    sa = ScriptApproval.get()
+    toApproveScripts = sa.getPendingScripts().collect()
+    println ("toApproveScripts: " + toApproveScripts)
+    toApproveScripts.each {pending -> 
+        sa.get().approveScript(pending.getHash())
+	println ("approvedScripts: " + pending.getHash())    
+	}
+    sa.save()
+}
+----
+
+The best part? All our Jenkins instances include these jobs, by default, so
+no one misses out on the fun.
+

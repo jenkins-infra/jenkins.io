@@ -13,8 +13,8 @@ I apologize for the lack of posts this week, I've been quite pre-occupied and a 
 This week was an interesting week in plugin development, a slight regression in the release of [Jabber notifier plugin](https://wiki.jenkins.io/display/JENKINS/Jabber+Plugin) 1.7 resulted in the rapid release of a 1.8 release by `kutzi`. The [Fitnesse plugin](https://wiki.jenkins.io/display/JENKINS/Fitnesse+Plugin) saw multiple releases again this week, along with the [Libvirt Slaves plugin](https://wiki.jenkins.io/display/JENKINS/Libvirt+Slaves+Plugin) which has seen an amazing number of releases since it burst onto the plugin scene [two weeks ago](https://jenkins.io/content/week-plugins-4).
 
 
-There were a few new and notable plugins released this week such as the [iPhoneView plugin](https://wiki.jenkins.io/display/JENKINS/iPhoneView+Plugin) which adds a fancy view to make checking Hudson all that prettier on an iPhone or iPod Touch, the [cross-platform shell plugin](https://wiki.jenkins.io/display/JENKINS/XShell+Plugin) was released, aiming to solve the problem of running a job on both Windows and Unix slaves. My favorite new plugin release this week has to be the [Gerrit plugin](https://wiki.jenkins.io/display/JENKINS/Gerrit+Plugin) which made its debut and shows a lot of potential to enable the "pre-tested commit" workflow with Git and <a id="aptureLink_NREODpoWf6" href="https://code.google.com/p/gerrit/">Gerrit</a>
-<!--break-->
+There were a few new and notable plugins released this week such as the [iPhoneView plugin](https://wiki.jenkins.io/display/JENKINS/iPhoneView+Plugin) which adds a fancy view to make checking Hudson all that prettier on an iPhone or iPod Touch, the [cross-platform shell plugin](https://wiki.jenkins.io/display/JENKINS/XShell+Plugin) was released, aiming to solve the problem of running a job on both Windows and Unix agents. My favorite new plugin release this week has to be the [Gerrit plugin](https://wiki.jenkins.io/display/JENKINS/Gerrit+Plugin) which made its debut and shows a lot of potential to enable the "pre-tested commit" workflow with Git and <a id="aptureLink_NREODpoWf6" href="https://code.google.com/p/gerrit/">Gerrit</a>
+
 * Mar 20, 2010
    * [Fitnesse plugin](https://wiki.jenkins.io/display/JENKINS/Fitnesse+Plugin) 1.2
    * [Labeled Test Groups Publisher](https://wiki.jenkins.io/display/JENKINS/LabeledTestGroupsPublisher+Plugin) 1.2.6
@@ -32,7 +32,7 @@ There were a few new and notable plugins released this week such as the [iPhoneV
    * [Fitnesse plugin](https://wiki.jenkins.io/display/JENKINS/Fitnesse+Plugin) 1.3.1
    * [Gerrit plugin](https://wiki.jenkins.io/display/JENKINS/Gerrit+Plugin) 0.1
    * [JIRA plugin](https://wiki.jenkins.io/display/JENKINS/JIRA+Plugin) 1.21
-   * [Maven Release Plug-in nexus helper](None) 0.0.3
+   * Maven Release Plug-in nexus helper 0.0.3
    * [Nested View Plugin](https://wiki.jenkins.io/display/JENKINS/Nested+View+Plugin) 1.1
    * [Performance plugin](https://wiki.jenkins.io/display/JENKINS/Performance+Plugin) 1.2
    * [Sonar Plugin](https://wiki.jenkins.io/display/JENKINS/Sonar+Plugin) 1.5

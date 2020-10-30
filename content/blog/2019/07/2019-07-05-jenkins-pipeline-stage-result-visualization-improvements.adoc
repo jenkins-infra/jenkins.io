@@ -1,0 +1,74 @@
+---
+layout: post
+title: "Jenkins Pipeline Stage Result Visualization Improvements"
+tags:
+- pipeline
+- blueocean
+author: dwnusbaum
+---
+
+Some changes have recently been released to give Pipeline authors some new tools to improve Pipeline visualizations in Blue Ocean, in particular to address the highly-voted issue link:https://issues.jenkins-ci.org/browse/JENKINS-39203[JENKINS-39203], which causes all non-failing stages to be visualized as though they were unstable if the overall build result of the Pipeline was unstable. This issue made it difficult to quickly identify why a build was unstable, and forced users to read through builds logs and the Jenkinsfile to figure out what actually happened.
+
+In order to fix this issue, we introduced a new Pipeline API that can be used to attach additional result information to individual Pipeline steps. Visualization tools like Blue Ocean use this new API when deciding how a given stage should be displayed. Steps like `junit` that used to set only the overall build result now additionally use the new API to set step-level result information. We created the new `unstable` and `warnError` steps so that Pipeline authors with more complicated use cases can still take advantage of this new API.
+
+The core fixes for the issue are present in the following plugins, all of which require Jenkins 2.138.4 or newer:
+
+* Pipeline: API 2.34
+* Pipeline: Basic Steps 2.18 (requires a simultaneous update to Pipeline: Groovy 2.70)
+* Pipeline: Graph Analysis 1.10
+* Pipeline: Declarative 1.3.9
+* Blue Ocean 1.17.0
+
+Here is a screenshot from Blue Ocean of a Pipeline using the `unstable` step where only the failing stage is marked as unstable:
+
+image::/images/post-images/2019/07/2019-07-05-jenkins-pipeline-stage-result-visualization-improvements/unstable-stage-example.png[Visualization of a Pipeline in Blue Ocean with a single stage shown as unstable]
+
+== Examples
+
+Here are some examples of how to update your Pipelines to use the new improvements:
+
+* **Use the new link:https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#warnerror-catch-error-and-set-build-and-stage-result-to-unstable[`warnError`] step to catch errors and mark the build and stage as unstable.** `warnError` requires a single `String` parameter, which is a message to log when an error is caught. When `warnError` catches an error, it logs the message  and the error and sets the build and stage result to unstable. Using it looks like this:
++
+[source,groovy]
+----
+warnError('Script failed!') {
+  sh('false')
+}
+----
+
+* **Use the new link:https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#unstable-set-stage-result-to-unstable[`unstable`] step to set the build and stage result to unstable**. This step can be used as a direct replacement for `currentBuild.result = 'UNSTABLE'`, and may be useful in cases where `warnError` is not flexible enough. `unstable` requires a single `String` parameter, which is a message to log when the step runs. Using it might look like this:
++
+[source,groovy]
+----
+try {
+  sh('false')
+} catch (ex) {
+  unstable('Script failed!')
+}
+----
+
+* **link:https://plugins.jenkins.io/junit[JUnit Plugin]**: Update to version 1.28 or newer to pick up fixes for the `junit` step so that it correctly marks the stage as unstable.
+* **link:https://plugins.jenkins.io/warnings-ng[Warnings Next Generation Plugin]**: Update to version 5.2.0 or newer to pick up fixes for the `publishIssues` and `recordIssues` steps so that they correctly mark the stage as unstable.
+* **Other Plugins**: If your Pipeline is marked as unstable by a step in another plugin, please link:https://issues.jenkins-ci.org[file a new issue] with the component set to that plugin (after checking for duplicates), clearly describing which step has the problem and under what circumstances it occurs, and link to the developer section of this post as a reference for how the maintainer might be able to address the problem.
+
+== Limitations
+
+* If you do not migrate to the `unstable` or `warnError` steps, or update plugins that set the build result to versions that integrate with the new API, then in cases where the build is unstable, Blue Ocean will not show any stages as unstable.
+* Even after these changes, `currentBuild.result` continues to refer only to the overall build result. Unfortunately, it was not possible to adapt the `currentBuild` global variable to make it track step or stage-level results, since it is implemented as a global variable, which means it does not have any step-level context through which it could use the new API.
+* link:https://plugins.jenkins.io/pipeline-stage-view[Pipeline Stage View Plugin] has not yet been updated to use the new API, so these changes do not affect the visualization it provides.
+
+== History
+
+Jenkins Pipeline steps can complete in one of two ways: successfully, by returning a (possibly null) result, or unsuccessfully, by throwing an exception. When a step fails by throwing an exception, that exception propagates throughout the Pipeline until another step or Groovy code catches it, or it reaches the top level of the Pipeline, which causes the Pipeline itself to fail. Depending on the type of exception thrown, the final result of the Pipeline may be something other than failure (for example in some cases it will be aborted). Because of the way the exception propagates, it is easy for tools like Blue Ocean to identify steps (and therefore stages) which failed due to an exception.
+
+In order for Pipelines to be able to interact with established Jenkins APIs, it was also necessary for Pipeline builds to have an overall build result that can be modified during the build. Among other things, this allows Pipelines to use build steps and wrappers that were originally written for use in Freestyle projects.
+
+In some cases, it is desirable for a Pipeline step to be able to complete successfully so that the rest of the Pipeline continues normal execution, but for it to be able to note that some kind of error occurred so that visualizations are able to identify that something went wrong with the step, even though it didn't fail completely. A good example of this is the `junit` step. This step looks at specified test results, and if there were any failures, marks the overall build result as unstable. This kind of behavior is problematic for visualization tools like Blue Ocean, because the step completed successfully, and there is no programmatic way to associate the overall build result with the step that ended up setting that result.
+
+Looking at link:https://issues.jenkins-ci.org/browse/JENKINS-39203[JENKINS-39203] again, we see that there were essentially two options for the visualization. If the overall build result was unstable, either all steps that completed successfully could be shown as unstable, because they may have been the step that caused the build to become unstable, or they could be shown as successful, because we have no way to relate the setting of the build result to a specific step. In the end, the first option was chosen.
+
+To work around this issue, some users tried to do things like throw exceptions and add try/catch blocks around stages that handle exceptions so that Blue Ocean would be able to use the exceptions to mark step and stage results as desired, and then by catching the exception the Pipeline would be able to continue normal execution. These kinds of workarounds were hard to understand, fragile, and did not work well (if at all) for Declarative Pipelines.
+
+== Developers
+
+If you are a developer of a plugin that integrates with Pipeline using a step, and want to take advantage of the new API so that your step can report an non-successful result without throwing an exception, please see link:https://groups.google.com/d/msg/jenkinsci-dev/5A7U1KmfX08/IP5Bg_OaAgAJ[this post] to the Jenkins Developers mailing list, and respond there if you have any questions.

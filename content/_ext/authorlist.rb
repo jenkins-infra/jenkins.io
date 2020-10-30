@@ -30,6 +30,13 @@ class AuthorList
          @authors[author] ||= Awestruct::Extensions::Tagger::TagStat.new( author, [] )
          @authors[author].pages << page
        end
+       if page.authors
+        page.authors.each { |coauthor|
+          author = coauthor.to_s
+          @authors[author] ||= Awestruct::Extensions::Tagger::TagStat.new( author, [] )
+          @authors[author].pages << page
+        }
+       end
      end
 
      ordered_authors = @authors.values

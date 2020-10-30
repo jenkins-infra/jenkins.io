@@ -8,7 +8,7 @@
 - just for fun
 :author: rtyler
 ---
-Preceding some of last week's [Jenkins 2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0) discussions, there had been [some threads](https://groups.google.com/d/msg/jenkinsci-dev/sw_WepGw0Pk/0gO2V9UXy-8J) on whether we should move Jenkins to require Java 8. The introduction of [Java 8](https://www.oracle.com/events/us/en/java8/index.html) last year brought performance improvements and highly desirable API changes, which make developing Java-based applications (arguably) much easier than before. The release was followed earlier this year by the [end-of-life announcement](https://www.java.com/en/download/faq/java_7.xml) for Java 7; the writing is on the wall: upgrade to Java 8.
+Preceding some of last week's [Jenkins 2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0) discussions, there had been [some threads](https://groups.google.com/d/msg/jenkinsci-dev/sw_WepGw0Pk/0gO2V9UXy-8J) on whether we should move Jenkins to require Java 8. The introduction of [Java 8](https://www.oracle.com/events/us/en/java8/index.html) last year brought performance improvements and highly desirable API changes, which make developing Java-based applications (arguably) much easier than before. The release was followed earlier this year by the [end-of-life announcement](https://www.java.com/en/download/faq/java_7.xml) for Java 7; the writing is on the wall: upgrade to Java 8.
 
 I wanted to answer the question "does it even make sense to force an upgrade to Java 8?" There are plenty of technical discussions that we can have in the community on whether or not this is the right approach, but my goal was to try and measure the current Jenkins install base for Java 8 preparedness.
 

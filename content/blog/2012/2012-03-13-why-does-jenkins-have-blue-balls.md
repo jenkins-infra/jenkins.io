@@ -11,7 +11,7 @@
 ---
 <img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/japanese-traffic-light.png" align="right" alt="A japanese traffic light"/> It is interesting having an open source project that is sufficiently old to start generating "lore" of some form or another. Jenkins is starting to get to be that age, having been started over 6 years ago.
 
-One of the most commonly asked questions, is about Jenkins' use of "blue balls" to indicate success by default. This is enough of an "issue" for some users that the [Green Balls](https://wiki.jenkins-ci.org/display/JENKINS/Green+Balls) plugin is in the [list of top 10 installed plugins](https://imod.github.com/jenkins-stats/svg/201201-top-plugins1000.svg).
+One of the most commonly asked questions, is about Jenkins' use of "blue balls" to indicate success by default. This is enough of an "issue" for some users that the [Green Balls](https://wiki.jenkins.io/display/JENKINS/Green+Balls) plugin is in the [list of top 10 installed plugins](https://imod.github.com/jenkins-stats/svg/201201-top-plugins1000.svg).
 
 The reason behind our use of blue to indicate success has its basis in [Kohsuke's](https://github.com/kohsuke) Japanese upbringing. The cultural differences were enumerated in a bug report comically titled "s/blue/green/g" ([JENKINS-369](https://issues.jenkins-ci.org/browse/JENKINS-369)):
 

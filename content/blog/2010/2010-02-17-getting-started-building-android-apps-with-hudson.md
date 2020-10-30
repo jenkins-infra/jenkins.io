@@ -10,7 +10,7 @@
 - tutorial
 :author: rtyler
 ---
-<img src="/sites/default/files/hvisser_android_project.png" align="right"/>In this post I'll show a very basic tips on how to compile an Android project using Hudson. Specifically how  I use Hudson to create release versions of my apps.
+In this post I'll show a very basic tips on how to compile an Android project using Hudson. Specifically how  I use Hudson to create release versions of my apps.
 
 Debug vs Release
 ----------------
@@ -36,23 +36,22 @@ The *local.properties* file contains the path to the SDK root and shouldn't be c
 ## Running the build in Hudson
 This part is easy: create a new freestyle job and let it be build with ant. The targets that we want to execute are <code>clean release</code>. Release will compile, package and sign your apk. Now to get this working right, some custom properties should be set (use the Advanced button).
 
-<center><img src="/sites/default/files/hvisser_android_properties.png"/></center>
-
-----
-<code>
+```
 sdk.dir=/Users/hugo/Code/android-sdk-mac
 target=Google Inc.:Google APIs:7
 key.store=certs/rd-release.keystore
 key.alias=rainydays
 key.store.password=thisisnotmypassword
 key.alias.password=thisisnotmypassword
-</code>
-The *sdk.dir* should point to the Android SDK root on your Hudson node. In my case I'm running Hudson locally on my machine.  The *target* property refers to the SDK we want to use as mentioned earlier.  The *key.** properties are related to signing of the apk. My [strategy](https://d.android.com/guide/publishing/app-signing.html#strategies) is to have a separate key store and private key for each application that I develop. <img src="/sites/default/files/hvisser_android_archive.png" align="right"/> I also check that keystore in to SVN. I also archive the **-release.apk* artifact so that I can download the latest release apk directly from Hudson.  After completing these steps, you should be able to build your Android app with Hudson. 
+```
+
+The *sdk.dir* should point to the Android SDK root on your Hudson node. In my case I'm running Hudson locally on my machine.  The *target* property refers to the SDK we want to use as mentioned earlier.  The *key.** properties are related to signing of the apk. My [strategy](https://d.android.com/guide/publishing/app-signing.html#strategies) is to have a separate key store and private key for each application that I develop. I also check that keystore in to SVN. I also archive the **-release.apk* artifact so that I can download the latest release apk directly from Hudson.  After completing these steps, you should be able to build your Android app with Hudson. 
 
 <br clear="all"/>
 ## Updating the AndroidManifest for release
 ...But we're not done yet :) Remember what I said about updating the AndroidManifest.xml? For that we need to edit the build.xml, which by default contains nothing more then a <code><setup/></code> tag to pull in the Android SDK ant target definitions. For my Rainy Days application, I adjusted build.xml like this:
-<code>
+
+```
    ...
    <setup />	
    <property environment="env"/>
@@ -66,7 +65,7 @@ The *sdk.dir* should point to the Android SDK root on your Hudson node. In my ca
    <!-- this target is only hooking release processing of the manifest -->
    <target name="-package-resources" depends="preprocess, android_rules.-package-resources">
    </target>
-</code>
+```
 
 What the above snippet does is removing the *android:debuggable* attribute from the *AndroidManifest.xml* and replacing the maps API key in *res/layout/maplayout.xml* with the correct key for release. The <code>-package-resources</code> target is pulled in from the Android *android_rules.xml* file.
 
@@ -77,20 +76,20 @@ There is are some issues with this approach however. As you might have noticed:
 * Replacements are done in the workspace, we are not really building __exactly__ what's in svn
 * Each new build should start out fresh for that reason, for example by using the svn revert option.
 
-Additionally I can not yet tag the release version with the updated files, because the [subversion tagging plugin](https://wiki.jenkins.io/display/JENKINS/Subversion+Tagging+Plugin) doesn't support this by design. This could be worked around by adding svn statements in the build.xml however.  For now I don't really mind as I make minor changes to the resource files, but I'll be looking at improving this situation.
+Additionally I can not yet tag the release version with the updated files, because the [subversion tagging plugin](https://plugins.jenkins.io/subversion-tagging) doesn't support this by design. This could be worked around by adding svn statements in the build.xml however.  For now I don't really mind as I make minor changes to the resource files, but I'll be looking at improving this situation.
 
 ## Things to add: unit testing, coverage...
-One thing that I'd really like to add is unit testing. This is a little bit more complicated though, since unit tests require a running emulator and a running emulator requires a gui. The Hudson [Xvnc](https://wiki.jenkins.io/display/JENKINS/Xvnc+Plugin) plugin could be very helpful here.
+One thing that I'd really like to add is unit testing. This is a little bit more complicated though, since unit tests require a running emulator and a running emulator requires a gui. The Hudson [Xvnc](https://plugins.jenkins.io/xvnc) plugin could be very helpful here.
 
-The Android build scripts for test projects already include [EMMA](https://emma.sourceforge.net/) output, it shouldn't be to hard to use the Hudson [plugin](https://wiki.jenkins.io/display/JENKINS/Emma+Plugin) for that.
+The Android build scripts for test projects already include [EMMA](http://emma.sourceforge.net/) output, it shouldn't be to hard to use the Hudson [plugin](https://plugins.jenkins.io/emma) for that.
 
-When Hudson is running on a local machine, the [Batch task](https://wiki.jenkins.io/display/JENKINS/Batch+Task+Plugin) plugin can automate installing the apk on a device to automate things further.
+When Hudson is running on a local machine, the [Batch task](https://plugins.jenkins.io/batch-task) plugin can automate installing the apk on a device to automate things further.
 
 ## Summary
 Building Android applications with Hudson is not that hard, since the builds are based on Ant. By hooking in to the standard Android build targets it's easy to update files like *AndroidManifest.xml* which in turn makes sure the release process is controlled and predictable.  
 Android unit tests depend on the emulator which is a little bit more challenging to set up, but Hudson already has some plugins available to make this easier.
 
 ----
-**Editor's Note:** Hugo Visser is the developer of [Rainy Days](https://code.neenbedankt.com/my-first-published-android-app-rainy-days) and [Engine Watch](https://code.neenbedankt.com/monitor-your-app-engine-application-from-your) for Android. You can
+**Editor's Note:** Hugo Visser is the developer of [Rainy Days](https://code.neenbedankt.com/my-first-published-android-app-rainy-days) and [Engine Watch](https://code.neenbedankt.com/monitor-your-app-engine-application-from-your-pocket-with-engine-watch-for-android/) for Android. You can
 follow him [on Twitter](https://twitter.com/botteaap) and [on his blog](https://code.neenbedankt.com).
 <!--break-->

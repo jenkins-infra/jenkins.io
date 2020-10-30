@@ -25,7 +25,7 @@ But what if Jenkins reads the README file and uses it for the build definition? 
 
 What if, because the build definition is now in Source Control, you can have Jenkins create jobs for each branch with ease? The joy of cheap branches that modern source control systems such as GIT and Mercurial give us, no longer comes with the pain of having to create Jenkins jobs for each branch (and more pain having to remember to tidy up when the branch is gone.)
 
-That is the promise delivered by the [Literate plugin](https://wiki.jenkins-ci.org/display/JENKINS/Literate+Plugin).
+That is the promise delivered by the [Literate plugin](https://wiki.jenkins.io/display/JENKINS/Literate+Plugin).
 
 ## How does it work?
 
@@ -112,7 +112,7 @@ The first section containing the word `environment` identifies the section that 
 
             echo hello\ world
 
-When Jenkins sees bullet points in the `environment` section it assumes each bullet point corresponds to an environment to run the build on. Each environment is specified by at least one code snippet which helps define the requirements of the environment. By default Jenkins will look for tool installers with the same name as the labels. If it cannot find any matching tool installers it assumes that the labels are Jenkins slave node labels. (The strategy is plugable, but not yet exposed in the UI of literate builds)
+When Jenkins sees bullet points in the `environment` section it assumes each bullet point corresponds to an environment to run the build on. Each environment is specified by at least one code snippet which helps define the requirements of the environment. By default Jenkins will look for tool installers with the same name as the labels. If it cannot find any matching tool installers it assumes that the labels are Jenkins agent node labels. (The strategy is plugable, but not yet exposed in the UI of literate builds)
 
 When you have multiple environments on which to build and test, you have two choices on your build instructions. You can either:
 

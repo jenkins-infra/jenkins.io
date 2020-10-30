@@ -13,7 +13,7 @@
 ---
 <div style="float:right; margin:1em">
 
-<img src="https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png?version=1&modificationDate=1302753947000" />
+<img src="https://wiki.jenkins.io/download/attachments/2916393/headshot.png?version=1&modificationDate=1302753947000" />
 
 </div>
 

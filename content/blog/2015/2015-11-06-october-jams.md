@@ -22,8 +22,8 @@
 
 <p>A look forward to November and December:
 <ul>
-<li><a href="https://wiki.jenkins-ci.org/display/JENKINS/Hacksgiving+2015">Hacksgiving</a></li>
+<li><a href="https://wiki.jenkins.io/display/JENKINS/Hacksgiving+2015">Hacksgiving</a></li>
 <li><a href="https://www.meetup.com/Barcelona-Jenkins-Area-Meetup/">Barcelona, Spain JAM</a></li>
 <li><a href="https://www.meetup.com/Toulouse-Jenkins-Area-Meetup/events/226522484/?eventId=226522484">Toulouse,France JAM</a></li></ul></p>
 
-<p>As usual, if you're interested in becoming an organizer or sponsor, <a href="https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+Area+Meetup">here's how to get started</a>.  If you've heard of a great Jenkins talk out there, shoot us an email with speaker info to <a href="mailto:jenkinsci-jam@googlegroups.com">jenkinsci-jam@googlegroups.com</a> so we can invite him/her to our next meetups.</p>
+<p>As usual, if you're interested in becoming an organizer or sponsor, <a href="https://wiki.jenkins.io/display/JENKINS/Jenkins+Area+Meetup">here's how to get started</a>.  If you've heard of a great Jenkins talk out there, shoot us an email with speaker info to <a href="mailto:jenkinsci-jam@googlegroups.com">jenkinsci-jam@googlegroups.com</a> so we can invite him/her to our next meetups.</p>

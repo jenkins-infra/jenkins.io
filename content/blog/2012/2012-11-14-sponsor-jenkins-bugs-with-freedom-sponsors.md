@@ -26,7 +26,7 @@ Most people who like FreedomSponsors probably don't know that Jenkins is sort of
 
 This is how it happened.
 
-I was playing with the ([Jenkins OpenID plugin](https://wiki.jenkins-ci.org/display/JENKINS/OpenID+plugin)), and I was having some trouble with it.
+I was playing with the ([Jenkins OpenID plugin](https://wiki.jenkins.io/display/JENKINS/OpenID+plugin)), and I was having some trouble with it.
 After a little research, I found that there was a JIRA bug for it - ([JENKINS-9216: Make OpenID work with Google Apps accounts](https://issues.jenkins-ci.org/browse/JENKINS-9216)).
 
 "Bummer" - I thought - "Maybe I can try to debug it. Oh boy, but I don't know anything about Jenkins code. That would be too... expensive! I bet there are a few people out there that would be willing to even pay a few bucks to the Jenkins crew to prioritize this."
@@ -96,7 +96,7 @@ And that was not his only contribution. He also gave us this very useful piece o
 ([JIRA plugin to link from tickets to FreedomSponsors](https://freedomsponsors.org/core/issue/12/jira-plugin-to-link-from-tickets-to-freedomsponsors))
 
 Indeed, that was a great idea. My friend and associate Arthur is the one who built it.
-Kohsuke suggested that I joined the Jenkins crew at the ([Jenkins Governance meeting](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda)) to see if everyone would agree about installing it on Jenkins JIRA. Everyone liked the idea and had no ojections.
+Kohsuke suggested that I joined the Jenkins crew at the ([Jenkins Governance meeting](https://wiki.jenkins.io/display/JENKINS/Governance+Meeting+Agenda)) to see if everyone would agree about installing it on Jenkins JIRA. Everyone liked the idea and had no ojections.
 
 I can't say enough how trilled and honored I felt knowing that Jenkins would be the first project to install our plugin. Thank you folks. Thanks Kohsuke. You guys are awesome :-)
 

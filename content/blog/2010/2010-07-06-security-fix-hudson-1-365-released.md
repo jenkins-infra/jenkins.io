@@ -20,7 +20,7 @@ access control enforced by the operating system, Hudson can still leak
 
 The vulnerability inside of Hudson affects Hudson instances running inside the embedded Winstone container, instances behind Glasshfish or Jetty (for example) are not subject to this vulnerability. Instances running behind a reverse proxy such as mod_proxy or Nginx.
 
-Hudson system administrators should subscribe to either the [security advisories RSS feed](https://feeds.feedburner.com/hudson-security-advisories) or the [advisories@ mailing list](advisories-subscribe@hudson.dev.java.net)
+Hudson system administrators should subscribe to either the [security advisories RSS feed](https://feeds.feedburner.com/hudson-security-advisories) or the [advisories@ mailing list](/mailing-lists/#jenkinsci-advisories-googlegroups-com)
 
 
 ----

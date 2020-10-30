@@ -1,0 +1,103 @@
+---
+layout: post
+title: "GitHub App authentication support released"
+tags:
+- github
+- github-branch-source
+- pipeline
+- announcement
+author: timja
+opengraph:
+  image: /images/post-images/jenkins-and-github.png
+---
+
+NOTE: This blogpost was updated to reflect the general availability of the feature after the release of GitHub Branch Source 2.7.1 on April 26th, 2020.
+
+I'm excited to announce support for authenticating as a GitHub app in Jenkins.
+This has been a long awaited feature by many users.
+It has been released in link:https://github.com/jenkinsci/github-branch-source-plugin/releases/tag/github-branch-source-2.7.1[GitHub Branch Source 2.7.1] which is now available in the Jenkins update centers.
+
+Authenticating as a GitHub app brings many benefits:
+
+* **Larger rate limits** - The rate limit for a GitHub app scales with your organization size, 
+whereas a user based token has a limit of 5000 regardless of how many repositories you have.
+
+* ** User-independent authentication** - Each GitHub app has its own user-independent authentication. No more need for 'bot' users or figuring out who should be the owner of 2FA or OAuth tokens.
+
+* **Improved security and tighter permissions** - GitHub Apps offer much finer-grained permissions compared to a service user and its personal access tokens. This lets the Jenkins GitHub app require a much smaller set of privileges to run properly.
+
+* **Access to GitHub Checks API** - GitHub Apps can access the the  link:https://developer.github.com/v3/checks/[GitHub Checks API] to create check runs and check suites from Jenkins jobs and provide detailed feedback on commits as well as code annotation
+
+== Getting started
+
+Install the link:https://plugins.jenkins.io/github-branch-source/[GitHub Branch Source plugin],
+make sure the version is `2.7.1` or above. 
+
+== Configuring the GitHub Organization Folder
+
+Follow the link:https://github.com/jenkinsci/github-branch-source-plugin/blob/master/docs/github-app.adoc[GitHub App Authentication setup guide].  These instructions are also linked from the plugin’s README on GitHub.
+
+Once you've finished setting it up, Jenkins will validate your credential and you should see your new rate limit.
+Here's an example on a large org:
+
+image:/images/github-app-rate-limit.png[GitHub app rate limit]
+
+== How do I get an API token in my pipeline?
+
+In addition to usage of GitHub App authentication for Multi-Branch Pipeline, you can also use app authentication directly in your Pipelines. 
+You can access the Bearer token for the GitHub API by just loading a 'Username/Password' credential as usual,
+the plugin will handle authenticating with GitHub in the background.
+
+This could be used to call additional GitHub API endpoints from your pipeline, possibly the
+link:https://developer.github.com/v3/repos/deployments/[deployments api] or you may wish to implement your own
+link:https://developer.github.com/v3/checks/[checks api] integration until Jenkins supports this out of the box.
+
+_Note: the API token you get will only be valid for one hour, don't get it at the start of the pipeline and assume it will be valid all the way through_
+
+**Example:** Let's submit a check run to Jenkins from our Pipeline:
+
+[source, groovy]
+----
+
+pipeline {
+  agent any
+
+  stages{
+    stage('Check run') { 
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'githubapp-jenkins',
+                                          usernameVariable: 'GITHUB_APP',
+                                          passwordVariable: 'GITHUB_ACCESS_TOKEN')]) {
+            sh '''
+            curl -H "Content-Type: application/json" \
+                 -H "Accept: application/vnd.github.antiope-preview+json" \
+                 -H "authorization: Bearer ${GITHUB_ACCESS_TOKEN}" \
+                 -d '{ "name": "check_run", \
+                       "head_sha": "'${GIT_COMMIT}'", \
+                       "status": "in_progress", \
+                       "external_id": "42", \
+                       "started_at": "2020-03-05T11:14:52Z", \
+                       "output": { "title": "Check run from Jenkins!", \
+                                   "summary": "This is a check run which has been generated from Jenkins as GitHub App", \
+                                   "text": "...and that is awesome"}}' https://api.github.com/repos/<org>/<repo>/check-runs
+            '''
+        }
+      }
+    }
+  }
+}
+
+
+----
+
+== What's next
+
+GitHub Apps authentication in Jenkins is a huge improvement.  Many teams have already started using it and have helped improve it by giving pre-release feedback. There are more improvements on the way.
+
+There's a proposed Google Summer of Code project: link:https://jenkins.io/projects/gsoc/2020/project-ideas/github-checks/[GitHub Checks API for Jenkins Plugins].  
+It will look at integrating with the link:https://developer.github.com/v3/checks/[Checks API], 
+with a focus on reporting issues found using the link:https://plugins.jenkins.io/warnings-ng/[warnings-ng plugin]
+directly onto the GitHub pull requests, along with test results summary on GitHub.
+Hopefully it will make the Pipeline example below much simpler for Jenkins users :) 
+If you want to get involved with this, join the link:https://gitter.im/jenkinsci/gsoc-sig[GSoC Gitter channel]
+and ask how you can help.

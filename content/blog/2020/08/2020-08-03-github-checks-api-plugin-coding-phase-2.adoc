@@ -1,0 +1,146 @@
+---
+layout: post
+title: "GitHub Checks API Plugin Project - Coding Phase 2"
+tags:
+- github
+- api
+- plugins
+- developer
+- gsoc
+- gsoc2020
+author: XiongKezhi
+description: "Google Summer of Code 2020 - GitHub Checks API Plugin project update for Coding Phase 2"
+opengraph:
+  image: /images/post-images/2020/08-github-checks-api-plugin-coding-phase-2/opengraph.png
+---
+
+Another great coding phase for link:https://www.jenkins.io/projects/gsoc/2020/projects/github-checks/[GitHub Checks API Project] ends!
+In this phase, we focused on consuming the checks API in two widely used plugins:
+
+* link:https://plugins.jenkins.io/warnings-ng/[Warnings NG Plugin] 
+* link:https://plugins.jenkins.io/code-coverage-api/[Code Coverage API Plugin]
+
+Besides the external usage, we have also split the general checks API from its GitHub implementation and released both of the plugins:
+
+* link:https://plugins.jenkins.io/checks-api/[Checks API Plugin]
+* link:https://plugins.jenkins.io/github-checks/[GitHub Checks Plugin]
+
+.Coding Phase 2 Demo [starts from 25:20]
+video::b67I6spBdTg[youtube,width=800,height=420]
+
+== Warning Checks
+
+The newly released https://github.com/jenkinsci/warnings-ng-plugin/releases/tag/warnings-ng-8.4.0[Warnings NG plugin 8.4.0] will use checks API to publish different check runs for different static analysis tools.
+Without leaving GitHub, users are now able to see the analysis report they interested in.
+
+image::/images/post-images/2020/08-github-checks-api-plugin-coding-phase-2/warning-checks.png[Warning Checks Summary]
+
+On GitHub's conversation tab for each PR, users will see summaries for those checks like the screenshot above. The summaries will include:
+
+* The status that indicates the quality gate
+* The name of the analysis tool used
+* A short message that indicates statistics of new and total issues
+
+More fine-grained statistics can be found in the `Details` page.
+
+image::/images/post-images/2020/08-github-checks-api-plugin-coding-phase-2/severity-statistics.png[Severity Statis]
+
+Another practical feature is the annotation for specific lines of code. Users can now review the code alone with the annotations.
+
+image::/images/post-images/2020/08-github-checks-api-plugin-coding-phase-2/annotations.png[Warning Annotations]
+
+=== Try It
+
+In https://github.com/jenkinsci/warnings-ng-plugin/releases/tag/warnings-ng-8.4.0[Wanings NG plugin 8.4.0], the warning checks is set as a default feature only for GitHub. 
+For other SCM platforms, a `NullPublisher` will be used which does nothing.
+Therefore, you can get those checks for your own GitHub project just in a few steps:
+
+1. Update Warnings NG plugin to 8.4.0
+2. Install link:https://plugins.jenkins.io/github-checks/[GitHub Checks plugin] on your Jenkins instance
+3. Follow the link:https://github.com/jenkinsci/github-branch-source-plugin/blob/master/docs/github-app.adoc[GitHub app authentication guide] to configure the credentials for the multi-branch project or GitHub organization project you are going to use 
+4. Use warnings-ng plugin in your Jenkinsfile for the project you configured in the last step, e.g.
+
+[source, groovy]
+----
+node {
+    stage ('Checkout') {
+        checkout scm
+    }
+
+    stage ('Build and Static Analysis') {
+        sh 'mvn -V -e clean verify -Dmaven.test.failure.ignore'
+
+        recordIssues tools: [java(), javaDoc()], aggregatingResults: 'true', id: 'java', name: 'Java'
+        recordIssues tool: errorProne(), healthy: 1, unhealthy: 20
+        recordIssues tools: [checkStyle(pattern: 'target/checkstyle-result.xml'),
+            spotBugs(pattern: 'target/spotbugsXml.xml'),
+            pmdParser(pattern: 'target/pmd.xml'),
+            cpd(pattern: 'target/cpd.xml')],
+            qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]]
+    }
+}
+----
+
+_For more about the pipeline usage of warnings-ng plugin, please see link:https://github.com/jenkinsci/warnings-ng-plugin/blob/master/doc/Documentation.md#pipeline-configuration[the official documentation]._
+
+However, if you don't want to publish the warnings to GitHub, you can either uninstall the GitHub Checks plugin or disable it by adding `skipPublishingChecks: true`.
+
+[source, groovy]
+----
+recordIssues enabledForFailure: true, tools: [java(), javaDoc()], skipPublishingChecks: true
+----
+
+== Coverage Checks
+
+The coverage checks are achieved by consuming the API in link:https://plugins.jenkins.io/code-coverage-api/[Code Coverage API plugin].
+First, in the conversation tab of a PR, users will be able to see the summary about the coverage difference compared to previous builds.
+
+image::/images/post-images/2020/08-github-checks-api-plugin-coding-phase-2/coverage-summary.png[Coverage Summary]
+
+The `Details` page will contain some other things:
+
+* Links to the reference build, including the target branch build from the master branch and the last successful build from this branch
+* Coverage healthy score (the default value is 100% if the threshold is not configured)
+* Coverages and trends of different types in table format
+
+image::/images/post-images/2020/08-github-checks-api-plugin-coding-phase-2/coverage-details.png[Coverage Details]
+
+The link:https://github.com/jenkinsci/code-coverage-api-plugin/pull/169[pull request] for this feature will soon be merged and will be included in the next release of Coverage Checks API plugin. After that, you can use it by adding the below section to your pipeline script:
+
+[source, groovy]
+----
+node {
+    stage ('Checkout') {
+        checkout scm
+    }
+
+    stage ('Line and Branch Coverage') {
+        publishCoverage adapters: [jacoco('**/*/jacoco.xml')], sourceFileResolver: sourceFiles('STORE_ALL_BUILD')
+    }
+}
+----
+
+Like the warning checks, you can also disable the coverage checks by setting the field `skipPublishingChecks`, e.g.
+
+[source, groovy]
+----
+publishCoverage adapters: [jacoco('**/*/jacoco.xml')], sourceFileResolver: sourceFiles('STORE_ALL_BUILD'), skipPublishingChecks: true
+----
+
+== Next Phase
+
+In the next phase, we will turn our attention back to link:https://plugins.jenkins.io/checks-api/[Checks API Plugin] and link:https://plugins.jenkins.io/github-checks/[GitHub Checks Plugin] and add the following features in future versions:
+
+* Pipeline Support
+- Users can publish checks directly in a pipeline script without requiring a consumer plugin that supports the checks.
+* Re-run Request
+- Users can re-run Jenkins build through Checks API.
+
+Lastly, it is exciting to inform that we are currently making the checks feature available on link:https://ci.jenkins.io[ci.jenkins.io] for all plugins hosted in the jenkinsci GitHub organization, please see link:https://issues.jenkins-ci.org/browse/INFRA-2694[INFRA-2694] for more details.
+
+== Resources
+
+* link:https://github.com/jenkinsci/checks-api-plugin[Checks API Plugin]
+* link:https://github.com/jenkinsci/github-checks-plugin[GitHub Checks Plugin]
+* link:/projects/gsoc/2020/projects/github-checks/[Project Page]
+* link:https://gitter.im/jenkinsci/github-checks-api[Gitter Channel]

@@ -19,29 +19,25 @@ prepare: scripts-permission fetch depends assets
 run: prepare scripts/awestruct
 	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
 
-generate: site pdfs
+generate: site
 
 site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
+
+check-broken-links: site
+	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
 user-site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
 	./scripts/user-site-deploy.sh $(BRANCH)
 	@echo SUCCESS: Published to $(USER_SITE_URL)index.html
 
-pdfs: prepare scripts/generate-handbook-pdf scripts/asciidoctor-pdf
-	./scripts/ruby scripts/generate-handbook-pdf $(BUILD_DIR)/user-handbook.adoc
-	./scripts/asciidoctor-pdf -a allow-uri-read \
-		--base-dir content \
-		--out-file user-handbook.pdf \
-		$(BUILD_DIR)/user-handbook.adoc
-
 # Fetching and generating content from external sources
 #######################################################
 # NOTE: Fetch only runs once until flag is reset
 fetch: $(BUILD_DIR)/fetch
 
-# force fetching of resources
+# Force fetching of resources.
 fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
@@ -55,7 +51,7 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-e
 # chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
-$(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/asciidoctor-pdf ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources | $(OUTPUT_DIR)
+$(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
@@ -68,22 +64,22 @@ $(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node 
 #######################################################
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
-# update dependencies to latest within the allowed version ranges
-# When we update we also clean ensure build output includes only dependencies.
+# Update dependencies to latest within the allowed version ranges.
+# When we update we also clean to ensure build output includes only dependencies.
 update: clean depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
-# when we pull dependencies also pull docker image
-# without this images can get stale and out of sync from CI system
+# When we pull dependencies, also pull docker image.
+# Without this, images can get stale and out of sync from CI system.
 # If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch $(BUILD_DIR)/ruby
 
-# when we pull dependencies also pull docker image
-# without this images can get stale and out of sync from CI system
+# When we pull dependencies, also pull docker image.
+# Without this, images can get stale and out of sync from CI system.
 # If the dev deletes node_modules independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
@@ -127,7 +123,7 @@ archive: generate
 
 # Miscellaneous tasks
 #######################################################
-# build targets for directories
+# Build targets for directories.
 $(OUTPUT_DIR) node_modules vendor/gems content/_tmp:
 	mkdir -p $@
 
@@ -139,4 +135,4 @@ clean:
 #######################################################
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate pdfs prepare run site update
+		fetch fetch-reset generate prepare run site update

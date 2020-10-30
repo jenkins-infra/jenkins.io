@@ -30,7 +30,7 @@ Now the breakdown for this release:
     Fix javascript problem showing test failure detail for test name with a quote character.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-1544">issue 1544</a>)
   <li class=bug> 
-    Hudson can incorrectly configure labels for the master when bleeding edge EC2 plugin is used.
+    Hudson can incorrectly configure labels for the controller when bleeding edge EC2 plugin is used.
   <li class=bug> 
     Fixed the regression wrt the whitespace trimming caused by 1.346.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5633">issue 5633</a>)
@@ -49,7 +49,7 @@ Now the breakdown for this release:
     Improved the form validation mechanism to support multiple controls.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5610">issue 5610</a>)
   <li class=rfe> 
-    Added message to slave log when it has successfully come online.
+    Added message to agent log when it has successfully come online.
     (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5630">issue 5630</a>)
 </ul>
 

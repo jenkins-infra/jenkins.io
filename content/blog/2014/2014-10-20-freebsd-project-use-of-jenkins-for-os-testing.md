@@ -22,7 +22,7 @@ and [Bhyve](http://bhyve.org/).
 [Kyua](https://github.com/jmmv/kyua#readme) is a testing framework for infrastructure software.
 [Bhyve](http://bhyve.org/) is the native hypervisor that comes with FreeBSD (similar to KVM on Linux).
 
-We use the [Build Flow plugin](https://wiki.jenkins-ci.org/display/JENKINS/Build+Flow+Plugin) in this [example Build flow](https://ci.freebsd.org/job/FreeBSD-head-amd64-build/)	 to do the following:
+We use the [Build Flow plugin](https://wiki.jenkins.io/display/JENKINS/Build+Flow+Plugin) in this [example Build flow](https://ci.freebsd.org/job/FreeBSD-head-amd64-build/)	 to do the following:
 
 1. Build the FreeBSD kernel and userland on amd64 whenever someone checks in new code to https://svn.freebsd.org
 2. Create a bootable FreeBSD disk image with [makefs](https://www.freebsd.org/cgi/man.cgi?query=makefs)

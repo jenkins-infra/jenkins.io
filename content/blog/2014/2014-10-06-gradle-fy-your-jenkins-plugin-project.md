@@ -11,11 +11,11 @@
 ---
 (This is a guest post from [Daniel Spilker](https://web.archive.org/web/20180520134954/http://www.daniel-spilker.com/))
 
-Jenkins supports building plugins using [Gradle](https://www.gradle.org/) for a while now. Last week a new version of the [Gradle JPI plugin](https://wiki.jenkins-ci.org/display/JENKINS/Gradle+JPI+Plugin) has been released to iron out some [issues](https://github.com/jenkinsci/gradle-jpi-plugin/blob/0.6.0/CHANGELOG.md).
+Jenkins supports building plugins using [Gradle](https://www.gradle.org/) for a while now. Last week a new version of the [Gradle JPI plugin](https://wiki.jenkins.io/display/JENKINS/Gradle+JPI+Plugin) has been released to iron out some [issues](https://github.com/jenkinsci/gradle-jpi-plugin/blob/0.6.0/CHANGELOG.md).
 
 The Gradle JPI plugin enables a 100% groovy plugin development environment with Groovy as primary programming language, [Spock](https://code.google.com/p/spock/) for writing tests and Gradle as build system. Have a look at the [Job DSL plugin](https://github.com/jenkinsci/job-dsl-plugin) for an example.
 
-An existing Maven build can be converted to Gradle by using the build.gradle template from the Gradle JPI plugin's [README](https://github.com/jenkinsci/gradle-jpi-plugin/blob/master/README.md). For instance, the [POM](https://github.com/jenkinsci/gradle-plugin/blob/763256601be20c30d238179c1ed3965011d6dfd5/pom.xml) from the [Gradle plugin](https://wiki.jenkins-ci.org/display/JENKINS/Gradle+Plugin) translates to this build.gradle file:
+An existing Maven build can be converted to Gradle by using the build.gradle template from the Gradle JPI plugin's [README](https://github.com/jenkinsci/gradle-jpi-plugin/blob/master/README.md). For instance, the [POM](https://github.com/jenkinsci/gradle-plugin/blob/763256601be20c30d238179c1ed3965011d6dfd5/pom.xml) from the [Gradle plugin](https://wiki.jenkins.io/display/JENKINS/Gradle+Plugin) translates to this build.gradle file:
 
     buildscript {
         repositories {
@@ -37,7 +37,7 @@ An existing Maven build can be converted to Gradle by using the build.gradle tem
     jenkinsPlugin {
         coreVersion = '1.480'
         displayName = 'Jenkins Gradle plugin'
-        url = 'https://wiki.jenkins-ci.org/display/JENKINS/Gradle+Plugin'
+        url = 'https://wiki.jenkins.io/display/JENKINS/Gradle+Plugin'
         gitHubUrl = 'https://github.com/jenkinsci/gradle-plugin'
 
         developers {

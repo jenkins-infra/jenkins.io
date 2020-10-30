@@ -36,6 +36,6 @@ The locales included in this update are:
 
 If you're fluent in any of the locales above, check out the latest release of Hudson to verify that the translations are correct, if there's translations that you feel are incorrect, you can report them in [JIRA](https://issues.hudson-ci.org).
 
-The Hudson [Internationalization](https://wiki.jenkins.io/display/JENKINS/Internationalization) project could always use some more help whether it be from patches or via the [Translation Assistance Plugin](https://wiki.jenkins.io/display/JENKINS/Translation+Assistance+Plugin).
+The [internationalization]https://jenkins.io/doc/developer/internationalization/) project could always use some more help whether it be from patches or via the [Translation Assistance Plugin](https://plugins.jenkins.io/translation).
 
 

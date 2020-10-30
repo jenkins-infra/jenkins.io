@@ -8,7 +8,7 @@
 - meta
 :author: rtyler
 ---
-Just wanted to let everybody know that I've gone ahead and added a [Calendar](/calendar) for all the upcoming Hudson-related events.
+Just wanted to let everybody know that I've gone ahead and added a [Calendar](/event-calendar) for all the upcoming Hudson-related events.
 
 Hopefully we'll be able to add more and more events for the rest of the year including seminars, more meetups and potentially a few drink-ups!
 

@@ -1,0 +1,103 @@
+---
+layout: post
+title: "Git Plugin Performance Improvement Phase-2 Progress"
+tags:
+- plugins
+- git
+- platform-sig
+- developer
+- performance
+- gsoc
+- gsoc2020
+author: rishabhbudhouliya
+opengraph:
+  image: /images/post-images/2020/07-git-plugin-performance-improvement/gsoc-git-opengraph.png
+---
+
+The second phase of the link:/blog/2020/07/09/git-performance-improvement-phase1/[Git Plugin Performance Improvement project] has been great in terms of the progress we have achieved in implementing performance improvement insights
+derived from the phase one link:https://openjdk.java.net/projects/code-tools/jmh/[JMH] micro-benchmark experiments.
+
+What we've learned so far in this project is that a git fetch is highly correlated to the size of the remote repository. In order to make fetch improvements in this plugin, our task was to find the difference in performance for the two available git implementations in the link:https://github.com/jenkinsci/git-plugin[Git Plugin], `git` and `JGit`.
+
+Our major finding was that `git` performs much better than `JGit` when it comes to a large sized repository (>100 MiB). Interestingly, `JGit` performs better than `git` when size of the repository is less than 100 MiB. 
+
+In this phase, we were successful in coding this derived knowledge from the benchmarks into a new functionality called the 
+GitToolChooser.
+
+
+== GitToolChooser
+
+This class aims to add the functionality of recommending a git implementation on the basis of the size of a repository which has a strong correlation to the performance of git fetch (from performance Benchmarks).
+
+It utilizes two heuristics to calculate the size:
+
+* Using cached .git dir from multibranch projects to estimate the size of a repository
+* Providing an extension point which, upon implementation, can use REST APIs exposed by git service providers like Github, GitLab, etc to fetch the size of the remote repository.
+
+Will it optimize your Jenkins instance?
+That requires one of the following:
+
+* you have a multibranch project in your Jenkins instance, the plugin can use that to recommend the optimal git implementation
+* you have a branch Source Plugin installed in the Jenkins instance, the particular branch source plugin will recommend a git implementation using REST APIs provided by link:https://plugins.jenkins.io/github-branch-source/[GitHub] or link:https://plugins.jenkins.io/gitlab-branch-source/[GitLab] respectively.
+
+The architecture and code for this class is at: link:https://github.com/jenkinsci/git-plugin/pull/931[PR-931]
+
+*Note*: This functionality is an upcoming feature in the subsequent Git Plugin release.
+
+=== JMH benchmarks in multiple environments
+
+The benchmarks were being executed on Linux and macOS machines frequently but there was a need to check if the results gained from those benchmarks would hold true across more platforms to ensure that the solution (GitToolChooser) is generally platform-agnostic.
+
+To test this hypothesis, we performed an experiment:
+
+Running git fetch operation for a 400 MiB sized repository on:
+
+* `Windows`
+* `FreeBSD 12`
+* `ppc64le`
+* `s390x`
+
+The result of running this experiment is given below:
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-multiple-platforms.png[Performance on multiple platforms]
+
+Observations:
+
+* `ppc64le` and `s390x` are able to run the operation in almost half the time it takes for the `Windows` or `FreeBSD 12` machine. This behavior may be attributed to the increased computational power of those machines.
+* The difference in performance between `git` and `JGit` remains constant across all platforms which is a positive sign for the GitToolChooser as its recommendation would be consistent across multiple devices and operating systems.
+
+
+== Release Plan 🚀
+
+link:https://issues.jenkins-ci.org/browse/JENKINS-49757[JENKINS-49757] - Avoid double fetch from Git checkout step
+This issue was fixed in phase one, avoids the second fetch in redundant cases.
+It will be shipped with some benchmarks on the change in performance due to the removal of the second fetch.
+
+* link:https://github.com/jenkinsci/git-client-plugin/pull/574[PR-574]
+* link:https://github.com/jenkinsci/git-plugin/pull/904[PR-904]
+
+*GitToolChooser*
+
+* link:https://github.com/jenkinsci/git-plugin/pull/931[PR-931]
+This pull request is under review, will be shipped in one of the subsequent Git Plugin releases.
+
+Current Challenges with GitToolChooser
+
+* Implement the extension point to support GitHub Branch Source Plugin, Gitlab Branch Source Plugin and Gitea Plugin.
+* The current version of JGit doesn't support LFS checkout and sparse checkout, need to make sure that the recommendation doesn't break existing use cases.
+
+== Future Work
+
+In phase three, we wish to:
+
+* Release a new version of the Git and Git Client Plugin with the features developed during the project
+* Continue to explore more areas for performance improvement
+* Add a new git operation: git clone (Stretch Goal)
+
+== Reaching Out
+
+Feel free to reach out to us for any questions or feedback on the project's link:https://gitter.im/jenkinsci/git-plugin[Gitter Channel] or the mailto:jenkinsci-dev@googlegroups.com[Jenkins
+Developer Mailing list].
+
+* link:/projects/gsoc/2020/projects/git-plugin-performance/[Project Page]
+* link:/blog/2020/07/09/git-performance-improvement-phase1/[Phase 1 Blog Post]
