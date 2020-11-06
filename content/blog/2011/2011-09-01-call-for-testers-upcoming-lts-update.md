@@ -29,7 +29,7 @@ candidate stages.
 
 The testing of 1.409.2 has been spearheaded by community member `vjuranek` who
 has created [this **fantastic test
-matrix**](https://wiki.jenkins-ci.org/display/JENKINS/LTS+1.409.x+RC+Testing) to
+matrix**](https://wiki.jenkins.io/display/JENKINS/LTS+1.409.x+RC+Testing) to
 help coordinate testing of release candidates.
 
 

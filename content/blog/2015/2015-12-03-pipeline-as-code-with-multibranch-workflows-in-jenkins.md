@@ -36,7 +36,7 @@ The Workflow script to build/test/deploy your code is always synchronized with t
 
 [This project](https://github.com/kishorebhatia/pipeline-as-code-demo) has a marker file for Jenkins in the repo - `Jenkinsfile`.
 
-<center><a href="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic1.png"><img src="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic1.png" width="600" border="0"/></a></center>
+<center><a href="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic1.png"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic1.png" width="600" border="0"/></a></center>
 
 
 **So, what's a Jenkinsfile?** The [Jenkinsfile](https://github.com/kishorebhatia/pipeline-as-code-demo/blob/master/Jenkinsfile) is essentially your Jenkins Workflow, a script, that defines the CI/CD pipeline logic for a project with steps to build/test/deploy etc. captured in various stages.
@@ -76,7 +76,7 @@ Just having this file in the source code repo root would mean that -
 Make sure you’ve the latest [Workflow](https://github.com/jenkinsci/workflow-plugin) and (v1.11 as of writing this blog) Workflow Multibranch plugins installed on your Jenkins instance
 
 
-<center><a href="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic2.png"><img src="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic2.png" width="600" border="0"/></a></center>
+<center><a href="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic2.png"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic2.png" width="600" border="0"/></a></center>
 
 Also, ensure that other dependencies, like SCM plugins and build tools, are met:
 
@@ -97,7 +97,7 @@ Then create a new *Multibranch Workflow* Job with configuration as shown below -
 Leave all other properties default and *Save*.
 
 
-<center><a href="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic3.png"><img src="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic3.png" width="600" border="0"/></a></center>
+<center><a href="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic3.png"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic3.png" width="600" border="0"/></a></center>
 
 You’ll observe that Jenkins would perform Branch Indexing on that “cd” job folder and start the workflow for the master branch, with an automatically created new job, named master, under the “cd” folder.
 
@@ -112,7 +112,7 @@ Now, let’s create a new branch off of this master branch in your cloned git re
 You’ll observe that your Jenkins instance automatically picks up this newBranch and starts running the workflow (with the Jenkinsfile in this newBranch) to build/test/deploy the code.
 
 
-<center><a href="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic4.png"><img src="http://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic4.png" width="600" border="0"/></a></center>
+<center><a href="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic4.png"><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/pipeline-as-code-guest-blog/Pic4.png" width="600" border="0"/></a></center>
 
 Next, if you now delete this `newBranch` (`git branch -D newBranch`), Jenkins will automatically remove the orphan Workflow job for `newBranch`. You can retain these jobs even after the branches are deleted using the *Orphaned Item Strategy* property in the main "cd" job’s configuration.
 
@@ -150,7 +150,7 @@ The demo container has a local git repo so you can clone: `git://localhost/repo`
 
 ### References
 
-* [Developer blog by jglick introducing multibranch support](http://developer-blog.cloudbees.com/2015/08/workflow-19-and-multibranch-beta.html)
+* [Developer blog by jglick introducing multibranch support](https://developer-blog.cloudbees.com/2015/08/workflow-19-and-multibranch-beta.html)
 * [workflow plugin tutorial](https://github.com/jenkinsci/workflow-plugin/blob/master/TUTORIAL.md)
 * [workflow plugin presentations](https://github.com/jenkinsci/workflow-plugin#presentations)
 * [workflow plugin demo readme](https://github.com/jenkinsci/workflow-aggregator-plugin/tree/master/demo)

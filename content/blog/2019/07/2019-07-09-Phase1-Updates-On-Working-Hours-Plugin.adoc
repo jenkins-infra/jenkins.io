@@ -1,0 +1,116 @@
+---
+layout: post
+title: "GSOC Phase 1 Updates On Working Hours Plugin"
+tags:
+- react
+- plugins
+- gsoc
+- gsoc2019
+author: jackshen
+---
+
+= UI Improvements with React on Working Hours Plugin
+
+The Working Hour Plugin provides an interface to set up a schedule of allowable build days and times.  Jobs that run outside of configured working hours are held until the next allowable build time.  
+
+For the first code phase at Google Summer of Code, I've been working on link:/projects/gsoc/2019/working-hours-improvements/[Working Hours Project], which needed improvements on usability.
+
+Rather than classical Jelly pages, React seems to be more prefered when we want to design a much customized UI with a huge amount of libraries we could use, especially the open source components such as date pickers.
+
+But we have to face a challenge of the integration of React and Jenkins, which I'm currently working on.
+
+== Achievements For The First Code Phase
+
+For the first code phase, we are focusing on the UI improvements, we've achieved following major improvements:
+
+* A standalone webapp which could be then integrated.
+* Slider for choosing a time range.
+* More fields when setting a excluded date.
+* Presets for choosing a excluded date.
+* A Jenkins styling UI.
+
+== How We Integrate React Into Jenkins
+
+A solution doc for integration could be found at 
+https://drive.google.com/open?id=1JLRCDg9JNBWR0Dfq8w3pTI9mrl6i9JU29pBoH6bO0J8
+
+At first, we found BlueOcean is a great example for using React in Jenkins, but yet it's not a choice for common development with plugins. So we need to find out another way to integrate.
+
+Here are the steps to do the integration:
+
+* A mount point in your jelly file, usually it's a element with a unique `id`.
+* Write your React Application, but need to set the mount point to the id you set above.
+* Copy the output after you build the Project into the plugin's webapp dir.
+* Add your files using a script tag in your jelly file.
+[source, html]
+----
+<script type="text/javascript" 
+        src="${resURL}/plugin/working-hours/js/main.js"></script>
+---- 
+* Once we are using React, the traditional jelly request won't be available anymore, another way to process requests will be using stapler. You can define a process function like below.
+ [source, java]
+----
+public HttpResponse doDynamic(StaplerRequest request) {
+        if (config == null) {
+            config = ExtensionList.lookup(WorkingHoursPlugin.class).get(0);
+        }
+        String restOfPath = request.getRestOfPath();
+        String[] pathTokens = restOfPath.split("/");
+        List<String> params = new ArrayList<>();
+        switch (params.get(0)) {
+            case "list-excluded-dates":
+                return listExcludedDate(request);
+            case "set-excluded-dates":
+                return setExcludedDates(request);
+            case "list-time-ranges":
+                return listTimeRanges(request);
+            case "set-time-ranges":
+                return setTimeRanges(request);
+        }
+    }
+---- 
+
+== Run Our Application
+
+If you would like to take a look at our plugin, you can go to the repo
+link:https://github.com/jenkinsci/working-hours-plugin/tree/dev[working-hours-plugin]
+
+Just follow the README file, then you could run a copy of your working hours plugin.
+
+== Screenshots 
+
+The current plugin's outlook is a bit simple and the plugin is a bit unconvinient for use.
+
+One of the problems is that if we want to input a excluded date, it'll be a string in a constant format like 15/9/2019, but the new UI choosed React so we could use a datepicker to improve this.
+
+=== Current Plugin
+
+image:/images/post-images/working-hours/working-hours-config.png[Screenshot for Current Plugin]
+
+=== New (Time Ranges)
+
+image:/images/post-images/working-hours/working-hours-example-time-range.png[Time Ranges Example]
+
+=== New (Exclude Dates)
+
+image:/images/post-images/working-hours/working-hours-exmaple-excluded-date.png[Excluded Dates Example]
+
+== Helpful links
+
+If you have any questions or advices, we are glad to hear from you.
+
+Several useful links are listed below:
+
+* link:https://github.com/jenkinsci/working-hours-plugin/tree/dev[Develop Repo]
+* link:https://github.com/jenkinsci/working-hours-plugin[Main Repo]
+* link:https://docs.google.com/document/d/1SezLtQejur2ji-KUur3dC3TXK8ivxrttiwHYbTkA8Yk/edit#[Design Doc]
+* link:https://drive.google.com/open?id=1JLRCDg9JNBWR0Dfq8w3pTI9mrl6i9JU29pBoH6bO0J8[Doc for React Integration Solution ]
+* link:https://gitter.im/jenkinsci/working-hours-plugin[
+    Gitter Chat
+]
+* link:https://docs.google.com/presentation/d/1Psz6MrYvw81D_7d8pfW04FDoBtexlSVdgrbqp99Wjm0/edit?usp=sharing[
+    Slides for Phase 1 Demo
+]
+* link:https://www.youtube.com/watch?v=MDs0Vr7gnnA[
+    Video Recording for Phase 1
+]

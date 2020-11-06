@@ -8,7 +8,7 @@
 - meetup
 :author: rtyler
 ---
-<img src="http://agentdero.cachefly.net/continuousblog/getexcited.jpg" alt="Get excited and make things" align="right"/>The day of hackery is upon us! Today is Day One of the [Bay Area Hudson hackathon/meetup](http://blog.hudson-ci.org/content/meet-and-hack-alongside-kohsuke-and-co), the hacking will start at 10am today and continue until 5pm at the [Oracle Santa Clara campus](http://tinyurl.com/yznmdoo) in the "library" conference room of SCA7 "Mansion" building. The focus today will be largely on hacking Hudson itself.
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/getexcited.jpg" alt="Get excited and make things" align="right"/>The day of hackery is upon us! Today is Day One of the [Bay Area Hudson hackathon/meetup](https://jenkins.io/content/meet-and-hack-alongside-kohsuke-and-co), the hacking will start at 10am today and continue until 5pm at the [Oracle Santa Clara campus](https://tinyurl.com/yznmdoo) in the "library" conference room of SCA7 "Mansion" building. The focus today will be largely on hacking Hudson itself.
 
 ### Can't attend?
 
@@ -18,7 +18,7 @@ Not everybody lives in the Bay Area, fortunately all of you are on the internets
 * **IRC** As always, there's the `#hudson` IRC channel on the Freenode where you can participate via text chat
 
 
-If you're in the Bay Area, but busy at work today, come by for [Day Two](http://wiki.hudson-ci.org/display/HUDSON/Hudson+Bay+Area+Hackathon+2.0) of the hackathon/meetup tomorrow (Saturday) from 10am to 6pm at <a id="aptureLink_NCAhpsucbO" href="http://hackerdojo.pbworks.com/">Hacker Dojo</a> in Mountain View!
+If you're in the Bay Area, but busy at work today, come by for [Day Two](https://wiki.jenkins.io/display/JENKINS/Hudson+Bay+Area+Hackathon+2.0) of the hackathon/meetup tomorrow (Saturday) from 10am to 6pm at <a id="aptureLink_NCAhpsucbO" href="https://hackerdojo.pbworks.com/">Hacker Dojo</a> in Mountain View!
 
 
 <br clear="all"/>
@@ -26,13 +26,13 @@ If you're in the Bay Area, but busy at work today, come by for [Day Two](http://
 
 Currently there is only one item on the agenda for Friday:
 
-* **Improving Client-Side Code Quality with YUI 3:** A Proposal (by: <a id="aptureLink_vzcsfKPm3x" href="http://twitter.com/bshine">Benjamin Shine</a>)
+* **Improving Client-Side Code Quality with YUI 3:** A Proposal (by: <a id="aptureLink_vzcsfKPm3x" href="https://twitter.com/bshine">Benjamin Shine</a>)
 
 
 
 
 
-<small><em>Image courtesy of [blackbeltjones](http://www.flickr.com/photos/blackbeltjones/3365682994/)</em></small>
+<small><em>Image courtesy of [blackbeltjones](https://www.flickr.com/photos/blackbeltjones/3365682994/)</em></small>
 
 ----
 

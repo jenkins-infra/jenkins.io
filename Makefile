@@ -13,44 +13,49 @@ AWESTRUCT_USER_SITE=-P user-site --url "$(USER_SITE_URL)"
 
 # Generate everything
 all: fetch-reset prepare generate archive
-prepare: fetch depends assets
+prepare: scripts-permission fetch depends assets
 
 # Run a local dev server on localhost:4242
 run: prepare scripts/awestruct
 	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
 
-generate: site pdfs
+generate: site
 
 site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
+
+check-broken-links: site
+	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
 user-site: prepare scripts/awestruct
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
 	./scripts/user-site-deploy.sh $(BRANCH)
 	@echo SUCCESS: Published to $(USER_SITE_URL)index.html
 
-pdfs: prepare scripts/generate-handbook-pdf scripts/asciidoctor-pdf
-	./scripts/ruby scripts/generate-handbook-pdf $(BUILD_DIR)/user-handbook.adoc
-	./scripts/asciidoctor-pdf -a allow-uri-read \
-		--base-dir content \
-		--out-file user-handbook.pdf \
-		$(BUILD_DIR)/user-handbook.adoc
-
 # Fetching and generating content from external sources
 #######################################################
 # NOTE: Fetch only runs once until flag is reset
 fetch: $(BUILD_DIR)/fetch
 
-# force fetching of resources
+# Force fetching of resources.
 fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
-$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-examples scripts/fetch-external-resources | $(OUTPUT_DIR)
+$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-external-resources content/_tmp | $(OUTPUT_DIR)
 	./scripts/groovy pull
 	./scripts/groovy scripts/release.rss.groovy 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
-	./scripts/fetch-examples
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
+
+# Ensure scripts are marked +x
+# chmod only runs on these scripts during fresh build or when one of these scripts changes.
+scripts-permission: $(BUILD_DIR)/scripts-permission
+
+$(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
+	chmod u+x $?
+	@touch $(BUILD_DIR)/scripts-permission
+
+
 
 #######################################################
 
@@ -59,21 +64,24 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-e
 #######################################################
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
-# update dependencies information
-update: depends
+# Update dependencies to latest within the allowed version ranges.
+# When we update we also clean to ensure build output includes only dependencies.
+update: clean depends
 	./scripts/ruby bundle update
 	./scripts/node npm update
 
-# when we pull dependencies also pull docker image
-# without this images can get stale and out of sync from CI system
-$(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby | $(OUTPUT_DIR)
+# When we pull dependencies, also pull docker image.
+# Without this, images can get stale and out of sync from CI system.
+# If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
+$(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle install --path=vendor/gems
 	@touch $(BUILD_DIR)/ruby
 
-# when we pull dependencies also pull docker image
-# without this images can get stale and out of sync from CI system
-$(BUILD_DIR)/node: package.json package-lock.json scripts/node | $(OUTPUT_DIR)
+# When we pull dependencies, also pull docker image.
+# Without this, images can get stale and out of sync from CI system.
+# If the dev deletes node_modules independent of other changes, the build reinstalls it.
+$(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
 	./scripts/node npm install
 	@touch $(BUILD_DIR)/node
@@ -95,8 +103,8 @@ $(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*")
 	mkdir -p $(ASSETS_DIR)/anchor-js/
 	cp node_modules/anchor-js/*.js $(ASSETS_DIR)/anchor-js/
 	mkdir -p $(ASSETS_DIR)/ionicons
-	cp -R node_modules/ionicons/css $(ASSETS_DIR)/ionicons
-	cp -R node_modules/ionicons/fonts $(ASSETS_DIR)/ionicons
+	cp -R node_modules/ionicons/dist/css $(ASSETS_DIR)/ionicons
+	cp -R node_modules/ionicons/dist/fonts $(ASSETS_DIR)/ionicons
 	@touch $(BUILD_DIR)/assets
 
 #######################################################
@@ -115,14 +123,16 @@ archive: generate
 
 # Miscellaneous tasks
 #######################################################
-$(OUTPUT_DIR):
-	mkdir -p $(OUTPUT_DIR)
+# Build targets for directories.
+$(OUTPUT_DIR) node_modules vendor/gems content/_tmp:
+	mkdir -p $@
 
+# clean -Xfd removes any ignored files and directories
+# but leave any changed or untracked files alone.
 clean:
-	rm -rf vendor/gems
-	rm -rf $(BUILD_DIR)
-	rm -rf node_modules/
+	git clean -Xfd
+
 #######################################################
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate pdfs prepare run site update
+		fetch fetch-reset generate prepare run site update

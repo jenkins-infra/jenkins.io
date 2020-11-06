@@ -10,10 +10,10 @@
 :author: rtyler
 ---
 Over the past few weeks there has been a vibrant discussion happening on the
-[jenkinsci-dev@](http://groups.google.com/group/jenkinsci-dev/topics) mailing
+[jenkinsci-dev@](https://groups.google.com/group/jenkinsci-dev/topics) mailing
 list as to what "[Jenkins
-2.0](https://wiki.jenkins-ci.org/display/JENKINS/Jenkins+2.0)" means.  While
-Jenkins does not currently adhere to [semantic versioning](http://semver.org/),
+2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" means.  While
+Jenkins does not currently adhere to [semantic versioning](https://semver.org/),
 the change of a major version number does indicate a major milestone for the community.
 
 Project founder, [Kohsuke Kawaguchi](https://github.com/kohsuke) presented his
@@ -69,7 +69,7 @@ feedback if you have it.
 
 If you have ever logged in to the [issue
 tracker](https://issues.jenkins-ci.org) or the
-[wiki](https://wiki.jenkins-ci.org/), you have a "Jenkins user account" which
+[wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.
 

@@ -9,13 +9,13 @@
 - jenkinsci
 :author: rtyler
 ---
-Let me be the first to say **thank you all** for your [overwhelming support](http://twitter.com/#search?q=http%3A%2F%2Fwww.hudson-labs.org%2Fcontent%2Fwhos-driving-thing%2F) for
+Let me be the first to say **thank you all** for your [overwhelming support](https://twitter.com/#search?q=http%3A%2F%2Fwww.hudson-labs.org%2Fcontent%2Fwhos-driving-thing%2F) for
 Hudson and the work we've been doing. The Hudson community in general has
 always been incredibly supportive and friendly, but the outpouring of support from
 friends and users who've not previously spoken up has been awe inspiring.
 
 That said, let's get down to business. As [I covered
-yesterday](http://www.hudson-labs.org/content/whos-driving-thing) there is some
+yesterday](https://jenkins.io/content/whos-driving-thing) there is some
 bubbling frustration within the developer community regarding some project
 infrastructure decisions and Oracle's reactions to them. If you can't spare the
 time to read that novel of a blog post, the extremely shortened version is: devs want to

@@ -42,6 +42,11 @@ Awestruct::Extensions::Pipeline.new do
   extension SolutionPage.new
   extension Releases.new
 
+  extension UpgradeGuide.new
+
+  extension AuthorList.new(:posts,
+                        '/node/index',
+                        :per_page => 10)
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
 
@@ -50,9 +55,13 @@ Awestruct::Extensions::Pipeline.new do
 
   transformer VersionSwitcher.new
 
+  extension Validator.new
+
+  helper AuthorList::AuthorLink
   helper ActiveNav
   helper Authorship
   helper Legacy
+  helper AsciidocRender
 
   helper Awestruct::Extensions::GoogleAnalytics
   helper Awestruct::IBeams::AsciidocSections

@@ -35,14 +35,14 @@ def xml = new MarkupBuilder(new OutputStreamWriter(System.out))
 xml.feed(xmlns:"http://www.w3.org/2005/Atom") {
   title("Jenkins plugin releases")
   link(href:"https://jenkins.io/")
-  link(href:"http://kohsuke.org/test.atom",rel:"self",type:"application/atom+xml")
+  link(href:"https://kohsuke.org/test.atom",rel:"self",type:"application/atom+xml")
   updated(xsd(new Date()))
   author { name("Jenkins History Bot") }
   id("urn:63067410335c11e0bc8e0800200c9a66:feed")
 
   json.releaseHistory.reverse().subList(0,30).each { i ->
     i.releases.each { r ->
-      if (r.gav) {
+      if (r.gav && r.title) {
         entry {
           s = (first[toGA(r.gav)] == r.gav) ? " (new)" : ""
           title("${r.title} ${r.version}${s}")

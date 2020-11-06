@@ -29,10 +29,10 @@ class YearPosts < Awestruct::Extensions::Posts
           day = sprintf( "%02d", date.day )
           page.date = date
           slug = $1
-          if ( page.relative_source_path =~ /^#{@path_prefix}\/(20[01][0-9])-([01][0-9])-([0123][0-9])-([^.]+)\..*$/ )
+          if ( page.relative_source_path =~ /^#{@path_prefix}\/(20[012][0-9])-([01][0-9])-([0123][0-9])-([^.]+)\..*$/ )
             slug = $4
           end
-        elsif ( page.relative_source_path =~ /^#{@path_prefix}\/.*\/(20[01][0-9])-([01][0-9])-([0123][0-9])-([^.]+)\..*$/ )
+        elsif ( page.relative_source_path =~ /^#{@path_prefix}\/.*\/(20[012][0-9])-([01][0-9])-([0123][0-9])-([^.]+)\..*$/ )
           year  = $1
           month = $2
           day   = $3

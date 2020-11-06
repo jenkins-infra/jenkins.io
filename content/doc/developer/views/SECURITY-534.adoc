@@ -1,0 +1,77 @@
+---
+title: Ensuring view rendering after SECURITY-534
+layout: developersection
+references:
+- url: /security/advisory/2019-07-17/#SECURITY-534
+  title: SECURITY-534 security fix
+---
+
+Jenkins filters view dispatch using the `DispatchValidator` SPI in Stapler which implements some common default rules for distinguishing between views and fragments.
+From the Jenkins Jelly tag library `/lib/layout`, there is a Jelly tag, `<l:view>`, which is used as the basis for defining a top level view and some optional parameters.
+This tag is used and implied by the common Jelly tags `<l:layout>` and `<l:ajax>` which are the typical root Jelly elements used when defining views.
+For views that don't use `l:layout` or `l:ajax`, here's an example of how to declare that:
+
+[source,xml]
+----
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+  <l:view contentType="text/html;charset=UTF-8">
+    <html>
+      <!-- fancy SPA -->
+    </html>
+  </l:view>
+</j:jelly>
+----
+
+Or using Groovy:
+
+[source,groovy]
+----
+def l = namespace('/lib/layout')
+l.view(contentType: 'text/html;charset=UTF-8') {
+  html {
+    // ...
+  }
+}
+----
+
+Additionally, views named `index` and views that set an HTTP content type header via `<st:contentType>` are automatically considered views.
+
+Some views do not follow these established patterns for one reason or another.
+Views can be allowed or denied explicitly via the annotations `@StaplerViews` and `@StaplerFragments` respectively.
+These annotations are applied to the model class that dispatches the views and override the above dispatch filtering logic.
+For example, suppose Jenkins defines an abstract class `BaseClass` which has views `index`, `configure`, `create`, and `delete`.
+Implementation classes are expected to provide their own fragment view `config` which gets included in `configure` and `create`.
+This can be encoded explicitly in the model class:
+
+[source,java]
+----
+@StaplerViews({"configure", "create", "delete"}) // index is implicit
+@StaplerFragments("config")
+public abstract class BaseClass {
+    ...
+}
+----
+
+By adding the annotations to Jenkins, implementation classes (typically from plugins) can be filtered explicitly via the parent annotations without updating the downstream code.
+Implementation classes may further define additional views or fragments.
+For example, suppose `ExtendedClass` extends `BaseClass` and adds its own optional fragment view `advanced` which its implementation classes can include.
+
+[source,java]
+----
+@StaplerFragments("advanced")
+public class ExtendedClass extends BaseClass {
+    ...
+}
+----
+
+These annotations are provided in a standalone annotation dependency and can be included in a plugin's dependencies:
+
+[source,xml]
+----
+<dependency>
+  <groupId>io.jenkins.stapler</groupId>
+  <artifactId>jenkins-stapler-support</artifactId>
+  <version>1.1</version>
+</dependency>
+----

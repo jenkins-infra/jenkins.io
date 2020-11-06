@@ -14,7 +14,7 @@ After a one week hiatus, we returned to the weekly hack session on a mission lig
 
 ## Attendees
 
-[Charles Lowell](http://twitter.com/cowboyd), Rasheed Abdul-Aziz, [Hiroshi Nakamura](http://twitter.com/nahi)
+[Charles Lowell](https://twitter.com/cowboyd), Rasheed Abdul-Aziz, [Hiroshi Nakamura](https://twitter.com/nahi)
 
 ## Discussion/Accomplished
 

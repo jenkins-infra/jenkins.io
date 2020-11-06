@@ -1,0 +1,35 @@
+---
+title: Restricting HTTP Access to <code>AccessControlled</code> Objects
+layout: developerguide
+---
+
+## Overview
+
+Types with Jelly/Groovy views or web methods may be restricted to users with a certain permission.
+Some examples:
+
+* `Item` (or `AbstractItem`) must only be accessed by users with the `Item.READ` permission.
+* `Run` must only be accessed by users with the `Item.READ` permission on the owning `Job`.
+* `AdministrativeMonitor` must only be accessed by users with `Overall/Administer` permission.
+
+This was typically implemented in the past by having the getters returning the object in question check the permission, as in https://github.com/jenkinsci/jenkins/blob/389c5a7e606fefa184959d7722c95c3b976b3375/core/src/main/java/jenkins/model/Jenkins.java#L2714...L2725[`Jenkins#getItem(String)`].
+A major downside to this approach is that every Stapler-accessible method returning an `AccessControlled` object needs to implement such a permission check.
+Otherwise, a different getter or field could be used to access the object in question, bypassing the permission check.
+Various security issues have resulted from this strategy, so it is not generally considered sufficient to restrict access to objects on its own.
+
+## Using `StaplerProxy`
+
+A more robust approach to prevent HTTP request handling by objects is to implement `StaplerProxy`.
+While originally intended to forward request handling to a different object on certain conditions, it can also be used to just perform a permission check, and returning different values depending on the outcome of that check:
+
+* `return this` will continue routing with the current object.
+* Since Jenkins 2.147 and Jenkins LTS 2.138.3 `return null` will continue routing using a different approach, as the current object is not eligible for routing.
+  This is useful if even the existence of an object should be hidden from users without the permission to access it.
+  For `Item`, this is the difference between having no permissions, and having `Item.DISCOVER`.
+* Throwing exceptions will interrupt routing.
+
+A good minimal example for this is link:https://github.com/jenkinsci/jenkins/blob/389c5a7e606fefa184959d7722c95c3b976b3375/core/src/main/java/hudson/model/AdministrativeMonitor.java#L156...L163[`AdministrativeMonitor`].
+A more complex example is link:https://github.com/jenkinsci/jenkins/blob/389c5a7e606fefa184959d7722c95c3b976b3375/core/src/main/java/hudson/model/AbstractItem.java#L942...L949[`AbstractItem`], as it incorporates two different permission checks, and different behaviors in each case.
+
+WARNING: If your plugin depends on Jenkins versions older than 2.147 or LTS 2.138.3, and you want to use the `return null` variant, please note that this behaves the same way as `return this` in Jenkins 2.146 and earlier.
+A possible alternative to achieve the same result can be seen https://github.com/jenkinsci/jenkins/blob/ba33bd67cdaef87aba8a4e95dca8dcf108a7d73f/core/src/main/java/hudson/model/AbstractItem.java#L848...L853[here].

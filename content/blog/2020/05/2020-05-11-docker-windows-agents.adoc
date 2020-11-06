@@ -1,0 +1,106 @@
+---
+layout: post
+title: "Windows Docker Agent Images: General Availability"
+tags:
+- announcement
+- docker
+- platform-sig
+- windows
+author: slide_o_mix
+opengraph:
+  image: /images/docker/dockerJenkins_social.png
+---
+
+We would like to announce the availability of official Windows agent images for Docker.
+These images allow provisioning Jenkins agents with Windows OS on Docker and Kubernetes.
+
+image:/images/docker/dockerJenkins.png[Jenkins and Docker, role=center, float=right, height=224]
+
+== New images
+
+All official Docker images for agents now provide `nanoserver-1809` and `windowsservercore-1809` tags which include Windows images and, at the moment, Java 8 (these are like the `latest` tag).
+We also provide tags with explicit Java selection, e.g. `jdk8-windowsservercore-1809` or `jdk11-nanoserver-1809`.
+Version tags are also available, e.g. `jenkins/agent:4.3-4-jdk8-nanoserver-1809`.
+
+* link:https://hub.docker.com/r/jenkins/agent[jenkins/agent] is a basic agent which bundles the agent.jar for agent <= => controller communication. This is most useful as a base image for other images.
+  Windows images are available starting from version link:https://github.com/jenkinsci/docker-agent/releases/tag/4.3-4[4.3-4]
+
+* link:https://hub.docker.com/r/jenkins/inbound-agent[jenkins/inbound-agent] is an agent that is based on the jenkins/agent image above. It provides a wrapper script written in PowerShell to help specify the parameters to agent.jar.
+  Windows images are available starting from version link:https://github.com/jenkinsci/docker-inbound-agent/releases/tag/4.3-4[4.3-4]
+
+* link:https://hub.docker.com/r/jenkins/ssh-agent[jenkins/ssh-agent] is an image which has OpenSSH installed and should be used with the plugin:ssh-slaves[SSH Build Agents Plugin].
+  Windows images are available starting from version link:https://github.com/jenkinsci/docker-ssh-agent/releases/tag/2.1.0[2.1.0]
+
+== Using Windows Docker images
+
+To use the new images, you will need a proper Docker or Kubernetes environment which supports running Windows containers.
+For Windows desktop users, the easiest way is to use link:https://docs.docker.com/docker-for-windows/[Docker for Windows].
+Windows support in Kubernetes is documented link:https://kubernetes.io/docs/setup/production-environment/windows/intro-windows-in-kubernetes/[here].
+
+
+=== jenkins/agent
+
+The jenkins/agent image is a simple agent with the JDK and the agent.jar (Jenkins Remoting library).
+
+There are two main use cases for this image:
+
+ 1. As a base image for other Docker images (e.g., `FROM jenkins/agent:jdk8-nanoserver-1809` in your Dockerfile). The jenkins/inbound-agent is based on this image.
+ 2. This image may also be used to launch an agent using the *Launch method* of *Launch agent via execution of command on the master*.  This allows the controller to launch the agent inside the docker container automatically.
+
+To run the agent for the second use case, you would specify the following command on the Jenkins controller after setting *Remote root directory* to `C:\Users\jenkins\agent`:
+
+ docker run -i --rm --name agent --init jenkins/agent:jdk8-windowsservercore-1809 java -jar C:/ProgramData/Jenkins/agent.jar
+
+{empty} +
+
+=== jenkins/inbound-agent
+
+The inbound-agent Docker image tries to provide a higher level interaction with the agent.jar executable. It provides a PowerShell wrapper script around agent.jar and it is specified as the entrypoint so that you just need to pass in some command line arguments to run the agent. A link:https://github.com/jenkinsci/docker-inbound-agent[pull request] has been opened which documents these command line parameters and environment variables. 
+
+Example:
+
+ docker run jenkins/inbound-agent:windowsservercore-1809 `
+    -Url http://jenkins-server:port `
+    -WorkDir=C:/Users/jenkins/Agent `
+    -Secret <SECRET> `
+    -Name <AGENTNAME>
+
+Example using environment variables:
+
+ docker run -e "JENKINS_URL=http://jenkins-server:port" -e "JENKINS_AGENT_NAME=AGENTNAME" `
+    jenkins/inbound-agent:windowsservercore-1809 `
+    -WorkDir=C:/Users/jenkins/Agent `
+    -Secret <SECRET> `
+    -Name <AGENTNAME>
+
+NOTE: The `-Url`, `-Name` and `-Secret` parameters are required, but can be specified as either command line parameters or environment variables.
+
+{empty} +
+
+=== jenkins/ssh-agent
+
+As mentioned above the jenkins/ssh-agent docker image is based on SSH communication with the controller, rather than the remoting TCP or WebSocket protocols. The image sets up a `jenkins` user and the OpenSSH server so that the controller can connect to the agent via SSH. The image expects an SSH public key as a parameter and puts that key into the `authorized_keys` file for the `jenkins` user. The private key should be specified in the agent configuration on the controller to allow the controller to connect.
+
+Example:
+
+ docker run jenkins/ssh-agent:jdk8-windowsservercore-1809 "<public key>"
+
+You can also pass the public key as an environment variable when using `docker run`.
+
+Example:
+
+ docker run -e "JENKINS_AGENT_SSH_PUBKEY=<public key>" jenkins/ssh-agent:jdk8-windowsservercore-1809
+
+You will then be able to connect this agent using the plugin:ssh-slaves[SSH Build Agents Plugin] as "jenkins" with the matching private key.
+
+{empty} +
+
+== What's next?
+
+We are considering providing versions based on _Windows Server 2019 build 1909_ so that Jenkins users can run these images on GKE clusters (see link:https://github.com/jenkinsci/docker-agent/issues/134[this issue]).
+
+We are also looking into providing multiarch manifests which would allow Windows images to be part of the `latest` tag.
+
+There is also an link:https://github.com/jenkinsci/docker/pull/924[open pull-request] to create a Windows based Docker image for a Jenkins controller. There hasn't been a lot of requests for this, but to make the offerings complete for Windows users, the pull request was created.
+
+For plans unrelated to Windows, please see the link:/blog/2020/05/06/docker-agent-image-renaming/[Docker images for agents: New names and What's next] blogpost.

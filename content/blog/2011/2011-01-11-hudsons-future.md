@@ -11,18 +11,18 @@
 - jenkinsci
 :author: abayer
 ---
-First, my apologies for the lack of updates on the [Hudson/Oracle situation](http://hudson-labs.org/content/whos-driving-thing) for
+First, my apologies for the lack of updates on the [Hudson/Oracle situation](https://hudson-labs.org/content/whos-driving-thing) for
 the last few weeks. While talks have been ongoing, the holidays have slowed
 things down, and we didn't want to send out information that would later turn
 out not to be true. We've been waiting for the talks to reach a resolution -
 and I believe they now have.
 
-Since the [java.net](http://www.java.net) migration problems, Oracle and representatives from the
+Since the [java.net](https://www.java.net) migration problems, Oracle and representatives from the
 Hudson community have been involved in talks on the future of the project in a
-number of areas. The Hudson representatives have been [myself](http://twitter.com/abayer), [Kohsuke
-Kawaguchi](http://twitter.com/kohsukekawa), and [Sacha Labourey](https://twitter.com/SachaLabourey)  (CEO of CloudBees and Kohsuke's boss), who was
+number of areas. The Hudson representatives have been [myself](https://twitter.com/abayer), [Kohsuke
+Kawaguchi](https://twitter.com/kohsukekawa), and [Sacha Labourey](https://twitter.com/SachaLabourey)  (CEO of CloudBees and Kohsuke's boss), who was
 brought in to help provide experience with discussions on a corporate/executive
-level which neither Kohsuke nor I have, with Alan Harder and [R. Tyler Croy](http://twitter.com/agentdero)
+level which neither Kohsuke nor I have, with Alan Harder and [R. Tyler Croy](https://twitter.com/agentdero)
 advising on the side.
 
 These talks have in many ways been fruitful - we came to working agreements
@@ -74,7 +74,7 @@ registered domains, Twitter users, etc for the new name, and have done our best
 to verify that there are no existing trademarks which would conflict with it.
 Kohsuke will be registering the trademark for Jenkins in his name, with the
 intent of transferring ownership of the trademark to the umbrella of the
-[Software Freedom Conservancy](http://www.sfconservancy.org/) once the Jenkins project has been admitted to it
+[Software Freedom Conservancy](https://www.sfconservancy.org/) once the Jenkins project has been admitted to it
 (which, I should add, is very much our plan, hopefully in their next round of
 new projects in a few months - we've already had preliminary contacts with
 SFC). We still invite Oracle to remain involved with the project, on equal

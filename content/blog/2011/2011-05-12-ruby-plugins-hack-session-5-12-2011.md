@@ -10,7 +10,7 @@
 - ruby
 :author: cowboyd
 ---
-[**Editor's Note:** *For the past few weeks Jenkins community member [Charles Lowell](http://twitter.com/cowboyd) has been working with [Kohsuke](http://twitter.com/kohsukekawa) on adding support for building plugins in Ruby. As part of this effort, [Charles](http://twitter.com/cowboyd) has been hosting weekly hack sessions via WebEx*]
+[**Editor's Note:** *For the past few weeks Jenkins community member [Charles Lowell](https://twitter.com/cowboyd) has been working with [Kohsuke](https://twitter.com/kohsukekawa) on adding support for building plugins in Ruby. As part of this effort, [Charles](https://twitter.com/cowboyd) has been hosting weekly hack sessions via WebEx*]
 
 As always, last night's Ruby Plugins hack session was a pleasure. Below is a quick notation of what items were discussed and/or accomplished followed by next steps to be taken my those in attendance.
 

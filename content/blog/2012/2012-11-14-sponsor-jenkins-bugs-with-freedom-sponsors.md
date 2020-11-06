@@ -10,10 +10,10 @@
 (This is a guest post by Tony França)
 
 <div style="float:right">
-<img src="http://jenkins-ci.org/sites/default/files/images/FS_vertical_logo_colored_512x347.png" width="128" height="87">
+<img src="https://jenkins-ci.org/sites/default/files/images/FS_vertical_logo_colored_512x347.png" width="128" height="87">
 </div>
 
-Hi all, my name is Tony, I'm the creator of ([FreedomSponsors](http://www.freedomsponsors.org/)) and today I want to talk how Jenkins has inspired me to build it.
+Hi all, my name is Tony, I'm the creator of ([FreedomSponsors](https://freedomsponsors.org/)) and today I want to talk how Jenkins has inspired me to build it.
 
 Before starting, I'd like to thank the Jenkins crew for letting me publish this guest post in their blog.
 On top of that, thank you for maintaining Jenkins as well - I'm a big fan and a heavy user. Jenkins potential to make peoples lives easier is really amazing.
@@ -26,7 +26,7 @@ Most people who like FreedomSponsors probably don't know that Jenkins is sort of
 
 This is how it happened.
 
-I was playing with the ([Jenkins OpenID plugin](https://wiki.jenkins-ci.org/display/JENKINS/OpenID+plugin)), and I was having some trouble with it.
+I was playing with the ([Jenkins OpenID plugin](https://wiki.jenkins.io/display/JENKINS/OpenID+plugin)), and I was having some trouble with it.
 After a little research, I found that there was a JIRA bug for it - ([JENKINS-9216: Make OpenID work with Google Apps accounts](https://issues.jenkins-ci.org/browse/JENKINS-9216)).
 
 "Bummer" - I thought - "Maybe I can try to debug it. Oh boy, but I don't know anything about Jenkins code. That would be too... expensive! I bet there are a few people out there that would be willing to even pay a few bucks to the Jenkins crew to prioritize this."
@@ -39,7 +39,7 @@ It was like a conversation with myself in my mind.
 - "But what about other projects, ones that don't use JIRA?"
 - "Maybe there could be a central place for all those offers. If many people 'sponsor' the same issue, the developer who solve it might get a decent piece of gold - rightfully deserved. That could even free up more of their time to work on the projects they love :-)"
 - "The sponsors would pay the developers out of gratitude, and for the sake of keeping their word."
-- "This has the [Agile](http://agilemanifesto.org/) spirit in it: Customer collaboration over contract negotiation"
+- "This has the [Agile](https://agilemanifesto.org/) spirit in it: Customer collaboration over contract negotiation"
 
 And I kept thinking, and it didn't took very long until I had the whole "sponsoring model" in my head.
 I realised that that was one of the best ideas I had in my life. I was very excited and I had to act on it.
@@ -93,10 +93,10 @@ You see, FS's code was still closed when I launched it. I was worried about comp
 But his arguments were very convincing. Specially when he talked about sending the right message to the Free Software community. I thought about it for while and came to the conclusion that he has absolutely right. It still took me a few weeks until I moved [the code to Github](https://github.com/freedomsponsors/www.freedomsponsors.org). I'm glad I did it. The feedback loop has been great.
 
 And that was not his only contribution. He also gave us this very useful piece of feeback:
-([JIRA plugin to link from tickets to FreedomSponsors](http://www.freedomsponsors.org/core/issue/12/jira-plugin-to-link-from-tickets-to-freedomsponsors))
+([JIRA plugin to link from tickets to FreedomSponsors](https://freedomsponsors.org/core/issue/12/jira-plugin-to-link-from-tickets-to-freedomsponsors))
 
 Indeed, that was a great idea. My friend and associate Arthur is the one who built it.
-Kohsuke suggested that I joined the Jenkins crew at the ([Jenkins Governance meeting](https://wiki.jenkins-ci.org/display/JENKINS/Governance+Meeting+Agenda)) to see if everyone would agree about installing it on Jenkins JIRA. Everyone liked the idea and had no ojections.
+Kohsuke suggested that I joined the Jenkins crew at the ([Jenkins Governance meeting](https://wiki.jenkins.io/display/JENKINS/Governance+Meeting+Agenda)) to see if everyone would agree about installing it on Jenkins JIRA. Everyone liked the idea and had no ojections.
 
 I can't say enough how trilled and honored I felt knowing that Jenkins would be the first project to install our plugin. Thank you folks. Thanks Kohsuke. You guys are awesome :-)
 
@@ -107,7 +107,7 @@ We still have a lot of challenges ahead of us. The biggest and closest one in th
 So, everything I wrote so far is, hopefully, only the begginning of this story. And I'm really excited and looking forward to see it unfold. Being a part of it is even more exciting.
 
 What about you? If you want to be updated about, or even help write the next chapters, then
-[join](http://www.freedomsponsors.org/core/login/), [follow](http://twitter.com/freedomsponsors), [like](http://www.facebook.com/freedomsponsors), [read](http://blog.freedomsponsors.org/), [spread the word](https://twitter.com/intent/tweet?hashtags=freedomsponsors&original_referer=http%3A%2F%2Fblog.freedomsponsors.org%2F&source=tweetbutton&text=Check%20this%20out!%20FreedomSponsors%20-%20Crowdfunding%20Open%20Source%2C%20one%20issue%20at%20a%20time&url=http%3A%2F%2Fwww.freedomsponsors.org&via=freedomsponsors), give [feedback](http://www.freedomsponsors.org/core/feedback) and [contribute](https://github.com/freedomsponsors/www.freedomsponsors.org) with code or new issues.
+[join](https://freedomsponsors.org/core/login/), [follow](https://twitter.com/freedomsponsors), [like](https://www.facebook.com/freedomsponsors), [read](https://web.archive.org/web/20130310041955/https://blog.freedomsponsors.org/), [spread the word](https://twitter.com/intent/tweet?hashtags=freedomsponsors&original_referer=http%3A%2F%2Fblog.freedomsponsors.org%2F&source=tweetbutton&text=Check%20this%20out!%20FreedomSponsors%20-%20Crowdfunding%20Open%20Source%2C%20one%20issue%20at%20a%20time&url=http%3A%2F%2Fwww.freedomsponsors.org&via=freedomsponsors), give [feedback](https://freedomsponsors.org/core/feedback) and [contribute](https://github.com/freedomsponsors/www.freedomsponsors.org) with code or new issues.
 
 Thank you Jenkins crew, thank you Kohsuke.
 We wouldn't have made it here without you.

@@ -1,0 +1,490 @@
+---
+layout: post
+title: "Matrix building in scripted pipeline"
+tags:
+- matrix
+- pipeline
+- plugins
+- scripted
+opengraph:
+  image: /images/logos/plumber/plumber.png
+author: sgleske
+---
+
+:toc:
+
+With the recent announcement about matrix building you can perform
+link:https://jenkins.io/blog/2019/11/22/welcome-to-the-matrix/[Matrix builds
+with declarative pipeline].  However, if you must use scripted pipeline, then
+I'm going to cover how to matrix build platforms and tools using scripted
+pipeline.  The examples in this post are modeled after the declarative pipeline
+matrix examples.
+
+== Matrix building with scripted pipeline
+
+The following Jenkins scripted pipeline will build combinations across two
+matrix axes.  However, adding more axes to the matrix is just as easy as adding
+another entry to the `Map matrix_axes`.
+
+.Jenkinsfile
+[source, groovy]
+----
+// you can add more axes and this will still work
+Map matrix_axes = [
+    PLATFORM: ['linux', 'windows', 'mac'],
+    BROWSER: ['firefox', 'chrome', 'safari', 'edge']
+]
+
+@NonCPS
+List getMatrixAxes(Map matrix_axes) {
+    List axes = []
+    matrix_axes.each { axis, values ->
+        List axisList = []
+        values.each { value ->
+            axisList << [(axis): value]
+        }
+        axes << axisList
+    }
+    // calculate cartesian product
+    axes.combinations()*.sum()
+}
+
+// filter the matrix axes since
+// Safari is not available on Linux and
+// Edge is only available on Windows
+List axes = getMatrixAxes(matrix_axes).findAll { axis ->
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+    !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+
+// parallel task map
+Map tasks = [failFast: false]
+
+for(int i = 0; i < axes.size(); i++) {
+    // convert the Axis into valid values for withEnv step
+    Map axis = axes[i]
+    List axisEnv = axis.collect { k, v ->
+        "${k}=${v}"
+    }
+    // let's say you have diverse agents among Windows, Mac and Linux all of
+    // which have proper labels for their platform and what browsers are
+    // available on those agents.
+    String nodeLabel = "os:${axis['PLATFORM']} && browser:${axis['BROWSER']}"
+    tasks[axisEnv.join(', ')] = { ->
+        node(nodeLabel) {
+            withEnv(axisEnv) {
+                stage("Build") {
+                    echo nodeLabel
+                    sh 'echo Do Build for ${PLATFORM} - ${BROWSER}'
+                }
+                stage("Test") {
+                    echo nodeLabel
+                    sh 'echo Do Build for ${PLATFORM} - ${BROWSER}'
+                }
+            }
+        }
+    }
+}
+
+stage("Matrix builds") {
+    parallel(tasks)
+}
+----
+
+Matrix axes contain the following combinations:
+
+[source, text]
+----
+[PLATFORM=linux, BROWSER=firefox]
+[PLATFORM=windows, BROWSER=firefox]
+[PLATFORM=mac, BROWSER=firefox]
+[PLATFORM=linux, BROWSER=chrome]
+[PLATFORM=windows, BROWSER=chrome]
+[PLATFORM=mac, BROWSER=chrome]
+[PLATFORM=windows, BROWSER=safari]
+[PLATFORM=mac, BROWSER=safari]
+[PLATFORM=windows, BROWSER=edge]
+----
+
+[IMPORTANT]
+--
+It is worth noting that Jenkins agent labels can contain a colon (`:`).  So
+`os:linux` and `browser:firefox` are both valid agent labels.  The node
+expression `os:linux && browser:firefox` will search for Jenkins agents which
+have **both labels**.
+--
+
+== Screenshot of matrix pipeline
+
+The following is a screenshot of the pipeline code above running in a sandbox
+Jenkins environment.
+
+image:matrix-scripted-pipeline-screenshots/pipeline-screenshot.png[Screenshot of matrix pipeline]
+
+== Adding static choices
+
+It is useful for users to be able to customize building matrices when a build
+is triggered.  Adding static choices requires only a few changes to the above
+script.  Static choices as in we hard code the question and matrix filters.
+
+.Jenkinsfile
+[source, groovy]
+----
+Map response = [:]
+stage("Choose combinations") {
+    response = input(
+        id: 'Platform',
+        message: 'Customize your matrix build.',
+        parameters: [
+            choice(
+                choices: ['all', 'linux', 'mac', 'windows'],
+                description: 'Choose a single platform or all platforms to run tests.',
+                name: 'PLATFORM'),
+            choice(
+                choices: ['all', 'chrome', 'edge', 'firefox', 'safari'],
+                description: 'Choose a single browser or all browsers to run tests.',
+                name: 'BROWSER')
+        ])
+}
+
+// filter the matrix axes since
+// Safari is not available on Linux and
+// Edge is only available on Windows
+List axes = getMatrixAxes(matrix_axes).findAll { axis ->
+    (response['PLATFORM'] == 'all' || response['PLATFORM'] == axis['PLATFORM']) &&
+    (response['BROWSER'] == 'all' || response['BROWSER'] == axis['BROWSER']) &&
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+    !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+----
+
+The pipeline code then renders the following choice dialog.
+
+image:matrix-scripted-pipeline-screenshots/static-choice-dialog.png[Screenshot of a dialog asking a question to customize matrix build]
+
+When a user chooses the customized options, the pipeline reacts to the
+requested options.
+
+image:matrix-scripted-pipeline-screenshots/customized-pipeline-screenshot.png[Screenshot of pipeline running requested user customizations]
+
+== Adding dynamic choices
+
+Dynamic choices means the choice dialog for users to customize the build is
+generated from the `Map matrix_axes` rather than being something a pipeline
+developer hard codes.
+
+For user experience (UX), you'll want your choices to automatically reflect the
+matrix axis options you have available.  For example, let's say you want to add
+a new dimension for Java to the matrix.
+
+[source, groovy]
+----
+// you can add more axes and this will still work
+Map matrix_axes = [
+    PLATFORM: ['linux', 'windows', 'mac'],
+    JAVA: ['openjdk8', 'openjdk10', 'openjdk11'],
+    BROWSER: ['firefox', 'chrome', 'safari', 'edge']
+]
+----
+
+To support dynamic choices, your choice and matrix axis filter needs to be
+updated to the following.
+
+[source, groovy]
+----
+Map response = [:]
+stage("Choose combinations") {
+    response = input(
+        id: 'Platform',
+        message: 'Customize your matrix build.',
+        parameters: matrix_axes.collect { key, options ->
+            choice(
+                choices: ['all'] + options.sort(),
+                description: "Choose a single ${key.toLowerCase()} or all to run tests.",
+                name: key)
+        })
+}
+
+// filter the matrix axes since
+// Safari is not available on Linux and
+// Edge is only available on Windows
+List axes = getMatrixAxes(matrix_axes).findAll { axis ->
+    response.every { key, choice ->
+        choice == 'all' || choice == axis[key]
+    } &&
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+    !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+----
+
+It will dynamically generate choices based on available matrix axes and will
+automatically filter if users customize it.  Here's an example dialog and
+rendered choice when the pipeline executes.
+
+image:matrix-scripted-pipeline-screenshots/dynamic-choice-dialog.png[Screenshot of dynamically generated dialog for user to customize choices of matrix build]
+
+image:matrix-scripted-pipeline-screenshots/dynamic-customized-pipeline-screenshot.png[Screenshot of pipeline running user choices in a matrix]
+
+== Full pipeline example with dynamic choices
+
+The following script is the full pipeline example which contains dynamic
+choices.
+
+[source, groovy]
+----
+// you can add more axes and this will still work
+Map matrix_axes = [
+    PLATFORM: ['linux', 'windows', 'mac'],
+    JAVA: ['openjdk8', 'openjdk10', 'openjdk11'],
+    BROWSER: ['firefox', 'chrome', 'safari', 'edge']
+]
+
+@NonCPS
+List getMatrixAxes(Map matrix_axes) {
+    List axes = []
+    matrix_axes.each { axis, values ->
+        List axisList = []
+        values.each { value ->
+            axisList << [(axis): value]
+        }
+        axes << axisList
+    }
+    // calculate cartesian product
+    axes.combinations()*.sum()
+}
+
+Map response = [:]
+stage("Choose combinations") {
+    response = input(
+        id: 'Platform',
+        message: 'Customize your matrix build.',
+        parameters: matrix_axes.collect { key, options ->
+            choice(
+                choices: ['all'] + options.sort(),
+                description: "Choose a single ${key.toLowerCase()} or all to run tests.",
+                name: key)
+        })
+}
+
+// filter the matrix axes since
+// Safari is not available on Linux and
+// Edge is only available on Windows
+List axes = getMatrixAxes(matrix_axes).findAll { axis ->
+    response.every { key, choice ->
+        choice == 'all' || choice == axis[key]
+    } &&
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+    !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+
+// parallel task map
+Map tasks = [failFast: false]
+
+for(int i = 0; i < axes.size(); i++) {
+    // convert the Axis into valid values for withEnv step
+    Map axis = axes[i]
+    List axisEnv = axis.collect { k, v ->
+        "${k}=${v}"
+    }
+    // let's say you have diverse agents among Windows, Mac and Linux all of
+    // which have proper labels for their platform and what browsers are
+    // available on those agents.
+    String nodeLabel = "os:${axis['PLATFORM']} && browser:${axis['BROWSER']}"
+    tasks[axisEnv.join(', ')] = { ->
+        node(nodeLabel) {
+            withEnv(axisEnv) {
+                stage("Build") {
+                    echo nodeLabel
+                    sh 'echo Do Build for ${PLATFORM} - ${BROWSER}'
+                }
+                stage("Test") {
+                    echo nodeLabel
+                    sh 'echo Do Build for ${PLATFORM} - ${BROWSER}'
+                }
+            }
+        }
+    }
+}
+
+stage("Matrix builds") {
+    parallel(tasks)
+}
+----
+
+== Background: How does it work?
+
+The trick is in `axes.combinations()*.sum()`.  Groovy combinations are a quick
+and easy way to perform a
+link:https://en.wikipedia.org/wiki/Cartesian_product[cartesian product].
+
+Here's a simpler example of how cartesian product works.  Take two simple lists
+and create combinations.
+
+[source, groovy]
+----
+List a = ['a', 'b', 'c']
+List b = [1, 2, 3]
+
+[a, b].combinations()
+----
+
+The result of `[a, b].combinations()` is the following.
+
+[source]
+----
+[
+    ['a', 1],
+    ['b', 1],
+    ['c', 1],
+    ['a', 2],
+    ['b', 2],
+    ['c', 2],
+    ['a', 3],
+    ['b', 3],
+    ['c', 3]
+]
+----
+
+Instead of `a, b, c` and `1, 2, 3` let's do the same example again but instead using matrix maps.
+
+[source, groovy]
+----
+List java = [[java: 8], [java: 10]]
+List os = [[os: 'linux'], [os: 'freebsd']]
+
+[java, os].combinations()
+----
+
+The result of `[java, os].combinations()` is the following.
+
+[source]
+----
+[
+    [ [java:8],  [os:linux]   ],
+    [ [java:10], [os:linux]   ],
+    [ [java:8],  [os:freebsd] ],
+    [ [java:10], [os:freebsd] ]
+]
+----
+
+In order for us to easily use this as a single map we must add the maps
+together to create a single map.  For example, adding
+`[java: 8] + [os: 'linux']` will render a single hashmap
+`[java: 8, os: 'linux']`.  This means we need our list of lists of maps to
+become a simple list of maps so that we can use them effectively in pipelines.
+
+To accomplish this we make use of the
+link:https://www.groovy-lang.org/operators.html#_spread_operator[Groovy spread
+operator] (`\*.` in `axes.combinations()*.sum()`).
+
+Let's see the same `java`/`os` example again but with the spread operator being
+used.
+
+[source, groovy]
+----
+List java = [[java: 8], [java: 10]]
+List os = [[os: 'linux'], [os: 'freebsd']]
+
+[java, os].combinations()*.sum()
+----
+
+The result is the following.
+
+[source]
+----
+[
+    [ java: 8,  os: 'linux'],
+    [ java: 10, os: 'linux'],
+    [ java: 8,  os: 'freebsd'],
+    [ java: 10, os: 'freebsd']
+]
+----
+
+With the spread operator the end result of a list of maps which we can
+effectively use as matrix axes.  It also allows us to do neat matrix filtering
+with the link:http://docs.groovy-lang.org/latest/html/groovy-jdk/java/util/List.html#findAll(groovy.lang.Closure)[`findAll {}` Groovy `List` method].
+
+== Exposing a shared library pipeline step
+
+The best user experience is to expose the above code as a shared library
+pipeline step.  As an example, I have added
+link:https://github.com/samrocketman/jervis/blob/8d6935e08437c1d9b9b3de1d8711cad6622fc631/vars/getMatrixAxes.groovy[`vars/getMatrixAxes.groovy`
+to Jervis].  This provides a flexible shared library step which you can copy
+into your own shared pipeline libraries.
+
+The step becomes easy to use in the following way with a simple one dimension matrix.
+
+.Jenkinsfile
+[source, groovy]
+----
+Map matrix_axes = [
+    PLATFORM: ['linux', 'windows', 'mac'],
+]
+
+List axes = getMatrixAxes(matrix_axes)
+
+// alternately with a user prompt
+//List axes = getMatrixAxes(matrix_axes, user_prompt: true)
+----
+
+Here's a more complex example using a two dimensional matrix with filtering.
+
+.Jenkinsfile
+[source, groovy]
+----
+Map matrix_axes = [
+    PLATFORM: ['linux', 'windows', 'mac'],
+    BROWSER: ['firefox', 'chrome', 'safari', 'edge']
+]
+
+List axes = getMatrixAxes(matrix_axes) { Map axis ->
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+    !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+----
+
+And again with a three dimensional matrix with filtering and prompting for user
+input.
+
+.Jenkinsfile
+[source, groovy]
+----
+Map matrix_axes = [
+    PLATFORM: ['linux', 'windows', 'mac'],
+    JAVA: ['openjdk8', 'openjdk10', 'openjdk11'],
+    BROWSER: ['firefox', 'chrome', 'safari', 'edge']
+]
+
+List axes = getMatrixAxes(matrix_axes, user_prompt: true) { Map axis ->
+    !(axis['BROWSER'] == 'safari' && axis['PLATFORM'] == 'linux') &&
+    !(axis['BROWSER'] == 'edge' && axis['PLATFORM'] != 'windows')
+}
+----
+
+The script approval is not necessary for
+link:https://jenkins.io/doc/book/pipeline/shared-libraries/[Shared Libraries].
+
+If you don't want to provide a shared step.  In order to expose matrix building
+to end-users, you must allow the following method approval in the script
+approval configuration.
+
+.Script approval
+[source, groovy]
+----
+staticMethod org.codehaus.groovy.runtime.DefaultGroovyMethods combinations java.util.Collection
+----
+
+== Summary
+
+We covered how to perform matrix builds using scripted pipeline as well as how
+to prompt users for customizing the matrix build.  Additionally, an example was
+provided where we exposed getting buildable matrix axes to users as an easy to
+use link:https://jenkins.io/doc/book/pipeline/shared-libraries/[Shared Library]
+step via `vars/getMatrixAxes.groovy`.  Using a shared library step is
+definitely the recommended way for admins to support users rather than trying
+to whitelist groovy methods.
+
+link:https://github.com/samrocketman/jervis[Jervis shared pipeline library] has supported matrix building since 2017 in Jenkins scripted pipelines.
+(link:https://github.com/samrocketman/jervis/blob/db79f4d52b3aa23f1b19b59262156388b8193711/src/main/groovy/net/gleske/jervis/lang/pipelineGenerator.groovy#L275[see here] and
+link:https://github.com/samrocketman/jervis/blob/f09c709326175ff2e701677250cac007170cbd3a/vars/matrixBuildProjectStage.groovy#L25[here]
+for an example).

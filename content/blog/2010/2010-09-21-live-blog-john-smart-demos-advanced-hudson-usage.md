@@ -8,9 +8,9 @@
 - javaone
 :author: rtyler
 ---
-**Editor's Note:** *This is a **very** rough set of notes from [John Ferguson Smart's](http://twitter.com/wakeleo) presentation at JavaOne 2010. Unlike [Kohsuke's presentation](http://www.hudson-labs.org/content/live-blog-kohsukes-presentation-javaone), John spent a lot of time in demos which made live-blogging a bit difficult.*
+**Editor's Note:** *This is a **very** rough set of notes from [John Ferguson Smart's](https://twitter.com/wakeleo) presentation at JavaOne 2010. Unlike [Kohsuke's presentation](https://jenkins.io/content/live-blog-kohsukes-presentation-javaone), John spent a lot of time in demos which made live-blogging a bit difficult.*
 
-<center><a href="http://www.flickr.com/photos/hudsonlabs/5012383102/" title="John Smart (@wakeleo) talking about advanced Hudson use by hudson.labs, on Flickr"><img src="http://farm5.static.flickr.com/4129/5012383102_cf258075a6.jpg" width="500" height="375" alt="John Smart (@wakeleo) talking about advanced Hudson use" /></a></center>
+<center><a href="https://www.flickr.com/photos/hudsonlabs/5012383102/" title="John Smart (@wakeleo) talking about advanced Hudson use by hudson.labs, on Flickr"><img src="https://farm5.static.flickr.com/4129/5012383102_cf258075a6.jpg" width="500" height="375" alt="John Smart (@wakeleo) talking about advanced Hudson use" /></a></center>
 
 John takes the stage at 9:30, this presentation is *totally* different from yesterday's presentation from Kohsuke
 

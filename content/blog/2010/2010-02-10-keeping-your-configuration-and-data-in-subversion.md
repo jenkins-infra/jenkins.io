@@ -11,7 +11,7 @@
 - tutorial
 :author: rtyler
 ---
-We all know that keeping important files in version control is critical, as it ensures problematic changes can be reverted and can serve as a backup mechanism as well. Code and resources are often kept in version control, but it can be easy to forget your continuous integration (CI) server itself! If a disk were to die or fall victim to a [misplaced](http://twitter.com/progrium/status/7646048501) `rm -rf`, you could lose all the history and configuration associated with the jobs your CI server manages.
+We all know that keeping important files in version control is critical, as it ensures problematic changes can be reverted and can serve as a backup mechanism as well. Code and resources are often kept in version control, but it can be easy to forget your continuous integration (CI) server itself! If a disk were to die or fall victim to a [misplaced](https://twitter.com/progrium/status/7646048501) `rm -rf`, you could lose all the history and configuration associated with the jobs your CI server manages.
 
 It’s pretty simple to create a repository, but it isn’t obvious which parts of your $HUDSON_HOME you’ll want to backup. You’ll also want to have some automation so new projects get added to the repository, and deleted ones get removed. Luckily we have a great tool to handle this: Hudson!
 
@@ -22,7 +22,7 @@ We have a Hudson job which runs nightly, performs the appropriate SVN commands, 
 1.  Check it in! `svn ci --non-interactive --username=mrhudson -m "automated commit of Hudson configuration"`
 You’ll want to make sure to use the `--non-interactive` option for any automated svn operations, as this ensures Subversion won’t hang asking a question but instead fail immediately. You may also need to provide your password with the `--password` option.
 
-To make such a Hudson job, create a new job, tie it to the master (since this is where the configuration files are), set it to build periodically (we use “@midnight”), and add an “Execute shell” build step. Here’s the full script we use, to put into the build step:
+To make such a Hudson job, create a new job, tie it to the controller (since this is where the configuration files are), set it to build periodically (we use “@midnight”), and add an “Execute shell” build step. Here’s the full script we use, to put into the build step:
 
 <code type="bash">
 # Change into your HUDSON_HOME.
@@ -46,5 +46,5 @@ You’ll notice this does some extra things like set the svn:ignores property to
 Now you can sleep well at night knowing that your CI server is safe and sound. If you are doing a similar thing with Hudson or another CI system, let us know about your solution!
 
 ----
-**Editor's Note:** <a id="aptureLink_S8IC1qB8oH" href="http://twitter.com/MikeRooney">Mike Rooney</a> is a Software Engineer at <a id="aptureLink_tuyi7spa9e" href="http://twitter.com/Genius_com">Genius.com</a>, provider of real-time marketing automation software connecting marketing and sales. You can read more posts from Mike and other Geniuses at [eng.genius.com](http://eng.genius.com)
+**Editor's Note:** <a id="aptureLink_S8IC1qB8oH" href="https://twitter.com/MikeRooney">Mike Rooney</a> is a Software Engineer at <a id="aptureLink_tuyi7spa9e" href="https://twitter.com/Genius_com">Genius.com</a>, provider of real-time marketing automation software connecting marketing and sales. You can read more posts from Mike and other Geniuses at [eng.genius.com](https://eng.genius.com)
 

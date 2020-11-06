@@ -9,13 +9,13 @@
 - jenkinsci
 :author: rtyler
 ---
-<img src="http://agentdero.cachefly.net/continuousblog/images/japanese-traffic-light.png" align="right" alt="A japanese traffic light"/> It is interesting having an open source project that is sufficiently old to start generating "lore" of some form or another. Jenkins is starting to get to be that age, having been started over 6 years ago.
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/images/japanese-traffic-light.png" align="right" alt="A japanese traffic light"/> It is interesting having an open source project that is sufficiently old to start generating "lore" of some form or another. Jenkins is starting to get to be that age, having been started over 6 years ago.
 
-One of the most commonly asked questions, is about Jenkins' use of "blue balls" to indicate success by default. This is enough of an "issue" for some users that the [Green Balls](https://wiki.jenkins-ci.org/display/JENKINS/Green+Balls) plugin is in the [list of top 10 installed plugins](http://imod.github.com/jenkins-stats/svg/201201-top-plugins1000.svg).
+One of the most commonly asked questions, is about Jenkins' use of "blue balls" to indicate success by default. This is enough of an "issue" for some users that the [Green Balls](https://wiki.jenkins.io/display/JENKINS/Green+Balls) plugin is in the [list of top 10 installed plugins](https://imod.github.com/jenkins-stats/svg/201201-top-plugins1000.svg).
 
 The reason behind our use of blue to indicate success has its basis in [Kohsuke's](https://github.com/kohsuke) Japanese upbringing. The cultural differences were enumerated in a bug report comically titled "s/blue/green/g" ([JENKINS-369](https://issues.jenkins-ci.org/browse/JENKINS-369)):
 
-This response Kohsuke cited was taken [from this Q&A thread](http://groups.yahoo.com/group/ParthenonWeekly/message/232)
+This response Kohsuke cited was taken [from this Q&A thread](https://groups.yahoo.com/group/ParthenonWeekly/message/232)
 
 > **Q.** "*Why do Japanese people say that they have blue traffic lights when they are really green?*" --Question submitted by John Sypal
 >
@@ -46,4 +46,4 @@ Unfortunately it's not for color blind users, although that's a pretty convincin
 
 ---- 
 
-Image courtesy of [this site](http://portal.nifty.com/cs/catalog/portal_koneta/detail/1.htm?aid=090509099530)
+Image courtesy of [this site](https://portal.nifty.com/cs/catalog/portal_koneta/detail/1.htm?aid=090509099530)

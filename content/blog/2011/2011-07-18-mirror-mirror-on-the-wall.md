@@ -9,7 +9,7 @@
 :author: rtyler
 ---
 Let me preface this entire post with this: **I love
-[Contegix](http://contegix.com)**.
+[Contegix](https://contegix.com)**.
 
 ----
 
@@ -17,10 +17,10 @@ While working on some infrastructure tasks I had long-since put-off for the
 Jenkins project, I noticed something this weekend that scared the hell out of
 me.
 
-At some undetermined time, our [MirrorBrain](http://www.mirrorbrain.org)
+At some undetermined time, our [MirrorBrain](http://mirrorbrain.org)
 installation *stopped* redirecting to our mirror network. Absolutely **zero**
 downloads were being redirected, meaning that `cucumber`, the 1U machine
-graciously colocated by [Contegix](http://www.contegix.com) had served up
+graciously colocated by [Contegix](https://www.contegix.com) had served up
 ***far*** more bits than I ever wanted it to.
 
 As such, I would like to publicly apologize to Contegix on behalf of the

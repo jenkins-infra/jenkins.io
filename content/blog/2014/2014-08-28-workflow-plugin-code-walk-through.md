@@ -17,4 +17,4 @@ Jesse and I will walk through the source code of [the workflow plugin](https://g
 
 If you are interested in developing or retrofitting plugins to work with workflows, I think you'll find this session interesting.
 
-The event will be on [Google Hangout](https://plus.google.com/events/cojjhg4kkpffkbpakj723fdht9k) tomorrow. The time of the day is the same as usual [office hours](http://www.timeanddate.com/worldclock/fixedtime.html?msg=Workflow+walk-through&iso=20140829T11&p1=224&ah=1&sort=1).
+The event will be on [Google Hangout](https://plus.google.com/events/cojjhg4kkpffkbpakj723fdht9k) tomorrow. The time of the day is the same as usual [office hours](https://www.timeanddate.com/worldclock/fixedtime.html?msg=Workflow+walk-through&iso=20140829T11&p1=224&ah=1&sort=1).
