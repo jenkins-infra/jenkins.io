@@ -307,51 +307,6 @@ The following sections provide details about handling:
   your application or Pipeline project.
 
 
-=== String interpolation
-
-Jenkins Pipeline uses rules identical to link:http://groovy-lang.org[Groovy] for
-string interpolation. Groovy's String interpolation support can be confusing to
-many newcomers to the language. While Groovy supports declaring a string with
-either single quotes, or double quotes, for example:
-
-[source,groovy]
-----
-def singlyQuoted = 'Hello'
-def doublyQuoted = "World"
-----
-
-Only the latter string will support the dollar-sign (`$`) based string
-interpolation, for example:
-
-[source,groovy]
-----
-def username = 'Jenkins'
-echo 'Hello Mr. ${username}'
-echo "I said, Hello Mr. ${username}"
-----
-
-Would result in:
-
-[source]
-----
-Hello Mr. ${username}
-I said, Hello Mr. Jenkins
-----
-
-Understanding how to use string interpolation is vital for using some of
-Pipeline's more advanced features.
-
-==== [red]*WARNING: Interpolation of Sensitive Variables*
-Groovy string interpolation should [red]*never* be used with sensitive variables. This is
-because the sensitive variable will be interpolated at Groovy evaluation and the variable's
-value could possibly be made available earlier than intended, resulting in the sensitive data leaking.
-
-For example, consider a password variable passed to the shell step. Should Groovy perform the
-interpolation, the password value would become available not only in the shell step, but the
-Jenkins Controller as well. Additionally, if the password contained special characters
-(e.g. ' " / \ $ & % ^ > < | ;) it would also be possible to perform SQL-like injections into the
-shell step. Special characters can also prevent the password from being masked properly in the console logs.
-
 [[using-environment-variables]]
 === Using environment variables
 
@@ -897,6 +852,97 @@ within a single `withCredentials( ... ) { ... }` step by doing the following:
   the `withCredentials( ... ) { ... }` step.
 . Click *Generate Pipeline Script* to generate the final
   `withCredentials( ... ) { ... }` step snippet.
+
+
+=== String interpolation
+
+Jenkins Pipeline uses rules identical to link:http://groovy-lang.org[Groovy] for
+string interpolation. Groovy's String interpolation support can be confusing to
+many newcomers to the language. While Groovy supports declaring a string with
+either single quotes, or double quotes, for example:
+
+[source,groovy]
+----
+def singlyQuoted = 'Hello'
+def doublyQuoted = "World"
+----
+
+Only the latter string will support the dollar-sign (`$`) based string
+interpolation, for example:
+
+[source,groovy]
+----
+def username = 'Jenkins'
+echo 'Hello Mr. ${username}'
+echo "I said, Hello Mr. ${username}"
+----
+
+Would result in:
+
+[source]
+----
+Hello Mr. ${username}
+I said, Hello Mr. Jenkins
+----
+
+Understanding how to use string interpolation is vital for using some of
+Pipeline's more advanced features.
+
+[WARNING]
+.Interpolation of sensitive environment variables
+====
+
+Groovy string interpolation should [red]*never* be used with sensitive environment variables (i.e. credentials, see: <<Handling credentials>>).
+This is because the sensitive environment variable will be interpolated at Groovy evaluation, and the environment variable's value could be made available earlier than intended, resulting in the sensitive data leaking.
+
+For example, consider a sensitive environment variable passed to the shell step.
+Should Groovy perform the interpolation, the sensitive value would become available not only in the shell step, but the Jenkins Controller as well.
+```
+node {
+  withCredentials([usernamePassword(credentialsId: 'creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')] {
+    /* WRONG! */
+    sh "curl -u ${USERNAME}:${PASSWORD} https://example.com/"
+    /* CORRECT */
+    sh 'curl -u $USERNAME:$PASSWORD https://example.com/'
+  }
+}
+```
+
+====
+
+[WARNING]
+.Injection via interpolation
+====
+
+Another note of caution. With Groovy string interpolation, it is possible to perform SQL-like injections.
+This occurs when a variable (any type, not just environment variables) that contains special characters (e.g. `' " / \ $ & % ^ > < | ;`) is passed to the `sh`, `bat`, `powershell`, or `pwsh` steps.
+For a simple example:
+```
+node {
+  withCredentials([string(credentialsId: 'sec-ret-with-symbols', variable: 'SECRET_VALUE')]) {
+    // value of credential = sec>ret
+    sh "echo $SECRET_VALUE"
+  }
+}
+```
+In this example, the string `"echo ${SECRET_VALUE"` gets interpolated by Groovy, and the value `echo sec>ret` gets sent to the shell step.
+In the shell nomenclature, this does not echo the value `sec>ret`, but instead will create a file called `ret` that will contain the value `sec`.
+It is easy to see how a carefully constructed variable could perform any number of undesired shell commands.
+
+Another unintended consequence of these accidental injections is that it can slightly mangle credential values such that password masking fails in the console log.
+```
+node {
+  withCredentials([string(credentialsId: 'sec-ret-with-symbols', variable: 'SECRET_VALUE')]) {
+    // value of credential = sec%ret
+    bat "echo $SECRET_VALUE"
+  }
+}
+```
+Here, the `bat` step receives `echo sec%ret` and the Windows batch shell will simply drop the `%` and print out the value `secret`.
+Because there is a single character difference, the value `secret` will not be masked.
+Though the value is not exactly the same as the actual password, this is still a significat exposure of sensitive information.
+
+====
 
 
 === Handling parameters
