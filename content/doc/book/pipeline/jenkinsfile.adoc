@@ -899,7 +899,9 @@ This is because the sensitive environment variable will be interpolated during G
 
 For example, consider a sensitive environment variable passed to the `sh` step.
 
-```
+[pipeline]
+----
+// Declarative //
 pipeline {
     agent any
     environment {
@@ -914,11 +916,14 @@ pipeline {
         }
     }
 }
-```
+// Script //
+----
 Should Groovy perform the interpolation, the sensitive value will be injected directly into the arguments of the `sh` step, which among other issues, means that the literal value will be visible as an argument to the `sh` process on the agent in OS process listings.
 Using single-quotes instead of double-quotes when referencing these sensitive environment variables prevents this type of leaking.
 
-```
+[pipeline]
+----
+// Declarative //
 pipeline {
     agent any
     environment {
@@ -933,7 +938,8 @@ pipeline {
         }
     }
 }
-```
+// Script //
+----
 
 
 ==== Injection via interpolation
@@ -944,10 +950,12 @@ Groovy string interpolation can inject rogue commands into command interpreters 
 ======
 
 Another note of caution. Using Groovy string interpolation for user-controlled variables with steps that pass their arguments to command interpreters such as the `sh`, `bat`, `powershell`, or `pwsh` steps can result in problems analogous to SQL injection.
-This occurs when a user-controller variable (generally an environment variable, usually a parameter passed to the build) that contains special characters (e.g. `' " / \ $ & % ^ > < | ;`) is passed to the `sh`, `bat`, `powershell`, or `pwsh` steps using Groovy interpolation.
+This occurs when a user-controller variable (generally an environment variable, usually a parameter passed to the build) that contains special characters (e.g. `/ \ $ & % ^ > < | ;`) is passed to the `sh`, `bat`, `powershell`, or `pwsh` steps using Groovy interpolation.
 For a simple example:
 
-```
+[pipeline]
+----
+// Declarative //
 pipeline {
   agent any
   parameters {
@@ -962,14 +970,17 @@ pipeline {
     }
   }
 }
-```
+// Script //
+----
 
 In this example, the argument to the `sh` step is evaluated by Groovy, and `STATEMENT` is interpolated directly into the argument as if `sh('echo hello; ls /')` has been written in the Pipeline.
 When this is processed on the agent, rather than echoing the value `hello; ls /`, it will echo `hello` then proceed to list the entire root directory of the agent.
 Any user able to control a variable interpolated by such a step would be able to make the `sh` step run arbitrary code on the agent.
 To avoid this problem, make sure arguments to steps such as `sh` or `bat` that reference parameters or other user-controller environment variables use single quotes to avoid Groovy interpolation.
 
-```
+[pipeline]
+----
+// Declarative //
 pipeline {
   agent any
   parameters {
@@ -984,12 +995,15 @@ pipeline {
     }
   }
 }
-```
+// Script //
+----
 
 Credential mangling is another issue that can occur when credentials that contain special characters are passed to a step using Groovy interpolation.
 When the credential value is mangled, it is no longer valid and will no longer be masked in the console log.
 
-```
+[pipeline]
+----
+// Declarative //
 pipeline {
   agent any
   environment {
@@ -1004,14 +1018,17 @@ pipeline {
     }
   }
 }
-```
+// Script //
+----
 
 Here, the `bat` step receives `echo sec%ret` and the Windows batch shell will simply drop the `%` and print out the value `secret`.
 Because there is a single character difference, the value `secret` will not be masked.
 Though the value is not the same as the actual credential, this is still a significant exposure of sensitive information.
 Again, single-quotes avoids this issue.
 
-```
+[pipeline]
+----
+// Declarative //
 pipeline {
   agent any
   environment {
@@ -1026,7 +1043,8 @@ pipeline {
     }
   }
 }
-```
+// Script //
+----
 
 
 === Handling parameters
