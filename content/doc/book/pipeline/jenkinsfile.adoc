@@ -951,19 +951,21 @@ For a simple example:
 pipeline {
   agent any
   parameters {
-    password(name: 'EXAMPLE_SECRET', defaultValue: 'sec>ret', description: 'Enter a password')
+    string(name: 'STATEMENT', defaultValue: 'hello; ls /', description: 'What should I say?')
   }
   stages {
     stage('Example') {
       steps {
-        sh "echo $EXAMPLE_SECRET"
+        /* WRONG! */
+        sh("echo ${STATEMENT}")
       }
     }
   }
 }
 ```
-In this example, the argument to the `sh` step is evaluated by Groovy and `SECRET_VALUE` is interpolated directly into the argument as if `sh('echo sec>ret')` has been written in the Pipeline.
-When this is processed on the agent, rather than echoing the value `sec>ret`, it will create a file called `ret` containing the value `sec`.
+
+In this example, the argument to the `sh` step is evaluated by Groovy, and `STATEMENT` is interpolated directly into the argument as if `sh('echo hello; ls /')` has been written in the Pipeline.
+When this is processed on the agent, rather than echoing the value `hello; ls /`, it will echo `hello` then proceed to list the entire root directory of the agent.
 Any user able to control a variable interpolated by such a step would be able to make the `sh` step run arbitrary code on the agent.
 To avoid this problem, make sure arguments to steps such as `sh` or `bat` that reference parameters or other user-controller environment variables use single quotes to avoid Groovy interpolation.
 
@@ -971,50 +973,55 @@ To avoid this problem, make sure arguments to steps such as `sh` or `bat` that r
 pipeline {
   agent any
   parameters {
-    password(name: 'EXAMPLE_SECRET', defaultValue: 'sec>ret', description: 'Enter a password')
+    string(name: 'STATEMENT', defaultValue: 'hello; ls /', description: 'What should I say?')
   }
   stages {
     stage('Example') {
       steps {
-        sh 'echo $EXAMPLE_SECRET'
+        /* CORRECT */
+        sh('echo ${STATEMENT}')
       }
     }
   }
 }
 ```
+
 Credential mangling is another issue that can occur when credentials that contain special characters are passed to a step using Groovy interpolation.
 When the credential value is mangled, it is no longer valid and will no longer be masked in the console log.
 
 ```
 pipeline {
   agent any
-  parameters {
-    string(name: 'URL', defaultValue: 'sec%retWithUrl', description: 'Enter a URL')
-  }
   stages {
     stage('Example') {
       steps {
-        bat "echo %URL%"
+        withCredentials([string(credentialsId: 'secret-with-symbols', variable: 'SECRET_VALUE')]) {
+          // value of credential = sec%ret
+          /* WRONG! */
+          bat "echo %SECRET_VALUE%"
+        }
       }
     }
   }
 }
 ```
-Here, the `bat` step receives `echo sec%retWithUrl` and the Windows batch shell will simply drop the `%` and print out the value `secretWithUrl`.
-Because there is a single character difference, the value `secretWithUrl` will not be masked.
-Though it is not the same as the actual sensitive value, this is still a significant exposure of sensitive information.
+
+Here, the `bat` step receives `echo sec%ret` and the Windows batch shell will simply drop the `%` and print out the value `secret`.
+Because there is a single character difference, the value `secret` will not be masked.
+Though the value is not the same as the actual credential, this is still a significant exposure of sensitive information.
 Again, single-quotes avoids this issue.
 
 ```
 pipeline {
   agent any
-  parameters {
-    string(name: 'URL', defaultValue: 'sec%retWithUrl', description: 'Enter a URL')
-  }
   stages {
     stage('Example') {
       steps {
-        bat 'echo %URL%'
+        withCredentials([string(credentialsId: 'secret-with-symbols', variable: 'SECRET_VALUE')]) {
+          // value of credential = sec%ret
+          /* CORRECT */
+          bat 'echo %SECRET_VALUE'"
+        }
       }
     }
   }
