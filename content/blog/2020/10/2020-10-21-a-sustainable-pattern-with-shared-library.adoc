@@ -1,0 +1,260 @@
+---
+layout: post
+title: "A sustainable pattern with shared library"
+description: "How to manage an infinite amount of repositories with shared library."
+opengraph:
+  image: /images/full-pipeline.jpg
+tags:
+- pipeline
+- scalability
+- sharedlibrary
+- infrastructure
+author: tomasbjerre
+---
+
+:toc:
+
+This post will describe how I use a link:/doc/book/pipeline/shared-libraries/[shared library] in Jenkins. Typically when using multibranch pipeline.
+
+If possible (if not forced to) I implement the pipelines without multibranch. I previously wrote about how I do that with my link:/blog/2019/12/14/generic-webhook-trigger-plugin/[Generic Webhook Trigger Plugin in a previous post]. But this will be my second choice, If I am not allowed to remove the `Jenkinsfile`:s from the repositories entirely.
+
+== Context ==
+
+Within an organization, you typically have a few different kinds of repositories. Each repository versioning one application. You may use different techniques for different kinds of applications. The link:https://github.com/jenkinsci[Jenkins organization on GitHub] is an example with 2300 repositories.
+
+== The Problems ==
+
+Large **Jenkinsfiles in every repository containing duplicated code**. It seems common that the `Jenkinsfile`:s in every repository contains much more than just the things that are unique for that repository. The link:/doc/book/pipeline/shared-libraries/[shared libraries] feature may not be used, or it is used but not with an optimal pattern.
+
+**Installation specific Jenkinsfile:s** that only work with one specific Jenkins installation. Sometimes I see multiple `Jenkinsfile`:s, one for each purpose or Jenkins installation. 
+
+**No documentation** and/or no natural place to write documentation.
+
+**Development is slow**. Adding new features to repositories is a time consuming task. I want to be able to push features to 1000+ repositories without having to update their `Jenkinsfile`:s.
+
+**No flexible way of doing feature toggling**. When maintaining a large number of repositories it is sometimes nice to introduce a feature to a subset of those repositories. If that works well, the feature is introduced to all repositories.
+
+== The Solution ==
+
+My solution is a pattern that is inspired by how the link:https://github.com/jenkinsci[Jenkins organization on GitHub] does it with its link:https://github.com/jenkins-infra/pipeline-library/blob/master/vars/buildPlugin.groovy[buildPlugin()]. But it is not exactly the same.
+
+=== Shared Library ===
+
+Here is how I organize my link:/doc/book/pipeline/shared-libraries/[shared libraries].
+
+==== Jenkinsfile ====
+
+I put this in the `Jenkinsfile`:s:
+
+```groovy
+buildRepo()
+```
+
+==== Default Configuration ====
+
+I provide a default configuration that any repository will get, if no other configuration is given in `buildRepo()`.
+
+I create a `vars/getConfig.groovy` with:
+
+```groovy
+def call(givenConfig = [:]) {
+  def defaultConfig = [
+    /**
+      * The Jenkins node, or label, that will be allocated for this build.
+      */
+    "jenkinsNode": "BUILD",
+    /**
+      * All config specific to NPM repo type.
+      */
+    "npm": [
+      /**
+        * Whether or not to run Cypress tests, if there are any.
+        */
+      "cypress": true
+    ],
+    "maven": [
+      /**
+        * Whether or not to run integration tests, if there are any.
+        */
+      "integTest": true
+    ]
+  ]
+  // https://e.printstacktrace.blog/how-to-merge-two-maps-in-groovy/
+  def effectiveConfig merge(defaultConfig, givenConfig)
+  println "Configuration is documented here: https://whereverYouHos/getConfig.groovy"
+  println "Default config: " + defaultConfig
+  println "Given config: " + givenConfig
+  println "Effective config: " + effectiveConfig
+  return effectiveConfig
+}
+```
+
+==== Build Plan ====
+
+I construct a build plan as early as possible. Taking decisions on what will be done in this build. So that the rest of the code becomes more streamlined.
+
+I try to rely as much as possible on conventions. I may provide configuration that lets users turn off features, but they are otherwise turned on if they are detected.
+
+I create a `vars/getBuildPlan.groovy` with:
+
+```groovy
+def call(effectiveConfig = [:]) {
+  def derivedBuildPlan = [
+    "repoType": "NOT DETECTED"
+    "npm": [],
+    "maven": []
+  ]
+
+  node {
+    deleteDir()
+    checkout([$class: 'GitSCM', 
+      branches: [[name: '*/branchName']],
+      extensions: [
+          [$class: 'SparseCheckoutPaths',
+            sparseCheckoutPaths:
+            [[$class:'SparseCheckoutPath', path:'package.json,pom.xml']]
+          ]
+      ],
+      userRemoteConfigs: [[credentialsId: 'someID',
+      url: 'git@link.git']]
+    ])
+
+    if (fileExists('package.json')) {
+      def packageJSON = readJSON file: 'package.json'
+      derivedBuildPlan.repoType = "NPM"
+      derivedBuildPlan.npm.cypress = effectiveConfig.npm.cypress && packageJSON.devDependencies.cypress
+      derivedBuildPlan.npm.eslint = packageJSON.devDependencies.eslint
+      derivedBuildPlan.npm.tslint = packageJSON.devDependencies.tslint
+    } else if (fileExists('pom.xml')) {
+      derivedBuildPlan.repoType = "MAVEN"
+      derivedBuildPlan.maven.integTest = effectiveConfig.maven.integTest && fileExists('src/integtest')
+    } else {
+      throw RuntimeException('Unable to detect repoType')
+    }
+
+    println "Build plan: " + derivedBuildPlan
+    deleteDir()
+  }
+  return derivedBuildPlan
+}
+```
+
+==== Public API ====
+
+This is the public API, this is what I want the users of this library to actually invoke.
+
+I implement a `buildRepo()` method that will use that default configuration. It can also be called with a subset of the default configuration to tweak it.
+
+I create a `vars/buildRepo.groovy` with:
+
+```groovy
+def call(givenConfig = [:]) {
+  def effectiveConfig = getConfig(givenConfig)
+  def buildPlan = getBuildPlan(effectiveConfig)
+  
+  if (effectiveConfig.repoType == 'MAVEN')
+    buildRepoMaven(buildPlan);
+  } else if (effectiveConfig.repoType == 'NPM')
+    buildRepoNpm(buildPlan);
+  }
+}
+```
+
+A user can get all the default behavior with:
+
+```groovy
+buildRepo()
+```
+
+A user can also choose not to run Cypress, even if it exists in the repository:
+
+```groovy
+buildRepo([
+  "npm": [
+    "cypress": false
+  ]
+])
+```
+
+==== Supporting Methods ====
+
+This is usually much more complex, but I put some code here just to have a complete implementation.
+
+I create a `vars/buildRepoNpm.groovy` with:
+
+```groovy
+def call(buildPlan = [:]) {
+  node(buildPlan.jenkinsNode) {
+    stage("Install") {
+      sh "npm install"
+    }
+    stage("Build") {
+      sh "npm run build"
+    }
+    if (buildPlan.npm.tslint) {
+      stage("TSlint") {
+        sh "npm run tslint"
+      }
+    }
+    if (buildPlan.npm.eslint) {
+      stage("ESlint") {
+        sh "npm run eslint"
+      }
+    }
+    if (buildPlan.npm.cypress) {
+      stage("Cypress") {
+        sh "npm run e2e:cypress"
+      }
+    }
+  }
+}
+```
+
+I create a `vars/buildRepoMaven.groovy` with:
+
+```groovy
+def call(buildPlan = [:]) {
+  node(buildPlan.jenkinsNode) {
+    if (buildPlan.maven.integTest) {
+      stage("Verify") {
+        sh "mvn verify"
+      }
+    } else {
+      stage("Package") {
+        sh "mvn package"
+      }
+    }
+  }
+}
+```
+
+=== Duplication ===
+
+The `Jenkinsfile`:s are kept extremely small. It is only when they, for some reason, diverge from the default config that they need to be changed.
+
+=== Documentation ===
+
+There is one single point where documentation is written, the `getConfig.groovy`-file. It can be referred to whenever someone asks for documentation.
+
+=== Scalability ===
+
+This is a highly scalable pattern. Both with regards to performance and maintainability in code.
+
+It scales in performance because the `Jenkinsfile`:s can be used by any Jenkins installation. So that you can scale by adding several completely separate Jenkins installations, not only nodes.
+
+It scales in code because it adds just a tiny `Jenkinsfile` to repositories. It relies on conventions instead, like the existence of attributes in `package.json` and location of integration tests in `src/integtest`.
+
+=== Installation Agnostic ===
+
+The `Jenkinsfile`:s does not point at any implementation of this API. It just invokes it and it is up to the Jenkins installation to implement it, with a link:/doc/book/pipeline/shared-libraries/[shared libraries].
+
+It can even be used by something that is not Jenkins. Perhaps you decide to do something in a Docker container, you can still parse the `Jenkinsfile` with Groovy or (with some magic) with any language.
+
+=== Feature Toggling ===
+
+The link:/doc/book/pipeline/shared-libraries/[shared library] can do feature toggling by:
+
+ * Letting some feature be enabled by default for every repository with name starting with `x`.
+ * Or, adding some default config saying `"feature-x-enabled": false`, while some repos change their `Jenkinsfile`:s to `buildRepo(["feature-x-enabled": true])`.
+
+Whenever the feature feels stable, it can be enabled for everyone by changing only the link:/doc/book/pipeline/shared-libraries/[shared library].
