@@ -24,7 +24,7 @@ For the past several years we've been attending [FOSDEM](https://fosdem.org), a 
  * Revised [Jenkins Flyer](https://wiki.jenkins.io/display/JENKINS/Jenkins+Flyer)
 
 
-The [FOSDEM 2016](https://wiki.jenkins.io/display/JENKINS/FOSDEM+2016) wiki page is where we will be recording plans and [tasks will be added to JIRA](https://issues.jenkins-ci.org/secure/RapidBoard.jspa?rapidView=11). If you cannot join us via the **[FOSDEM Office Hours Hangout](https://hangouts.google.com/call/m5tymcvzqdudu7r7cvvylqn4hya)**, we will also be watching the `#jenkins-community` channel on the [Freenode](https://freenode.net) network if you cannot participate directly.
+The [FOSDEM 2016](https://wiki.jenkins.io/display/JENKINS/FOSDEM+2016) wiki page is where we will be recording plans and [tasks will be added to JIRA](https://issues.jenkins.io/secure/RapidBoard.jspa?rapidView=11). If you cannot join us via the **[FOSDEM Office Hours Hangout](https://hangouts.google.com/call/m5tymcvzqdudu7r7cvvylqn4hya)**, we will also be watching the `#jenkins-community` channel on the [Freenode](https://freenode.net) network if you cannot participate directly.
 
 
 Please join us on [this Google Hangout](https://hangouts.google.com/call/m5tymcvzqdudu7r7cvvylqn4hya) at 11:00 a.m. PDT this Wednesday (Oct 21)
