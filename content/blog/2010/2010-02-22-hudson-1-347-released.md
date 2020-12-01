@@ -28,18 +28,18 @@ Now the breakdown for this release:
 <ul class=image>
   <li class=bug> 
     Fix javascript problem showing test failure detail for test name with a quote character.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-1544">issue 1544</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-1544">issue 1544</a>)
   <li class=bug> 
-    Hudson can incorrectly configure labels for the master when bleeding edge EC2 plugin is used.
+    Hudson can incorrectly configure labels for the controller when bleeding edge EC2 plugin is used.
   <li class=bug> 
     Fixed the regression wrt the whitespace trimming caused by 1.346.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5633">issue 5633</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5633">issue 5633</a>)
   <li class=bug> 
     Under some circumstances, Hudson can incorrectly delete the temporary directory itself.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5642">issue 5642</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5642">issue 5642</a>)
   <li class=bug> 
     Newlines in MAVEN_OPTS environment variable can cause problems in other contexts.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5651">issue 5651</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5651">issue 5651</a>)
 </ul>
 
 <br clear="all"/>
@@ -47,10 +47,10 @@ Now the breakdown for this release:
 <ul>
   <li class=rfe> 
     Improved the form validation mechanism to support multiple controls.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5610">issue 5610</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5610">issue 5610</a>)
   <li class=rfe> 
     Added message to agent log when it has successfully come online.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5630">issue 5630</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5630">issue 5630</a>)
 </ul>
 
 

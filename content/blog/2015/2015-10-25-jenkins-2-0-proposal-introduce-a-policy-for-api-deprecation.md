@@ -46,7 +46,7 @@ Daniel, expanding more on the problem wrote:
 > documentation difficult to use for plugin developers.
 
 The two have put together a detailed proposal under
-**[JENKINS-31035](https://issues.jenkins-ci.org/browse/JENKINS-31035)** which
+**[JENKINS-31035](https://issues.jenkins.io/browse/JENKINS-31035)** which
 suggests we:
 
 > limit the availability in APIs (classes, methods, fields, …) provided by core
@@ -57,18 +57,18 @@ suggests we:
 > [...]
 
 I highly encourage you to read the entire proposal [on the issue
-tracker](https://issues.jenkins-ci.org/browse/JENKINS-31035), where we are
+tracker](https://issues.jenkins.io/browse/JENKINS-31035), where we are
 trying to collect feedback/history.
 
 
 ### Providing Feedback
 
 We're asking you to read the proposal in
-[JENKINS-31035](https://issues.jenkins-ci.org/browse/JENKINS-31035) and provide
+[JENKINS-31035](https://issues.jenkins.io/browse/JENKINS-31035) and provide
 feedback if you have it.
 
 If you have ever logged in to the [issue
-tracker](https://issues.jenkins-ci.org) or the
+tracker](https://issues.jenkins.io) or the
 [wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.

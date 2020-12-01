@@ -1,0 +1,235 @@
+---
+layout: post
+title: "Custom Distribution Service : Phase 3 Blogpost"
+tags:
+- service
+- distribution
+- cloud-native
+- gsoc
+- gsoc2020
+- packaging
+- platform-sig
+author: sladyn98
+opengraph:
+  image: /images/gsoc/2020/custom_distribution_service/cds_gsoc.png
+---
+
+
+Hello everyone,
+
+This is the final blog post for the Custom Distribution Service project during the Google Summer of Code timeline.
+I have mixed feelings since we are almost near the finish line for one of the most amazing open source programs out there.
+However, it is time to wrap things up for this project and achieve a state where the project can be built upon and extended further.
+This phase has been super busy with respect to the bug fixes, testing and getting the project hosted, so let us get straight into the phase 3 updates.
+
+== Fixes and Code quality assurance
+
+=== Set Jenkinsfile agent to linux
+
+We realised that the build was failing on windows and that there was not really a use-case
+for running it on windows for right now. Maybe it could be on a future roadmap. Therefore, we 
+decided to shift the testing to only linux agents with respect to running the tests on the jenkins
+server.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/116[#116]
+
+=== Backend port error message
+
+Spring boot has a default message on the `port:8080` and therefore we wanted to change 
+it to a custom message on the backend. So the major takeaway here is that we needed to 
+implement the `Error Controller` interface and include a custom message in it. 
+This was technical debt from the last phase and was completed and merged during this phase.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/92[#92]
+
+=== PMD Analysis
+
+In order to enhance the quality of the code, the PMD source code analyser was applied to the project.
+It helped me catch tons of errors. When the initial PMD check was run and we found approximately 162 PMD errors. We realised some of them were not relevant and some of them could be fixed later. 
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/102[#102]
+
+=== Findbugs Analysis
+
+Another tool to improve code quality that we included in this phase was findbugs. 
+It did catch around 5-10 bugs in my code which I immediately resolved. Most of them were 
+around the `Closeable HTTP Request` and an easy fix was the `try with resources`.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/118[#118]
+
+=== Jacoco Code Coverage
+
+We needed to make sure most of the code we write had proper coverage for all branches and
+lines. Therefore we decided to include a JaCoco Code Coverage reporter that helped us find the
+uncovered lines and areas we need to improve coverage on.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/103[#103]
+
+=== Remove JCasC generation
+
+While developing the service we quickly realised that the generation of the war package broke if we 
+included a `configuration as code` section but did not provide a path to the corresponding required `yml`
+file. Therefore we took a decision to remove the `casc` section all together. Maybe it will comeback in
+a future patch
+
+* Pull Request link: https://github.com/jenkinsci/custom-distribution-service/pull/127[#127]
+* Issue link: https://github.com/jenkinsci/custom-distribution-service/issues/65[#65]
+
+==== Minor Fixes 
+
+** Logging Fix: link:https://github.com/jenkinsci/custom-distribution-service/pull/99[#99]
+** Docs Fix : link: https://github.com/jenkinsci/custom-distribution-service/pull/120[#120]
+** Update Center Dump Fix : link: https://github.com/jenkinsci/custom-distribution-service/pull/125[#125]
+** Class Path Fix: link: https://github.com/jenkinsci/custom-distribution-service/pull/126[#126]
+** Release Drafter Addition: link: https://github.com/jenkinsci/custom-distribution-service/pull/136[#136]
+
+== Front end
+
+=== Community Config Navigation link
+
+There was no community configuration link present for navigation which was added here.
+ Now it is easier to navigate to the community page from the home page itself.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/100[#100]
+
+== Docker updates
+
+=== Build everything with Docker
+
+This was one of the major changes this phase with respect to making the service very easy to spin up locally, this change will greatly help community adoption since it eliminates the tools one needs to install locally. Initially the process was to run maven locally, generate all of the files and then copy all of its contents into the container. However, with this change we are going to generate all of the files inside the docker container itself. Allowing the user to just run a couple of commands to get the service up and running. 
+
+So some of the major changes we did with respect to the dockerfile was:
+
+a) Copy all of the configuration files and `pom.xml` into the container.
+
+b) Run the command `mvn clean package` inside the container which generates the jar.
+
+c) Run the jar inside the container.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/104[#104]
+
+== Hosting updates
+
+This process was supposed to be a future roadmap, however the infra team approved and was super helpful
+in making this process as smooth as possible. Thanks to Gavin, Tim and Oblak for making this possible.
+Here is the google group link:https://groups.google.com/g/jenkins-infra/c/v3UJfiFte8w[dicussion]
+
+The project has now been hosted link:https://customize.jenkins.io/[here] as a preview. It still needs 
+some fixes to be fully functional.
+
+* Infra Docker PR link:https://github.com/jenkinsci/custom-distribution-service/pull/131[#131]
+
+* Infra Project Addition PR link: https://github.com/jenkins-infra/charts/pull/393[#393]
+
+== Testing Updates
+
+=== Unit test the services
+
+With respect to community hosting and adoption, testing of the service one of the most important and major milestones for this phase was to test the majority of the code and we have completed the testing with flying colors. All of the services have been completely unit tested, which is a major accomplishment. 
+For the testing of the service we decided to go with wiremock which can be used to mock external services. Kezhi's link:https://github.com/jenkinsci/custom-distribution-service/pull/105#issuecomment-668087069[comment] helped us to understand what we needed to do since he had done something quite similar in his Github Checks API project.
+
+So we basically wiremocked the update-center url and made sure we were getting
+the accurate response with appropriate control flow logic tested.
+
+```
+wireMockRule.stubFor(get(urlPathMatching("/getUpdateCenter"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(updateCenterBody)));
+```
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/105[#105]
+
+=== Add Update Center controller tests
+
+Another major testing change involved testing the controllers. For this we decided to use the `wiremock` library in java to mock the server response when the controllers were invoked. 
+
+For example: If I have a controller that serves in an api called `/api/plugin/getPluginList` 
+wiremock can be used to stub out its response when the system is under test. So we use something like this to test it out.
+
+```
+ when(updateService.downloadUpdateCenterJSON()).thenReturn(util.convertPayloadToJSON(dummyUpdateBody))
+```
+When the particular controller is called the underlying service is mocked and it returns a response according to the one provided by us. To find more details the PR is here.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/106[#106]
+
+=== Add Packager Controller Tests
+
+Along with the update center controller tests another controller that needed to be tested was the 
+packager controller. Also we needed to make sure that all the branches for the controllers were properly tested. Additional details can be found in the PR below.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/133[#133]
+
+=== Docker Compose Tests
+
+One problem that we faced the entire phase was the docker containers. We regularly found out that due to
+some changes in the codebase the docker container build sometimes broke, or even sometimes the inner api's seemed to malfunction. In order to counteract that we decided to come up with some tests locally.
+So what I did was basically introduce a set of bash scripts that would do the following:
+
+a) Build the container using the `docker-compose` command.
+
+b) Run the container.
+
+c) Test the api's using the exposed port.
+
+d) Teardown the running containers.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/131[#131]
+
+== User Documentation
+
+We also included a user docs guide so that it makes it super easy to get started with the service.
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/145[#145]
+
+== Future Roadmap
+
+This has been a super exciting project to work on and I can definitely see this project being built
+upon and extended in the future.
+
+I would like to talk about some of the features that are left to come in and can be taken up in
+a future roadmap discussion
+
+a) **JCasC Support**:
+
+Description: Support the generation of a Jenkins Configuration as Code file asking the user interactively for the plugins they select what would be the configuration they would want eg: If the user selects the slack plugin we need to ask him questions like `what is the slack channel? what is the token? etc`, and on the basis of this generate a `casc` file. This feature was initially planned to go into the service but we realised this is a project in its own capacity. 
+
+b) **Auto Pull Request Creation**: 
+
+Description: Allow users to create a configuration file and immediately open a pull request on github
+without leaving the user interface. This was originally planned using a github bot and we started the work on it. But we were in doubt if the service would be hosted or not and therefore put the development on hold.
+You can find the pull requests here:
+
+* Github Controller link:https://github.com/jenkinsci/custom-distribution-service/pull/72[#72]
+* Pull Request Creation Functions link:https://github.com/jenkinsci/custom-distribution-service/pull/66[#66]
+
+c) **Synergy with Image Controller**
+
+Description: This feature requires some planning, some of the questions we can ask are:
+
+a) Can we generate the images (i.e Image Controller).
+b) Can we have the service as a multipurpose generator ?
+
+
+== Statistics
+
+This phase has been the busiest of all phases and it has involved a lot of work, more than I had 
+initially expected in the phase. Although lines
+of code added is not an indication of work done, however 800 lines of Code added is a real personal milestone for me.
+
+[width="25%",cols="20,^4"]
+|=======
+|Pull Requests Opened | 26
+|Lines of Code Added  | 1096
+|Lines of Docs Added  | 200
+|=======
+
+
+=== Other links
+
+https://gitter.im/jenkinsci/jenkins-custom-distribution-service[Gitter Channel Link] +
+https://docs.google.com/document/d/1C7VQJ92Yhr0KRDcNVHYxn4ri7OL9IGZmgxY6UFON6-g/edit?usp=sharing[GSoC Proposal] +
+https://docs.google.com/document/d/1-ujWVJ2a5VYkUF6UA7m4bEpSDxmb3mJZhCbmoKO716U/edit?usp=sharing[Design Document] +
+https://docs.google.com/document/d/1DSCH-3wh6uV9Rm_j8PcBzq2lvQPhZ31AIwmWkEaLxvc/edit?usp=sharing[Daily Notes] +

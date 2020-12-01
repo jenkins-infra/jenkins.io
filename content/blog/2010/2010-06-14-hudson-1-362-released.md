@@ -16,20 +16,20 @@
 <ul class=image>
   <li class=bug> 
     Restored optional container-based authentication for CLI.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6587">issue 6587</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-6587">issue 6587</a>)
   <li class=bug> 
     Fix javascript error when a plugin uses an empty <tt>dropdownList</tt>, resulting in LOADING overlay being left up.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6542">issue 6542</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-6542">issue 6542</a>)
 </ul>
 
 #### Enhancements
 <ul>
   <li class=rfe> 
     Add setting so job views may show only enabled or disabled jobs.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6673">issue 6673</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-6673">issue 6673</a>)
   <li class=rfe> 
     File parameters can now be downloaded from the build Parameters page.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6719">issue 6719</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-6719">issue 6719</a>)
   <li class=rfe> 
     Added an ability to point to different update sites.
   <li class=rfe> 

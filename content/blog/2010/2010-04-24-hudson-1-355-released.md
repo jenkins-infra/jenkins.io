@@ -21,10 +21,10 @@ I won't go into details on some of the infrastructure changes we have lined up j
   <li class=bug> 
     Colored ball image at top of build pages was broken for Hudson in some web
     containers (fixed by removing workaround for a Firefox bug fixed since 3.0.5/Dec2008).
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-2341">issue 2341</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-2341">issue 2341</a>)
   <li class=bug> 
     Console page while build is running did not wrap lines when viewed in IE.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5869">issue 5869</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5869">issue 5869</a>)
   <li class=bug> 
     Fixed build history to indicate test failure for MavenBuild and MavenModuleSetBuild.
   <li class=bug> 
