@@ -16,7 +16,7 @@ Within the presentation, Kohsuke included a collection of numbers about the vibr
 
  * Over 170 [GitHub](https://github.com/jenkinsci) pull requests in the past four months, with more being sent every day.
  * Formalization of a "Jenkins Stable" branch of development with longer release cycles and back-ported bugfixes.
- * Over 280 tickets in [JIRA](https://issues.jenkins-ci.org) have been resolved.
+ * Over 280 tickets in [JIRA](https://issues.jenkins.io) have been resolved.
  * After posting a "special" release of Hudson which presents users with a choice, **87.25%** are choosing to upgrade to Jenkins.
  * Over 500 tickets have been created
  * Roughly 13,000 downloads of `jenkins.war` and native packages a week
