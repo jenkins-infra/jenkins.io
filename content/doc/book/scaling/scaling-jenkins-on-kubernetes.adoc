@@ -28,8 +28,8 @@ called Jenkins agents.
 
 Scalability is a measure that shows the ability of a system to expand its capabilities
 to handle additional load.
-One of the strongest sides of Jenkins is that it has a scaling feature almost out-of-the-box.
-Jenkins scaling is based on the controller/agents model, where you have a number of agent instances and one main Jenkins instance called the controller, which is responsible mainly for distributing jobs across the agents.
+One of the strongest sides of Jenkins is that it has a scaling feature out-of-the-box.
+Jenkins scaling is based on the controller/agents model, where you have a number of agent instances and one main Jenkins instance called the controller that is responsible mainly for distributing jobs across the agents.
 Jenkins agents run a small program that communicates with the Jenkins controller to check if there’s any job it can run.
 When Jenkins finds a job scheduled, it transfers the build to the agent.
 
@@ -62,32 +62,15 @@ So let’s create our first example dockerfile for the Jenkins controller:
 .Dockerfile
 [source,text]
 ----
-from jenkins/jenkins:lts
-
-# Distributed Builds plugins
-RUN jenkins-plugin-cli --plugins ssh-slaves
-
-# install Notifications and Publishing plugins
-RUN /usr/local/bin/install-plugins.sh email-ext
-RUN /usr/local/bin/install-plugins.sh mailer
-RUN /usr/local/bin/install-plugins.sh slack
-
-# Artifacts
-RUN /usr/local/bin/install-plugins.sh htmlpublisher
-
-# UI
-RUN /usr/local/bin/install-plugins.sh greenballs
-RUN /usr/local/bin/install-plugins.sh simple-theme-plugin
-
-# Scaling
-# The following plugin is required as it is designed to implement Jenkins scaling on top of a
-# Kubernetes cluster
-RUN /usr/local/bin/install-plugins.sh kubernetes
+FROM jenkins/jenkins:lts
 
 # install Maven
 USER root
 RUN apt-get update && apt-get install -y maven
 USER jenkins
+
+# Distributed builds, publishing, artifact, and scaling plugins
+RUN jenkins-plugin-cli --plugins ssh-slaves email-ext mailer htmlpublisher kubernetes
 ----
 
 * ‘from [image_name]:[tag]’ - this line means that our dockerfile will be based on an existing image. It is obvious that for our dockerfile, we take the Jenkins base image, which you can find in the link:https://hub.docker.com/r/jenkins/jenkins[official Docker repository].
@@ -99,7 +82,7 @@ In our case, you need to use ‘root’ user to be able to install additional to
 You can install additional plugins just by adding similar commands inside your dockerfile
 like we did above.
 However, one of the plugins above is critical for installation.
-It is the ‘Kubernetes’ Jenkins plugin.
+It is the plugin:kubernetes[Kubernetes plugin].
 This plugin is designed to implement Jenkins scaling on top of a Kubernetes cluster.
 
 Next, we need to build the image that can be used and run inside the Kubernetes cluster
