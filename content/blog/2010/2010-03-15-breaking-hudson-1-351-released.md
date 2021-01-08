@@ -12,7 +12,7 @@
 ---
 Rush delivery from Hudson HQ! Hudson 1.351 just rolled out with a **very** important regression fix:
 
-* Regression in 1.350 that can delete old build artifacts. ([mailing list thread](https://n4.nabble.com/Warning-about-Hudson-1-350-Could-delete-your-artifacts-td1593483.html), [issue 5937](https://issues.jenkins-ci.org/browse/JENKINS-5937))
+* Regression in 1.350 that can delete old build artifacts. ([mailing list thread](https://n4.nabble.com/Warning-about-Hudson-1-350-Could-delete-your-artifacts-td1593483.html), [issue 5937](https://issues.jenkins.io/browse/JENKINS-5937))
 
 Sorry for the hiccup everybody, we're working pretty hard on getting a better, more stable, release process in place.
 

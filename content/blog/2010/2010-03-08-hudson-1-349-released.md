@@ -20,13 +20,13 @@ Now for the breakdown of the 1.349 release:
 <ul class=image> 
   <li class=bug> 
     Fix deserialization problem with fields containing double underscore.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5768">issue 5768</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5768">issue 5768</a>)
   <li class=bug> 
     Fix deserialization problem for Exception objects where the XML has bad/old data.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5769">issue 5769</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5769">issue 5769</a>)
   <li class=bug> 
     Fix serialization problem with empty CopyOnWriteMap.Tree.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5776">issue 5776</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5776">issue 5776</a>)
   <li class=bug> 
     Fixed a bug that can cause 404 in the form validation check.
 </ul> 
@@ -46,7 +46,7 @@ Now for the breakdown of the 1.349 release:
     (<a href="https://n4.nabble.com/preconfigured-hudson-war-tp1575216p1575216.html">report</a>)
   <li class=rfe> 
     Added an extension point to annotate console output.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-2137">issue 2137</a>)</ul>
+    (<a href="https://issues.jenkins.io/browse/JENKINS-2137">issue 2137</a>)</ul>
 
 
 <br clear="all"/>

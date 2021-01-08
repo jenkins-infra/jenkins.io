@@ -10,7 +10,7 @@
 :author: rtyler
 ---
 For the first "User Spotlight" interview *ever* on Continuous Blog, I am talking with Matt Girard of 
-<a href="https://itasoftware.com/?continuousblog" target="_blank">ITA Software</a>, a Boston-based software company that produces travel industry software which is used by many of the major carriers in the U.S. and abroad. When I sent out [a message](https://twitter.com/hudsonci/status/8553593409) asking for users of Hudson in the corporate space to ping me about doing a "spotlight" on them, ITA Software stuck out in particular; they're hiring a Hudson expert!
+<a href="https://itasoftware.com/?continuousblog" target="_blank" rel="noreferrer noopener">ITA Software</a>, a Boston-based software company that produces travel industry software which is used by many of the major carriers in the U.S. and abroad. When I sent out [a message](https://twitter.com/hudsonci/status/8553593409) asking for users of Hudson in the corporate space to ping me about doing a "spotlight" on them, ITA Software stuck out in particular; they're hiring a Hudson expert!
 
 <a style="margin: 0pt auto; padding: 0px 6px; text-align: center; display: block;" id="aptureLink_oQPlXrRBHE" href="https://twitter.com/equalize/status/8338991375"><img title="Tweet by Matthew Girard" src="https://placeholder.apture.com/ph/355x210_TwitterArticle/" style="border: 0px none ;" width="355px" height="210px"></a>
 
@@ -61,7 +61,7 @@ languages/build system(s)? What platforms is Hudson performing builds? What kind
 <tr><td align="center" valign="top">
 <strong>Matt</strong>
 </td><td>
-Our Hudson environments (yes, we have more than one) have been optimized for building C++, Java (all <a id="aptureLink_dkCKWMZxl1" href="https://en.wikipedia.org/wiki/Apache%20Maven">maven</a> based), Lisp (a surprise to some to be sure <a href="https://itasoftware.com/careers/l_e_t_lisp.html?catid=8" target="_blank">more about that here</a>), and Python on Linux build agents (Fedora and CentOS).
+Our Hudson environments (yes, we have more than one) have been optimized for building C++, Java (all <a id="aptureLink_dkCKWMZxl1" href="https://en.wikipedia.org/wiki/Apache%20Maven">maven</a> based), Lisp (a surprise to some to be sure <a href="https://itasoftware.com/careers/l_e_t_lisp.html?catid=8" target="_blank" rel="noreferrer noopener">more about that here</a>), and Python on Linux build agents (Fedora and CentOS).
 
 Our jobs are (loosely) grouped into one of three categories: rpm (we are primarily RedHat based), tests, and tools. The rpm jobs are the actual code builds and individual component unit tests. The test jobs (thank you <a id="aptureLink_ZDsnAh3cPt" href="https://plugins.jenkins.io/parameterized-trigger">parameterized trigger plugin</a>!) are part of a larger cross-component integration testing and promotion scheme. The (handful of) tools jobs support us in tasks such as cleaning up stale sandbox database connections.
 </td></tr>
