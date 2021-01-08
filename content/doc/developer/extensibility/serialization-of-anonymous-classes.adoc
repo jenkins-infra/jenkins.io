@@ -1,0 +1,126 @@
+---
+title: How to serialize anonymous classes
+layout: developerguide
+---
+
+Jenkins core and plugin code make use of two kinds of serialization of Java objects: to XML files like `+config.xml+` or `+build.xml+` or global settings, via XStream; and using Java’s built-in serialization mechanism, for Remoting calls. In either case you may see a warning from (link:https://issues.jenkins.io/browse/JENKINS-49795[Bad serialization of ParametersAction.parameterDefinitionNames]) or (link:https://issues.jenkins.io/browse/JENKINS-49994[Report uses of anonymous classes in outgoing Remoting packets]) such as:
+
+[source]
+----
+Attempt to (de-)serialize anonymous class org.jenkinsci.plugins.stuff.YourClass$3
+in file:/…/plugins/stuff/WEB-INF/lib/stuff.jar;
+see: https://jenkins.io/redirect/serialization-of-anonymous-classes/
+----
+
+There are less common variants for attempts to serialize lambdas or local classes.
+The warning will be logged by `+org.jenkinsci.remoting.util.AnonymousClassWarnings+`.
+If you see this warning, track down the location in source code:
+
+[source]
+----
+javap -classpath /…/plugins/stuff/WEB-INF/lib/stuff.jar -l 'org.jenkinsci.plugins.stuff.YourClass$3'
+----
+
+will give you an overview of the class, and `+LineNumberTable+` entries will show you which lines in `+YourClass.java+` contain the class declaration.
+
+## Usages in Remoting
+
+The main problem with sending anonymous classes over Remoting is that can all too easily “capture” unexpected and unwanted fields in the callable, which may cause serious issues including those described in (link:https://wiki.jenkins.io/display/JENKINS/Plugins+affected+by+fix+for+JEP-200[Plugins affected by fix for JEP-200]). Also you will get unusable listings from metrics collected as link:https://issues.jenkins.io/browse/JENKINS-27035[Request/response statistics].
+
+To fix code like this:
+
+[source,java]
+----
+int stuff(FilePath workspace, final String arg) throws IOException, InterruptedException {
+    return workspace.act(new MasterToSlaveFileCallable<Integer>() {
+        @Override
+        Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+            return countThings(f, arg);
+        }
+    });
+}
+----
+
+just use a "convert anonymous to member" refactoring in your IDE, or manually:
+
+[source,java]
+----
+private static final class ThingCounter extends MasterToSlaveFileCallable<Integer> {
+    private final String arg;
+    ThingCounter(String arg) {
+        this.arg = arg;
+    }
+    @Override
+    Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+        return countThings(f, arg);
+    }
+}
+int stuff(FilePath workspace, String arg) throws IOException, InterruptedException {
+    return workspace.act(new ThingCounter(arg));
+}
+----
+
+## Usages in XStream
+
+If you have accidentally used an anonymous inner class as a field in some object serialized via XStream, your XML files are going to be a mess. This is a worse problem than for Remoting since not only can you suffer from link:/blog/2018/01/13/jep-200[JEP-200-related] security blocks, but the mistake has been persisted to disk so you need to take into account possible saved settings.
+
+If the field was not really valuable, make it `+transient+` (so it will not be saved), and _also_ rename it so Jenkins will not even try to load existing values from disk.
+
+If you can afford to discard old settings, fix its type and rename it.
+
+If you really need to load existing settings, you are going to have to do some work to retain compatibility. If `+YourClass$3+` was saved to disk, originally from
+
+[source,java]
+----
+class YourClass {
+    // …dozens of unrelated lines…
+    public SomeInterface thingThatGetsSaved(final String arg) {
+        return new SomeInterface() {
+            @Override
+            public void someMethod() {
+                use(arg);
+            }
+        };
+    }
+}
+----
+
+then you can refactor this way:
+
+[source,java]
+----
+class YourClass {
+    // right at the top of the file:
+    /** @deprecated unused */
+    private static final Object[] SOME_CLOSURES = {
+        new Object() {}, // YourClass$1
+        new Object() {}, // YourClass$2
+    };
+    /** @deprecated unused */
+    private SomeInterface thingThatGetsSaved(final String arg) {
+        return new SomeInterface() { // YourClass$3
+            @Override
+            public void someMethod() {
+                use(arg);
+            }
+            private Object readResolve() {
+                return new ThingThatGetsSaved(arg);
+            }
+        };
+    }
+    // …dozens of unrelated lines…
+    public SomeInterface thingThatGetsSaved(String arg) {
+        return new ThingThatGetsSaved(arg);
+    }
+    private static final class ThingThatGetsSaved implements SomeInterface {
+        private final String arg;
+        ThingThatGetsSaved(String arg) {
+            this.arg = arg;
+        }
+        @Override
+        public void someMethod() {
+            use(arg);
+        }
+    }
+}
+----

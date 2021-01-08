@@ -1,0 +1,270 @@
+---
+layout: post
+title: "Testing Jenkins 2.249.1 on Windows"
+tags:
+- windows
+- platform-sig
+- installers
+- announcement
+authors:
+- markewaite
+- vsilverman
+description: >
+  In this article, we share some insights from Jenkins 2.249.1 release candidate testing on Windows.
+opengraph:
+  image: /images/post-images/2020/2020-09-09-new-jenkins-release-observations/opengraph.png
+---
+
+This article describes our observations during Windows testing of the Jenkins 2.249.1 release candidate.
+
+== Upgrade testing
+
+Jenkins 2.249.1 is a new long term support release with user interface improvements and changes in Windows support.
+It is the first long term support release to drop support for Microsoft.NET framework 2.0.
+The end of support for Microsoft.NET framework 2.0 was announced in the link:/blog/2020/07/23/windows-support-updates/[Windows Support Updates blog post].
+The Windows support link:https://www.jenkins.io/blog/2020/07/23/windows-support-updates/#upgrade-guidelines[upgrade guidelines] describe major things to consider when upgrading Jenkins controllers and agents on Windows.
+
+As part of our preparation for the release, we tested several configurations.
+This article describes our experiences with those configurations.
+
+=== Upgrade approaches
+
+We tested controller and agent upgrades from Jenkins 2.235.x to 2.249.1-rc on Windows.
+The tests included:
+
+* <<32 bit Windows MSI>>
+* <<64 bit Windows MSI>>
+* <<WAR (file) on Windows>>
+
+=== Upgrade process
+
+Our upgrade process included:
+
+* Install a previous version of Jenkins controller on Windows
+* Install a previous version of Jenkins agent on Windows and configure it as a service
+* Upgrade Jenkins controller from "Manage Jenkins"
+* Restart the Jenkins Windows service for the controller
+* Upgrade the Jenkins agent on Windows with the latest `agent.jar`
+* Restart the Jenkins Windows service for the agent
+
+=== Testing results
+
+We successfully tested
+
+* Restarting Windows service for controller (link:https://issues.jenkins.io/browse/JENKINS-63198[JENKINS-63198])
+* Restarting Windows service for agents (link:https://issues.jenkins.io/browse/JENKINS-63223[JENKINS-63223])
+
+We confirmed that we can continue our link:https://www.jenkins.io/blog/2020/07/23/windows-support-updates/#new-policy[Level 1 support policy] for Jenkins 2.249.1.
+
+== 32 bit Windows MSI
+
+Prior to Jenkins 2.235.3, the Jenkins LTS Windows installer was provided as a 32 bit MSI and included a bundled Java 8 runtime environment.
+The Jenkins agent can be downloaded and run through Java web start using the bundled Java 8 runtime environment.
+The agent can also be configured to run as a service using the bundled Java 8 runtime environment.
+
+=== Jenkins controller
+
+Jenkins 2.235.1 installs JRE 8u144 for 32 bit Windows.
+The installer configures the Jenkins controller to run as the SYSTEM user.
+
+Refer to the link:/blog/2019/02/01/windows-installers/[Windows Installer Updates blog post] for details of the controller installation process with the 32 bit MSI.
+
+=== Jenkins agent
+
+Jenkins agents on Windows are often configured to "Launch agent by connecting it to the master".
+The Jenkins agent configuration correctly warns that the controller must open the TCP port for inbound agents in the "Configure Global Security" page.
+It is easiest to allow Jenkins to choose the port (a "Random" port).
+Jenkins selects a random available port number and shares that port number with agents during their initial connection to the Jenkins http port.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/tcp-port-for-inbound-agents.png[TCP port for inbound agents]
+
+==== Configure the agent
+
+Once the Jenkins TCP port is open for inbound agents, a new agent is configured from the Jenkins "Nodes" menu
+This creates an "inbound Jenkins agent" that uses the Jenkins `agent.jar` to initiate the connection to the Jenkins controller.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/inbound-agent-configuration.png[Inbound agent configuration]
+
+==== Download the agent
+
+The agent starts the first time by clicking the "Launch" button on the agent configuration page (only available with Java 8).
+That downloads the "slave-agent.jnlp" file from the web browser.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/launch-inbound-agent-from-jenkins.png[Launch inbound agent from Jenkins]
+
+==== Start the agent
+
+The downloaded file needs to be opened from a command prompt using the `javaws` command that is included with the bundled JRE:
+
+----
+C:\> "C:\Program Files (x86)\Jenkins\jre\bin\javaws.exe" -wait slave-agent.jnlp
+----
+
+NOTE: The `javaws` program has been removed from  the most recent releases of Java 8 and from Java 11.
+Refer to <<Jenkins agent and icedtea>> for a technique that can help users of the most recent releases of Java 8.
+
+Java web start (javaws.exe) prompts for permission to run the program with this dialog:
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/javaws-prompt-for-remoting-agent.png[Java Web Start prompt for remoting agent]
+
+==== Install the agent as a service
+
+The agent runs and displays a window on the desktop with a single menu entry, "Install as a service".
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/install-agent-as-a-service.png[Install agent as a service]
+
+When the "Install as a service" menu item is clicked, the agent is adjusted to run as a Windows service using the SYSTEM account.
+
+=== Upgrade the controller
+
+The Jenkins controller on Windows can be upgraded to Jenkins 2.249.1 from the "Manage Jenkins" page.
+The upgrade process downloads the new `jenkins.war` file, saves the current version in case of later downgrade, and offers to restart.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/upgrade-jenkins-from-manage-jenkins.png[Upgrade Jenkins from Manage Jenkins]
+
+=== Upgrade the agent
+
+The Jenkins inbound agent is not upgraded automatically.
+The agent administrator downloads the most recent `agent.jar` from their Jenkins controller, stops the running agent, and replaces the installed `agent.jar` with the downloaded version.
+The agent service will reconnect to the Jenkins controller after the administrator restarts it.
+
+== 64 bit Windows MSI
+
+Beginning with link:/blog/2020/08/12/windows-installers-upgrade/[Jenkins 2.235.3], the Jenkins LTS Windows installer is a 64 bit MSI.
+It runs Jenkins with the 64 bit JDK (Java 8 or Java 11) selected by the user.
+
+=== Jenkins controller
+
+Jenkins 2.235.3 was installed using AdoptOpenJDK Java 8u262 in one test.
+It was installed using AdoptOpenJDK Java 11.0.8 in another test.
+In both cases, the installer configured the Jenkins controller to run with the Windows service account we had previously configured.
+
+Refer to the link:/blog/2019/02/01/windows-installers/#screenshots[Windows Installer Updates blog post] for details of the controller installation process with the 64 bit MSI.
+
+=== Jenkins agent
+
+Jenkins agents on Windows are often configured to "Launch agent by connecting it to the master".
+The Jenkins agent configuration correctly warns that the controller must open the TCP port for inbound agents in the "Configure Global Security" page.
+It is easiest to allow Jenkins to choose the port (a "Random" port).
+Jenkins selects a random available port number and shares that port number with agents during their initial connection to the Jenkins http port.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/tcp-port-for-inbound-agents.png[TCP port for inbound agents]
+
+==== Configure the agent
+
+Once the Jenkins TCP port is open for inbound agents, a new agent is configured from the Jenkins "Nodes" menu
+This creates an "inbound Jenkins agent" that uses the Jenkins `agent.jar` to initiate the connection to the Jenkins controller.
+Once the Jenkins TCP port is open for inbound agents, a new agent is configured from the Jenkins "Nodes" menu
+This creates an "inbound Jenkins agent" that uses the Jenkins `agent.jar` to initiate the connection to the Jenkins controller.
+Once the Jenkins TCP port is open for inbound agents, a new agent is configured from the Jenkins "Nodes" menu
+This creates an "inbound Jenkins agent" that uses the Jenkins `agent.jar` to initiate the connection to the Jenkins controller.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/inbound-agent-configuration.png[Inbound agent configuration]
+
+==== Download the agent
+
+The agent was started the first time by clicking the "Launch" button on the agent configuration page (only available with Java 8).
+That downloads the "slave-agent.jnlp" file from the web browser.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/launch-inbound-agent-from-jenkins.png[Launch inbound agent from Jenkins]
+
+==== Start the agent with IcedTea-Web
+
+Recent versions of Java 8 and all versions of Java 11 have removed the `javaws` command.
+Jenkins agents for Java 8 can still be started with the `javaws` command, but it needs to be downloaded separately from the JVM.
+We open "slave-agent.jnlp" from a command prompt using the `javaws` command that is available from link:https://adoptopenjdk.net/icedtea-web.html[AdoptOpenJDK IcedTea]:
+
+----
+C:\> C:\icedtea-web-1.8.3.win.bin\icedtea-web-image\bin\javaws.exe -wait slave-agent.jnlp
+----
+
+Java web start (javaws.exe) prompts for permission to run the program with this dialog:
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/javaws-prompt-for-remoting-agent.png[Java Web Start prompt for remoting agent]
+
+==== Install the agent as a service
+
+The agent runs and displays a window on the desktop with a single menu entry, "Install as a service".
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/install-agent-as-a-service.png[Install agent as a service]
+
+When the "Install as a service" menu item is clicked, the agent is installed and configured to run as a Windows service using the SYSTEM account.
+
+=== Upgrading the controller
+
+The Jenkins controller on Windows was upgraded to Jenkins 2.249.1 from the "Manage Jenkins" page.
+The upgrade process downloads the new `jenkins.war` file, saves the current version in case of later downgrade, and offers to restart.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/upgrade-jenkins-from-manage-jenkins.png[Upgrade Jenkins from Manage Jenkins]
+
+=== Upgrading the agent
+
+The Jenkins inbound agent is not upgraded automatically or from a Jenkins user interface.
+The agent administrator downloads the most recent `agent.jar` from their Jenkins controller and replaces the installed `agent.jar` with the downloaded version.
+
+== WAR (file) on Windows
+
+Jenkins allows users to run the Jenkins web archive (WAR) file from a command line and then install it as a service from within Jenkins.
+This installation technique uses the Jenkins WAR file but does *not* use a Windows MSI package.
+The Jenkins WAR file includes the necessary components to install and configure Jenkins as a service.
+
+=== Install controller as a service
+
+When the Jenkins war file is started from a Windows command prompt, "Manage Jenkins" includes "Install as a service".
+An administrator selects that entry and Jenkins will configure itself to run as a service/
+The installer configures the Jenkins controller to run as the SYSTEM user.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/install-controller-as-service-from-manage-jenkins.png[Install Jenkins as a service from Manage Jenkins]
+
+=== Jenkins agent
+
+Jenkins agents on Windows are often configured to "Launch agent by connecting it to the master".
+The Jenkins agent configuration correctly warns that the controller must open the TCP port for inbound agents in the "Configure Global Security" page.
+It is easiest to allow Jenkins to choose the port (a "Random" port).
+Jenkins selects a random available port number and shares that port number with agents during their initial connection to the Jenkins http port.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/tcp-port-for-inbound-agents.png[TCP port for inbound agents]
+
+==== Configure the agent
+
+After opening the Jenkins TCP port for inbound agents, we configured a new agent from the "Nodes" menu
+This created an "inbound Jenkins agent" that uses the Jenkins `agent.jar` to initiate the connection to the Jenkins controller.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/inbound-agent-configuration.png[Inbound agent configuration]
+
+==== Download the agent
+
+The agent was started the first time by clicking the "Launch" button on the agent configuration page (only available with Java 8).
+That downloads the "slave-agent.jnlp" file from the web browser.
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/launch-inbound-agent-from-jenkins.png[Launch inbound agent from Jenkins]
+
+==== Start the agent with IcedTea-Web
+
+Recent versions of Java 8 and all versions of Java 11 have removed the `javaws` command.
+Jenkins agents for Java 8 can still be started with the `javaws` command, but it needs to be downloaded separately from the JVM.
+Open "slave-agent.jnlp" from a command prompt using the `javaws` command that is available from link:https://adoptopenjdk.net/icedtea-web.html[AdoptOpenJDK IcedTea-Web]:
+
+----
+C:\> C:\icedtea-web-1.8.3.win.bin\icedtea-web-image\bin\javaws.exe -wait slave-agent.jnlp
+----
+
+Java web start (javaws.exe) prompts for permission to run the program with this dialog:
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/javaws-prompt-for-remoting-agent.png[Java Web Start prompt for remoting agent]
+
+==== Install the agent as a service
+
+The agent runs and displays a window on the desktop with a single menu entry, "Install as a service".
+
+image::/images/post-images/2020/2020-09-09-new-jenkins-release-observations/install-agent-as-a-service.png[Install agent as a service]
+
+When the "Install as a service" menu item is clicked, the agent is installed and configured to run as a Windows service using the SYSTEM account.
+
+== Conclusion
+
+Jenkins controller installation is best done with the new 64 bit MSI package.
+Previous controller installations can be upgraded to the most recent Jenkins release from within Jenkins.
+
+Jenkins inbound agent installation is more complicated now that the `javaws.exe` program is not included in the JDK.
+The link:https://adoptopenjdk.net/icedtea-web.html[AdoptOpenJDK IcedTea-Web project] allows administrators to install and configure Jenkins inbound agents with most of the ease that was available in prior Java releases.

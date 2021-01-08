@@ -92,21 +92,21 @@ No longer alpha! Production-ready!
 Often used to build/test across slight variations of build environments such as different platforms for a C++ project. Conceptually it's like running your build in a for loop.
 
 
-Hudson supports a number of different axes, most popular of which being a "slave axis" which allows you to use different labels or specific slaves for the build. Hudson also supports arbirtrary text fields as axes to be passed along to the build steps as environment variables.
+Hudson supports a number of different axes, most popular of which being a "agent axis" which allows you to use different labels or specific agents for the build. Hudson also supports arbirtrary text fields as axes to be passed along to the build steps as environment variables.
 
 
 Touching on "filtering" in the matrix project support to remove parts of an axis that you do not need. I.e if you have a "platform" and a "browser" axes for web testing, you can exclude the "iexplore" value of the "browser" axis when the "platform" axis is "mac".
 
 **Demo time!**
 
-Defining two axes, "slave" axis and the "JDK" axis to build against different JDK versions on linux, solaris and windows. Excluding "touchstone builds" to avoid rebuilding a large number of matrix builds unless a limited subset of the combinations successfully build. Used to avoid spending a lot of time spinning cycles on very obvious errors that the first few builds "recognize" immediately.
+Defining two axes, "agent" axis and the "JDK" axis to build against different JDK versions on linux, solaris and windows. Excluding "touchstone builds" to avoid rebuilding a large number of matrix builds unless a limited subset of the combinations successfully build. Used to avoid spending a lot of time spinning cycles on very obvious errors that the first few builds "recognize" immediately.
 
 **End demo time**
 
 
 ### Doing Selenium testing on Hudson
 
-Use "Selenium Grid plugin" to install Selenium binaries on all slaves and prepares them all to talk to each other. Useful for "overloading" an existing Hudson cluster as a Selenium cluster.
+Use "Selenium Grid plugin" to install Selenium binaries on all agents and prepares them all to talk to each other. Useful for "overloading" an existing Hudson cluster as a Selenium cluster.
 
 Using labels in Hudson to better determine which node has which browser.
 
@@ -115,7 +115,7 @@ Selenium integration is **very** powerful when combined with the join plugin and
 
 The Hudson project has invested heavily in getting great cluster support which helps tremendously with Selenium which has invested as heavily in clustering.
 
-How to you deal with Selenium needing a GUI while Hudson slaves are largely headless. Use the Xvnc plugin! On Windows things are bit trickier, easier to let Hudson slave/service "interact with desktop" such that it can access dialogs/etc. Failing everything else, configuring Windows for auto-login and then have JNLP slaves autostart at login will work for allowing the slave to use the GUI and network resources.
+How to you deal with Selenium needing a GUI while Hudson agents are largely headless. Use the Xvnc plugin! On Windows things are bit trickier, easier to let Hudson agent/service "interact with desktop" such that it can access dialogs/etc. Failing everything else, configuring Windows for auto-login and then have JNLP agents autostart at login will work for allowing the agent to use the GUI and network resources.
 
 
 
