@@ -50,7 +50,7 @@ class Validator
       warning "Missing title for #{page.output_path}"
     else
       # Workaround for title parsing bug
-      # https://issues.jenkins-ci.org/browse/WEBSITE-270
+      # https://issues.jenkins.io/browse/WEBSITE-270
       if page.title.is_a?(Hash) and page.title.keys.length == 1
         page.title.each do |key, val|
           page.title = "#{key}: #{val}"

@@ -17,7 +17,7 @@
 
 ---
 
-Earlier today we received numerous reports about a previously undisclosed "[zero day](https://en.wikipedia.org/wiki/Zero-day_%28computing%29)" critical remote code execution vulnerability and exploit in Jenkins core. Unfortunately the vulnerability was not disclosed to us ahead of its publication so we're still working on more thorough fix. In the *meantime* however, we wanted to inform you of the issue and provide a workaround which will help prevent this exploit from being used against public Jenkins installations, for future reference this issue is being tracked privately as `SECURITY-218` in our [issue tracker](https://issues.jenkins-ci.org).
+Earlier today we received numerous reports about a previously undisclosed "[zero day](https://en.wikipedia.org/wiki/Zero-day_%28computing%29)" critical remote code execution vulnerability and exploit in Jenkins core. Unfortunately the vulnerability was not disclosed to us ahead of its publication so we're still working on more thorough fix. In the *meantime* however, we wanted to inform you of the issue and provide a workaround which will help prevent this exploit from being used against public Jenkins installations, for future reference this issue is being tracked privately as `SECURITY-218` in our [issue tracker](https://issues.jenkins.io).
 
 The attack is mounted through the [Jenkins CLI](https://wiki.jenkins.io/display/JENKINS/Jenkins+CLI) subsystem, so the work-around is to remove/disable the CLI support inside of the running Jenkins server.
 

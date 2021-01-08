@@ -1,0 +1,68 @@
+---
+layout: post
+title: "Spring and XStream updates (breaking changes!)"
+tags:
+- jenkins
+- core
+- developer
+author: jglick
+description: "The Spring and XStream libraries in Jenkins are being updated, including a migration to Spring Security"
+---
+
+Cleaning up technical debt is a perennial topic among Jenkins core developers,
+and one of the most visible issues is the use of obsolete and/or forked third-party libraries.
+In a world where Dependabot is offering updates to libraries released just hours before,
+it is unpleasant to be working with dependencies that are many years old.
+Since large organizations in particular are unhappy to install software using obsolete or nonstandard versions,
+my employer (CloudBees) gave its blessing for me to spend some time cleaning up some of the worst offenders.
+
+The toughest nut to crack was the Acegi Security library used for authentication,
+which has long since been replaced by Spring Security
+(and Jenkins was also bundling a long-outdated version of some Spring Framework dependencies).
+jep:227[] tracks the complicated task of updating to Spring Security
+without breaking the numerous plugins that interact with authentication,
+especially those offering a *Security Realm*.
+
+Another longstanding problem was the XStream library which Jenkins uses to read and write XML configuration files.
+This had been forked long ago by what was then the Hudson project and a few fixes applied.
+Unfortunately, some of those fixes were rejected upstream as invalid (representing unsupported usage patterns),
+and the fork fell behind the upstream version.
+jep:228[] describes the impact of switching to the upstream library in a more standard usage mode,
+including fixes to a smaller number of plugins which would otherwise be incompatible.
+
+Now that the Jenkins 2.266 weekly release includes both updates,
+it is important for both Jenkins administrators and plugin maintainers to check for actual or potential incompatibilities.
+There are two tables listing the impact of these changes on plugins:
+
+* link:https://github.com/jenkinsci/jep/blob/master/jep/227/compatibility.adoc[Spring Security compatibility]
+* link:https://github.com/jenkinsci/jep/blob/master/jep/228/compatibility.adoc[XStream compatibility]
+
+If you *use Jenkins* then it is a good idea before upgrading to take a look at these tables
+to see if you are running any plugins considered _incompatible_.
+If so, try not to rely on that plugin, or find out if there is an active maintainer who could help.
+For entries marked _unknown_, it would be appreciated if you could do a sanity check after upgrading
+and offer a pull request to the table page (click *Edit this file*) with a more informative status.
+
+If you find a regression in a plugin, please file a bug report in Jira and link to it from the table.
+Also please add a `JEP-227` or `JEP-228` label as appropriate, for ease of tracking:
+
+* link:https://issues.jenkins.io/issues/?jql=resolution%20%3D%20Unresolved%20and%20labels%20in%20(JEP-227)[Open JEP-227 issues]
+* link:https://issues.jenkins.io/issues/?jql=resolution%20%3D%20Unresolved%20and%20labels%20in%20(JEP-228)[Open JEP-228 issues]
+
+[NOTE]
+====
+It is a good idea to update all your plugins _before_ upgrading Jenkins core.
+In the case of the Spring Security update, some security realm plugins including LDAP and Active Directory must be updated in advance.
+(You can safely run the new plugin versions on Jenkins releases _prior_ to this change.)
+Otherwise, you risk being unable to log in to Jenkins—and thus unable to update those plugins from the GUI!
+The LDAP plugin additionally has a new version available only after the core upgrade, but there is no rush in switching to that.
+====
+
+If you *maintain a Jenkins plugin* then please check whether it is marked anything less than _compatible_.
+In some cases, there are already pull requests awaiting merge.
+In other cases, some minor aspects of the source code have been identified that could be edited to improve compatibility.
+
+We expect to see a bit of disruption from these changes
+but hope that in the long run they will save time for core and plugin developers
+and lead to a more secure and stable tool.
+Please reach out on the link:/mailing-lists/[developers’ list] with any questions or suggestions.

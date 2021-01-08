@@ -1,0 +1,134 @@
+---
+layout: post
+title: "Jira upgrade for the Jenkins project"
+tags:
+- jenkins
+- infrastructure
+- jira
+author: markewaite
+description: "The Linux Foundation is now hosting Jira for the Jenkins project"
+opengraph:
+  image: /images/post-images/2020-12-17-jira-upgrade-for-the-jenkins-project/jira-upgrade-for-the-jenkins-project.png
+---
+
+image::/images/post-images/2020-12-17-jira-upgrade-for-the-jenkins-project/jira-logo.png[float="right",align="center"]
+
+The Jenkins project has used Jira to track issues for many years.
+Jenkins core, Jenkins modules, Jenkins infrastructure, and many Jenkins plugins manage their issue reports with our link:https://issues.jenkins.io/[Jira server].
+
+Jira helps the Jenkins project manage issues and tasks related to over 250{nbsp}000 Jenkins installations.
+It tracks bugs, enhancement requests, tasks, and security issues.
+It is used regularly by users around the world.
+
+We're grateful for the long-standing contribution that Atlassian provides by donating the Jira license to the Jenkins project.
+We're grateful to the link:https://osuosl.org/[Oregon State University Open Source Lab] for their donation of equipment and bandwidth to host the server.
+
+== Upgrade Timeline
+
+We were running Jira 7.13 and had been managing that installation for a few years.
+Atlassian announced that Jira 7.13 would end its support life on November 28, 2020.
+We needed to upgrade from Jira 7.13 to a more recent version of Jira.
+As part of our membership in the Continuous Delivery Foundation, a Linux Foundation initiative, we could use their project services team to manage our Jira server.
+We decided to move from hosting our own Jira server to having the Jira experts at the Linux Foundation host it.
+
+The upgrade timeline looked like this:
+
+* November 2019 - Infrastructure team begins discussions about the November 2020 end of support for Jira 7.13
+* August 2020 - First conversations with Linux Foundation to host Jira for the Jenkins project.  Draft of the upgrade plan assembled and shared with the community
+* September 2020 - Schedule for testing week and final transition week proposed.  Authentication options evaluated and selected
+* October 2020 - Test upgrade performed and tested
+* November 2020 - Final upgrade completed and verified
+
+== Confronting the Complications
+
+Initial discussions between the Jenkins infrastructure team and the Linux Foundation identified complications related to authentication and SSL certificates.
+We planned, negotiated, and tested our assumptions throughout the project.
+
+=== Authentication
+
+Jira servers at the Linux Foundation typically use Linux Foundation accounts for user access.
+Unfortunately, the Jenkins LDAP database includes over 100,000 users and for many of them, Linux Foundation username doesn't correspond to Jenkins account username.
+It was not feasible to transition 100,000 user accounts from the Jenkins LDAP database to the Linux Foundation accounts system and still complete the Jira upgrade before the November 28, 2020 deadline.
+
+The Linux Foundation Project Services team evaluated authentication alternatives and confirmed that they could use the Jenkins LDAP server.
+Using the Jenkins LDAP server spared us from two transitions, LDAP and Jira, and kept the project timeline feasible.
+
+=== SSL Certificates
+
+Jira servers at the Linux Foundation use Let's Encrypt to generate SSL certificates for HTTPS.
+The Linux Foundation uses the DNS method to obtain SSL certificates.
+Unfortunately, the Jenkins project uses the HTTP method to obtain SSL certificates.
+
+Thankfully, Olivier Vernin of the Jenkins project and Anton Baranov of the Linux Foundation found a solution.
+They created an ACME record in the Jenkins DNS server and pointed the issues.jenkins.io DNS record at the new Linux Foundation Jira server.
+
+=== Building the Prototype
+
+Anton Baranov created a prototype Jira server, restored an older Jenkins Jira backup, and upgraded it to Jira 8.13.
+That first restore detected that we had not provided the Jira attachments or the Jira avatars.
+That attachments and avatars added multiple gigabytes to the initial backup data and were vital to complete the update.
+
+== Testing the Upgrade
+
+A group of volunteers including Jenkins users, security team members, and infrastructure team members tested the upgrade during the week of October 26, 2020.
+The tests confirmed that authentication worked as expected and that the Jira prototype was functioning as expected.
+
+We thank the test team, including:
+
+* Daniel Beck
+* Tim Jacomb
+* Olivier Vernin
+* Mark Waite
+
+The tests included:
+
+* Creating and routing issues
+* Commenting on issues
+* Viewing dashboards with the expected content
+* LDAP settings
+* Email notification
+
+The tests detected minor issues that Anton was able to correct in preparation for the final upgrade.
+The testing team agreed that the tests were successful.
+
+== Deploying the Upgrade
+
+Olivier Vernin announced the final upgrade by link:https://groups.google.com/g/jenkins-infra/c/i7SaB-24L1o/m/NeUFrH82AAAJ[email to the Jenkins infra list] with details of the changes happening during the upgrade.
+Monday, November 9, 2020, the final backup of the existing Jira server was copied into the new Linux Foundation server.
+
+The final upgrade encountered issues that we had not seen during the initial tests.
+The "bumps and bruises" from the unexpected issues were resolved by Anton Baranov as he used a multi-step upgrade process.
+The steps included:
+
+* Restore the earlier backup to Jira 7.13
+* Restore the most recent backup
+* Upgrade to Jira 8.13
+* Install avatars, attachments, and other images
+* Update DNS entries to point to the new Jenkins Jira server
+
+== Lessons from the Upgrade
+
+Lessons were related to timing, estimation, and communication.
+
+=== Scheduling the Upgrade
+
+The test upgrade started the week of October 19, 2020.
+It took several days longer than originally expected.
+Thankfully, we had allowed an extra week between the test upgrade and the production upgrade.
+
+The link:https://groups.google.com/g/jenkins-infra/c/8SC8bQuhD7s/m/Qtnz9o8gBAAJ[originally announced schedule] for the final upgrade was intentionally placed in a week that would not include a long term support release.
+That reduced the risk of disruption if the upgrade took longer than required or failed and we had to roll back.
+
+=== Estimating the Work
+
+Discussions with the Jenkins project Jira administrators and the Linux Foundation Jira experts provided very reasonable estimates of time to complete the work.
+We intentionally allowed additional time between first test and final upgrade.
+We needed that additional time and used it well as the testing week.
+
+==== Communicating the Plan
+
+The distributed nature of the Jenkins project makes communication challenging for major changes.
+We communicated plans at various stages but still found occasions where the communication was insufficient.
+In this case, the adage held true that it is, "impossible to communicate too much".
+
+Thanks for your patience during the upgrade and thanks to the Linux Foundation for administering the Jenkins Jira server.

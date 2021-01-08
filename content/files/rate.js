@@ -33,7 +33,7 @@ function do_loaddata() {
     if (r && r.length > 3) {
       txt += '<span class="related-issues">Community reported issues: ';
       for (j = 3; j < r.length; j+=2)
-        txt += r[j+1] + '&times;<a href="https://issues.jenkins-ci.org/browse/JENKINS-' + r[j] + '">JENKINS-' + r[j] + '</a> ';
+        txt += r[j+1] + '&times;<a href="https://issues.jenkins.io/browse/JENKINS-' + r[j] + '">JENKINS-' + r[j] + '</a> ';
       txt += '</span>';
     }
     div2.innerHTML = txt;

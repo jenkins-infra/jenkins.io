@@ -95,8 +95,8 @@ I'd say building and testing web applications alone with Hudson would be quite n
 <tr><td align="center" valign="top">
 <strong>Rasheed</strong>
 </td><td>
-It runs multiple slave types, and automates deploys to different cloud
-infrastructures. At the moment we have 2 Flex build slaves running Ubuntu, A
+It runs multiple agent types, and automates deploys to different cloud
+infrastructures. At the moment we have 2 Flex build agents running Ubuntu, A
 Mac Mini building our iPhone app, and several Ubuntu Servers testing our web
 tier. We currently deploy to Citrix Xen servers, and soon to <a id="aptureLink_Xq08IAbEb1" href="https://twitter.com/RackCloud">Rackspace Cloud</a> as well.
 <br/>

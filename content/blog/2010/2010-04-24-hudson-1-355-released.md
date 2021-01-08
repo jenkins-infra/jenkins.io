@@ -21,27 +21,22 @@ I won't go into details on some of the infrastructure changes we have lined up j
   <li class=bug> 
     Colored ball image at top of build pages was broken for Hudson in some web
     containers (fixed by removing workaround for a Firefox bug fixed since 3.0.5/Dec2008).
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-2341">issue 2341</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-2341">issue 2341</a>)
   <li class=bug> 
     Console page while build is running did not wrap lines when viewed in IE.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5869">issue 5869</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5869">issue 5869</a>)
   <li class=bug> 
     Fixed build history to indicate test failure for MavenBuild and MavenModuleSetBuild.
   <li class=bug> 
     Make <tt>dropdownList</tt> work in repeatable content, such as a build step.
   <li class=bug> 
-    Fixed a bug where a job created via XML didn't properly receive upstream/downstream computation.
-    (<a href="https://n4.nabble.com/Hudson-API-td1747758.html#a1747758">report</a>)
-  <li class=bug> 
-    Argument masking wasn't working correctly for commands run on slaves
-    (<a href="https://n4.nabble.com/Password-masking-when-running-commands-on-a-slave-tp1753033p1753033.html">report</a>)
 </ul>
 
 
 #### Enhancements
 <ul>
   <li class=rfe> 
-    Added the slave retention strategy based on a schedule.
+    Added the agent retention strategy based on a schedule.
   <li class=rfe> 
     Added to configure charset option of Mailer.
 </ul>

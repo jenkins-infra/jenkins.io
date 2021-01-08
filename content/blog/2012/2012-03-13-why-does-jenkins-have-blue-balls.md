@@ -13,7 +13,7 @@
 
 One of the most commonly asked questions, is about Jenkins' use of "blue balls" to indicate success by default. This is enough of an "issue" for some users that the [Green Balls](https://wiki.jenkins.io/display/JENKINS/Green+Balls) plugin is in the [list of top 10 installed plugins](https://imod.github.com/jenkins-stats/svg/201201-top-plugins1000.svg).
 
-The reason behind our use of blue to indicate success has its basis in [Kohsuke's](https://github.com/kohsuke) Japanese upbringing. The cultural differences were enumerated in a bug report comically titled "s/blue/green/g" ([JENKINS-369](https://issues.jenkins-ci.org/browse/JENKINS-369)):
+The reason behind our use of blue to indicate success has its basis in [Kohsuke's](https://github.com/kohsuke) Japanese upbringing. The cultural differences were enumerated in a bug report comically titled "s/blue/green/g" ([JENKINS-369](https://issues.jenkins.io/browse/JENKINS-369)):
 
 This response Kohsuke cited was taken [from this Q&A thread](https://groups.yahoo.com/group/ParthenonWeekly/message/232)
 
@@ -37,7 +37,7 @@ and refers to the colour of plants which grow around a well, a colour between gr
 to colour, Japanese children always colour the sun red instead of
 yellow.
 
-(*here's a [direct link to Kohsuke's comment](https://issues.jenkins-ci.org/browse/JENKINS-369?focusedCommentId=120769&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-120769)*)
+(*here's a [direct link to Kohsuke's comment](https://issues.jenkins.io/browse/JENKINS-369?focusedCommentId=120769&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-120769)*)
 
 
 Unfortunately it's not for color blind users, although that's a pretty convincing explanation. Jenkins has blue balls because in Japan, red means stop and blue means go!

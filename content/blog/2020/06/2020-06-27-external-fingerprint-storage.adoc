@@ -1,0 +1,163 @@
+---
+layout: post
+title: "External Fingerprint Storage Phase-1 Updates"
+tags:
+- plugins
+- fingerprint
+- cloud-native
+- external-storage
+- developer
+- redis
+- gsoc
+- gsoc2020
+author: stellargo
+opengraph:
+  image: /images/post-images/2020/06-external-fingerprint-storage/redis_plugin_gsoc_opengraph.png
+---
+
+Externalizing fingerprint storage for Jenkins is a  Google Summer of Code 2020 project.
+We are working on building a pluggable storage engine for fingerprints (see jep:226[]).
+
+File fingerprinting is a way to track which version of a file is being used by a job/build, making dependency tracking easy. The fingerprint engine of Jenkins can track usages of artifacts, credentials, files, etc. within the system. Currently, it does this by maintaining a local XML-based database which leads to dependence on the physical disk of the Jenkins controller.
+
+Allowing fingerprint storage to be moved to external storages decreases the dependence of Jenkins instances on the physical disk space and also allows for tracking the flow of fingerprints across instances of Jenkins connected to the same external storage.
+
+Advantages of using external storage drivers:
+
+* Remove dependence on Jenkins controller disk storage
+
+* Can configure pay-as-you-use cloud storages
+
+* Easy Backup Management
+
+* Better Reliability and Availability
+
+* Fingerprints can be tracked across Jenkins instances
+
+Along with this API, we are also working on a link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[reference implementation] in the form of a plugin, powered by Redis.
+
+As phase 1 of this project comes to an end, this blog post serves as a summary of the progress we made to the entire Jenkins community.
+
+== Current State
+
+* The link:https://github.com/jenkinsci/jenkins/pull/4731[new API] introduced in Jenkins core is under review. Once merged, it will offer developers to extend it to build external fingerprint storage plugins.
+* The link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin] is alpha release ready. We would immensely appreciate any feedback. 
+
+.External Fingerprint Storage Demo
+video::yzd-y5ByXg8[youtube,width=800,height=420]
+
+[link:https://www.youtube.com/watch?v=yzd-y5ByXg8&feature=youtu.be[Demo]]
+
+== Introducing the new API for plugin developers
+
+With link:https://github.com/jenkinsci/jenkins/pull/4731[PR-4731], we introduce a new fingerprint storage API, allowing configuring custom storage engines.
+We exposed the following methods in the new `FingerprintStorage` class:
+
+* `void save()`
+
+** Saves the given Fingerprint in the storage.
+
+* `Fingerprint load(String id)`
+
+** Returns the Fingerprint with the given unique ID. The unique ID for a fingerprint is defined by Fingerprint#getHashString().
+
+* `void delete(String id)`
+
+** Deletes the Fingerprint with the given unique ID.
+
+* `boolean isReady()`
+
+** Returns true if there is some data in the fingerprint database corresponding to the particular Jenkins instance.
+
+
+== Introducing Redis Fingerprint Storage Plugin
+
+link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin] uses the new External Fingerprint Storage API to store the fingerprints in a Redis instance.
+
+=== Installation:
+
+The alpha release (version `0.1-alpha-1`) for the plugin was drafted, and can be installed using the link:https://www.jenkins.io/doc/developer/publishing/releasing-experimental-updates/[experimental update center].
+
+Follow along the following steps after running Jenkins to download and install the plugin:
+
+. Select `Manage Jenkins`
+
+. Select `Manage Plugins`
+
+. Go to `Advanced` tab
+
+. Configure the Update Site URL as: https://updates.jenkins.io/experimental/update-center.json
+
+. Click on `Submit`, and then press the `Check Now` button.
+
+. Go to `Available` tab.
+
+. Search for `Redis Fingerprint Storage Plugin` and check the box along it.
+
+. Click on `Install without restart`
+
+The plugin should now be installed on your system.
+
+== Usage
+
+Once the plugin has been installed, you can configure the Redis server details by following the steps below:
+
+. Select `Manage Jenkins`
+
+. Select `Configure System`
+
+. Scroll to the section `Redis Fingerprint Storage Configuration` and fill in the required details:
+
++
+image:/images/post-images/2020/06-external-fingerprint-storage/configure_redis.png[Configure Redis]
++
+
+* `Host` - Enter hostname where Redis is running
+
+* `Port` - Specify the port on which Redis is running
+
+* `SSL` - Click if SSL is enabled
+
+* `Database` - Redis supports integer indexed databases, which can be specified here.
+
+* `Connection Timeout` - Set the connection timeout duration in milliseconds.
+
+* `Socked Timeout` - Set the socket timeout duration in milliseconds.
+
+* `Credentials` - Configure authentication using username and password to the Redis instance.
+
+* `Enabled` - Check this to enable the plugin (Note: This is likely to be removed very soon, and will be enabled by default.)
+
+. Use the `Test Redis Connection` to verify that the details are correct and Jenkins is able to connect to the Redis instance.
+
+. Press the `Save` button.
+
+. Now, all the fingerprints produced by this Jenkins instance should be saved in the configured Redis server!
+
+== Future Work
+
+Some of the topics we aim to tackle in the next phases include extending the API, fingerprint cleanup, migrations (internal->external, external->internal, external->external), tracing, ORM, implementing the saveable listener, etc.
+
+== Acknowledgements
+
+The Redis Fingerprint Storage plugin is built and maintained by the Google Summer of Code (GSoC) Team for
+link:https://www.jenkins.io/projects/gsoc/2020/projects/external-fingerprint-storage/[External Fingerprint Storage for Jenkins].
+
+Special thanks to link:https://github.com/oleg-nenashev[Oleg Nenashev], link:https://github.com/afalko[Andrey Falko], link:https://github.com/mikecirioli[Mike Cirioli], link:https://github.com/jglick[Jesse Glick], and the entire Jenkins community for all the contribution to this project.
+
+== Reaching Out
+
+Feel free to reach out to us for any questions, feedback, etc. on the project's link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel] or the mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list]
+
+We use Jenkins link:https://issues.jenkins.io/[Jira] to track issues.
+Feel free to file issues under `redis-fingerprint-storage-plugin` component.
+
+== Other Links
+
+* link:https://www.youtube.com/watch?v=yzd-y5ByXg8&feature=youtu.be[Phase 1 demo]
+* link:https://docs.google.com/presentation/d/1hrdOYKXBWyQG-k53KUe6zFXJ3KWEK4t7smdtpNtp1Wo/edit#slide=id.g8061b508ca_0_149[Presentation slides]
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin]
+* link:https://issues.jenkins.io/browse/JENKINS-62344[Issue Tracker for Phase 1]
+* jep:226[]
+* link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel]
+* link:https://www.jenkins.io/projects/gsoc/2020/projects/external-fingerprint-storage/[Project Page]
