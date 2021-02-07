@@ -33,14 +33,14 @@ upstream jenkins {
 
 # Required for Jenkins websocket agents
 map $http_upgrade $connection_upgrade {
-        default upgrade;
-        '' close;
+  default upgrade;
+  '' close;
 }
 
 server {
   listen          80;       # Listen on port 80 for IPv4 requests
 
-  server_name     jenkins.example.com;
+  server_name     jenkins.example.com;  # replace 'jenkins.example.com' with your server domain name
 
   # this is the jenkins web root directory
   # (mentioned in the /etc/default/jenkins file)
@@ -48,21 +48,22 @@ server {
 
   access_log      /var/log/nginx/jenkins/access.log;
   error_log       /var/log/nginx/jenkins/error.log;
+  
   # pass through headers from Jenkins that Nginx considers invalid
   ignore_invalid_headers off;
 
   location ~ "^/static/[0-9a-fA-F]{8}\/(.*)$" {
-    #rewrite all static files into requests to the root
-    #E.g /static/12345678/css/something.css will become /css/something.css
+    # rewrite all static files into requests to the root
+    # E.g /static/12345678/css/something.css will become /css/something.css
     rewrite "^/static/[0-9a-fA-F]{8}\/(.*)" /$1 last;
   }
 
   location /userContent {
     # have nginx handle all the static requests to userContent folder
-    #note : This is the $JENKINS_HOME dir
+    # note : This is the $JENKINS_HOME dir
     root /var/lib/jenkins/;
     if (!-f $request_filename){
-      #this file does not exist, might be a directory or a /**view** url
+      # this file does not exist, might be a directory or a /**view** url
       rewrite (.*) /$1 last;
       break;
     }
@@ -128,7 +129,15 @@ the Jenkins group:
 
 [source,sh]
 ----
-useradd -aG jenkins nginx
+usermod -aG jenkins nginx
+----
+
+If the last command failed because the `nginx` user is not defined in the system,
+then you can try adding the `www-data` user to the Jenkins group:
+
+[source,sh]
+----
+usermod -aG jenkins www-data
 ----
 
 If you are experiencing timeouts when attempting to run long CLI
