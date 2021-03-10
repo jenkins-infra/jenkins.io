@@ -16,15 +16,15 @@ The data below represents the Google Season of Docs 2021 application draft.
 
 * Name: Jenkins project
 * Website: https://jenkins.io/
-* Contact email for GSoD: jenkinsci-docs@googlegroups.com 
+* Contact email for GSoD: jenkinsci-docs@googlegroups.com
 * GSoD page link: http://jenkins.io/sigs/docs/gsod
 * Does your organization want to accept the mentor stipend? => Yes
-* Link to project ideas list: https://jenkins.io/sigs/docs/gsod#project-ideas 
+* Link to project ideas list: https://jenkins.io/sigs/docs/gsod#project-ideas
 
 ### Org admins
 
 * Primary: Mark Waite
-* Secondary: 
+* Secondary:
 
 ### Org description
 
@@ -44,7 +44,7 @@ We invite technical writers to join the community and contribute to the document
 > Explain how this previous experience may help you to work with a technical writer in Season of Docs.
 
 In the Jenkins project, we believe that documentation is as important as code.
-In 2019, we introduced an official Documentation Officer role and started a Documentation special interest group (https://jenkins.io/sigs/docs/) 
+In 2019, we introduced an official Documentation Officer role and started a Documentation special interest group (https://jenkins.io/sigs/docs/)
 which, among other things, coordinates the Google Season of Docs application in the project.
 We have several documentation initiatives listed on our project roadmap: https://jenkins.io/project/roadmap/.
 The Documentation SIG facilitates documentation improvement across the organization.
