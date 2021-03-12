@@ -15,7 +15,7 @@ function loaddata() {
 }
 
 function health(nm,cls,ver,rate,desc) {
-  return '<img src="/images/changelog/' + nm + '.png" onclick="rate(\'' + ver + '\',' + rate + ')" class="rate ' + cls + '" alt="' + nm + '" title="' + desc + '"/>';
+  return '<img src="/images/changelog/' + nm + '.svg" onclick="rate(\'' + ver + '\',' + rate + ')" class="rate ' + cls + '" alt="' + nm + '" title="' + desc + '"/>';
 }
 
 function do_loaddata() {
