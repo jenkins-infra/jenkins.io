@@ -41,4 +41,5 @@ If needed:
 
 ### Organization proposal
 
-Link to the link:organization-proposal[organization proposal] for details.
+Link to the link:https://www.jenkins.io/sigs/docs/gsod/2021/organization-proposal/[organization proposal] for details.
+
