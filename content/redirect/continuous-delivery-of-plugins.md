@@ -1,4 +1,4 @@
 ---
 layout: redirect
-redirect_url: https://github.com/jenkinsci/incrementals-tools/blob/master/README.md#automatic-deployment
+redirect_url: https://github.com/jenkinsci/incrementals-tools/blob/master/README.md#superseding-maven-releases
 ---
