@@ -9,7 +9,7 @@ gem 'asciidoctor-jenkins-extensions', '~> 0.8.0'
 # Support for various template engines we use
 gem 'haml', '~> 5.1.0'
 gem 'liquid', '~> 3.0'
-gem 'kramdown', '~> 2.3.0'
+gem 'kramdown', '~> 2.3.1'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
