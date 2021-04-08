@@ -20,4 +20,4 @@ FROM nginx:1.17
 
 COPY --from=builder /usr/src/jenkinsio/_site /usr/share/nginx/html
 
-copy docker/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/default.conf /etc/nginx/conf.d/default.conf
