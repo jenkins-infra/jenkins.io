@@ -41,9 +41,8 @@ fetch: $(BUILD_DIR)/fetch
 fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
-$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-external-resources content/_tmp | $(OUTPUT_DIR)
-	./scripts/groovy pull
-	./scripts/groovy scripts/release.rss.groovy 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
+$(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.rb scripts/fetch-external-resources content/_tmp | $(OUTPUT_DIR)
+	./scripts/ruby bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
 
@@ -51,7 +50,7 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.groovy scripts/fetch-e
 # chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
-$(BUILD_DIR)/scripts-permission: ./scripts/groovy ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.groovy ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
+$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
@@ -88,10 +87,10 @@ $(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(
 
 assets: $(BUILD_DIR)/assets
 
-$(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*")
+$(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*" -not -path "./node_modules/.cache/*")
 	@mkdir -p $(FONTS_DIR)
 	@mkdir -p $(ASSETS_DIR)
-	@for f in $(shell find node_modules \( -iname "*.eot" -o -iname "*.woff" -o -iname "*.ttf" \)); do \
+	@for f in $(shell find node_modules \( -iname "*.eot" -o -iname "*.woff" -o -iname "*.ttf" \) -not -path "./node_modules/.cache/*"); do \
 		echo "Copying $$f into $(FONTS_DIR)"; \
 		cp $$f $(FONTS_DIR); \
 	done;
