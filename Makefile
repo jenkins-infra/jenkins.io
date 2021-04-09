@@ -42,7 +42,7 @@ fetch-reset:
 	@rm -f $(BUILD_DIR)/fetch
 
 $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.rb scripts/fetch-external-resources content/_tmp | $(OUTPUT_DIR)
-	./scripts/ruby scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
+	./scripts/ruby bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > $(OUTPUT_DIR)/releases.rss
 	./scripts/ruby bundle exec ./scripts/fetch-external-resources
 	@touch $(BUILD_DIR)/fetch
 
