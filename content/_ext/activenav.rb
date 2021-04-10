@@ -6,16 +6,14 @@ module ActiveNav
 
   def absolute_link(relative_url)
     link =  [site.base_url, relative_url.sub(/^\//, '')].join('/')
-    link.gsub(/\/index.html$/, '/')
-  end
-
-  def expand_asset_link(relative_url)
-    return [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
+    link.gsub(/\/index.html$/, '/').gsub(/\/(\/)+/, '/')
   end
 
   def expand_link(relative_url)
     link = [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
-    link = link + '/' unless link.include? '.' # if it contains a . its a file and shouldn't get a /
+    # if it has a file existen its a file and shouldn't get an / added
+    link = link + '/' if File.extname(link).empty?
+    # strip double slashes on the end
     link.gsub(/\/(\/)+/, '/')
   end
 
