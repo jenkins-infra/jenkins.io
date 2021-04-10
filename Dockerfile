@@ -35,14 +35,16 @@ WORKDIR /usr/src/jenkinsio
 COPY Gemfile Gemfile.lock ./
 RUN bundle install
 
-COPY . .
+COPY scripts scripts
+COPY content content
 
 RUN mkdir _site
 COPY --from=node /usr/src/jenkinsio/_site/assets/bower ./_site/assets/bower
 COPY --from=node /usr/src/jenkinsio/_site/css/fonts ./_site/css/fonts
-RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./_site/releases.rss 
+RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./_site/releases.rss
 RUN bundle exec ./scripts/fetch-external-resources
 RUN awestruct --generate --verbose --source-dir=content --output-dir=./_site
+
 
 FROM nginx:1.17
 

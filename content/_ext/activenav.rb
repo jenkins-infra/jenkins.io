@@ -4,8 +4,19 @@ module ActiveNav
     return options[:css_class] if page.section == section_name
   end
 
+  def absolute_link(relative_url)
+    link =  [site.base_url, relative_url.sub(/^\//, '')].join('/')
+    link.gsub(/\/index.html$/, '/')
+  end
+
+  def expand_asset_link(relative_url)
+    return [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
+  end
+
   def expand_link(relative_url)
-    return [site.base_url, relative_url.sub(/^\//, '')].join('/')
+    link = [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
+    link = link + '/' unless link.include? '.' # if it contains a . its a file and shouldn't get a /
+    link.gsub(/\/(\/)+/, '/')
   end
 
   def active_href(relative_url, text, options={:class => nil})

@@ -54,6 +54,11 @@ $(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestru
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
+docker_build:
+	docker build -t jenkinsciinfra/jenkinsio .
+
+docker_run:
+	docker run -it --rm -p 3000:80 jenkinsciinfra/jenkinsio
 
 
 #######################################################
