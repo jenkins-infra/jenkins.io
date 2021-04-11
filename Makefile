@@ -9,7 +9,7 @@ GITHUB_USER=$(USER)
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 USER_SITE_URL=https://$(GITHUB_USER).github.io/jenkins.io/$(BRANCH)/
 AWESTRUCT_USER_SITE=-P user-site --url "$(USER_SITE_URL)"
-
+DOCKER_ORG?=jenkinsciinfra
 
 # Generate everything
 all: fetch-reset prepare generate archive
@@ -55,11 +55,13 @@ $(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestru
 	@touch $(BUILD_DIR)/scripts-permission
 
 docker_build:
-	docker build -t jenkinsciinfra/jenkinsio .
+	docker build -t $(DOCKER_ORG)/jenkinsio .
 
 docker_run:
-	docker run -it --rm -p 3000:80 jenkinsciinfra/jenkinsio
+	docker run -it --rm -p 4242:80 $(DOCKER_ORG)/jenkinsio
 
+docker_push:
+	docker push $(DOCKER_ORG)/jenkinsio
 
 #######################################################
 
