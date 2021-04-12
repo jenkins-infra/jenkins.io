@@ -11,7 +11,7 @@ module ActiveNav
 
   def expand_link(relative_url)
     link = [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
-    # if it has a file existen its a file and shouldn't get an / added
+    # if it has a file extension its a file and shouldn't get a / added
     link = link + '/' if File.extname(link).empty?
     # strip double slashes on the end
     link.gsub(/\/(\/)+/, '/')
