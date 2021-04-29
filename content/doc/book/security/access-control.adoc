@@ -1,0 +1,153 @@
+---
+title: Access Control
+layout: documentation
+---
+:toc:
+:toclevels: 4
+
+Jenkins access control is split into two parts:
+
+* Authentication (users prove who they are) is done using a _security realm_.
+  The security realm determines user identity and group memberships.
+* Authorization (users are permitted to do something) is done by an _authorization strategy_.
+  This controls whether a user (directly or through group memberships) has a permission.
+
+These can be independent, or work in combination.
+An independent configuration would be plugin:active-directory[Active Directory] or plugin:ldap[LDAP] as security realm, and something like plugin:matrix-auth[Matrix Authorization Strategy] as authorization strategy.
+An example for related security realm and authorization strategy configuration is plugin:github-oauth[GitHub Authentication]:
+While its security realm can be used with a generic authorization strategy, it also provides an authorization strategy that looks up a user's repository permissions on GitHub, and grants or denies permissions to related jobs in Jenkins based on that.
+
+[NOTE]
+====
+Jenkins could be set up to have basic access control happen outside of it.
+Some examples:
+
+* The built-in https://github.com/jenkinsci/winstone[Winstone/Jetty servlet container wrapper] provides options that implement a basic security realm outside Jenkins.
+* If Jenkins is running behind a reverse proxy like Nginx or Apache, those can limit access to Jenkins.
+
+An advantage of these approaches is that they do not allow any access to Jenkins unless a user is authorized, reducing the impact of security issues in Jenkins or plugins especially when accessible from the internet.
+A disadvantage is the lack of integration with Jenkins access controls and potentially even interfering with it (e.g. when trying to authenticate scripted clients).
+====
+
+== Permissions
+
+At a very basic level, the _Overall/Read_ permission provides users some basic access to Jenkins.
+This permission is a prerequisite for more substantial access to Jenkins.
+Without this permission, only very few features explicitly intended to be used without authentication are available.
+
+The highest level of permissions is _Overall/Administer_.
+With this permission, users can upload and install plugins and have access to the link:/doc/book/managing/script-console/[Script Console].
+
+Between these two extremes is finer-grained permission control involving other permissions.
+Permissions in Jenkins have a _scope_: They can be granted globally, on an item (like a folder or job), on a build, etc.
+Whenever a user attempts to do something that is protected by permissions, the authorization strategy is checked for whether the current user has the specific permission (e.g., _Job/Read_) on the specific object (e.g., a job).
+Exactly how permissions are assigned and whether and how they're inherited is controlled by the specific authorization strategy.
+
+As an example, plugin:matrix-auth[Matrix Authorization Strategy] provides two different authorization strategies:
+
+* One provides a single global configuration of all permissions.
+  A user granted _Item/Read_ will be granted that permission everywhere.
+* One provides a project-based configuration.
+  In this model, permissions can be granted globally (as in the previous strategy), or only on specific folders, jobs, or agents.
+  Permissions are by default inherited, but that can be customized as well, so that users granted _Item/Read_ globally or on a parent folder may be excluded from access to a job.
+
+=== Important global permissions
+
+The following sections describe the access granted to users with (or without) the specified permissions.
+
+==== Access granted _without_ Overall/Read
+
+While Overall/Read is a prerequisite for more extensive access to Jenkins, some features are available without it.
+
+// ALWAYS_READABLE_PATHS in https://github.com/jenkinsci/jenkins/blob/master/core/src/main/java/jenkins/model/Jenkins.java
+
+* Very basic UI, like the login form, the account signup form (if using the Jenkins user database as security realm), and some error pages ("Oops!").
+* Access to URLs provided by the security realm (to implement user signup or handle SSO authentication) (`/securityRealm/`).
+* `agent.jar`, `remoting.jar`, and `jenkins-cli.jar` files (plus deprecated aliases) to easily download client packages matching the running version of Jenkins (`/jnlpJars/`).
+* Agent JNLP files (`/computer/.../jenkins-agent.jnlp?encrypted=true` plus deprecated alias) to connect inbound agents to Jenkins.
+* Access to the TCP agent listener endpoint used by agents connecting to Jenkins via the agent TCP port (`/tcpSlaveAgentListener/`).
+* Access to some static resources (JS, CSS, and image files) bundled with Jenkins and Jenkins plugins (`/adjuncts/`).
+
+Additionally, both Jenkins and any plugin may implement an extension point to make URLs available without authentication.
+SCM plugins commonly do this to let SCM features like post-commit hooks inform Jenkins about new commits, causing jobs to poll for changes.
+
+// https://github.com/jenkinsci/jenkins/blob/master/core/src/main/java/hudson/model/UnprotectedRootAction.java
+
+As of Jenkins 2.290, the following extensions are provided as part of Jenkins (core):
+
+* `/assets/` provides access to further static resources.
+* `/cli/` handles CLI connections.
+  CLI documentation is also available here, but those pages are individually protected.
+* The `/whoAmI/` URL allows determining who the current user is.
+  It is available to users without permissions to troubleshoot permissions issues.
+* `/wsagents/` handles agent connections using web sockets.
+* `/instance-identity/` provides a public key that allows identifying the Jenkins instance and setting up secure communication with it.
+  See https://github.com/jenkinsci/instance-identity-plugin[the component documentation] for details.
+* `/static-files/` is used to implement the Resource Root URL feature serving user-provided contents from another domain.
+  See link:/doc/book/security/configuring-content-security-policy[its documentation].
+// TODO: This link isn't quite correct yet, because this feature is barely covered, will be fixed in the future.
+
+A list of all these extensions is provided on the UI when selecting (but not saving) the _Delegate to Servlet container_ security realm, or can be obtained via the link:/doc/book/managing/script-console/[Script Console] using:
+
+[source,groovy]
+----
+ExtensionList.lookup(UnprotectedRootAction).each {
+  println String.format("URL: '%s/' provided by '%s' in '%s'", it.urlName, Jenkins.get().pluginManager.whichPlugin(it.class)?.shortName?:"Jenkins Core", it.class.name)
+}
+return
+----
+
+While these extensions opt out of the built-in _Overall/Read_ permission requirements, they are expected to implement permission checks themselves whenever performing actions typically requiring permissions, or to check for the presence of a previously set up token in place of regular authentication.
+
+NOTE: In your HTTP access logs, you may see accesses to URLs starting with `/static/`, followed by a random looking string of letters and numbers.
+This is part of a caching feature in Jenkins: Requests to these URLs expect cacheable responses, so HTTP response headers with a long expiration time are set.
+The string following `/static/` is randomly generated once on startup, ensuring that it changes when the Jenkins version (and therefore the contents of cacheable files) changes.
+Any path starting with `/static/.../` can be treated for logging purposes as if this prefix wasn't present.
+
+==== Access granted with Overall/Read
+
+Users with Overall/Read access are expected to be legitimate users of Jenkins.
+
+In addition to the above, a user granted _Overall/Read_ can do all of the following:
+
+* Access the basic Jenkins API and the API of any object they have access to.
+* Access the People directory listing user accounts and known committer identities of anyone involved in visible projects.
+* List and view all agents configured in Jenkins and access their summary pages.
+
+To support various features available to legitimate users of Jenkins, the following not as obvious URLs are accessible as well:
+
+* Further path prefixes (in addition to `adjuncts/`, `assets/`, and core webapp resources) providing static assets, both by Jenkins core and by plugins.
+  See link:/doc/developer/views/exposing-bundled-resources/[the developer documentation].
+* Path prefixes providing access to all URLs implemented in extension lists of all extension points implemented in Jenkins.
+  These URLs are typically used to support form validation and form autocompletion, and the way they're organized means that some basic access is granted to any user with _Overall/Read_ access.
+
+[NOTE]
+====
+While the vast majority of URLs in Jenkins are by default protected by an _Overall/Read_ permission check, a lack of individual permission checks in endpoints for form validation and similar actions taken through the UI can result in users with only _Overall/Read_ access to be able to access these actions.
+Lack of necessary permission checks constitutes a security vulnerability.
+While these are expected to be resolved in a timely manner, this may be worth considering when deciding who to grant _Overall/Read_ permission to.
+====
+
+// TODO: Access granted with Overall/Manage
+// TODO: Access granted with Overall/SystemRead
+
+==== Access granted with Overall/Administer
+
+In short: **Everything.**
+
+Administrators can do all of the following:
+
+* Install and upload plugins that can run arbitrary code.
+* Use the Script Console both on the Jenkins controller and on individual agents, running arbitrary code in the Jenkins controller and agent processes.
+* Use the Script Console (or configure jobs) to run arbitrary shell scripts on the Jenkins controller or any connected agent.
+
+There are no limits to what users with _Overall/Administer_ permission can do in Jenkins.
+Anything they cannot accomplish through the existing UI they can do through the Script Console or by installing a plugin that does it.
+
+An instance on which an untrusted user gained _Overall/Administer_ permission should be considered fully compromised and should be replaced.
+All secrets (credentials, etc.) stored on that instance should be rotated or revoked and all artifacts created from that point on should be verified.
+
+== Disabling Access Control
+
+See link:/doc/book/security/securing-jenkins/#disabling-security[the documentation].
+// TODO Move over
