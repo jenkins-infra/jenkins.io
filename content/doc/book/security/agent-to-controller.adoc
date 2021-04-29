@@ -1,0 +1,113 @@
+---
+title: Customizing Agent &rarr; Controller Security
+layout: documentation
+---
+ifdef::backend-html5[]
+:toc:
+:toclevels: 4
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:hide-uri-scheme:
+endif::[]
+
+This section describes how to customize the rules restricting agents' access to the Jenkins controller.
+
+For advanced users who may wish to allow certain access patterns from the agents to the Jenkins controller, Jenkins allows administrators to create specific exemptions from the built-in access control rules.
+This should only be necessary when trying to run plugins that haven't been adapted yet to be compatible.
+
+NOTE: For an introduction about the Agent &rarr; Controller Security system, see link:/doc/book/security/controller-isolation/#agent-controller-access-control[Isolating the Controller from Builds].
+
+image::security/configure-global-security-agent-controller-rules.png["Configure Global Security - Enable Agent => Master Access Control - Editing Rules", role=center]
+
+By following the link highlighted above, an administrator may edit *Commands* and *File Access* Agent/Master access control rules.
+
+== Customizing Rules
+
+=== Commands
+
+"Commands" in Jenkins and its plugins are identified by their fully-qualified class names.
+The majority of these commands are intended to be executed on agents by a request of a controller, but some of them are intended to be executed on a controller by a request of an agent.
+
+Plugins not yet updated for this subsystem may not classify which category each command falls into, such that when an agent requests that the controller execute a command which is not explicitly allowed, Jenkins will err on the side of caution and refuse to execute the command.
+
+In such cases, Jenkins administrators may allow certain commands as acceptable for execution on the controller.
+
+image::security/configure-global-security-whitelist-commands.png["Configure Global Security - Enable Agent => Master Access Control - Editing Rules - Command Whitelisting", role=center]
+
+==== Advanced
+
+Administrators may also allow classes by creating files with the `.conf` extension in the directory `JENKINS_HOME/secrets/whitelisted-callables.d/`.
+The contents of these `.conf` files should list command names on separate lines.
+
+The contents of all the `.conf` files in the directory will be read by Jenkins and combined to create a `default.conf` file in the directory which lists all known safe commands.
+The `default.conf` file will be re-written each time Jenkins boots.
+
+Jenkins also manages a file named `gui.conf`, in the `whitelisted-callables.d` directory, where commands added via the web UI are written.
+In order to disable the ability of administrators to change whitelisted commands from the web UI, place an empty `gui.conf` file in the directory and change its permissions such that is not writeable by the operating system user Jenkins run as.
+
+=== File Access Rules
+
+The File Access Rules are used to validate file access requests made from agents to the controller.
+Each File Access Rule is a triplet which must contain each of the following elements:
+
+. `allow` / `deny`: if the following two parameters match the current request being considered, an `allow` entry would allow the request to be carried out and a `deny` entry would deny the request to be rejected, regardless of what later rules might say.
+. _operation_: Type of the operation requested.
+  The following 6 values exist.
+  The operations can also be combined by comma-separating the values.
+  The value of `all` indicates all the listed operations are allowed or denied.
+** `read`: read file content or list directory entries
+** `write`: write file content
+** `mkdirs`: create a new directory
+** `create`: create a file in an existing directory
+** `delete`: delete a file or directory
+** `stat`: read metadata of a file/directory, such as timestamp, length, file access modes.
+. _file path_: regular expression that specifies file paths that matches this rule.
+  In addition to the base regexp syntax, it supports the following tokens:
+** `<JENKINS_HOME>` can be used as a prefix to match the controller's `JENKINS_HOME` directory.
+** `<BUILDDIR>` can be used as a prefix to match the build record directory, such as `/var/lib/jenkins/job/foo/builds/12345`.
+** `<BUILDID>` matches the timestamp-formatted build IDs, like `12345`.
+
+The rules are ordered, and applied in that order.
+The earliest match wins.
+For example, the following rules allow access to all files in `JENKINS_HOME` except the `secrets` folders:
+
+[source]
+----
+# To avoid hassle of escaping every '\' on Windows, you can use / even on Windows.
+deny all <JENKINS_HOME>/secrets/.*
+allow all <JENKINS_HOME>/.*
+----
+
+Ordering is very important! The following rules are incorrectly written because the second rule will never match, and allow all agents to access all files and folders under `JENKINS_HOME`:
+
+[source]
+----
+allow all <JENKINS_HOME>/.*
+deny all <JENKINS_HOME>/secrets/.*
+----
+
+==== Advanced
+
+Administrators may also add File Access Rules by creating files with the `.conf.` extension in the directory `JENKINS_HOME/secrets/filepath-filters.d/`.
+Jenkins itself generates the `30-default.conf` file on boot in this directory which contains defaults considered the best balance between compatibility and security by the Jenkins project.
+In order to disable these built-in defaults, replace `30-default.conf` with an empty file which is not writable by the operating system user Jenkins run as.
+
+On each startup, Jenkins will read all `.conf` files in the `filepath-filters.d` directory in alphabetical order, therefore it is good practice to name files in a manner which indicates their load order.
+
+Jenkins also manages `50-gui.conf`, in the `filepath-filters/` directory, where File Access Rules added via the web UI are written.
+In order to disable the ability of administrators to change the File Access Rules from the web UI, place an empty `50-gui.conf` file in the directory and change its permissions such that is not writeable by the operating system user Jenkins run as.
+
+=== Disabling
+
+While it is not recommended, if all agents in a Jenkins environment can be considered "trusted" to the same degree that the controller is trusted, the Agent/Master Access Control feature may be disabled.
+
+Additionally, all the users in the Jenkins environment should have the same level of access to all configured projects.
+
+An administrator can disable Agent/Master Access Control in the web UI by un-checking the box on the *Configure Global Security* page.
+Alternatively an administrator may create a file in `JENKINS_HOME/secrets` named `slave-to-controller-security-kill-switch` with the contents of `true` and restart Jenkins.
+
+[CAUTION]
+====
+Most Jenkins environments grow over time requiring their trust models to evolve as the environment grows.
+Please consider scheduling regular "check-ups" to review whether any disabled security settings should be re-enabled.
+====
