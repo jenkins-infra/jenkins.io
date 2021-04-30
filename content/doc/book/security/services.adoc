@@ -1,0 +1,81 @@
+---
+title: Exposed Services and Ports
+layout: documentation
+---
+
+Jenkins is a fairly complex application and as such does more than just serve a web interface.
+This section documents the services it frequently exposes on the network.
+
+NOTE: Plugins may expose further services on the network.
+Only very commonly installed plugins are considered below.
+
+== Web UI
+
+The web UI served via HTTP (or HTTPS), by default on port 8080.
+Sometimes Jenkins is running behind a reverse proxy that may customize or filter requests and responses.
+
+For an overview of the URLs accessible to users without any permissions in Jenkins, see link:../access-control[Access Control].
+// TODO that should be moved here.
+
+== TCP Agent Listener Port
+
+Jenkins can expose a TCP port that allows inbound agents to connect to it.
+It can be enabled, disabled, and configured in _Manage Jenkins » Configure Global Security_.
+
+// TODO Screenshot
+
+The two supported modes (while enabled) are:
+
+. *Random*: The TCP port is chosen at random to avoid collisions on the Jenkins <<../glossary#controller,controller>>.
+  The downside to randomized ports is that they are chosen during the boot of the Jenkins controller, making it difficult to manage firewall rules allowing TCP traffic.
+. *Fixed*: The port is chosen by the Jenkins administrator and is consistent across reboots of the Jenkins controller.
+  This makes it easier to manage firewall rules allowing TCP-based agents to connect to the controller.
+
+This service is disabled by default in most packages, but the Docker images expose it at port 50000.
+
+HTTP requests at this port get a minimal plain text response with some diagnostic information.
+It looks like the following:
+
+[source]
+----
+Jenkins-Agent-Protocols: JNLP4-connect, Ping <1>
+Jenkins-Version: 2.289 <2>
+Jenkins-Session: b4783dfa <3>
+Client: 172.17.0.1 <4>
+Server: 172.17.0.3 <5>
+Remoting-Minimum-Version: 3.14 <6>
+----
+<1> List of currently enabled TCP inbound agent protocols.
+<2> The current version of Jenkins.
+<3> The session of the current Jenkins execution. This is unrelated to web session cookies. This is changed to a new value whenever Jenkins starts. It is used in various URLs to help implement caching of static resources, and can be used by clients to tell whether Jenkins restarted.
+<4> The client IP address as seen from Jenkins.
+<5> The Jenkins controller's IP address.
+<6> The minimum required version of the https://github.com/jenkinsci/remoting/[Remoting] library for agents to connect to this Jenkins controller.
+
+// Since 2.217
+Inbound agents may instead be configured to use WebSocket transport to connect to Jenkins.
+In this case no extra TCP port need be enabled and no special security configuration is needed.
+
+== SSH Server
+
+The https://plugins.jenkins.io/sshd[SSH Server] Plugin can be configured to open an SSH port on the Jenkins controller.
+
+// TODO Remove this note once it's been a year or so.
+NOTE: This plugin's functionality was part of Jenkins (core) until Jenkins 2.281.
+
+// TODO screenshot
+
+Authentication can be username/password or using public key authentication.
+For the latter, the public keys can be stored in Jenkins users' profiles.
+
+This SSH server does not provide a regular OS shell once logged in.
+Instead, it provides a shell-like interface for the link:/doc/book/managing/cli/[Jenkins CLI].
+
+Additionally, some plugins may provide features that require the SSH server to be enabled, like the plugin:git-server[GIT server] Plugin.
+
+This service is disabled by default.
+
+== UDP and mDNS Service Discovery
+
+Jenkins releases 2.219 and earlier included features that allowed users to discover Jenkins on their network.
+These features have been removed without replacement in Jenkins 2.220 for security reasons.
