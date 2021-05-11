@@ -1,0 +1,217 @@
+---
+layout: post
+title: "Introducing the Azure Key Vault Credentials Provider for Jenkins"
+tags:
+- jenkins
+- pipeline
+- security
+- azure
+- credentials
+- credential-provider
+- configuration-as-code
+author: timja
+description: "Tightly integrate Jenkins and Azure Key Vault"
+opengraph:
+  image: /images/post-images/azure-key-vault/jenkins-on-azure.png
+---
+
+[.lead]
+link:https://azure.microsoft.com/en-gb/services/key-vault/[Azure Key Vault] is a product for securely managing keys, secrets and certificates.
+
+I'm happy to announce two new features in the link:https://plugins.jenkins.io/azure-keyvault/[Azure Key Vault] plugin:
+
+* a link:https://github.com/jenkinsci/credentials-plugin/blob/master/docs/user.adoc#credentials-providers[credential provider] to tightly link Jenkins and Azure Key Vault.
+  - huge thanks to link:https://github.com/gavinfish[Jie Shen] for contributing this
+
+* integration with the link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/features/secrets.adoc#secret-sources[configuration-as-code] plugin.
+
+_These changes were released in link:https://github.com/jenkinsci/azure-keyvault-plugin/releases/tag/azure-keyvault-1.8[v1.8] but make sure to run the latest version of the plugin, there has been some fixes since then._
+
+Some advantages of using the credential provider rather than your own scripts:
+
+- your Jenkins jobs consume the credentials with no knowledge of Azure Key Vault, so they stay vendor-independent.
+- the provider integrates with the ecosystem of existing Jenkins credential consumers, such as the Slack Notifications plugin.
+- credential usage is recorded in the central Jenkins credentials tracking log.
+- Jenkins can use multiple credentials providers concurrently, so you can incrementally migrate credentials to Azure Key Vault while consuming other credentials from your existing providers.
+
+_Note: Currently only secret text credentials are supported via the credential provider, you can use the configuration-as-code integration to load the secret from Azure Key Vault into the System Credential Provider to work around this limitation._
+
+
+== Getting started
+
+Install the link:https://plugins.jenkins.io/azure-keyvault/[Azure Key Vault] plugin
+
+Then you will need to configure the plugin.
+
+=== Azure authentication
+
+There's two types of authentication you can use 'Microsoft Azure Service Principal' or 'Managed Identities for Azure Resources'
+
+The easiest one to set this up quickly with is the 'Microsoft Azure Service Principal',
+
+[source, shell]
+----
+$ az ad sp create-for-rbac --name http://service-principal-name
+Creating a role assignment under the scope of "/subscriptions/ff251390-d7c3-4d2f-8352-f9c6f0cc8f3b"
+  Retrying role assignment creation: 1/36
+  Retrying role assignment creation: 2/36
+{
+  "appId": "021b5050-9177-4268-a300-7880f2beede3",
+  "displayName": "service-principal-name",
+  "name": "http://service-principal-name",
+  "password": "d9d0d1ba-d16f-4e85-9b48-81ea45a46448",
+  "tenant": "7e593e3e-9a1e-4c3d-a26a-b5f71de28463"
+}
+----
+
+If this doesn’t work then take a look at the link:https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli?view=azure-cli-latest[Microsoft documentation] for creating a service principal.
+
+_Note: for production 'Managed Identities for Azure Resources' is more secure as there's no password involved and you don't need to worry about the service principal's password or certificate expiring._
+
+=== Vault setup
+
+You need to create a vault and give your service principal access to it:
+
+[source,shell]
+----
+RESOURCE_GROUP_NAME=my-resource-group
+az group create --location uksouth --name $RESOURCE_GROUP_NAME
+
+VAULT=my-vault # you will need a unique name for the vault
+az keyvault create --resource-group $RESOURCE_GROUP_NAME --name $VAULT
+az keyvault set-policy --resource-group $RESOURCE_GROUP_NAME --name $VAULT \
+  --secret-permissions get list --spn http://service-principal-name
+----
+
+
+=== Jenkins credential
+
+The next step is to configure the credential in Jenkins:
+
+1. click 'Credentials'
+
+2. click 'System' (it'll appear below the Credentials link in the side bar)
+
+3. click 'Global credentials (unrestricted)'
+
+4. click 'Add Credentials'
+
+5. select 'Microsoft Azure Service Principal'
+image:/images/post-images/azure-key-vault/azure-service-principal-drop-down.png[Microsoft Azure Service Principal dropdown]
+
+6. fill out the form from the credential created above, appId is 'Client ID', password is 'Client Secret'
+image:/images/post-images/azure-key-vault/azure-service-principal-configuration.png[Microsoft Azure Service Principal credential configuration]
+
+7. click 'Verify Service Principal', you should see 'Successfully verified the Microsoft Azure Service Principal'.
+
+8. click 'Save'
+
+=== Jenkins Azure Key Vault plugin configuration
+
+You now have a credential you can use to interact with Azure resources from Jenkins, now you need to configure the plugin:
+
+1. go back to the Jenkins home page
+
+2. click 'Manage Jenkins'
+
+3. click 'Configure System'
+
+4. search for 'Azure Key Vault Plugin'
+
+5. enter your vault url and select your credential
+image:/images/post-images/azure-key-vault/azure-key-vault-global-config.png[Azure Key Vault plugin configuration]
+
+6. click 'Save'
+
+=== Store a secret in Azure Key Vault
+
+For the step after this you will need a secret, so let's create one now:
+
+[source, shell]
+----
+$ az keyvault secret set --vault-name $YOUR_VAULT --name secret-key --value my-super-secret
+----
+
+=== Create a pipeline
+
+Install the link:https://plugins.jenkins.io/workflow-aggregator/[Pipeline] plugin if you don't already have it.
+
+From the Jenkins home page, click 'New item', and then:
+
+1. enter a name, i.e. 'key-vault-test'
+
+2. click on 'Pipeline'
+
+3. add the following to the pipeline definition:
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent any
+  environment {
+    SECRET_KEY = credentials('secret-key')
+  }
+  stages {
+    stage('Foo') {
+      steps {
+        echo SECRET_KEY
+        echo SECRET_KEY.substring(0, SECRET_KEY.size() - 1) // shows the right secret was loaded, don't do this for real secrets unless you're debugging
+      }
+    }
+  }
+}
+
+// Scripted //
+withCredentials([string(credentialsId: 'secret-key', variable: 'SECRET_KEY')]) {
+    echo SECRET_KEY
+    echo SECRET_KEY.substring(0, SECRET_KEY.size() - 1) // shows the right secret was loaded, don't do this for real secrets unless you're debugging
+}
+----
+
+You have now successfully retrieved a credential from Azure Key Vault using native Jenkins credentials integration.
+
+== configuration-as-code integration
+
+[.lead]
+The Configuration as Code plugin has been designed as an opinionated way to configure Jenkins based on human-readable declarative configuration files. Writing such a file should be easy without being a Jenkins expert.
+
+For many secrets the credential provider is enough,
+but when integrating with other plugins you will likely need more than string credentials.
+
+You can use the link:https://github.com/jenkinsci/configuration-as-code-plugin[configuration-as-code plugin] (aka JCasC) to allow integrating with other credential types.
+
+=== configure authentication
+
+As the JCasC plugin runs during initial startup the Azure Key Vault credential provider needs to be configured before JCasC runs during startup.
+
+The easiest way to do that is via environment variables set before Jenkins starts up:
+
+[source, shell]
+----
+export AZURE_KEYVAULT_URL=https://my.vault.azure.net
+export AZURE_KEYVAULT_SP_CLIENT_ID=...
+export AZURE_KEYVAULT_SP_CLIENT_SECRET=...
+export AZURE_KEYVAULT_SP_SUBSCRIPTION_ID=...
+export AZURE_KEYVAULT_SP_SUBSCRIPTION_ID=...
+----
+
+See the link:https://github.com/jenkinsci/azure-keyvault-plugin#via-system-properties[azure-keyvault documentation] for other authentication options.
+
+You will now be able to refer to Azure Key Vault secret IDs in your jenkins.yaml file:
+
+[source,yaml]
+----
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+        - usernamePassword:
+            description: "GitHub"
+            id: "jenkins-github"
+            password: "${jenkins-github-apikey}"
+            scope: GLOBAL
+            username: "jenkinsadmin"
+----
+
+Thanks for reading, send feedback on twitter using the tweet button in the top right, any issues or feature requests use link:https://github.com/jenkinsci/azure-keyvault-plugin/issues[GitHub issues].

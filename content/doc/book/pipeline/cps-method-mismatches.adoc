@@ -1,0 +1,198 @@
+---
+layout: section
+title: Pipeline CPS Method Mismatches
+---
+ifdef::backend-html5[]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:hide-uri-scheme:
+:toc:
+endif::[]
+
+= Pipeline CPS Method Mismatches
+
+Jenkins Pipeline uses a library called Groovy CPS to run Pipeline scripts.
+While Pipeline uses the Groovy parser and compiler, unlike a regular Groovy environment it runs most of the program inside a special interpreter.
+This uses a continuation-passing style (CPS) transform to turn your code into a version that can save its current state to disk (a file called `+program.dat+`  inside your build directory) and continue running even after Jenkins has restarted.
+(You can get some more technical background on the plugin:workflow-cps[Pipeline: Groovy plugin page] and the https://github.com/cloudbees/groovy-cps/blob/master/README.md[library page].)
+
+While the CPS transform is usually transparent to users, there are limitations to what Groovy language constructs can be supported, and in some circumstances it can lead to counterintuitive behavior.
+https://issues.jenkins.io/browse/JENKINS-31314[JENKINS-31314] makes the runtime try to detect the most common mistake: calling CPS-transformed code from non-CPS-transformed code.
+The following kinds of things are CPS-transformed:
+
+* Almost all of the Pipeline script you write (including in libraries)
+* Most Pipeline steps, including all those which take a block
+
+The following kinds of things are _not_ CPS-transformed:
+
+* Compiled Java bytecode, including
+** the Java Platform
+** Jenkins core and plugins
+** the runtime for the Groovy language
+* Constructor bodies in your Pipeline script
+* Any method in your Pipeline script marked with the `+@NonCPS+` annotation
+* A few Pipeline steps which take no block and act instantaneously, such as `+echo+` or `+properties+`
+
+CPS-transformed code may call non-CPS-transformed code or other CPS-transformed code, and non-CPS-transformed code may call other non-CPS-transformed code, but non-CPS-transformed code *may not* call CPS-transformed code.
+If you try to call CPS-transformed code from non-CPS-transformed code, the CPS interpreter is unable to operate correctly, resulting in incorrect and often confusing results.
+
+== Common problems and solutions
+
+=== Use of Pipeline steps from `+@NonCPS+`
+
+Sometimes users will apply the `+@NonCPS+`  annotation to a method definition in order to bypass the CPS transform inside that method.
+This can be done to work around limitations in Groovy language coverage (since the body of the method will execute using the native Groovy semantics), or to get better performance (the interpreter imposes a substantial overhead).
+However, such methods must not call CPS-transformed code such as Pipeline steps.
+For example, the following will not work:
+
+[source,groovy]
+----
+@NonCPS
+def compileOnPlatforms() {
+  ['linux', 'windows'].each { arch ->
+    node(arch) {
+      sh 'make'
+    }
+  }
+}
+compileOnPlatforms()
+----
+
+Using the `+node+`  or `+sh+`  steps from this method is illegal, and the behavior will be anomalous.
+The warning in the logs from running this script looks like this:
+
+____
+expected to call WorkflowScript.compileOnPlatforms but wound up catching node
+____
+
+To fix this case, simply remove the annotation — it was not needed.
+(Longtime Pipeline users might have thought it was, prior to the fix of https://issues.jenkins.io/browse/JENKINS-26481[JENKINS-26481].)
+
+=== Calling non-CPS-transformed methods with CPS-transformed arguments
+
+Some Groovy and Java methods take complex types as parameters to support dynamic behavior.
+A common case is sorting methods that allow callers to specify a method to use for comparing objects (https://issues.jenkins.io/browse/JENKINS-44924[JENKINS-44924]).
+Many similar methods in the Groovy standard library work correctly after the fix for https://issues.jenkins.io/browse/JENKINS-26481[JENKINS-26481], but some methods remain unfixed.
+For example, the following will not work:
+
+[source,groovy]
+----
+def sortByLength(List<String> list) {
+  list.toSorted { a, b -> Integer.valueOf(a.length()).compareTo(b.length()) }
+}
+def sorted = sortByLength(['333', '1', '4444', '22'])
+echo(sorted.toString())
+----
+
+The closure passed to `+Iterable.toSorted+` is CPS-transformed, but `+Iterable.toSorted+` itself is not CPS-transformed internally, so this will not work as intended.
+The current behavior is that the return value of the call to `toSorted` will be the return value of the first call to the closure.
+In the example, this results in `+sorted+` being set to `+-1+`, and the warning in the logs looks like this:
+
+____
+expected to call java.util.ArrayList.toSorted but wound up catching org.jenkinsci.plugins.workflow.cps.CpsClosure2.call
+____
+
+To fix this case, any argument passed to these methods must not be CPS-transformed.
+This can be accomplished by encapsulating the problematic method (`+Iterable.toSorted+` in the example) inside another method, and annotating the outer method with `+@NonCPS+`, or by creating an explicit class definition for the closure and annotating all methods on that class with `+@NonCPS+`.
+
+=== Constructors
+
+Occasionally, users may attempt to use CPS-transformed code such as Pipeline steps inside of a constructor in a Pipeline script.
+Unfortunately, the construction of objects via the `+new+` operator in Groovy is not something that can be CPS-transformed (https://issues.jenkins.io/browse/JENKINS-26313[JENKINS-26313]), and so this will not work.
+Here is an example that calls a CPS-transformed method in a constructor:
+
+[source,groovy]
+----
+class Test {
+  def x
+  public Test() {
+    setX()
+  }
+  private void setX() {
+    this.x = 1;
+  }
+}
+def x = new Test().x
+echo "${x}"
+----
+
+The construction of `+Test+` will fail when the constructor calls `+Test.setX+` because `+setX+` is a CPS-transformed method.
+The warning in the logs from running this script looks like this:
+
+____
+expected to call Test.<init> but wound up catching Test.setX
+____
+
+To fix this case, ensure that any methods defined in a Pipeline script that are called from inside of a constructor are annotated with `+@NonCPS+` and that constructors do not call any Pipeline steps.
+If you must call CPS-transformed code such a Pipeline steps from the constructor, you need move the logic related to the CPS-transformed methods out of the constructor, for example into a static factory method that calls the CPS-transformed code and then passes the results to the constructor.
+
+=== Overrides of non-CPS-transformed methods
+
+Users may create a class in a Pipeline Script that extends a preexisting class defined outside of the Pipeline script, for example from the Java or Groovy standard libraries.
+When doing so, the subclass must ensure that any overriding methods are annotated with `+@NonCPS+` and do not use any CPS-transformed code internally.
+Otherwise, the overriding methods will fail if called from a non-CPS context.
+For example, the following will not work:
+
+[source,groovy]
+----
+class Test {
+  @Override
+  public String toString() {
+    return "Test"
+  }
+}
+def builder = new StringBuilder()
+builder.append(new Test())
+echo(builder.toString())
+----
+
+Calling the CPS-transformed override of `+toString+` from non-CPS-transformed code such as `+StringBuilder.append+` is not permitted and will not work as expected in most cases.
+The warning in the logs from running this script looks like this:
+
+____
+expected to call java.lang.StringBuilder.append but wound up catching Test.toString
+____
+
+To fix this case, add the `+@NonCPS+` annotation to the overriding method, and remove any uses of CPS-transformed code such as Pipeline steps from the method.
+
+[[PipelineCPSmethodmismatches-ClosuresinsideGString]]
+=== Closures inside `+GString+` 
+
+In Groovy, it is possible to use a closure in a `+GString+` so that the closure is evaluated every time the `+GString+` is used as a `+String+`.
+However, in Pipeline scripts, this will not work as expected, because the closure inside of the GString will be CPS-transformed.
+Here is an example:
+
+[source,groovy]
+----
+def x = 1
+def s = "x = ${-> x}"
+x = 2
+echo(s)
+----
+
+Using a closure inside of a `+GString+`  as in this example will not work.
+The warning from the logs when running this script looks like this:
+
+____
+expected to call WorkflowScript.echo but wound up catching org.jenkinsci.plugins.workflow.cps.CpsClosure2.call
+____
+
+To fix this case, replace the original GString with a closure that returns a GString that uses a normal expression rather than a closure, and then call the closure where you would have used the original `+GString+` as follows:
+
+[source,groovy]
+----
+def x = 1
+def s = { -> x = "${x}" }
+x = 2
+echo(s())
+----
+
+== False Positives
+
+Unfortunately, some expressions may incorrectly trigger this warning even though they execute correctly.
+If you run into such a case, please https://issues.jenkins.io/[file a new issue] (after first checking for duplicates) and set the component to `+workflow-cps+`.

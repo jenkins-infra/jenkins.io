@@ -25,24 +25,24 @@ If you're a regular reader of the Hudson Labs blog, you may also notice that thi
   <li class=bug> 
     Allow multiple dependencies between same two projects, as they may trigger under
     different conditions and with different parameters.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5708">issue 5708</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5708">issue 5708</a>)
   <li class=bug> 
     Timeline on build trend page should use server timezone instead of always GMT.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6692">issue 6692</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-6692">issue 6692</a>)
   <li class=bug> 
     Don't mask the cause of the checkout related exception.
   <li class=bug> 
     "who am I?" page should be visible to everyone.
   <li class=bug> 
     Reinstall a JDK when a different version is selected.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5551">issue 5551</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5551">issue 5551</a>)
 </ul>
 
 #### Enhancements
 <ul>
   <li class=rfe> 
-    Avoid pointless and harmful redirection when downloading slave.jar. 
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5752">issue 5752</a>)
+    Avoid pointless and harmful redirection when downloading agent.jar. 
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5752">issue 5752</a>)
   <li class=rfe> 
     Cache downloaded JDKs.
   <li class=rfe> 
@@ -50,7 +50,7 @@ If you're a regular reader of the Hudson Labs blog, you may also notice that thi
     Russian, Slovenian, Dutch, Traditional Chinese, Swedish, Ukrainian, and Portuguese.) 
   <li class=rfe> 
     Upgraded bundled Ant to version 1.8.1.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-6562">issue 6562</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-6562">issue 6562</a>)
 </ul>
 <!--break-->
 ----

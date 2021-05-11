@@ -1,0 +1,200 @@
+---
+layout: post
+title: "Custom Distribution Service : Phase 2 Blogpost"
+tags:
+- service
+- distribution
+- cloud-native
+- gsoc
+- gsoc2020
+- packaging
+- platform-sig
+author: sladyn98
+opengraph:
+  image: /images/gsoc/2020/custom_distribution_service/cds_gsoc.png
+---
+
+
+Hello everyone,
+It is time to wrap up another successfull phase for the link:https://github.com/jenkinsci/custom-distribution-service[custom distribution service project], 
+and we have incorporated most of the features that we had planned at the start of the phase.
+It has been an immense learning curve for me and the entire team.
+
+To understand what the project is about and the past progress, please refer to the phase one blogpost
+link:/blog/2020/07/27/custom-distribution-service/[here].
+
+
+== Front-End
+
+=== Filters for Plugins
+
+In the previous phase we implemented the ability to add plugins to the configuration,
+and the ability to search these plugins via a search bar.
+Sometimes though we would like to filter these plugins based on their usage,
+popularity, stars etc. Hence we have added a certain set of filters to these plugins.
+We support only four major filters for now. They are:
+
+[loweralpha]
+a. Title
+b. Most installed
+c. Relevance
+d. Trending
+
+==== Filter implementation
+
+The major heavy lifting is done by the plugin api which takes in the necessary parameters 
+and returns the relevant plugins in the form of a json object, 
+here is an example of the api call url: `const url = https://plugins.jenkins.io/api/plugins?$params`.
+
+For details, see:
+
+* Feature request link:https://github.com/jenkinsci/custom-distribution-service/issues/9[#9]
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/76[#76]
+
+=== Community Configurations
+
+One major deliverable for the project was the ability for users to share the configurations developed by them, so that they can be used widely within the community.
+For example we see quite a lot of jenkins configurations involve being run on AWS and kubernetes and so on. Therefore it would be really good for the community to have a place to find and run 
+these configurations right out of the box.
+
+image:/images/post-images/gsoc-custom-jenkins-service-distribution/comm-config.png[community-config, width=938]
+
+=== Design Decision
+
+The major design decision taken here was whether to include the configurations inside 
+the repository or to have them in a completely new repository. 
+Let us talk about both these approaches.
+
+==== Having the configurations in the current repository:
+
+This allows us to have all of the relevant configurations inside the repository itself,
+and so users would not have to go fetch this in different repositories.
+We could have issues with the release cycle and dependencies since,
+it would have to happen along with the custom distribution service project releases.
+
+==== Having the configurations in a different repository:
+
+This allows us to manage all of the configurations and the relevant dependencies separately and easily,
+thus avoiding any release conflict with the current repository.
+However it would be a bit difficult if users were to not find this repository.
+
+**Decision** : We still cannot quite agree on what is the best method so for now,
+I have included the url from which the community configurations are picked up as a
+configuration variable in the **.env** file which can be configured later and
+therefore it can be up to the user to configure. Another advantage of having it configurable,
+is that the user can decide to load configurations which are private to his organization as well. 
+
+For details, see:
+
+* Issue link:https://github.com/jenkinsci/custom-distribution-service/issues/6161[#6161]
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/73[#73]
+
+== Back-End
+
+=== War Generation
+
+The ability to generate and download war files has finally been achieved,
+the reason this feature took so long to complete is because we had some difficulty
+in implementing the war generation and its tests. However this has been completed
+and can now be tested successfully.
+
+==== Things to take care while generating war files
+
+In its current state the war generation cannot include **casc.yml** or **groovy** files
+if they are included in the configuration they would have to be added externally.
+There is an issue opened link:https://github.com/jenkinsci/custom-distribution-service/issues/117[here].
+The war file generation would yell at you if you tried to build a war file with a jcasc file configuration. 
+
+For details, see:
+
+* Issue link:https://github.com/jenkinsci/custom-distribution-service/issues/60[#60]
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/68[#68]
+
+=== Pull Request Creation
+
+This feature was included in the design document that I created after my GSoC selection.
+It involves the ability to create pull requests via the front-end of the service.
+The User Story behind this feature was that **If I want to share a configuration with the community and I do not quite know how to use github or I do not want to do it via the terminal**.
+This feature includes creation of a bot that handles the creation of pull requests in the repository. 
+This bot would have to be installed by the jenkins organization in this repository and the bot would handle the rest. 
+
+For details, see:
+
+* Issue link:https://github.com/jenkinsci/custom-distribution-service/issues/59[#59]
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/72[#72]
+
+==== Disclaimer: 
+
+This feature has however been put on the back-burner for now because
+we are focusing on getting the project to be self hosted and therefore
+would like to implement this once we have a clear path for the project to be hosted by the jenkins-infra team.If you would like to participate in the discussion here are the links for the pull requests,
+link:https://github.com/jenkinsci/custom-distribution-service/pull/72[PR 1] and link: https://github.com/jenkinsci/custom-distribution-service/pull/66[PR 2], or you can even jump in our link:https://gitter.im/jenkinsci/jenkins-custom-distribution-service[gitter channel].
+
+If you have been following my posts,
+I mentioned in my second week blog post that pulling in the json file consisting of more than
+1600 plugins took a bit more time that my liking.
+We managed to solve that issue using a caching mechanism,
+so now the files are pulled in the first time you start the service and downloaded in a temporary folder. The next time you want to view the plugin cards they are pulled in directly from the temp directory **bam !** thereby reducing time.
+
+For details see Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/90[#90]
+
+== Fixes and improvements
+
+=== Port 8080
+
+Port 8080 now does have a message instead of a whitelabel error message which is present
+by default in the spring-boot tomcat server setup.
+Turns out it requires overriding a particular class, and inserting a custom message
+
+For details, see: 
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/92[#92]
+
+=== War Generation
+
+Till now while you were generating the war file,
+if something went wrong during genration the service would not complain it would just swallow the error and throw back a corrupted **war** file,
+however now we have added an error support feature
+that will alert you when something goes wrong, the error is not very informative as of now,
+but we are working on making it more informative in the future.
+
+For details, see:
+
+* War generation error handling link:https://github.com/jenkinsci/custom-distribution-service/pull/91[#91]
+* Add Github controller and jwt helper link:https://github.com/jenkinsci/custom-distribution-service/pull/66[#66]
+
+=== Dockerfile
+
+One of the major milestones of this phase was to have a project that can be self hosted,
+needless to say we needed the dockerfile i.e docker-compose.yml to spin the project with a few commands.
+The major issue we faced here was that there was a bit of a problem making the two containers talk to each other. Let me give you a little bit of context here.
+Our docker-compose is constructed using two separate dockerfiles one for the backend of the service and the other for the front-end.
+The backend makes api calls to the front-end via the proxy url i.e localhost:8080.
+We now had to change this since the network bridge between the two containers spoke to each other via the backend-server name i.e **app-server**.
+To brige that gap we have this PR that ensured that the docker compose works flawlessly.
+
+For details, see:
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/82[#82]
+
+However there is a minor draw-back of the above approach was now the entire 
+project just relied on the docker compose and could not run using the simple
+combination of **npm** and **maven** since the proxy was different. 
+In order to fix this I decided to follow a multiple environment approach,
+where we have multiple environment files that pick up the correct proxy and insert it at build time, 
+to elaborate further we have two environment files,
+(using the env-cmd library ) **.env** and the **docker.env** and we insert,
+the correct file depending on how you want to build the project.
+For instance if you want to run it using the dockerfile the command that is run under the hood is something along these lines -- **npm --env-cmd -f docker.env start scripts**.
+
+For details, see:
+
+* Pull Request link:https://github.com/jenkinsci/custom-distribution-service/pull/88[#88]
+
+=== Other links
+
+https://gitter.im/jenkinsci/jenkins-custom-distribution-service[Gitter Channel Link] +
+https://docs.google.com/document/d/1C7VQJ92Yhr0KRDcNVHYxn4ri7OL9IGZmgxY6UFON6-g/edit?usp=sharing[GSoC Proposal] +
+https://docs.google.com/document/d/1-ujWVJ2a5VYkUF6UA7m4bEpSDxmb3mJZhCbmoKO716U/edit?usp=sharing[Design Document] +
+https://docs.google.com/document/d/1DSCH-3wh6uV9Rm_j8PcBzq2lvQPhZ31AIwmWkEaLxvc/edit?usp=sharing[Daily Notes] +
+https://youtu.be/HQLhakpx5mk?t=547[Demo]

@@ -1,0 +1,123 @@
+---
+layout: section
+wip: true
+---
+ifdef::backend-html5[]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:toc: left
+endif::[]
+
+= Securing Jenkins
+
+In the default configuration of Jenkins 1.x, Jenkins does not perform any
+security checks. This means the ability of Jenkins to launch processes and
+access local files are available to anyone who can access Jenkins web UI and
+some more.
+
+Securing Jenkins has two aspects to it.
+
+* Access control, which ensures users are authenticated when accessing Jenkins
+  and their activities are authorized.
+* Protecting Jenkins against external threats
+
+== Access Control
+
+You should lock down the access to Jenkins UI so that users are authenticated
+and appropriate set of permissions are given to them. This setting is
+controlled mainly by two axes:
+
+* *Security Realm*, which determines users and their passwords, as well as what
+  groups the users belong to.
+* *Authorization Strategy*, which determines who has access to what.
+
+These two axes are orthogonal, and need to be individually configured. For
+example, you might choose to use external LDAP or Active Directory as the
+security realm, and you might choose "everyone full access once logged in" mode
+for authorization strategy. Or you might choose to let Jenkins run its own user
+database, and perform access control based on the permission/user matrix.
+
+
+* https://wiki.jenkins.io/display/JENKINS/Quick+and+Simple+Security[Quick and Simple Security] --- if you are running Jenkins like `java -jar jenkins.war` and only need a very simple setup
+* https://wiki.jenkins.io/display/JENKINS/Standard+Security+Setup[Standard Security Setup] --- discusses the most common setup of letting Jenkins run its own user database and do finer-grained access control
+* https://wiki.jenkins.io/display/JENKINS/Apache+frontend+for+security[Apache frontend for security] --- run Jenkins behind Apache and perform access control in Apache instead of Jenkins
+* https://wiki.jenkins.io/display/JENKINS/Authenticating+scripted+clients[Authenticating scripted clients] --- if you need to programmatically access security-enabled Jenkins web UI, use BASIC auth
+* https://wiki.jenkins.io/display/JENKINS/Matrix-based+security[Matrix-based security|Matrix-based security] --- Granting and denying finer-grained permissions
+
+In addition to access control of users, link:build-authorization[access control for builds] limits what builds can do, once started.
+
+== Protect users of Jenkins from other threats
+
+There are additional security subsystems in Jenkins that protect Jenkins and
+users of Jenkins from indirect attacks.
+
+The following topics discuss features that are *off by default*.
+We recommend you read them first and act on them immediately.
+
+* https://wiki.jenkins.io/display/JENKINS/Security+implication+of+building+on+master[Security implication of building on controller] --- protect Jenkins controller from malicious builds
+* https://wiki.jenkins.io/display/JENKINS/Securing+JENKINS_HOME[Securing JENKINS_HOME] --- protect Jenkins from users with local access
+* link:environment-variables[Handling Environment Variables] -- ensure that environment variables passed to build steps do not have unintended side effects
+
+The following topics discuss other security features that are on by default. You'll only need to look at them when they are causing problems.
+
+* link:/doc/book/security/csrf-protection[CSRF Protection] --- prevent a remote attack against Jenkins running inside your firewall.
+* link:/doc/book/managing/security/#agentmaster-access-control[Agent To Controller Access] --- protect Jenkins controller from malicious build agents
+* link:configuring-content-security-policy/[Configuring Content Security Policy] --- protect users of Jenkins from malicious builds
+* link:/doc/book/security/markup-formatter/[Markup Formatter] -- allow for rich formatting of descriptions in Jenkins while keeping users safe
+
+
+== Disabling Security
+
+One may accidentally set up a security realm / authorization in such a way that
+you may no longer be able to reconfigure Jenkins.
+
+When this happens, the steps to deactivate the Authorization realm depend on the way you manage your configuration.
+
+[WARNING]
+====
+After following the next sections, when Jenkins comes back, it will be in an unsecured mode where everyone gets full
+access to the system.
+====
+
+=== Using JCasc
+
+Locate your configuration as code file, default is `$JENKINS_HOME/jenkins.yaml` but it can be located in a number of places.
+Review https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/README.md[the Jenkins Configuration as Code plugin for details].
+
+Once you have located the file:
+
+. Modify the `authorizationStrategy` section, so that it configures an unsecured realm:
++
+[source, yaml]
+----
+jenkins:
+  authorizationStrategy: unsecured
+----
++
+. Restart your Jenkins instance.
+
+=== Using a Groovy Script
+
+If you are using a Groovy Script or a link:/doc/book/managing/groovy-hook-scripts/[Groovy Init Hook] to configure your authorization strategy,
+you should locate the script setting is up.
+There are multiple ways where it could be set, but essentially you should find a line like `Jenkins.instance.authorizationStrategy = myStrategy` or `setAuthorizationStrategy(myStrategy)`.
+
+Once you have located the configuration:
+
+* Comment out the line setting up the strategy.
+* Restart your instance.
+
+=== Using `config.xml` (ie you manage your controller configuration in the UI)
+
+. Stop Jenkins (the easiest way to do this is to stop the servlet container.)
+. Go to `$JENKINS_HOME` in the file system and find `config.xml` file.
+. Open this file in the editor.
+. Look for the `<useSecurity>true</useSecurity>` element in this file.
+. Replace `true` with `false`
+. Start Jenkins
+
+If this is still not working, trying renaming or deleting `config.xml`.

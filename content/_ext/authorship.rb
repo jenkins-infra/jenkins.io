@@ -37,14 +37,8 @@ module Authorship
     return "<a href=\"#{link}\">#{full_name}</a>"
   end
 
-  def display_user_no_fail(author)
-    if site.authors.has_key? author.to_sym
-      full_name = site.authors[author].name
-      link = author_link(author)
-      return "<a href=\"#{link}\">#{full_name}</a>"
-    else
-      return author
-    end
-
+  def display_user_optional(author)
+    return display_user(author) unless author == "TBD"
+    return author
   end
 end

@@ -15,10 +15,10 @@ Voting will **end** April 9th at 23:59 UTC, so make sure to tell your friends, c
 <center>
 <table><tr><td align="center">
 
-<a target="_blank" href="https://jenkins-ci.org/content/jenkins-logo-entry-10"><img src="https://jenkins-ci.org/sites/default/files/images/jenkins_adrian_moya.thumbnail.png"/><br/><strong>Logo #1</strong></a>
+<a target="_blank" rel="noreferrer noopener" href="https://jenkins-ci.org/content/jenkins-logo-entry-10"><img src="https://jenkins-ci.org/sites/default/files/images/jenkins_adrian_moya.thumbnail.png"/><br/><strong>Logo #1</strong></a>
 </td>
 <td align="center">
-<a target="_blank" href="https://jenkins-ci.org/content/jenkins-logo-entry-9"><img src="https://jenkins-ci.org/sites/default/files/images/jenkins_frontside_1.thumbnail.png"/><br/><strong>Logo #2</strong></a></td></tr></table>
+<a target="_blank" rel="noreferrer noopener" href="https://jenkins-ci.org/content/jenkins-logo-entry-9"><img src="https://jenkins-ci.org/sites/default/files/images/jenkins_frontside_1.thumbnail.png"/><br/><strong>Logo #2</strong></a></td></tr></table>
 </center>
 
 ### The Vote

@@ -43,9 +43,7 @@ module Awestruct
       end
 
       def execute(site)
-        unless site[@name]
-          site[@name] = Handbook.new(@book_dir)
-        end
+        site[@name] = Handbook.new(@book_dir)
         # We need a map of source files to their Awestruct::Page to avoid
         # re-rendering things too much in the process of generating this page
         pagemap = site.pages.map { |p| [p.source_path, p] }.to_h

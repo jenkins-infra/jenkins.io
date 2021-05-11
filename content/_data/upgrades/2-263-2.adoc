@@ -1,0 +1,131 @@
+==== Multiple security fixes with potential side effects
+
+Jenkins 2.275 and LTS 2.263.2 contain link:/security/advisory/2021-01-13/[multiple security fixes] that restrict certain features.
+Most of them allow administrators to opt out of (parts of) the security fixes if needed by setting link:/doc/book/managing/system-properties/[Java system properties].
+
+[#SECURITY-1452]
+===== Symlink support in file browsers has been removed
+
+link:/security/advisory/2021-01-13/#SECURITY-1452[SECURITY-1452]
+
+Directory browsers on the classic Jenkins UI no longer support symlinks.
+While they may still exist on disk, and would be archived by (post) build steps, they will no longer appear on the web UI.
+
+If you rely on the previous behavior, this security fix can be disabled by setting the link:/doc/book/managing/system-properties/#hudson-model-directorybrowsersupport-allowsymlinkescape[Java system property `hudson.model.DirectoryBrowserSupport.allowSymlinkEscape`] to `true`.
+Doing so is strongly discouraged.
+
+
+[#SECURITY-1923]
+===== Old Data Monitor no longer includes user-submitted configuration data
+
+link:/security/advisory/2021-01-13/#SECURITY-1923[SECURITY-1923]
+
+Old Data Monitor will no longer report user submitted configuration data (e.g. from `POST config.xml` requests).
+
+Note that error messages related to invalid configuration data submissions are already logged at the level `FINE` in the logger `hudson.util.RobustReflectionConverter` and you do not need Old Data Monitor just to troubleshoot configuration submissions.
+See link:/doc/book/system-administration/viewing-logs/[Viewing Logs].
+
+If you rely on the previous behavior, the following link:/doc/book/managing/system-properties/[Java system properties] can be used to disable part or all of this fix:
+
+* link:/doc/book/managing/system-properties/#hudson-util-robustreflectionconverter-recordfailuresforallauthen[`hudson.util.RobustReflectionConverter.recordFailuresForAllAuthentications`] will completely disable the additional protection.
+  This is unsafe and strongly discouraged.
+* link:/doc/book/managing/system-properties/#hudson-util-robustreflectionconverter-recordfailuresforadmins[`hudson.util.RobustReflectionConverter.recordFailuresForAdmins`] will record invalid data submissions by users with Overall/Administer permission.
+
+[SECURITY-2047]
+===== New restrictions on which URLs are always accessible
+
+link:/security/advisory/2021-01-13/#SECURITY-2047[SECURITY-2047]
+
+A security fix in Jenkins 2.275 and LTS 2.263.2 corrects a check that determines whether a URL in Jenkins should be accessible to users _without_ Overall/Read permission.
+
+While we do not expect this to cause problems, the link:/doc/book/managing/system-properties/#jenkins-model-jenkins-additionalreadablepaths[Java system property `jenkins.model.Jenkins.additionalReadablePaths`] can be used to add additional URLs that should always be accessible.
+For example, if the `/loginFoo/` and `/loginBar/` URLs exists in your Jenkins instance, and were accessible before this fix, and should be accessible now, set `jenkins.model.Jenkins.additionalReadablePaths` to `loginFoo,loginBar`.
+
+// TODO jenkinsdoc:
+NOTE: Any plugins introducing such URLs and expecting them to be accessible by users without Overall/Read permission should be changed, e.g. to implement `UnprotectedRootAction` instead of `RootAction`.
+
+[#SECURITY-2153]
+===== Security fixes for markup formatter previews
+
+link:/security/advisory/2021-01-13/#SECURITY-2153[SECURITY-2153]
+
+A security fix in Jenkins 2.275 and LTS 2.263.2 limits how markup formatter preview URLs can be accessed, and restricts how their output can be rendered.
+
+If you encounter problems with markup formatter previews, make sure you're not sending `GET` requests, and that you're not rendering these pages standalone.
+
+The additional safeguards can be disabled by setting the following link:/doc/book/managing/system-properties/[Java system properties]:
+
+* link:/doc/book/managing/system-properties/#hudson-markup-markupformatter-previewsallowget[`hudson.markup.MarkupFormatter.previewsAllowGET`] can be set to `true` so the markup formatter preview URL is accessible via `GET` instead of limited to `POST`.
+* link:/doc/book/managing/system-properties/#hudson-markup-markupformatter-previewssetcsp[`hudson.markup.MarkupFormatter.previewsSetCSP`] can be set to `false` to not set restrictive Content-Security-Policy headers on responses from markup formatter preview URLs.
+
+Doing so is discouraged, especially if you use a markup formatter that allows the output to contain unsafe content, like JavaScript.
+
+[#SECURITY-2025]
+===== Graph size limits
+
+link:/security/advisory/2021-01-13/#SECURITY-2025[SECURITY-2025]
+
+A security fix in Jenkins 2.275 and LTS 2.263.2 limits the maximum size of various graphs rendered by Jenkins.
+A total area of 10 million pixels is now allowed by default (e.g. 4000 x 2500), if a larger size is requested, it will instead render the default size.
+
+// /* package for test */ static /* non-final for script console */ int MAX_AREA = SystemProperties.getInteger(.class.getName() + ".maxArea", 10_000_000); // 4k*2.5k 
+This limit can be changed by setting the link:/doc/book/managing/system-properties/#hudson-util-graph-maxarea[Java system property `hudson.util.Graph.maxArea`] to the desired integer value.
+
+[#SECURITY-2021]
+===== Security fix for agent names
+
+link:/security/advisory/2021-01-13/#SECURITY-2021[SECURITY-2021]
+
+A security fix in Jenkins 2.275 and LTS 2.263.2 disallows agent names that could cause Jenkins to override unrelated `config.xml` files.
+
+Cloud plugins (like plugin:mesos[Mesos cloud]) allow unsafe characters (like ':') in agent name templates.
+Those plugins may fail to provision an agent due to the unsafe character in the agent name as reported in jira:JENKINS-65169[].
+
+It is recommended to change the agent name template in the plugin configuration to avoid unsafe characters.
+If that is not possible, administrators may consider disabling this fix.
+
+Administrators can disable this fix by setting the link:/doc/book/managing/system-properties/#jenkins-model-nodes-enforcenamerestrictions[Java system property `jenkins.model.Nodes.enforceNameRestrictions`] to `false`.
+
+Doing so is discouraged, as this will reintroduce a security issue.
+
+==== Security hardenings
+
+In addition to the security fixes listed above, multiple features of Jenkins received security improvements that are not considered fixes.
+
+[#formvalidation]
+===== Security hardening for form validation responses
+// /* package */ static /* non-final for Groovy */ boolean APPLY_CONTENT_SECURITY_POLICY_HEADERS = SystemProperties.getBoolean(FormValidation.class.getName() + ".applyContentSecurityPolicyHeaders", true); 
+
+Form validation implemented using standard Jenkins APIs now sets restrictive Content-Security-Policy headers on responses.
+
+This will prevent cross-site scripting vulnerabilities in form validation responses from being exploitable as reflected XSS.
+
+NOTE: While this does _not_ mean that these vulnerabilities are no longer a problem, exploitation will be more difficult, e.g., they may require need additional permissions to set up.
+
+In case of problems, this hardening can be disabled by setting the link:/doc/book/managing/system-properties/#hudson-util-graph-maxarea[Java system property `hudson.util.FormValidation.applyContentSecurityPolicyHeaders`] to `false`.
+
+[#digester2]
+===== Security hardening for Digester2
+
+Jenkins provides a slightly modified implementation of `Digester` from the Apache Commons project as `hudson.util.Digester2`.
+It is used in many plugins as a easy way to parse simple XML files.
+
+Starting in Jenkins 2.275 and LTS 2.263.2, `Digester2` will have XML External Entity (XXE) processing disabled by default.
+
+Plugin maintainers can choose to opt out of that protection by using the new constructor overloads.
+
+In case of problems, administrators can disable this hardening by setting the link:/doc/book/managing/system-properties/#hudson-util-digester2-unsafe[Java system property `hudson.util.Digester2.UNSAFE`] to `true`.
+As this is a global option, it must not be set by plugins, and care needs to be taken to only set this when appropriate.
+
+[#labelatom]
+===== Security hardening for label names
+
+Jenkins allows using labels to connect jobs and the agents they can run on.
+Labels are only created in memory unless their configuration is saved.
+
+Starting in Jenkins 2.275 and LTS 2.263.2, it is not possible to save the configuration of labels with unsafe names.
+Given how labels are stored on disk, some label names would allow overriding unrelated configuration files.
+
+This is not considered to be a security vulnerability as Overall/Administer permission is required to save label configurations, and users with that permission can use the script console and have access to the Jenkins controller file system anyway.
+
+In case of problems, administrators can disable this hardening by setting the link:/doc/book/managing/system-properties/#hudson-model-labelatom-allowfoldertraversal[Java system property `hudson.model.LabelAtom.allowFolderTraversal`] to `true`.

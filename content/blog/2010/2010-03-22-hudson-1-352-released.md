@@ -19,13 +19,13 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
 <ul class=image> 
   <li class=bug> 
     Fixed a file handle leak when a copy fails.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5899">issue 5899</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5899">issue 5899</a>)
   <li class=bug> 
     Replace '&gt;' with '_' in username, as already done for '&lt;'.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5833">issue 5833</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5833">issue 5833</a>)
   <li class=bug> 
     Fix <tt>editableComboBox</tt> to select item when mouse click takes more than 100ms.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-2722">issue 2722</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-2722">issue 2722</a>)
   <li class=bug> 
     Fixed NPE when configuring a view without "Regular expression".
   <li class=bug> 
@@ -34,11 +34,11 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
     Fixed a bug where Hudson can put a wrong help file link.
     (<a href="https://n4.nabble.com/Resolution-of-help-files-in-jelly-entries-tp1592533p1592533.html">report</a>)
   <li class=bug> 
-    Fixed Maven site goal archiving from slaves.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5943">issue 5943</a>)
+    Fixed Maven site goal archiving from agents.
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5943">issue 5943</a>)
   <li class=bug> 
     Fixed a regression with NetBeans Hudson plugin progressive console output.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5941">issue 5941</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5941">issue 5941</a>)
   <li class=bug> 
     Fixed a situation where a failure in plugin start up can prevent massive number of job loss. </ul>
 
@@ -48,7 +48,7 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
 <ul>
   <li class=rfe> 
     Supported JBoss EAP 5.0.0 GA.
-    (<a href="https://issues.jenkins-ci.org/browse/JENKINS-5922">issue 5922</a>)
+    (<a href="https://issues.jenkins.io/browse/JENKINS-5922">issue 5922</a>)
   <li class=rfe> 
     CLI commands on protected Hudson now asks a password interactively, if run on Java6.
   <li class=rfe> 

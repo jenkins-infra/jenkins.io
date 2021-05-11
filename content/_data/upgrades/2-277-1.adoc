@@ -1,0 +1,110 @@
+==== Configuration Form Modernization
+
+The transition from HTML ``<table>`` layout to HTML ``<div>`` layout in configuration forms requires changes in some plugins for compatibility.
+Jenkins administrators should update the installed plugins when they upgrade to Jenkins 2.277.1.
+Some older plugin releases will cause the Jenkins "Configure System" page to fail to save.
+Other older plugin releases will report Java runtime exceptions until they are updated to the most recent release.
+
+Use the Plugin Manager to update plugins affected by configuration form modernization immediately **after** upgrading to Jenkins 2.277.1.
+
+If you are experiencing configuration form problems (e.g., form controls not working, the save button not working, etc.) after updating plugins:
+
+. Refer to the link:https://issues.jenkins.io/secure/Dashboard.jspa?selectPageId=20741[known broken plugins dashboard]; if you are using a plugin that is known to be broken, disable it and upvote the issue.
+. Disable any plugins that are no longer in use, particularly if those plugins are https://github.com/jenkins-infra/update-center2/blob/master/resources/artifact-ignores.properties[no longer distributed on the Jenkins update site] (including Team Foundation Server and Perforce).
+. Refer to the detailed instructions for debugging and reporting an issue in the link:/doc/developer/views/table-to-div-migration/[``<table>`` to ``<div>`` layout migration guide].
+
+NOTE: Privately maintained plugins may need to be updated for the change from ``<table>`` layout to ``<div>`` layout.
+Plugin maintainers should refer to the link:/doc/developer/views/table-to-div-migration/[``<table>`` to ``<div>`` layout migration guide].
+
+==== Installation Wizard may show up on startup (JENKINS-65149)
+
+Jenkins 2.277.1 removes the Upgrade Wizard that was no longer operational after Jenkins 2.0 (link:https://github.com/jenkinsci/jenkins/pull/5283[pull request]).
+It led to regression for instances created before 2.4 / 2.7.1 LTS.
+For such, Jenkins 2.277.1 will show the Setup Wizard on first startup.
+The regression is tracked as jira:JENKINS-65149[].
+
+Workaround: When the setup wizard shows up, click the _Select plugins to install_ option, then select _None_  in the opened Windows, and then click "Install" button.
+It will effectively skip the Installation Wizard.
+It will not appear again after the restart,
+because Jenkins will create the required state file in the `JENKINS_HOME` directory.
+
+image:/images/changelog/upgrade-guide-2.277.1/installationWizard_step1.png[Skipping Upgrade Wizard. Step 1, role=center]
+
+image:/images/changelog/upgrade-guide-2.277.1/installationWizard_step2.png[Skipping Upgrade Wizard. Step 2, role=center]
+
+
+==== Spring Security update
+
+Jenkins 2.277.1 has replaced the outdated Acegi Security library with the Spring Security library.
+The most popular plugins have already been updated as necessary to support the change.
+Some older plugin releases may report `NoClassDefFoundError` for obsolete types defined in Acegi Security.
+Other older plugin releases will report Java runtime exceptions like `NoSuchMethodError` or `AccessDeniedException2` until they are updated to the most recent release.
+Refer to the link:https://github.com/jenkinsci/jep/blob/master/jep/227/compatibility.adoc[Spring Security compatibility table] for questions related to specific plugins.
+
+Use the Plugin Manager to update plugins affected by the Spring Security update before upgrading to Jenkins 2.277.1.
+
+NOTE: Privately maintained plugins may need changes to adapt to the change from Acegi Security to Spring Security.
+Refer to Jesse Glick's link:/blog/2020/11/10/spring-xstream/[Spring Security blog post] for more details.
+
+==== XStream update (JEP-228)
+
+Jenkins 2.277.1 has replaced its outdated fork of the XStream XML serialization library with a recent release of the official XStream library.
+The most popular plugins have already been updated as necessary to support the change.
+Some older plugin releases may report `NoSuchMethodError`.
+Other older plugin releases may fail to interpret existing settings or may write their settings in a different format than was used before the XStream update.
+Refer to the link:https://github.com/jenkinsci/jep/blob/master/jep/228/compatibility.adoc[XStream compatibility table] for questions related to specific plugins.
+
+Use the Plugin Manager to update plugins affected by the XStream update before upgrading to Jenkins 2.277.1.
+
+NOTE: Privately maintained plugins may need changes to adapt to the change from the Jenkins XStream fork to the official XStream library.
+Refer to Jesse Glick's link:/blog/2020/11/10/spring-xstream/[XStream unfork blog post] for more details.
+
+// Intentionally not including this, since I'm not aware of any issues reported and don't know what the user would do if there is a problem.
+//
+// ==== JQuery update
+//
+// Jenkins 2.277.1 has replaced its outdated copy of the link:https://jquery.com/[JQuery user interface lirary] with the most recent release library.
+// The most popular plugins have already been updated as necessary to support the change.
+
+==== ASM update
+
+Jenkins 2.277.1 updates the link:https://asm.ow2.io/[ASM Java bytecode manipulation and analysis framework] that is used for bytecode processing in many plugins.
+This update affects plugins that depend on ASM for bytecode processing.
+Some older plugin releases may report a `RuntimeException` with the message "Error creating extended parser class" (like plugin:token-macro[Token Macro plugin]).
+Other older plugin releases may fail to interpret existing settings (like plugin:email-ext[Email Extension plugin]).
+
+Use the Plugin Manager to update plugins affected by the ASM update after upgrading to Jenkins 2.277.1.
+
+==== Stop bundling CVS plugin with Jenkins
+
+Certain key Jenkins capabilities were initially created inside the Jenkins core.
+As Jenkins has developed further, capabilities moved from inside Jenkins core to dedicated Jenkins plugins, like the plugin:cvs[CVS plugin].
+When those plugins were created, the plugins were "bundled" inside the jenkins.war file to retain compatibility for plugins that depended on their functionality to be inside Jenkins core.
+The Jenkins project is no longer publishing any plugins that require the "bundled" versions of the plugin:cvs[CVS plugin].
+The plugin:cvs[CVS plugin] is no longer bundled with Jenkins.
+
+In very rare cases, this could result in problems when attempting to install plugins compatible with Jenkins (then Hudson) before 1.340.
+If you use a plugin that relies on the functionality provided by the CVS plugin and manage plugins outside the Jenkins plugin manager, you will now need to ensure yourself that a recent release of the CVS plugin is installed.
+Jenkins will attempt to load such plugins but may fail at any time during startup or afterwards with `ClassNotFoundException` or similar.
+In those cases, the best path forward is usually to modify the plugin that has the problem so that it requires a newer version of Jenkins core.
+
+=== Old system property replacement
+
+This release drops support for deprecated system properties (link:https://github.com/jenkinsci/jenkins/pull/4962[pull request]).
+Affected system properties:
+`hudson.model.Hudson.logStartupPerformance`,
+`hudson.model.Hudson.initLogLevel`,
+`hudson.model.Hudson.parallelLoad`,
+`hudson.model.Hudson.killAfterLoad`, and
+`hudson.model.Hudson.workspaceDirName`.
+None of the Jenkins official distributions sets these properties by default.
+
+If your instance any of the listed properties in the startup configuration,
+please use `jenkins.model.Jenkins.`-prefixed properties instead.
+
+=== Old passwords not supported (JENKINS-65107)
+
+This release drops support for passwords that were stored with Jenkins versions prior to 2013.
+Passwords created with Jenkins prior to the September 2012 introduction of bcrypt based password hashing will need to change their password before the upgrade.
+If the upgrade has already been completed, then an administrator can login and change the password of the affected users with "Manage Users" from the "Manage Jenkins" page.
+If no administrator user is available after the upgrade, please refer to link:/doc/book/system-administration/security/#disabling-security[disabling security] for alternatives.

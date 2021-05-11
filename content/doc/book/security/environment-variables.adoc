@@ -1,0 +1,41 @@
+---
+title: Handling Environment Variables
+layout: documentation
+---
+
+It is common for build scripts executed by Jenkins to be passed parameters in the form of environment variables.
+For example, parameterized freestyle projects pass parameter values to Shell and Batch build steps as environment variables.
+Other common sources of environment variables are the trigger or cause for the build.
+If a pull request is built, environment variables may contain the pull request ID or even the name of the pull request.
+
+Jenkins users and administrators need to be aware of potential problems involving environment variables and their impact on the behavior of builds.
+
+## Setting special environment variables
+
+Special environment variables can change the behavior of build scripts:
+`PATH` (or `Path` on Windows) is generally used to find the programs that are launched during a build, so overriding its value may have an unexpected effect, as other programs than usually expected may be launched.
+
+Less well known variables, such as `LD_PRELOAD` (on Linux) and `DYLD_LIBRARY_PATH` (on macOS) may have a similar effect.
+Many other environment variables are read by different programs, and setting them may alter behavior.
+
+Any user who can add environment variables with a name they choose may be able to modify the behavior of builds this way.
+While this is a useful feature for users with Job/Configure permission, administrators should review plugins' ability to add arbitrary environment variables into the build environment from sources that do not require permission to configure jobs.
+
+## Setting unsafe environment variable values
+
+Not all scripts and script interpreters commonly invoked during builds are designed for this use case, and special care may need to be taken to filter or sanitize environment variable values.
+
+An example for this problematic behavior is Windows Batch. `cmd.exe` by default _evaluates_ the values of variables as they're read.
+A variable value that contains valid Batch commands may result in the execution of these commands by Jenkins.
+See https://threatpost.com/shellshock-like-weakness-may-affect-windows/108696/[this report] for a summary of the problem.
+While Windows Batch allows scripts to be written in a manner that prevents this problem (using `EnableDelayedExpansion` and the `!variable!` syntax), other scripts or script interpreters may not.
+Additionally, administrators may not want to have to rely on every Jenkins user writing build scripts being aware of this problem.
+
+Since Jenkins 2.248 and LTS 2.249.1, administrators are able to globally define filters for environment variables passed to build steps that support them.
+The built-in Shell and Windows Batch build steps support these filters, as do the various pipeline steps provided by plugin:workflow-durable-task-step[Pipeline: Nodes and Processes] 2.36 and newer.
+This functionality can be used to change or remove variables containing potentially unsafe metacharacters (such as `^` or `&` in the case of Windows Batch) from the environment of these build steps, or even fail the build step.
+
+The following plugins implement functionality that is useful for filtering out potentially unsafe environment variables:
+
+* plugin:generic-environment-filters[Generic Build Step Environment Filters] provides generic implementations for build step environment filters that can be used to filter environment variables for other script interpreters.
+* plugin:pipeline-keepenv-step[Pipeline: Keep Environment Step] can be used to filter out unused environment variables in pipelines to prevent a global configuration from failing build steps.

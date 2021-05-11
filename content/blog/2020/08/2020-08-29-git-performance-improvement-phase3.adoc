@@ -1,0 +1,136 @@
+---
+layout: post
+title: "Git Plugin Performance Improvement: Final Phase and Release"
+tags:
+- plugins
+- git
+- platform-sig
+- developer
+- performance
+- gsoc
+- gsoc2020
+author: rishabhbudhouliya
+opengraph:
+  image: /images/post-images/2020/07-git-plugin-performance-improvement/gsoc-git-opengraph.png
+---
+
+Since the beginning of the project, the core value which drove its progress was "To enhance the user experience for running Jenkins jobs by reducing the overall execution time".
+
+To achieve this goal, we laid out a path: 
+
+* Compare the two existing git implementations i.e CliGitAPIImpl and JGitAPIImpl using performance benchmarking
+* Use the results to create a feature which would improve the overall performance of git plugin
+* Also, fix existing user reported performance issues
+
+Let's take a journey to understand how we've built the new features. If you'd like to skip the journey part, you can directly go to the <<major performance improvements>> section and the <<minor performance section>> to see what we've done!
+
+== Journey to release
+
+The project started with deciding to choose a git operation and then trying to compare the performance of that operation by using `command line git` and then with `JGit`.
+
+=== Stage 1: Benchmark results with git fetch
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-fetch-results.png[git-fetch-results, width=938]
+
+* The performance of git fetch (average execution time/op) is strongly correlated to the size of a repository
+* There exists an inflection point on the scale of repository size after which the nature of `JGit` performance changes (it starts to degrade)
+* After running multiple benchmarks, it is safe to say that for a large sized repository `command line git` would be a better choice of implementation.
+* We can use this insight to implement a feature which avoids `JGit` with large repositories.
+
+=== Stage 2: Comparing platforms
+
+The project was also concerned that there might be important differences between operating systems.
+For example, what if command line Git for Windows performed very differently than command line Git on Linux or FreeBSD?
+Benchmarks were run to compare fetch performance on several platforms.
+
+Running git fetch operation for a 400 MiB sized repository on:
+
+* AMD64 Microsoft Winders
+* AMD64 FreeBSD
+* IBM PowerPC 64 LE Ubuntu 18
+* IBM System 390 Ubuntu 18
+
+The result of running this experiment is given below:
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-multiple-platforms.png[Performance on multiple platforms]
+
+
+NOTE: The difference in performance between `git` and `JGit` remains constant across all platforms.
+
+Benchmark results on one platform are applicable to all platforms.
+
+=== Stage 3: Performance of git fetch and repository structure
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-repo-diagram.png[title="Relationship of repository structure with performance" role="center", width=420]
+
+The area of the circle enclosing each parameter signifies the strength of the positive correlation between the performance of a git fetch operation and that parameter. From the diagram: +
+
+* Size of the aggregated objects is the *dominant* player in determining the execution time for a git fetch
+* Number of branches and Number of tags play a similar role but are strongly overshadowed by size of repository
+* Number of commits has a negligible effect on the performance of running git fetch
+
+*After running these experiments from Stage-1 to Stage-3, we developed a solution called the `GitToolChooser` which is explained in the next stage*
+
+=== Stage 4: Faster checkout with Git tool chooser
+
+This feature takes the responsibility of choosing the optimal implementation from the *user* and hands it to the *plugin*. It takes the decision of recommending an implementation on the basis of the size of the repository. link:/blog/2020/07/29/git-performance-improvement-phase2/[Here is how it works].
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-perf-improv.png[title="Faster checkouts with GitToolChooser" role="center", width=938]
+
+The image above depicts the performance enhancements we have performed over the course of the GSoC project. These improvements have enabled the checkout step to be finished *within half of what it used to take* earlier in some cases.
+
+Let's talk about performance improvements in two parts.
+
+== Major performance improvements
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-major-perf.png[Major performance enhancements, align='center', width=400]
+
+Building Tensorflow (~800 MiB) using a Jenkins pipeline, there is over 50% reduction in overall time spent in completing a job! 
+The result is consistent multiple platforms.
+
+The reason for such a decrease is the fact that `JGit` degrades in performance when we are talking about large sized repositories. Since the GitToolChooser is aware of this fact, it chooses to recommend `command line git` instead which saves the user some time.
+
+== Minor performance improvements
+
+*Note: Enable JGit before using the new performance features to let GitToolChooser work with more options* -> link:https://plugins.jenkins.io/git-client/#enabling-jgit[Here's how]
+
+image:/images/post-images/2020/07-git-plugin-performance-improvement/git-minor-perf.png[title="Minor performance enhancements" role="center", width=400]
+
+Building the git plugin (~ 20 MiB) using a Jenkins pipeline, there is a drop of a *second* across all platforms when performance enhancement is enabled. Also, eliminating a redundant fetch reduces unnecessary load on git servers.
+
+The reason for this change is the fact that `JGit` performs better than `command line git` for small sized repositories (<50MiB) as an already warmed up JVM favors the native Java implementation.
+
+== Releases
+
+* link:https://github.com/jenkinsci/git-plugin/releases/tag/git-4.4.0[Git Plugin 4.4.0]
+  ** Add GitToolChooser
+  ** Remove redundant fetch
+* link:https://github.com/jenkinsci/git-client-plugin/releases/tag/git-client-3.4.0[Git Client Plugin 3.4.0]
+  ** Add support to communicate compatibility of JGit with certain additional SCM behaviors
+
+== The road ahead
+
+* Support from other branch source plugins
+  ** Plugins like the GitHub Branch Source Plugin or GitLab Branch Source Plugin need to extend an extension point provided by the git plugin to facilitate the exchange of information related to size of a remote repository hosted by the particular git provider
+* link:https://issues.jenkins.io/browse/JENKINS-63519[JENKINS-63519]: GitToolChooser predicts the wrong implementation
+* Addition of this feature to GitSCMSource
+* Detection of lock related delays accessing the cache directories present on the controller
+  ** This issue was reported by the plugin maintainer Mark Waite, there is a need to reproduce the issue first and then find a possible solution.
+
+== Reaching out
+
+Feel free to reach out to us for any questions or feedback on the project's
+link:https://gitter.im/jenkinsci/git-plugin[Gitter Channel] or the
+mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
+Report an issue at Jenkins link:https://issues.jenkins.io/[Jira].
+
+== Useful Links
+
+* Phase 1 Blog: https://www.jenkins.io/blog/2020/07/09/git-performance-improvement-phase1/
+* Phase 2 Blog: https://www.jenkins.io/blog/2020/07/29/git-performance-improvement-phase2/
+* Project Page: https://www.jenkins.io/projects/gsoc/2020/projects/git-plugin-performance/
+
+
+=== Demonstration
+
+video::sEqK4dAFg4s[youtube,width=800,height=420]

@@ -43,7 +43,7 @@ node('docker&&linux') {
         * scm to check out sources matching Jenkinsfile with the SCM details from
         * the build that is executing this Jenkinsfile.
         *
-        * when not in multibranch: https://issues.jenkins-ci.org/browse/JENKINS-31386
+        * when not in multibranch: https://issues.jenkins.io/browse/JENKINS-31386
         */
         checkout scm
     }
@@ -83,7 +83,7 @@ node('docker&&linux') {
         * which we can use for the deployment of the site. This stage will archive
         * that artifact so we can pick it up later
         */
-        archiveArtifacts artifacts: 'build/**/*.zip,build/_site/*.pdf', fingerprint: true
+        archiveArtifacts artifacts: 'build/**/*.zip', fingerprint: true
     }
 
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders

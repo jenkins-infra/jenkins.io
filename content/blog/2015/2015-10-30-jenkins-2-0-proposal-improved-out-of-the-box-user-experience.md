@@ -21,7 +21,7 @@ Just to recap, so far we've reviewed:
 * [User experience improvements (part one)](/content/jenkins-20-proposal-ux-improvements-part-one)
 
 
-The subject of today's proposal is captured in **[JENKINS-31157](https://issues.jenkins-ci.org/browse/JENKINS-31157)**, which, like yesterday's [proposal](/content/jenkins-20-proposal-ux-improvements-part-one), contains a few issues linked from it with more details.
+The subject of today's proposal is captured in **[JENKINS-31157](https://issues.jenkins.io/browse/JENKINS-31157)**, which, like yesterday's [proposal](/content/jenkins-20-proposal-ux-improvements-part-one), contains a few issues linked from it with more details.
 
 At a high level, the problem aiming to be solved is:
 
@@ -43,10 +43,10 @@ Jenkins contributor [Tom Fennelly](https://github.com/tfennelly), who has led th
 
 ### Providing Feedback
 
-We're asking you to read the issues linked from [JENKINS-31157](https://issues.jenkins-ci.org/browse/JENKINS-31157) and comment and vote on those issues accordingly.
+We're asking you to read the issues linked from [JENKINS-31157](https://issues.jenkins.io/browse/JENKINS-31157) and comment and vote on those issues accordingly.
 
 If you have ever logged in to the [issue
-tracker](https://issues.jenkins-ci.org) or the
+tracker](https://issues.jenkins.io) or the
 [wiki](https://wiki.jenkins.io/), you have a "Jenkins user account" which
 means you'll be able to log into the issue tracker and vote for, or comment on
 the issue linked above.
