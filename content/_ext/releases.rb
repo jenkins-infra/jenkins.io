@@ -21,10 +21,12 @@ class Releases
 
     if File.exists? latest
       site.jenkins.latest = File.read(latest).chomp
+      site.asciidoctor.attributes['jenkins-latest'] = site.jenkins.latest
     end
 
     if File.exists? stable
       site.jenkins.stable = File.read(stable).chomp
+      site.asciidoctor.attributes['jenkins-stable'] = site.jenkins.stable
     end
   end
 end
