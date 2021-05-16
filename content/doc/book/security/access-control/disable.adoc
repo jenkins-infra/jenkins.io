@@ -1,0 +1,77 @@
+---
+title: Disable Access Control
+layout: documentation
+---
+:toc:
+
+Administrators may accidentally set up a security realm or authorization strategy in such a way that they are no longer able to administer or even access Jenkins.
+
+When this happens, there are ways to reset the access control configuration to allow anyone to administer Jenkins.
+The exact steps to do this depend on how you manage the Jenkins configuration.
+The sections below explain how to disable access control in multiple different ways.
+
+[WARNING]
+====
+After applying the advice below, Jenkins will be in an entirely unsecured mode after it starts, allowing anyone full access.
+If you are able to, consider making Jenkins accessible only by you while the configuration is being reset.
+
+One way to do this is to make sure that Jenkins is only accessible from the server it is running on.
+If Jenkins is run using the built-in Winstone/Jetty container, set the `--httpListenAddress` or `--httpsListenAddress` (depending on whether you previously set up HTTPS in Winstone/Jetty) to `127.0.0.1`.
+Where to change this depends on how you installed Jenkins.
+Look up the documentation for your package or installer.
+====
+
+== Using `config.xml`
+
+Use these instructions if your Jenkins configuration is _not_ managed using Configuration as Code plugin or link:/doc/book/managing/groovy-hook-scripts/[Groovy Init Hooks].
+
+[NOTE]
+The following steps will delete the configuration for security realm and authorization strategy.
+Make sure you have a backup, to be able to restore the configuration to as close to the original state (except one where you’re not locked out) as possible.
+
+. Stop Jenkins.
+. Go to the Jenkins home directory.
+. Open the file `config.xml` in this directory in a text editor.
+  Make sure you use an editor that supports Unix line breaks.
+. Look for the `<useSecurity>true</useSecurity>` element in this file.
+. Look for the elements `<securityRealm>` and `<authorizationStrategy>` and remove them.
+  Either may span multiple lines, delete everything up to and including `</securityRealm>`` and `</authorizationStrategy>`, respectively.
+. Replace `true` with `false`.
+. Start Jenkins.
+
+// db: Pretty certain this is unnecessary advice unless proven to be necessary: If this is still not working, trying renaming or deleting `config.xml`.
+
+== Using Configuration as Code
+
+If you configure Jenkins using plugin:configuration-as-code[Configuration as Code Plugin] (JCasC), choose this approach.
+
+Locate your JCasC configuration file.
+The default location is `jenkins.yaml` in the Jenkins home directory, but it can be located in a number of places.
+Review the https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/README.md[Jenkins Configuration as Code plugin documentation for details].
+
+Once you have located the file:
+
+1. Modify the `authorizationStrategy` directive in the `jenkins` setion so that it configures the _Anyone can do anything_ authorization strategy:
++
+[source, yaml]
+----
+jenkins:
+  authorizationStrategy: unsecured
+----
++
+2. Restart your Jenkins instance to re-apply the modified configuration.
+
+////
+TODO Review this advice -- it doesn't seem to make sense unless something deletes all previously applied documentation?
+
+=== Using a Groovy Script
+
+If you are using a Groovy Script or a link:/doc/book/managing/groovy-hook-scripts/[Groovy Init Hook] to configure your authorization strategy,
+you should locate the script setting is up.
+There are multiple ways where it could be set, but essentially you should find a line like `Jenkins.instance.authorizationStrategy = myStrategy` or `setAuthorizationStrategy(myStrategy)`.
+
+Once you have located the configuration:
+
+* Comment out the line setting up the strategy.
+* Restart your instance.
+////
