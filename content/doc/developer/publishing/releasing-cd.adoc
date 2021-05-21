@@ -1,0 +1,156 @@
+---
+title: Setting up automated plugin release
+layout: developerguide
+references:
+- url: /jep/229
+  title: 'JEP-229: Continuous Delivery of Jenkins Components and Plugins'
+---
+
+NOTE: Continuous Delivery of Jenkins Components and Plugin (jep:229[]) is relatively new.
+Any feedback from early adopters will be appreciated.
+== Prerequisites
+
+. Plugin must be 'incrementalized', see link:../../plugin-development/incrementals[incrementals]. A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
+. Enabled the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin.
+
+
+[source,yaml]
+----
+cd:
+  enabled: true
+----
+
+Once that has been merged, start checking https://github.com/jenkinsci/your-plugin/settings/secrets/actions and you should soon see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
+
+== Release notes
+
+Next, if you already have Release Drafter configured, remove any tag-template override in `.github/release-drafter.yml`, and delete `.github/workflows/release-drafter.yml` if using GitHub Actions (or remove the app from the repo otherwise). If you have not yet configured Release Drafter, just create `.github/release-drafter.yml` containing only:
+
+[source,yaml]
+----
+_extends: .github
+----
+
+== Adding the GitHub action
+
+Create `.github/workflows/cd.yaml` as a copy of the link:https://github.com/jenkinsci/.github/blob/master/workflow-templates/cd.yaml[cd.yaml template].
+
+If this is your first time using a GitHub action on this project then navigate to the 'Actions' tab 
+in your GitHub repository and enable GitHub actions.
+
+If you have a `.github/dependabot.yml`, it is a good idea to add:
+
+[source,yaml]
+----
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: daily
+----
+
+== POM file modifications
+
+For a regular component whose version number is not that meaningful:
+
+[source,diff]
+----
+--- a/.mvn/maven.config
++++ b/.mvn/maven.config
+@@ -1,2 +1,3 @@
+ -Pconsume-incrementals
+ -Pmight-produce-incrementals
++-Dchangelist.format=%d.v%s
+--- a/pom.xml
++++ b/pom.xml
+@@ -7,7 +7,7 @@
+-    <version>${revision}${changelist}</version>
++    <version>${changelist}</version>
+     <packaging>hpi</packaging>
+@@ -26,8 +26,7 @@
+     <properties>
+-        <revision>1.23</revision>
+-        <changelist>-SNAPSHOT</changelist>
++        <changelist>999999-SNAPSHOT</changelist>
+         <jenkins.version>2.176.4</jenkins.version>
+     </properties>
+----
+
+Here a CI/release build (`-Dset.changelist` specified) will be of the form `123.vabcdef456789`. A snapshot build will be `999999-SNAPSHOT`: arbitrary but treated as a snapshot by Maven and newer than any release.
+
+It's worth communicating this to your users, as they will see a very different version number format than before.
+The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
+
+For a component whose version number ought to reflect a release version of some wrapped component:
+
+[source,diff]
+----
+--- a/.mvn/maven.config
++++ b/.mvn/maven.config
+@@ -1,2 +1,3 @@
+ -Pconsume-incrementals
+ -Pmight-produce-incrementals
++-Dchangelist.format=%d.v%s
+--- a/pom.xml
++++ b/pom.xml
+@@ -10,12 +10,12 @@
+   <artifactId>some-library-wrapper</artifactId>
+-  <version>${revision}${changelist}</version>
++  <version>${revision}-${changelist}</version>
+   <packaging>hpi</packaging>
+   <properties>
+-    <revision>4.0.0-1.3</revision>
+-    <changelist>-SNAPSHOT</changelist>
++    <revision>4.0.0</revision>
++    <changelist>999999-SNAPSHOT</changelist>
+     <jenkins.version>2.176.4</jenkins.version>
+----
+
+Here the version numbers will look like `4.0.0-123.vabcdef456789` or `4.0.0-999999-SNAPSHOT`, respectively. 
+When you pick up a new third-party component like `4.0.1`, your version numbers will match;
+to refer to the third-party component, just use:
+
+[source,xml]
+----
+<version>${revision}</version>
+----
+
+== Releasing
+
+Now whenever Jenkins reports a successful build of your default branch,
+and at least one pull request had a label indicating it was of interest to users
+(e.g. enhancement rather than chore), your component will be released to Artifactory and 
+release notes published in GitHub.
+You do not need any special credentials or local checkout; just merge pull requests with suitable titles and labels.
+
+You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins. Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
+If you prefer to only deploy explicitly, not on every push, just comment out the check_run section in the workflow.
+
+== Fallback
+
+You can also release manually if you have configured your machine for link:../releasing-manually[manual release].
+To cut a release:
+
+[source,shell]
+----
+git checkout master
+git pull --ff-only
+mvn -Dset.changelist \
+  -DaltDeploymentRepository=maven.jenkins-ci.org::default::https://repo.jenkins-ci.org/releases/ \
+  clean deploy
+----
+
+== Troubleshooting
+
+Check that `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
+
+=== The upload to the Maven repository fails with "401 Unauthorized"
+
+Unauthorized means that the credentials were invalid, or not sent by Maven.
+
+This normally means that the secrets configured in the repository have expired, create an issue in the INFRA project on link:https://issues.jenkins.io/[Jira], and let the team know in #jenkins-infra on link:https://freenode.net[Freenode].
+
+Alternatively you can temporarily update the secrets yourself with your own personal credentials.
+
+=== Further troubleshooting help
+
+If none of the provided solutions help, send an email to the link:/mailing-lists[Jenkins developers mailing list] and explain what you did, and how it failed.
