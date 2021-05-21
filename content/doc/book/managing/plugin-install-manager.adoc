@@ -1,0 +1,337 @@
+---
+layout: section
+---
+ifdef::backend-html5[]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:hide-uri-scheme:
+endif::[]
+
+= Plugin Installation Manager Tool
+
+Plugin Installtion Manager is a command line tool used to manage the installation, upgrade and plugin dependency of plugins on a controller. Using this tool installed on controller, many plugins and their dependent plugins can be installed by a single execution of this tool. 
+
+The common scenario of plugin installation preview, dependency management and upgrade will be demonstrated in the reminder of the section. The plugin used in these examples is link:https://plugins.jenkins.io/kubernetes/#documentation[Kubernetes Plugin for Jenkins]. Note plugin is specified in the form <plugin name>:<version>
+
+== Installing the Plugin Install Manager tool
+
+The tool has to be installed on the controller, It is a JAR file and is downloaded from link:https://github.com/jenkinsci/plugin-installation-manager-tool/releases/latest[here] into the current working directory on a controller. An example command to invoke '2.9.2' version of the tool is given below
+
+[source]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar 
+     
+     --war $JENKINS_HOME/jenkins.war \ <1>     
+     --available-updates \  
+     --plugin-download-directory . \ <2>
+     --plugins <list of plugin that need to be installed> \ <3>
+     --plugin-file    \ <4> 
+     --output {json,text,yaml} \ <5>
+     --jenkins-version \ <6> 
+     --verbose \ 
+     --latest false \ <7> 
+
+<1> (_Optional_) Path to Jenkins war file. Default location used is 
+    /usr/share/jenkins/jenkins.war in Linux OS and 
+    C:\ProgramData\Jenkins\jenkins.war in Microsoft WIndows OS. 
+
+<2> (_Optional_) (-d) Directory in which to install plugins. This option can be 
+    configured using the PLUGIN_DIR environment variable. The default is 
+    $JENKINS_HOME/Plugins on Microsoft Windows OS and $JENKINS_HOME/plugins on 
+    Linux OS.
+
+<3> (_Optional_) List of plugins to install (plugin version format is specified 
+    below), separated by a space.
+
+<4> (_Optional_) (-f) Path to the plugins.txt, or plugins.yaml files, which contains 
+    a list of plugins to be installed. 
+
+<5> (_Optional_) Format of output about plugin updates to file or stdout. stdout is 
+    the default. The ouput format can be text, JSON or YAML.
+
+<6> (_Optional_) Version of Jenkins to be used. This option can be set using the 
+    JENKINS_VERSION environment variable.
+
+<7> (_Optional_) Set to false to download the minimum required version of all 
+    dependencies.
+
+----
+
+IMPORTANT: 
+
+- The location of the jenkins.war file is dependent on the flavor of operating system the controller is using. 
+
+- Run the commands listed in this section as Jenkins Administrator user.
+
+- After install or upgrade of plugin(s) on UNIX/Linux systems, make sure the Jenkins user id and group id own respective plugin *.jpi files. 
+
+- Restart controller after install or upgrade of plugin(s) 
+ 
+
+=== Generate the list of plugins installed
+
+The plugins installed on a controller can be listed using the following command.
+[source,bash]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar 
+     
+     --war $JENKINS_HOME/jenkins.war \ 
+     --available-updates \  
+     --list \ <1>
+     --plugins <list of plugin that need to be installed> \ 
+     --plugin-file \ 
+     --output yaml \ 
+     --verbose \ 
+     --no-download true \ <2>
+     --latest false \ 
+
+<1> (_Optional_) (-l) Lists plugin names and versions of: 
+      * installed plugins (plugins that already exist in the plugin directory), 
+      * bundled plugins (non-detached plugins that exist in the war file) 
+      * plugins that will be downloaded (highest required versions of the requested 
+        plugins and dependencies that are not already installed), 
+      * the effective plugin set (the highest versions of all plugins that are 
+        already installed or will be installed)
+
+<2> (_Optional_) Set to \*true\* to not download plugins. By default, it is set to 
+    \*false\* and plugins will be downloaded.
+
+----
+
+=== Listing plugin dependencies
+
+The following command outputs the plugin and complete list of dependent plugins' with version information. This information can be redirected to a output file. This file can be used as input to the tool to install or upgrade this plugin and the dependent plugin(s). Example plugin used in plugin installation preview is Kubernetes plugin version 1.29.2 
+
+[source,bash]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar \
+     --war /usr/share/jenkins/jenkins.war \
+     --available-updates \ <1>
+     --plugin-download-directory . \ 
+     --output txt \
+     --plugins kubernetes:1.29.2
+
+<1> (_Optional_) Indicates if the specified plugins have newer versions available. 
+This information is based on the specific Jenkins Update Center being used.
+
+----
+
+=== Previewing installation of Plugins
+
+The following command outputs the plugin and it's dependent plugins' with version information. These are the plugins that need to be installed  on *this* controller installation. Example plugin used in plugin installation preview is Kubernetes plugin version 1.29.2 
+
+[source,bash]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar \
+     --war /usr/share/jenkins/jenkins.war \
+     --available-updates \
+     --plugin-download-directory $JENKINS_HOME/plugins 
+     --no-download true \ 
+     --output txt --plugins kubernetes:1.29.2
+     --verbose <1>
+
+<1> (_Optional_) Allows output of  additional information about plugin dependencies 
+    and the download process
+
+----
+
+=== Installing Plugin
+
+The following command installs version 1.29.2 of Kubernetes plugin & it's dependent plugins. It outputs the list of plugins installed.
+
+[source,bash]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar \
+     --war /usr/share/jenkins/jenkins.war \
+     --output txt \
+     --plugins kubernetes:1.29.2 
+     --verbose \
+     deployit-plugin <1>
+
+<1> This options installs the plugin.
+
+----
+
+Another useful approach to installing a plugin is based on the Jenkins version installed on the controller. This is achieved by the following command to install the relevant version of Kubernetes plugin in a Jenkins environment using version 2.277.3 
+
+[source,bash]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar \
+     --war /usr/share/jenkins/jenkins.war \
+     --jenkins-version 2.277.3 \
+     --output txt \
+     --plugins kubernetes
+     --verbose \
+     deployit-plugin 
+----
+
+=== Upgrading plugin
+
+The following command upgrades Kubernetes plugin from release 1.29.2 to 1.29.4.
+
+[source,bash]
+----
+java -jar ./jenkins-plugin-manager-2.9.2.jar \
+     --war /usr/share/jenkins/jenkins.war \
+     --output yaml \
+     --plugins kubernetes:1.29.4 \ <1>
+     deployit-plugin
+
+<1> Kubernets plugin is upgraded from 1.29.2 to 1.29.4
+----
+
+=== Using with Docker
+
+If you use a link:https://hub.docker.com/r/jenkins/jenkins[Jenkins docker image], the plugin manager can be invoked inside the container via the bundled jenkins-plugin-cli shell script (specified in Dockerfile) as follows.
+
+[source,bash]
+----
+FROM jenkins/jenkins:lts-jdk11
+jenkins-plugin-cli --plugin-file /your/path/to/plugins.txt --plugins delivery-pipeline-plugin:1.3.2 deployit-plugin
+----
+
+=== Using Update Center location
+
+Plugins are downloaded from the update center specified by the appropriate environment variable or command line parameter(s) of the tool mentioned below.
+
+*--jenkins-update-center*             :(_Optional_) Sets the main update center 
+                                       filename, which can also be set via 
+                                       $JENKINS_UC environment variable. The 
+                                       command line option will override the value 
+                                       set in the environment variable. The default 
+                                       value is Jenkins project update center 
+                                       location{wj}footnote:UC[https://updates.jenkins.io/update-center.actual.json].
+
+*--jenkins-experimental-update-center*:(_Optional_) Sets the experimental update 
+                                       center location, which can also be set via 
+                                       $JENKINS_UC_EXPERIMENTAL environment
+                                       variable. The command line option will 
+                                       override the value set in the environment 
+                                       variable. The default value is Jenkins 
+                                       project experimental update center location
+                                   {wj}footnote:expt[https://updates.jenkins.io/experimental/update-center.actual.json].
+
+*--jenkins-incrementals-repo-mirror*  :(_Optional_) Sets the incrementals repository                                         mirror, which can also be set via 
+                                       $JENKINS_INCREMENTALS_REPO_MIRROR environment
+                                       variable. The command line option will
+                                       override the value set in the environment
+                                       variable. The default value isiJnekins 
+                                       project incrementals repository mirror{wj}footnote:incr[https://repo.jenkins-ci.org/incrementals].
+
+*--jenkins-plugin-info*               :(_Optional_) Sets the location of plugins' 
+                                       information, which can also be set via 
+                                       '$JENKINS_PLUGIN_INFO' environment variable. 
+                                       The command line option will override the 
+                                       value set in the environment variable. The 
+                                       default value is Jenkins project plugins' 
+                                       information file 
+                                   {wj}footnote:plugin[https://updates.jenkins.io/current/plugin-versions.json].
+ 
+=== Using plugin version format
+
+The expected format for plugins in the +.txt+ file or entered through the +--plugins+ command line option is +artifact ID:version+ or +artifact ID:url+ or +artifact:version:url+. Some examples are listed below. 
+
+[source,text]
+----
+- github-branch-source          - specifies the latest version of the plugin
+
+- github-branch-source:latest   - specifies the latest version of the plugin.  
+
+- github-branch-source:2.5.3    - specifies 2.5.3 version of the plugin.  
+
+- github-branch-source:experimental 
+                                - specifies the latest version from the 
+                                  experimental update center
+
+- github-branch-source:2.5.2:https://updates.jenkins.io/2.121/latest/github-branch-source.hpi                     
+                                - the version of plugin used is compatible 
+                                  with Jenkins release 2.121 specified in the 
+                                  url regardless of requested version
+
+- github-branch-source:https://updates.jenkins.io/2.121/latest/github-branch-source.hpi 
+                                - Same as above.
+
+- github-branch-source::https://updates.jenkins.io/2.121/latest/github-branch-source.hpi 
+                                - Same as above.
+
+----
+
+An example of a *YAML format* plugin list file is listed below.
+
+[source,text]
+----
+plugins:
+  - artifactId: git
+    source:
+      version: latest
+  - artifactId: job-import-plugin
+    source:
+      version: 2.1
+  - artifactId: docker
+  - artifactId: cloudbees-bitbucket-branch-source
+    source:
+      version: 2.4.4
+  - artifactId: script-security
+    source:
+      url: http://ftp-chi.osuosl.org/pub/jenkins/plugins/script-security/1.56/script-security.hpi
+  - artifactId: workflow-step-api
+    groupId: org.jenkins-ci.plugins.workflow
+    source:
+      version: 2.19-rc289.d09828a05a74
+----
+
+A notable feature of this tool is that a plugin compatible with a specific Jenkins release by using Jenkins version in the *plugin identifier* as shown below
+
+[source,text]
+----
+github-branch-source::https://updates.jenkins.io/2.121/latest/github-branch-source.hpi
+----
+
+Multiple plugins to be installed can be listed in the plugin list file. This file is provided as a command line parameter to +--plugin-file+ command line option of this tool.
+
+Note that +--latest--+ command line option should be set to *false* if the versions of the plugins to be installed are specified on the command line or in the plugin list file mentioned above. The default value of +--latest--+ is *true* which enables the installation of latest versions of the plugins specified to be installed.
+ 
+=== Using Reverse Proxy
+Proxy support is available using standard link:https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html[Java networking system properties] +http.proxyHost+ and +http.proxyPort+.
+
+[source,bash]
+----
+java -Dhttp.proxyPort=3128 -Dhttp.proxyHost=myproxy.example.com -jar jenkins-plugin-manager-2.9.2.jar
+----
+
+=== Checking plugins for security warnings 
+
+This tool can be used to generate relevant security warnings if they are present in the plugin(s). The following command line options of the tool can be used to check the plugins for security issues. 
+
+*--view-security-warnings*         : (_Optional_) Set to true to show if any of 
+                                   the user specified plugins have security 
+                                   warnings
+                                   
+*--view-all-security-warnings*     : (_Optional_) Set to true to show all plugins 
+                                   that have security warnings.
+
+=== Advanced Configuration
+
+The following environment variables can be used to make the download of plugins faster and check for data corruption.
+
+*$CACHE_DIR*              : used to configure the directory where the plugins update 
+                          center cache is located. The default location is
+                          '$JENKINS_USER_HOME_DIR'/.cache/jenkins-plugin-management-cli
+                          If the user home directory is not defined, then the cache
+                          will reside in 
+                          $(CWD)/.cache/jenkins-plugin-management-cli.
+
+*$JENKINS_UC_DOWNLOAD*    : used to configure the URL from where plugins will be 
+                          downloaded from. Often used to cache or to proxy the 
+                          Jenkins plugin download site. If set then all plugins 
+                          will be downloaded through that URL.
+
+*JENKINS_UC_HASH_FUNCTION*: used to configure the hash function which checks content 
+                          from update centers. Currently, SHA1 (deprecated), SHA256
+                          (default), and SHA512 can be specified
