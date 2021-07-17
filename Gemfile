@@ -4,7 +4,7 @@ gem 'colorize'
 gem 'awestruct', '~> 0.6.1'
 gem 'awestruct-ibeams', '~> 0.4'
 gem 'asciidoctor', '~> 2.0.0'
-gem 'asciidoctor-jenkins-extensions', '~> 0.8.0'
+gem 'asciidoctor-jenkins-extensions', '~> 0.9.0'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.1.0'
