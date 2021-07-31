@@ -1,0 +1,216 @@
+---
+:layout: post
+:title: "Remoting Monitoring with OpenTelemetry - Coding Phase 1"
+:tags:
+- gsoc
+- gsoc2021
+- remoting
+- open-telemetry
+authors:
+- aki-7
+description: >
+  Remoting Monitoring: Summary of coding phase 1 of Google Summer of Code
+opengraph:
+  image: /images/post-images/2021-07-31-remoting-monitoring-phase-1/remoting-monitoring-phase-1-opengraph.png
+---
+
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/opengraph.png[Remoting Monitoring with OpenTelemetry]
+
+== Goal
+
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/goal.png[Goal of Remoting Monitoring with OpenTelemetry, align="center", width=700]
+
+*The goal of this project:*
+
+* collect telemetry data(metrics, traces, logs) of remoting module with
+OpenTelemetry.
+* send the telemetry data to OpenTelemetry Protocol endpoint
+
+Which OpenTelemetry endpoint to use and how to visualize the data are up to
+users.
+
+== OpenTelemetry
+
+image:https://cncf-branding.netlify.app/img/projects/opentelemetry/horizontal/color/opentelemetry-horizontal-color.png[OpenTelemetry Logo, link=https://opentelemetry.io/, width=300]
+
+*An observability framework for cloud-native software*
+
+____
+OpenTelemetry is a collection of tools, APIs, and SDKs.
+You can use it to instrument, generate, collect, and export telemetry
+data(metrics, logs, and traces) for analysis in order to understand your
+software's performance and behavior.
+____
+
+== Phase 1 summary
+
+=== User survey
+
+Our team conducted a user survey to understand the pain point regarding Jenkins
+remoting.
+
+.Fig 1. What agent type/plugins do you use?
+[caption="Figure 1:"]
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/user-survey.png[End user survey result, width=700]
+
+Fig 1 shows what types of agent users use, and 17 unique respondents out of
+28 use docker for agent. So I'm planning to publish a docker image to
+demonstrate how we can build Docker image with our monitoring feature.
+
+This survey and investigation of JIRA tickets of past two years also tell me five
+common causes of agent unavailability.
+
+* *Configuration mistakes*
+** Jenkins agent settings, e.g. misuse of "tunnel connection through" option.
+** Platform settings, e.g. invalid port setting of Kubernetes' helm template.
+** Network settings, e.g. Load balancer misconfiguration.
+* *Uncontrolled shutdown of nodes* for downscaling.
+* *Timeout during provisioning* a new node.
+* *Firewall, antivirus software or other network component kill the connection*
+* *Lack of hardware resources*, e.g. memory, temp space, etc...
+
+We also heard valuable user voice in the survey.
+
+.What areas would you like to see better in Jenkins monitoring?
+____
+I have created a bunch of adhoc monitoring jobs to check on the agent's health
+and send e-mail. Would be nice to have this consolidated.
+____
+
+____
+Having archive of nodes with the access to their logs/events would have been
+nice.
+____
+
+I hope that implementing these feature with OpenTelemetry, which is expected to
+become the industry standard for observability, will bring great monitoring
+experience to Jenkins community.
+
+=== Proof of Concept
+
+==== How to deliver the monitoring program to agents
+
+===== 1. Sending monitoring program to the agent over remoting
+
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/sending-monitoring-program-via-remoting.png[Sending monitoring program via remoting]
+
+In my first implementation, I prepared a Jenkins plugin and send the
+monitoring program from Jenkins controller. However, this approach have
+following disadvantages.
+
+. We cannot collect telemetry data before the initial connection.
+We are likely to encounter a problem while provisioning a new node,
+so it's important to observe agents' telemetry data from the beginning.
+. Some agent restarters (e.g. link:https://javadoc.jenkins.io/jenkins/slaves/restarter/UnixSlaveRestarter.html[UnixSlaveRestarter])
+restart agent completely when reconnecting. It means that the agent lost
+monitoring program every time the connection closed, and we cannot collect
+telemetry data after the connection is lost before a new connection is
+established.
+
+So we decided to take the next approach.
+
+===== 2. Install monitoring engine when provisioning a new agent
+
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/install-monitoring-engine-when-provisioning.png[Installing monitoring engine when provisioning]
+
+In this approach, user will download the monitoring program called monitoring
+engine, which is a JAR file, and place it in the agent node when provisioning.
+
+==== How to instrument remoting to produce remoting trace
+
+===== Add instrumentation extension point to remoting
+
+Pull Request: https://github.com/jenkinsci/remoting/pull/471
+
+This approach makes the agent launch command more complicated,
+and we have to overcome this problem.
+
+
+=== Current State
+
+==== Metrics
+
+We currently support the following metrics and planning to support more.
+
+[cols="2,1,1,3,8"]
+|===
+|metrics|unit| label | key | description
+|system.cpu.load|1||
+|System CPU load. See `com.sun.management.OperatingSystemMXBean.getSystemCpuLoad`
+
+|system.cpu.load.average.1m|||
+|System CPU load average 1 minute See `java.lang.management.OperatingSystemMXBean.getSystemLoadAverage`
+
+|system.memory.usage|bytes|state|`used`, `free`
+|
+see `com.sun.management.OperatingSystemMXBean.getTotalPhysicalMemorySize`
+and `com.sun.management.OperatingSystemMXBean.getFreePhysicalMemorySize`
+
+|system.memory.utilization|1||
+|
+System memory utilization,
+see `com.sun.management.OperatingSystemMXBean.getTotalPhysicalMemorySize`
+and `com.sun.management.OperatingSystemMXBean.getFreePhysicalMemorySize`.
+Report 0% if no physical memory is discovered by the JVM.
+
+|system.paging.usage|bytes|state|`used`, `free`
+|
+see `com.sun.management.OperatingSystemMXBean.getFreeSwapSpaceSize`
+and `com.sun.management.OperatingSystemMXBean.getTotalSwapSpaceSize`.
+
+|system.paging.utilization|1||
+|
+see `com.sun.management.OperatingSystemMXBean.getFreeSwapSpaceSize`
+and `com.sun.management.OperatingSystemMXBean.getTotalSwapSpaceSize`.
+Report 0% if no swap memory is discovered by the JVM.
+
+|process.cpu.load|%||
+|Process CPU load. See `com.sun.management.OperatingSystemMXBean.getProcessCpuLoad`.
+
+|process.cpu.time|ns||
+|Process CPU time. See `com.sun.management.OperatingSystemMXBean.getProcessCpuTime`.
+
+.2+|runtime.jvm.memory.area .2+|bytes|type|`used`, `committed`, `max`
+.2+|see link:https://docs.oracle.com/en/java/javase/11/docs/api/java.management/java/lang/management/MemoryUsage.html[MemoryUsage]
+|area|`heap`, `non_heap`
+
+.2+|runtime.jvm.memory.pool .2+|bytes|type|`used`, `committed`, `max`
+.2+|see link:https://docs.oracle.com/en/java/javase/11/docs/api/java.management/java/lang/management/MemoryUsage.html[MemoryUsage]
+|pool|`PS Eden Space`, `G1 Old Gen`...
+
+|runtime.jvm.gc.time|ms|gc| `G1 Young Generation`, `G1 Old Generation`, ...
+|see link:https://docs.oracle.com/en/java/javase/11/docs/api/jdk.management/com/sun/management/GarbageCollectorMXBean.html[GarbageCollectorMXBean]
+
+|runtime.jvm.gc.count|1|gc| `G1 Young Generation`, `G1 Old Generation`, ...
+|see link:https://docs.oracle.com/en/java/javase/11/docs/api/jdk.management/com/sun/management/GarbageCollectorMXBean.html[GarbageCollectorMXBean]
+
+|===
+
+==== Traces
+
+We tried several approaches to instrument remoting module, but good approach is not established yet.
+
+Here is a draft documentation of the spans to collect. link:https://docs.google.com/document/d/1gjRamLWz3NwenVifC5pYyBMmxsUjl9MjspZF0mRYeaI/edit#heading=h.6xn68iwvd7gz[Google Doc]
+
+==== Logs
+
+Coming soon!
+
+=== Metric and span demo visualization
+
+Our team created a demo example with Docker compose and visualized the metrics and spans.
+
+*_Click to open in new tab_*
+
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/prometheus-metrics.png[prometheus metric visualization, width=40%, link=/images/post-images/2021-07-31-remoting-monitoring-phase-1/prometheus-metrics.png, window=_blank]
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/jaeger-spans.png[jaeger span visualization, width=55%, link=/images/post-images/2021-07-31-remoting-monitoring-phase-1/jaeger-spans.png, window=_blank]
+
+== Google Summer of Code Midterm Demo
+
+.Our project demo starts with 8:20
+video::_D0hiA1Cgz8[youtube,width=400,height=300,start=514]
+
+== Next Step
+
+* Log support
+* Alpha release!
