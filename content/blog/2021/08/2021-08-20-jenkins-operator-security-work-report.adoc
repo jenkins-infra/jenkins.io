@@ -1,9 +1,8 @@
 ---
 :layout: post
-:title: "Security Validator for Jenkins Kubernetes Operator"
+:title: "Security Validator for Jenkins Operator for Kubernetes"
 :tags:
 - gsoc21
-- jenkins
 - kubernetes
 - security
 - plugins
@@ -11,16 +10,19 @@ authors:
 - sharmapulkit04
 description: >
   Security validator adds an extra step of validation to detect potential security vulnerabilities in the plugins before creating a Jenkins custom resource.
+opengraph:
+  image: /images/logos/kubernetes-operator/kubernetes-operator.png
 ---
 
 == Background
 
-Jenkins custom resources on a Kubernetes cluster are deployed using declarative YAML configuration files; hence some of the plugins declared in these files may contain security warnings.So there is no way for the user to know other than manually checking for each on the site. 
+Jenkins custom resources on a Kubernetes cluster are deployed using declarative YAML configuration files; hence some of the plugins declared in these files may contain security warnings.
+So there is no way for the user to know other than manually checking for each on the site.
 This project aims to add an extra step of validation before creating/updating a new Jenkins Custom Resource.
 
 == Deliverables 
 
-This project aims to add a validating admission webhook to the jenkins kubernetes operator to detect potential security vulnerabilities in the plugins before the object is created.
+This project aims to add a validating admission webhook to the Jenkins Operator for Kubernetes to detect potential security vulnerabilities in the plugins before the object is created.
 
 == Dependencies 
 
@@ -28,11 +30,13 @@ Webhooks communicate to the API server over HTTPS and use TLS. Thus, https://cer
 
 == Implementaion
 
-Operator-SDK takes care of creating a new webhook and appending it to the manager and creating handlers. Tls certificates are managed using cert-manager.
+Operator-SDK takes care of creating a new webhook and appending it to the manager and creating handlers. 
+Tls certificates are managed using cert-manager.
+
 * Validation Logic:
 ** Proposed Implementations: Iterate through the list of plugins to be installed and fetch warnings for each plugin from the plugin center API and check if the version of that plugin has any of those warnings.  
-** Caveats: Webhooks add to API request latency,hence they should evaluate as quickly as possible thus having max allowed timeout of 30s. In the earlier approach I was fetching the security warnings from the plugin site API in the validator interface itself, and since network operations slow it was causing a timeout in the case when the number of plugins were more or internet connection was not good.
-** Updated Implementaion: Instead of fetching information for each plugin, the information of all the plugins is downloaded and cached at the start of the operator and updated periodically,thus eliminating network calls and finishing validation in less than a second.
+** Caveats: Webhooks add latency to an API request, hence they should evaluate as quickly as possible thus having max allowed timeout of 30s. In the earlier approach I was fetching the security warnings from the plugin site API in the validator interface itself, and since network operations are slow, it was causing a timeout in the case of validating a larger number of plugins or when the Internet connection was not good.
+** Updated Implementaion: Instead of fetching information for each plugin, the information about all the plugins is downloaded and cached at the start of the operator and updated periodically, thus eliminating network calls and finishing validation in less than a second.
  
 === Evaluation Phase 1: 
 * Scaffoled a new validation webhook
@@ -53,14 +57,18 @@ Operator-SDK takes care of creating a new webhook and appending it to the manage
 *  https://www.youtube.com/watch?v=xO2jGmv1fLo[Phase 1 demo]
 
 == User Guide 
-The webhook feature is completely optional for the user. It can be easily deployed it using helm charts by setting webhook.enabled in values.yaml or in the command line flag.
+The webhook feature is completely optional for the user. It can be easily deployed using Helm Chart by setting webhook.enabled in values.yaml and in the Operator command line flag.
 ----
  webhook.enabled=true
 ----
-* Note: The webhook takes some time to get up and running,also when helm renders the template the validating webhook configuration is applied at last, hence if the user wants to deploy a jenkins custom resource with validation turned on, he needs to wait for sometime. After the webhook is up and running the user can deploy the jenkins custom resource using *helm* or *kubectl*  
+To enable security validation in the jenkins custom resource set
+----
+jenkins.ValidateSecurityWarnings=true
+----
+* Note: The webhook takes some time to get up and running, also when helm renders the template, the validating webhook configuration is applied last, hence if the user wants to deploy the Jenkins Custom Resource with validation turned on, he needs to wait for some time. After the webhook is up and running the user can deploy the Jenkins Custom Resource using *helm* or *kubectl*
 
 === Future work
 * Implementing a post-install hook in the helm charts that checks whether the webhook is up and running.
-* Adding validation for required core version of plugin and core version of jenkins.
+* Adding validation for required core version of plugin and core version of Jenkins.
 * Migrating other validation logic from controller to the webhook.
 * Adding validation for the dependencies of the plugins.
