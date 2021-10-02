@@ -26,15 +26,17 @@ It would be nice to automate a few of these steps, and this is where Hudson come
 Automated builds: Ant
 ---------------------
 For automated builds the Android SDK uses <a id="aptureLink_THdW39aNW6" href="https://en.wikipedia.org/wiki/Apache%20Ant">Apache Ant</a>, which Hudson has great support for. To generate a template build.xml you can use the android tool from the SDK using the following command:
-<code linenumbers=off>
+
+```
 android create project -n template -t android-7 -p template -k dummy.pkg -a Dummy
-</code>
+```
+
 The target is specified as "android-7" meaning that we are building for Android 2.1. For apps that use MapView we would use "Google Inc.:Google APIs:7". It is a good idea to always [target the latest SDK](https://d.android.com/guide/practices/screens_support.html#strategies). From this template project we'll grab the *build.properties* and the *build.xml* and copy those to the Android project that we want to build. Edit *build.xml* and set the project name to your Android project name. 
 
 The *local.properties* file contains the path to the SDK root and shouldn't be checked in to version control. For our use we'll set the properties that are in that file on the Hudson job configuration page.
 
 ## Running the build in Hudson
-This part is easy: create a new freestyle job and let it be build with ant. The targets that we want to execute are <code>clean release</code>. Release will compile, package and sign your apk. Now to get this working right, some custom properties should be set (use the Advanced button).
+This part is easy: create a new freestyle job and let it be build with ant. The targets that we want to execute are `clean release`. Release will compile, package and sign your apk. Now to get this working right, some custom properties should be set (use the Advanced button).
 
 ```
 sdk.dir=/Users/hugo/Code/android-sdk-mac
@@ -49,7 +51,7 @@ The *sdk.dir* should point to the Android SDK root on your Hudson node. In my ca
 
 <br clear="all"/>
 ## Updating the AndroidManifest for release
-...But we're not done yet :) Remember what I said about updating the AndroidManifest.xml? For that we need to edit the build.xml, which by default contains nothing more then a <code><setup/></code> tag to pull in the Android SDK ant target definitions. For my Rainy Days application, I adjusted build.xml like this:
+...But we're not done yet :) Remember what I said about updating the AndroidManifest.xml? For that we need to edit the build.xml, which by default contains nothing more then a `<setup/>` tag to pull in the Android SDK ant target definitions. For my Rainy Days application, I adjusted build.xml like this:
 
 ```
    ...
@@ -67,7 +69,7 @@ The *sdk.dir* should point to the Android SDK root on your Hudson node. In my ca
    </target>
 ```
 
-What the above snippet does is removing the *android:debuggable* attribute from the *AndroidManifest.xml* and replacing the maps API key in *res/layout/maplayout.xml* with the correct key for release. The <code>-package-resources</code> target is pulled in from the Android *android_rules.xml* file.
+What the above snippet does is removing the *android:debuggable* attribute from the *AndroidManifest.xml* and replacing the maps API key in *res/layout/maplayout.xml* with the correct key for release. The `-package-resources` target is pulled in from the Android *android_rules.xml* file.
 
 Now when Hudson builds my app I get a ready to release apk that I can install on my device or emulator, which is pretty nice.
 

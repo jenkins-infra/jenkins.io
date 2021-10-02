@@ -24,7 +24,7 @@ You’ll want to make sure to use the `--non-interactive` option for any automat
 
 To make such a Hudson job, create a new job, tie it to the controller (since this is where the configuration files are), set it to build periodically (we use “@midnight”), and add an “Execute shell” build step. Here’s the full script we use, to put into the build step:
 
-<code type="bash">
+```bash
 # Change into your HUDSON_HOME.
 cd /opt/hudson
 # Add any new conf files, jobs, users, and content.
@@ -39,7 +39,7 @@ svn propset svn:ignore -F myignores jobs/* && rm myignores
 svn status | grep '!' | awk '{print $2;}' | xargs -r svn rm
 # And finally, check in of course, showing status before and after for logging.
 svn st && svn ci --non-interactive --username=mrhudson -m "automated commit of Hudson configuration" && svn st
-</code>
+```
 
 You’ll notice this does some extra things like set the svn:ignores property to provide a relatively clean `svn st` which it shows before and after the commit for logging purposes. One thing this job *doesn’t* do is put the build results of your jobs in version control. Because historical build logs and artifacts will never change and are also potentially large, a periodic (daily or weekly) `cp` or `rsync` of the **jobs** directory will still give you restorability while keeping your repository lean.
 
