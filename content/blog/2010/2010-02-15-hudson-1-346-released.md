@@ -21,24 +21,30 @@ Here's the breakdown:
   <li class=bug>
     Maven modules should not be buildable when the parent project is disabled.
     (<a href="https://issues.jenkins.io/browse/JENKINS-1375">issue 1375</a>)
+  </li>
   <li class=bug>
 
     Fixed the broken quiet period implementation when polling interval is shorter than
     the quiet period.  (Changes in SCM impls are needed for this to take effect.) 
     (<a href="https://issues.jenkins.io/browse/JENKINS-2180">issue 2180</a>)
+  </li>
   <li class=bug>
     Escape username in URLs in case it contains special characters such as "#".
     (<a href="https://issues.jenkins.io/browse/JENKINS-2610">issue 2610</a>)
+  </li>
   <li class=bug>
     Fix sidepanel link for People to be visible and show view-specific info when appropriate.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5443">issue 5443</a>)
+  </li>
   <li class=bug>
     Improved HTML rendering, not using closing tags that do not exist in HTML.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5458">issue 5458</a>)
+  </li>
   <li class=bug>
 
     Show better error message for missing view type selection when creating a view.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5469">issue 5469</a>)
+  </li>
   <li class=bug>
     Hudson wasn't properly streaming a large external build submission,
     which can result in OOME and unresponsiveness.
@@ -50,11 +56,14 @@ Here's the breakdown:
   <li class=rfe>
     Use fixed-width font in text area for shell/batch build steps.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5471">issue 5471</a>)
+  </li>
   <li class=rfe>
     Use user selected icon size on People page.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5447">issue 5447</a>)
+  </li>
   <li class=rfe>
     Speed/footprint improvement in the HTML rendering.
+  </li>
 </ul>
 
 

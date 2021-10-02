@@ -18,19 +18,24 @@
 <ul class=image>
   <li class=bug>
     Tagging a repository can result in NPE. 
+  </li>
   <li class=bug>
     Fix possible form submission error when using multiple combobox elements.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6025">issue 6025</a>)
+  </li>
   <li class=bug>
     Better escaping of test case names in test results pages.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5982">issue 5982</a>)
+  </li>
   <li class=bug>
     Make radio buttons work in repeatable content, such as a build step.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5028">issue 5028</a>)
+  </li>
   <li class=bug>
 
     Fixed the handling of verifying that the POM path entered for Maven projects exists.
     (<a href="https://issues.jenkins.io/browse/JENKINS-4693">issue 4693</a>)
+  </li>
 </ul>
 
 #### Enhancements
@@ -38,6 +43,7 @@
   <li class=rfe>
     Added link to builds in buildTimeTrend
     (<a href="https://issues.jenkins.io/browse/JENKINS-3993">issue 3993</a>)
+  </li>
 </ul>
 
 

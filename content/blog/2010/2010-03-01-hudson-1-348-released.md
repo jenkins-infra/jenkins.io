@@ -14,9 +14,9 @@ The latest release, 1.348 of Hudson was pushed out to the repositories on the 26
 
 ### Bugs fixed
 <ul class=image>
-  <li class=bug> Fixed a performance problem of the job/build top page when there are too many artifacts.
-<li>Improved /etc/shadow permission checks.
-<li>Disable auto-refresh in Groovy script console (<a href="https://issues.jenkins.io/browse/JENKINS-5729">issue 5729</a>)
+  <li class=bug> Fixed a performance problem of the job/build top page when there are too many artifacts.</li>
+  <li>Improved /etc/shadow permission checks.</li>
+  <li>Disable auto-refresh in Groovy script console (<a href="https://issues.jenkins.io/browse/JENKINS-5729">issue 5729</a>)</li>
 </ul>
 
 
