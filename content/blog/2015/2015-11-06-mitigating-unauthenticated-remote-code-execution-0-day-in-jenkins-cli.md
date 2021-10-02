@@ -43,8 +43,8 @@ Using the following Groovy script you can disable the attack vector in your Jenk
     removal(j.getExtensionList(RootAction.class))
     removal(j.actions)
 
-
 ---
+
  in order to make the workaround persist between restarts of the Jenkins server, add the script below to `$JENKINS_HOME/init.groovy.d/cli-shutdown.groovy` (create the directory if necessary, and the file).
 
 The latest version of this script can be found [in this GitHub repository](https://github.com/jenkinsci-cert/SECURITY-218).
