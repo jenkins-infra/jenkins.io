@@ -16,7 +16,7 @@ After some scrambling earlier in the week to get [1.345 out the door](https://je
 Here's the breakdown:
 
 
-#### Bugs fixed
+### Bugs fixed
 <ul class=image>
   <li class=bug>
     Maven modules should not be buildable when the parent project is disabled.
@@ -45,7 +45,7 @@ Here's the breakdown:
 </ul>
 
 <br clear="all"/>
-#### Enhancements
+### Enhancements
 <ul>
   <li class=rfe>
     Use fixed-width font in text area for shell/batch build steps.
@@ -59,7 +59,7 @@ Here's the breakdown:
 
 
 <br clear="all"/>
-#### Contributors 
+### Contributors 
 This release of Hudson contained 37 commits from 3 different contributors to "core":
 
 * <a id="aptureLink_YaPunVjeFQ" href="https://twitter.com/kohsukekawa">kohsuke</a>

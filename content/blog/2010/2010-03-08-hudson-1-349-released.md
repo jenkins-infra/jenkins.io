@@ -16,7 +16,7 @@ Last Friday, March 5th, Hudson 1.349 was pushed out into the wild with an even s
 Now for the breakdown of the 1.349 release:
 
 
-#### Bug fixes
+### Bug fixes
 <ul class=image> 
   <li class=bug> 
     Fix deserialization problem with fields containing double underscore.
@@ -32,7 +32,7 @@ Now for the breakdown of the 1.349 release:
 </ul> 
 
 <br clear="all"/>
-#### Enhancements
+### Enhancements
 <ul>
   <li class=rfe> 
     Remote build result submission shouldn't hang forever even if Hudson goes down.
@@ -50,7 +50,7 @@ Now for the breakdown of the 1.349 release:
 
 
 <br clear="all"/>
-#### Contributors
+### Contributors
 Hudson 1.349 contains **43** commits from 6 contributors, due to the merging in of Alan Harder's old-data-monitor branch the commit count is a bit off from the amount of code change that actually went out in 1.349.
 
 * <a id="aptureLink_AkeTULcLLb" href="https://twitter.com/abayer">abayer</a>

@@ -15,7 +15,7 @@ After an exciting week that saw the rushed release of [Hudson 1.351](https://jen
 In general, 1.352 is looking like a very solid release, that said, here's the breakdown for this release:
 
 
-#### Bugs fixed
+### Bugs fixed
 <ul class=image> 
   <li class=bug> 
     Fixed a file handle leak when a copy fails.
@@ -44,7 +44,7 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
 
 
 <br clear="all"/>
-#### Enhancements
+### Enhancements
 <ul>
   <li class=rfe> 
     Supported JBoss EAP 5.0.0 GA.
@@ -66,7 +66,7 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
 </ul>
 <!--break-->
 <br clear="all"/>
-#### Contributors
+### Contributors
 This release contains 63 commits, from six different contributors including our very own [Subversion-loving](https://jenkins.io/content/keeping-your-configuration-and-data-subversion) <a id="aptureLink_Ee9tWyJQUm" href="https://twitter.com/MikeRooney">Mike Rooney</a> (mcrooney).
 
 * <a id="aptureLink_5nO4bAJUea" href="https://twitter.com/abayer">abayer</a>

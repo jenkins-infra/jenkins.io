@@ -24,7 +24,7 @@ Alan's quest for removing deprecated code will likely continue for a while, but 
 <!--break-->
 Now the breakdown for this release:
 
-#### Bugs fixed
+### Bugs fixed
 <ul class=image>
   <li class=bug> 
     Fix javascript problem showing test failure detail for test name with a quote character.
@@ -43,7 +43,7 @@ Now the breakdown for this release:
 </ul>
 
 <br clear="all"/>
-#### Enhancements
+### Enhancements
 <ul>
   <li class=rfe> 
     Improved the form validation mechanism to support multiple controls.
@@ -55,7 +55,7 @@ Now the breakdown for this release:
 
 
 <br clear="all"/>
-#### Contributors 
+### Contributors 
 This release of Hudson contained 36 commits from **7** different contributors to "core":
 
 * <a id="aptureLink_YFkDO3e779" href="https://twitter.com/abayer">abayer</a>
