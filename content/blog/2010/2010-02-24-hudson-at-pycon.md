@@ -12,7 +12,7 @@ This past week <a id="aptureLink_z1tlMXupZM" href="https://twitter.com/pycon">Py
 
 > Why not run all your tests all the time? A study of continuous integration systems
 
-<center><img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/just_use_hudson.png" alt="Just use Hudson" width="500"/></center>
+<img src="https://web.archive.org/web/*/https://agentdero.cachefly.net/continuousblog/just_use_hudson.png" alt="Just use Hudson" width="500"/><
 
 Titus has some notable quotes "just use Hudson" but overall a good introduction of CI and a breakdown of some of the challenges behind continuous integration. He also does a good job going over getting started with Hudson, setting up a basic Python project that incorporates JUnit XML reporting and agents. 
 
@@ -20,5 +20,4 @@ Titus has some notable quotes "just use Hudson" but overall a good introduction 
 
 If you're using Python with Hudson, I highly recommend watching the talk (embedded below).
 
-
-<center><embed src="http://blip.tv/play/g4VigciTVwI%2Em4v" type="application/x-shockwave-flash" width="480" height="350" allowscriptaccess="always" allowfullscreen="true"></embed></center>
+<embed src="http://blip.tv/play/g4VigciTVwI%2Em4v" type="application/x-shockwave-flash" width="480" height="350" allowscriptaccess="always" allowfullscreen="true"></embed>

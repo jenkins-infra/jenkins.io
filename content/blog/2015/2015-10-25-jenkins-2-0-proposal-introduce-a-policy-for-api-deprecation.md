@@ -53,7 +53,7 @@ suggests we:
 > to a number of releases. Depending on the feature, this can range from a few
 > months, to a few years (e.g. two years being about 100 releases of Jenkins and
 > eight LTS baselines).
->
+> 
 > [...]
 
 I highly encourage you to read the entire proposal [on the issue
