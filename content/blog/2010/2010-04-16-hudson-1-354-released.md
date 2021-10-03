@@ -20,19 +20,25 @@ One of the infrastructure issues that's half-way resolved is the question of Deb
   <li class=bug> 
     POM parsing was still using the module root as the base for relative paths for alternate settings files.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6080">issue 6080</a>)
+  </li>
   <li class=bug> 
     Fix dynamic updates of build history table when <a id="aptureLink_MAx8CeZUo3" href="https://en.wikipedia.org/wiki/Cross-site%20request%20forgery">CSRF</a> protection is turned on.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6072">issue 6072</a>)
+  </li>
   <li class=bug> 
     Improved the error reporting mechanism in LDAP setting.
+  </li>
   <li class=bug> 
     Raw console output contains garbage.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6034">issue 6034</a>)
+  </li>
   <li class=bug> 
     Fixed a file handle leak in the agents connection.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6137">issue 6137</a>)
+  </li>
   <li class=bug> 
     Quiet period wasn't taking effect properly when doing parameterized builds.
+  </li>
 </ul> 
 
 <br clear="all"/>

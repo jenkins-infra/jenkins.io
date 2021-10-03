@@ -16,41 +16,50 @@ Last Friday, March 5th, Hudson 1.349 was pushed out into the wild with an even s
 Now for the breakdown of the 1.349 release:
 
 
-#### Bug fixes
+### Bug fixes
 <ul class=image> 
   <li class=bug> 
     Fix deserialization problem with fields containing double underscore.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5768">issue 5768</a>)
+  </li>
   <li class=bug> 
     Fix deserialization problem for Exception objects where the XML has bad/old data.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5769">issue 5769</a>)
+  </li>
   <li class=bug> 
     Fix serialization problem with empty CopyOnWriteMap.Tree.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5776">issue 5776</a>)
+  </li>
   <li class=bug> 
     Fixed a bug that can cause 404 in the form validation check.
+  </li>
 </ul> 
 
 <br clear="all"/>
-#### Enhancements
+### Enhancements
 <ul>
   <li class=rfe> 
     Remote build result submission shouldn't hang forever even if Hudson goes down.
+  </li>
   <li class=rfe> 
     Added a monitor for old or unreadable data in XML files and a manage screen to assist
     in updating files to the current data format and/or removing unreadable data from plugins
     that are no longer active.  "Manage Hudson" page will show a link if any old/unreadable
     data was detected.
+  </li>
   <li class=rfe> 
     Added a mechanism to bundle <tt>init.groovy</tt> inside the war for OEM.
     (<a href="https://n4.nabble.com/preconfigured-hudson-war-tp1575216p1575216.html">report</a>)
+  </li>
   <li class=rfe> 
     Added an extension point to annotate console output.
     (<a href="https://issues.jenkins.io/browse/JENKINS-2137">issue 2137</a>)</ul>
+  </li>
+</ul>
 
 
 <br clear="all"/>
-#### Contributors
+### Contributors
 Hudson 1.349 contains **43** commits from 6 contributors, due to the merging in of Alan Harder's old-data-monitor branch the commit count is a bit off from the amount of code change that actually went out in 1.349.
 
 * <a id="aptureLink_AkeTULcLLb" href="https://twitter.com/abayer">abayer</a>
