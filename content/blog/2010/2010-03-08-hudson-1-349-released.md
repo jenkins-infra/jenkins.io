@@ -55,6 +55,7 @@ Now for the breakdown of the 1.349 release:
     Added an extension point to annotate console output.
     (<a href="https://issues.jenkins.io/browse/JENKINS-2137">issue 2137</a>)</ul>
   </li>
+</ul>
 
 
 <br clear="all"/>

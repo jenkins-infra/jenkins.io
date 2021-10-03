@@ -50,6 +50,7 @@ In general, 1.352 is looking like a very solid release, that said, here's the br
   <li class=bug> 
     Fixed a situation where a failure in plugin start up can prevent massive number of job loss. </ul>
   </li>
+</ul>
 
 
 <br clear="all"/>
