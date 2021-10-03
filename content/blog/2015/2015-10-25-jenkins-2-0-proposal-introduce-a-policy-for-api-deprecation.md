@@ -11,8 +11,7 @@
 ---
 Over the past few weeks there has been a vibrant discussion happening on the
 [jenkinsci-dev@](https://groups.google.com/group/jenkinsci-dev/topics) mailing
-list as to what "[Jenkins
-2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" means.  While
+list as to what "[Jenkins 2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" means.  While
 Jenkins does not currently adhere to [semantic versioning](https://semver.org/),
 the change of a major version number does indicate a major milestone for the community.
 
@@ -53,7 +52,7 @@ suggests we:
 > to a number of releases. Depending on the feature, this can range from a few
 > months, to a few years (e.g. two years being about 100 releases of Jenkins and
 > eight LTS baselines).
->
+> 
 > [...]
 
 I highly encourage you to read the entire proposal [on the issue

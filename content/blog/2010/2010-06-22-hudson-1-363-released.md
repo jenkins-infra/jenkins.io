@@ -22,20 +22,26 @@ If you're a regular reader of the Hudson Labs blog, you may also notice that thi
     Fix queue handling to close locking gap between removing job from queue and starting build,
     to prevent unintended concurrent builds (refactor of change first made in 1.360).
     (<a href="https://hudson.361315.n4.nabble.com/Patch-to-fix-concurrent-build-problem-td2229136.html">report</a>)
+  </li>
   <li class=bug> 
     Allow multiple dependencies between same two projects, as they may trigger under
     different conditions and with different parameters.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5708">issue 5708</a>)
+  </li>
   <li class=bug> 
     Timeline on build trend page should use server timezone instead of always GMT.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6692">issue 6692</a>)
+  </li>
   <li class=bug> 
     Don't mask the cause of the checkout related exception.
+  </li>
   <li class=bug> 
     "who am I?" page should be visible to everyone.
+  </li>
   <li class=bug> 
     Reinstall a JDK when a different version is selected.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5551">issue 5551</a>)
+  </li>
 </ul>
 
 #### Enhancements
@@ -43,14 +49,18 @@ If you're a regular reader of the Hudson Labs blog, you may also notice that thi
   <li class=rfe> 
     Avoid pointless and harmful redirection when downloading agent.jar. 
     (<a href="https://issues.jenkins.io/browse/JENKINS-5752">issue 5752</a>)
+  </li>
   <li class=rfe> 
     Cache downloaded JDKs.
+  </li>
   <li class=rfe> 
     Integrated community-contributed translations (Germany, Greek, Spanish, Finnish, Hungarian, Italian, Japanese, French,
     Russian, Slovenian, Dutch, Traditional Chinese, Swedish, Ukrainian, and Portuguese.) 
+  </li>
   <li class=rfe> 
     Upgraded bundled Ant to version 1.8.1.
     (<a href="https://issues.jenkins.io/browse/JENKINS-6562">issue 6562</a>)
+  </li>
 </ul>
 <!--break-->
 ----

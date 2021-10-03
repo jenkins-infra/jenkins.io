@@ -17,8 +17,10 @@ Last Friday the Hudson team rolled out a small 1.372 with two enhancements follo
   <li class=rfe> 
     Persist matrix-based security settings in a consistent order
     (<a href="https://issues.jenkins.io/browse/JENKINS-7138">issue 7138</a>)
+  </li>
   <li class='major rfe'> 
     Jobs can now use boolean expression over labels to control where they run.
+  </li>
 </ul>
 <!--break-->
 ----

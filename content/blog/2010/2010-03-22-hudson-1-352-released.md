@@ -15,58 +15,75 @@ After an exciting week that saw the rushed release of [Hudson 1.351](https://jen
 In general, 1.352 is looking like a very solid release, that said, here's the breakdown for this release:
 
 
-#### Bugs fixed
+### Bugs fixed
 <ul class=image> 
   <li class=bug> 
     Fixed a file handle leak when a copy fails.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5899">issue 5899</a>)
+  </li>
   <li class=bug> 
     Replace '&gt;' with '_' in username, as already done for '&lt;'.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5833">issue 5833</a>)
+  </li>
   <li class=bug> 
     Fix <tt>editableComboBox</tt> to select item when mouse click takes more than 100ms.
     (<a href="https://issues.jenkins.io/browse/JENKINS-2722">issue 2722</a>)
+  </li>
   <li class=bug> 
     Fixed NPE when configuring a view without "Regular expression".
+  </li>
   <li class=bug> 
     Page shouldn't scroll up when the user opens/closes a stack trace in the test failure report.
+  </li>
   <li class=bug> 
     Fixed a bug where Hudson can put a wrong help file link.
     (<a href="https://n4.nabble.com/Resolution-of-help-files-in-jelly-entries-tp1592533p1592533.html">report</a>)
+  </li>
   <li class=bug> 
     Fixed Maven site goal archiving from agents.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5943">issue 5943</a>)
+  </li>
   <li class=bug> 
     Fixed a regression with NetBeans Hudson plugin progressive console output.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5941">issue 5941</a>)
+  </li>
   <li class=bug> 
     Fixed a situation where a failure in plugin start up can prevent massive number of job loss. </ul>
+  </li>
+</ul>
 
 
 <br clear="all"/>
-#### Enhancements
+### Enhancements
 <ul>
   <li class=rfe> 
     Supported JBoss EAP 5.0.0 GA.
     (<a href="https://issues.jenkins.io/browse/JENKINS-5922">issue 5922</a>)
+  </li>
   <li class=rfe> 
     CLI commands on protected Hudson now asks a password interactively, if run on Java6.
+  </li>
   <li class=rfe> 
     Added CLI 'login' and 'logout' commands so that you don't have to specify a credential
     for individual CLI invocation. 
+  </li>
   <li class=rfe> 
     URLs in the console output are now hyperlinks. 
+  </li>
   <li class=rfe> 
     Improved the URL annotation logic.
+  </li>
   <li class=rfe> 
     Add drag&amp;drop support for <tt>f:repeatable</tt> lists and use this for
     the JDK/Ant/Maven installations in global config so these can be reordered.
+  </li>
   <li class=rfe> 
     Integrated a new round of community-contributed localizations (ca, es, fi, fr, hi_IN, it, nl, ru, and sv_SE locales.)
+  </li>
 </ul>
 <!--break-->
 <br clear="all"/>
-#### Contributors
+### Contributors
 This release contains 63 commits, from six different contributors including our very own [Subversion-loving](https://jenkins.io/content/keeping-your-configuration-and-data-subversion) <a id="aptureLink_Ee9tWyJQUm" href="https://twitter.com/MikeRooney">Mike Rooney</a> (mcrooney).
 
 * <a id="aptureLink_5nO4bAJUea" href="https://twitter.com/abayer">abayer</a>
