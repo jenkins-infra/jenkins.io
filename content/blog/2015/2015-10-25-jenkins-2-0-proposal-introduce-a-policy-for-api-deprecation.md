@@ -11,8 +11,7 @@
 ---
 Over the past few weeks there has been a vibrant discussion happening on the
 [jenkinsci-dev@](https://groups.google.com/group/jenkinsci-dev/topics) mailing
-list as to what "[Jenkins
-2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" means.  While
+list as to what "[Jenkins 2.0](https://wiki.jenkins.io/display/JENKINS/Jenkins+2.0)" means.  While
 Jenkins does not currently adhere to [semantic versioning](https://semver.org/),
 the change of a major version number does indicate a major milestone for the community.
 
