@@ -10,7 +10,10 @@ module ActiveNav
   end
 
   def expand_link(relative_url)
-    link = [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
+    # if it is a full url with a schema, then can't do anything with it
+    return relative_url if relative_url.start_with?('https://', 'http://')
+
+    link = [URI(site.base_url).path, relative_url.sub(%r{^/}, '')].join('/')
     # if it has a file extension its a file and shouldn't get a / added
     link = link + '/' if File.extname(link).empty?
     # strip double slashes on the end
