@@ -5,8 +5,11 @@ module ActiveNav
   end
 
   def absolute_link(relative_url)
-    link =  [site.base_url, relative_url.sub(/^\//, '')].join('/')
-    link.gsub(/\/index.html$/, '/').gsub(/\/(\/)+/, '/')
+    # if it is a full url with a schema, then can't do anything with it
+    return relative_url if relative_url.start_with?('https://', 'http://')
+
+    link = [site.base_url, relative_url.sub(%r{^/}, '')].join('/')
+    link.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/')
   end
 
   def expand_link(relative_url)
