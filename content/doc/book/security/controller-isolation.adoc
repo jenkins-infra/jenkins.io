@@ -9,35 +9,57 @@ ifndef::env-github[:imagesdir: ../../resources]
 :hide-uri-scheme:
 endif::[]
 
+Never run builds on the Jenkins controller in production environments.
 Out of the box, Jenkins is set up to run builds on the built-in controller node.
 This makes it easier to get started with Jenkins,
-but production instances should instead use the
-link:https://wiki.jenkins.io/display/JENKINS/Distributed+builds[distributed builds architecture]
-to isolate the controller from the actual build execution.
+but, on  production instances,
+builds should only be executed on nodes that are external to the controller.
 
-Distributed builds are builds that run on nodes other than the built-in controller node.
-The Jenkins controller serves HTTP requests
-and stores all important information related to the builds.
-Agents that run on nodes
-manage the task execution on behalf of the Jenkins controller
-and supply most of the computing power required
-to build and test the software.
-
-On a distributed Jenkins instance,
-nodes are separate physical or virtual machines that are configured.
-The Jenkins controller manages these nodes to do the actual build work.
-Different nodes can run different operating systems and different tools,
-enabling one Pipeline to build and test the same software
-for a variety of platforms.
-
-Distributed builds improve the performance and scalability of your Jenkins instance
-but they are also much more secure than instances
-where the builds run on the built-in controller node.
+A build job that uses an agent running on the built-in controller node
+may be able to access Jenkins configuration files and the workspaces of other builds.
+An agent could also request information
+that belongs to other teams or organizations that share the controller.
+Configuring Jenkins as a
+link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[distributed build system]
+enhances the security of your Jenkins instance
+as well as improving its performance and making it more stable.
 This is because builds that run on the built-in node
 have the same level of access to the controller file system as the Jenkins process itself.
 Configuring your Jenkins instance so that builds
 execute on agents running on separate nodes
 protects the Jenkins controller from malicious (or just broken) build scripts.
+
+When distributed builds are implemented,
+the Jenkins controller serves HTTP requests
+and stores all important information related to the builds.
+Nodes are separate physical or virtual machines that are configured.
+The Jenkins controller manages these nodes,
+but the agents manage the task execution on behalf of the Jenkins controller
+and supply most of the computing power required to build and test the software.
+Different nodes can run different operating systems and different tools,
+enabling one Pipeline to build and test the same software
+for a variety of platforms.
+
+[NOTE]
+====
+A job that performs administrative tasks such as backups may run on the controller,
+but be sure to label the executor with a hard-to-guess label
+and only allow it to be used by jobs that specify that label.
+An executor can be temporarily configured on the controller
+long enough to run the administrative task
+but no executors should be configured on the controller at other times
+to ensure that no builds execute on the controller
+since a clever Pipeline author may be able to work around the label restriction.
+
+You can install the plugin:job-restrictions[Job Restrictions Plugin]
+to ensure that builds do not run on the controller
+even if executors are configured.
+====
+
+An agent can also write malicious code to its local disk so that the node is tainted
+and can infect a later build.
+For maximum security, run all builds on ephemeral agents in the cloud
+so that they are destroyed at the end of each build job.
 
 By extension, you also should not run agents on the same Docker host as the controller.
 
