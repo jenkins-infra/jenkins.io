@@ -8,8 +8,7 @@ module ActiveNav
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    link = [site.base_url, relative_url.sub(%r{^/}, '')].join('/')
-    link.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/')
+    [site.base_url, relative_url.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/').sub(%r{^/}, '')].join('/')
   end
 
   def expand_link(relative_url)
