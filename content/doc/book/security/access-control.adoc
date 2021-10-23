@@ -4,129 +4,62 @@ layout: section
 ---
 :toc:
 :toclevels: 4
+link:access-control[Jenkins Access Control]::
 
-Jenkins access control is split into two parts:
+Jenkins access control is split into two parts, both configured on the _Manage Jenkins >> Configure Global Security_ page.:
 
 * Authentication (control who can access the Jenkins instance) is done using a _security realm_.
   The security realm determines user identity and group memberships.
 * Authorization (determine who is allowed to do what on the Jenkins instance) is done by an _authorization strategy_.
   This controls whether a user (directly or through group memberships) has a permission.
 
-These can be independent, or work in combination.
-An independent configuration would be plugin:active-directory[Active Directory] or plugin:ldap[LDAP] as security realm, and something like plugin:matrix-auth[Matrix Authorization Strategy] as authorization strategy.
-An example for related security realm and authorization strategy configuration is plugin:github-oauth[GitHub Authentication]:
-While its security realm can be used with a generic authorization strategy, it also provides an authorization strategy that looks up a user's repository permissions on GitHub, and grants or denies permissions to related jobs in Jenkins based on that.
+These can be independent, or work in combination:
 
-[NOTE]
-====
-Jenkins could be set up to have basic access control happen outside of it.
+* An example of an independent configuration is using plugin:active-directory[Active Directory] or plugin:ldap[LDAP] as security realm, and something like plugin:matrix-auth[Matrix Authorization Strategy] as the authorization strategy.
+* An example of a related security realm and authorization strategy configuration is plugin:github-oauth[GitHub Authentication].
+While the Github Authentication security realm can be used with a generic authorization strategy, it also provides an authorization strategy that looks up a user's repository permissions on GitHub, and grants or denies permissions to related jobs in Jenkins based on that.
+
+Jenkins can be set up to have basic access control happen outside of it.
 Some examples:
 
 * The built-in https://github.com/jenkinsci/winstone[Winstone/Jetty servlet container wrapper] provides options that implement a basic security realm outside Jenkins.
 * If Jenkins is running behind a reverse proxy like Nginx or Apache, those can limit access to Jenkins.
 
 An advantage of these approaches is that they do not allow any access to Jenkins unless a user is authorized, reducing the impact of security issues in Jenkins or plugins especially when accessible from the internet.
-A disadvantage is the lack of integration with Jenkins access controls and potentially even interfering with it (e.g. when trying to authenticate scripted clients).
-====
+A disadvantage is the lack of integration with Jenkins access controls and potentially even interfering with it (such as when trying to authenticate scripted clients).
 
-== Common Configuration Mistakes
-
-When configuring authentication and authorization in Jenkins, it is easy to accidentally allow far more access than intended.
-See link:/doc/book/security/access-control/permissions/#administer[the documentation on the access given to administrators] about the impact of unintentionally granting Administer permission.
-
-_Anyone can do anything_::
-This authorization strategy is very rarely a good choice, as it allows even anonymous users to administer Jenkins.
-As a rule of thumb, it should not be used.
-Never rely on the Jenkins URL to not be known outside your team or organization alone for security.
-
-_Logged-in users can do anything_::
-This authorization strategy can be a sensible choice as long as only fully trusted users have accounts to access Jenkins.
-This is the default with Jenkins's single admin user when setting up Jenkins with the setup wizard.
-+
-Switching to an authentication realm that allows untrusted users to have an account later will result in those users getting administrative access to Jenkins if you keep this authorization stategy.
-Examples include enabling account signup for _Jenkins' own user database_, or various other authorization realms, many of which (GitHub, Google, GitLab, etc.) allow anyone to sign up for an account.
-
-Anonymous and authenticated users::
-Similar to the previous items, you should generally not grant significant permissions to `anonymous` (the anonymous user) or authenticated (any authenticated user) when using an authorization strategy that allows finer-grained control (like plugin:matrix-auth[Matrix Authorization Strategy]).
-Granting Overall/Administer permission to _anonymous_ is similar to _Anyone can do anything_, while granting that permission to _authenticated_ is essentially the same as _Logged-in users can do anything_.
-
-Built-in node::
-Users with limited permissions link:/doc/book/security/controller-isolation/[must not be able to configure jobs that run on the built-in node].
-When setting up a new Jenkins instance, adding users and switching authorization strategies, it is important to also set up distributed builds and limit what jobs are able to run on the built-in node.
-
-//In addition to the above items that discuss who may (effectively) be granted administrative access to Jenkins, you should be careful who you give any read access to Jenkins.
-//See link:/doc/book/security/access-control/permissions/#overall-read[the documentation of the level of access that granting basic read access gives].
-
-== Permissions
-
-At a very basic level, the _Overall/Read_ permission provides users some basic access to Jenkins.
-This permission is a prerequisite for more substantial access to Jenkins.
-Without this permission, only very few features explicitly intended to be used without authentication are available.
-
-The highest level of permissions is _Overall/Administer_.
-With this permission, users can upload and install plugins and have access to the link:/doc/book/managing/script-console/[Script Console].
-
-Between these two extremes is finer-grained permission control involving other permissions.
-Permissions in Jenkins have a _scope_: They can be granted globally, on an item (like a folder or job), on a build, etc.
-Whenever a user attempts to do something that is protected by permissions, the authorization strategy is checked for whether the current user has the specific permission (e.g., _Job/Read_) on the specific object (e.g., a job).
-Exactly how permissions are assigned and whether and how they're inherited is controlled by the specific authorization strategy.
-
-As an example, plugin:matrix-auth[Matrix Authorization Strategy] provides two different authorization strategies:
-
-* One provides a single global configuration of all permissions.
-  A user granted _Item/Read_ will be granted that permission everywhere.
-* One provides a project-based configuration.
-  In this model, permissions can be granted globally (as in the previous strategy), or only on specific folders, jobs, or agents.
-  Permissions are by default inherited, but that can be customized as well, so that users granted _Item/Read_ globally or on a parent folder may be excluded from access to a job.
-
-For more details about the various permissions in Jenkins and the level of access they grant, see link:/doc/book/security/access-control/permissions/[Permissions].
-
-== Disabling Access Control
-
-See link:/doc/book/security/access-control/disable/[Disable Access Control].
-
-== From managing-jenkins
-
-=== Access Control
-
-Access Control is the primary mechanism for securing a Jenkins environment
-against unauthorized usage. Two facets of configuration are necessary for
-configuring Access Control in Jenkins:
-
-. A *Security Realm* which informs the Jenkins environment how and where to
-  pull user (or identity) information from. Also commonly known as "authentication."
-. *Authorization* configuration which informs the Jenkins environment as to
-  which users and/or groups can access which aspects of Jenkins, and to what
-  extent.
-
-
-Using both the Security Realm and Authorization configurations it is possible
-to configure very relaxed or very rigid authentication and authorization
-schemes in Jenkins.
-
-Additionally, some plugins such as the
-plugin:role-strategy[Role-based Authorization Strategy]
-plugin can extend the Access Control capabilities of Jenkins to support even
-more nuanced authentication and authorization schemes.
+Using both the Security Realm and Authorization configurations,
+you can configure very relaxed or very rigid authentication and authorization schemes
+with different degrees of granularity in Jenkins.
 
 ==== Security Realm
 
+The *Security Realm* defines the source of authenticated user (or identity) information.
 By default Jenkins includes support for a few different Security Realms:
 
 Delegate to servlet container:: For delegating authentication a servlet
 container running the Jenkins controller, such as
 link:https://www.eclipse.org/jetty/[Jetty]. If using this option, please consult
 the servlet container's authentication documentation.
+
 Jenkins’ own user database:: Use Jenkins's own built-in user data store for
 authentication instead of delegating to an external system. This is enabled by
 default with new Jenkins 2.0 or later installations and is suitable for smaller
 environments.
+When this is implemented, use the _Manage Jenkins >> Manage Users_ page
+to define users in the Jenkins user database.
+By default, users and groups come from the Jenkins internal user database.
+Smaller, more informal installations can use this internal database,
+but Enterprise installations usually use a corporate service
+(LDAP, AD, or UNIX),
+so that users can log into Jenkins with their usual username and password.
+
 LDAP:: Delegate all authentication to a configured LDAP server, including both
 users and groups. This option is more common for larger installations in
 organizations which already have configured an external identity provider such
 as LDAP. This also supports Active Directory installations.
 
-
+// Isn't LDAP now a suggested plugin?  Delete this note?
 [NOTE]
 ====
 This feature is provided by the plugin:ldap[LDAP plugin]
@@ -150,34 +83,70 @@ a group. For example, `@dev` would mean the `dev` group and not the `dev` user.
 
 ---
 
-
 Plugins can provide additional security realms which may be useful for
 incorporating Jenkins into existing identity systems, such as:
 
+// Let's discuss what to do with this list, etc
+
 * plugin:active-directory[Active Directory]
 * plugin:github-oauth[GitHub Authentication]
+* plugin:role-strategy[Role-based Authorization Strategy]
 * plugin:crowd2[Atlassian Crowd 2]
+* SAML 2.0 Single Sign On facility
 
-==== Authorization
+To see a list of all plugins for alternate security realms
+and other authentication tools:
 
+. Go to menu:Manage Jenkins[Manage Plugins].
+. Select the *Available* tab.
+. Enter "Authentication and User Management" into the search box.
+
+This displays a list of relevant plugins.
+You can right-click the name of any plugin to read more about it.
+
+For demonstrations and testing, consider using the
+link:https://plugins.jenkins.io/mock-security-realm/[Mock Security Realm].
+This provides an insecure security realm that is easy to set up.
+
+== Authorization
 
 The Security Realm, or authentication, indicates _who_ can access the Jenkins
 environment. The other piece of the puzzle is *Authorization*, which indicates
 _what_ they can access in the Jenkins environment. By default Jenkins supports
 a few different Authorization options:
 
-
 Anyone can do anything:: Everyone gets full control of Jenkins, including
-anonymous users who haven't logged in. *Do not use this setting* for anything
+anonymous users who haven't logged in. +
+*Do not use this setting* for anything
 other than local test Jenkins controllers.
+
+This authorization strategy is very rarely a good choice, as it allows even anonymous users to administer Jenkins.
+As a rule of thumb, it should not be used.
+Never rely on the Jenkins URL to not be known outside your team or organization alone for security.
+
 Legacy mode:: Behaves exactly the same as Jenkins <1.164. Namely, if a user has
 the "admin" role, they will be granted full control over the system, and otherwise
 (including anonymous users) will only have the read access. *Do not use this
 setting* for anything other than local test Jenkins controllers.
-Logged in users can do anything:: In this mode, every logged-in user gets full
-control of Jenkins. Depending on an advanced option, anonymous users get read
-access to Jenkins, or no access at all. This mode is useful to force users to
+
+Logged in users can do anything::
+In this mode, every logged-in user gets full control of Jenkins.
+Depending on an advanced option, anonymous users get read
+access to Jenkins, or no access at all.
+This mode is useful to force users to
 log in before taking actions, so that there is an audit trail of users' actions.
+
+This authorization strategy is the default with Jenkins's single admin user when setting up Jenkins with the setup wizard.
+It can be a sensible choice as long as only fully trusted users have accounts to access Jenkins.
+////
+Need to look at this more closely. I'm not sure why "later" is relevant
+(unless assuming that you do this initially and then move onto a different option.
+Isn't the gating factor whether the security realm is one that is restricted
+or allows anyone to create their own account?
+////
+However, if you later switch to an authentication realm that allows untrusted users to have an account, those users may get administrative access to Jenkins if you keep this authorization stategy.
+Examples include enabling account signup for _Jenkins' own user database_, or various other authorization realms, many of which (GitHub, Google, GitLab, etc.) allow anyone to sign up for an account.
+
 Matrix-based security:: This authorization scheme allows for granular control
 over which users and groups are able to perform which actions in the Jenkins
 environment (see the screenshot below).
@@ -187,8 +156,25 @@ extension to Matrix-based security which allows additional access control lists
 screen. This allows granting specific users or groups access only to specified
 projects, instead of all projects in the Jenkins environment. The ACLs defined
 with Project-based Matrix Authorization are additive such that access grants
-defined in the Configure Global Security screen will be combined with
-project-specific ACLs.
+defined in the Configure Global Security screen will be combined with project-specific ACLs.
+
+////
+If we're including Project-based, should we also include role-based authorization strategy (the open source one)?
+I think both are now installed as part of suggested plugins but need to verify.
+////
+
+== Matrix-based security
+
+////
+Need to expand this section but it can be in a separate PR
+////
+For most Jenkins environments, Matrix-based security provides the most security
+and flexibility so it is recommended as a starting point for "production"
+environments.
+
+.Matrix-based security
+// I can't figure out why this image is not playing out
+image::security/configure-global-security-matrix-authorization.png["Configure Global Security - Matrix authorization", role=center]
 
 [NOTE]
 ====
@@ -197,18 +183,9 @@ by the plugin:matrix-auth[Matrix Authorization Strategy Plugin]
 and may not be installed on your Jenkins.
 ====
 
-
-For most Jenkins environments, Matrix-based security provides the most security
-and flexibility so it is recommended as a starting point for "production"
-environments.
-
-.Matrix-based security
-image::security/configure-global-security-matrix-authorization.png["Configure Global Security - Matrix authorization", role=center]
-
-
 The table shown above can get quite wide as each column represents a permission
-provided by Jenkins core or a plugin. Hovering the mouse over a permission will
-display more information about the permission.
+provided by Jenkins core or a plugin. Hovering the mouse over a permission
+displays more information about the permission.
 
 Each row in the table represents a user or group (also known as a "role"). This
 includes special entries named "anonymous" and "authenticated." The "anonymous"
@@ -221,3 +198,59 @@ The permissions granted in the matrix are additive. For example, if a user
 permissions granted to "kohsuke" will be a union of all those permissions
 granted to "kohsuke", "developers", "administrators", "authenticated", and
 "anonymous."
+
+== Permissions
+
+////
+Need to expand this section with some "basics" about how permissions are grouped
+by object, and columns can be added by plugins, etc.
+////
+
+At a very basic level, the _Overall/Read_ permission provides users some basic access to Jenkins.
+This permission is a prerequisite for more substantial access to Jenkins.
+Without this permission, only very few features explicitly intended to be used without authentication are available.
+
+The highest level of permissions is _Overall/Administer_.
+With this permission, users can upload and install plugins and have access to the link:/doc/book/managing/script-console/[Script Console].
+
+Between these two extremes is finer-grained permission control involving other permissions.
+Permissions in Jenkins have a _scope_: They can be granted globally, on an item (like a folder or job), on a build, etc.
+Whenever a user attempts to do something that is protected by permissions, the authorization strategy is checked for whether the current user has the specific permission (e.g., _Job/Read_) on the specific object (e.g., a job).
+Exactly how permissions are assigned and whether and how they're inherited is controlled by the specific authorization strategy.
+
+As an example, plugin:matrix-auth[Matrix Authorization Strategy] provides two different authorization strategies:
+
+* One provides a single global configuration of all permissions.
+  A user granted _Item/Read_ will be granted that permission everywhere.
+* One provides a project-based configuration.
+  In this model, permissions can be granted globally (as in the previous strategy), or only on specific folders, jobs, or agents.
+  Permissions are by default inherited, but that can be customized as well, so that users granted _Item/Read_ globally or on a parent folder may be excluded from access to a job.
+
+For more details about the various permissions in Jenkins and the level of access they grant, see link:/doc/book/security/access-control/permissions/[Permissions].
+
+== Common Configuration Mistakes
+
+////
+I integrated a couple of these into the descriptions of the authorization strategies.
+The others persist here, for now.
+////
+
+When configuring authentication and authorization in Jenkins, it is easy to accidentally allow far more access than intended.
+See link:/doc/book/security/access-control/permissions/#administer[the documentation on the access given to administrators] about the impact of unintentionally granting Administer permission.
+
+Anonymous and authenticated users::
+Similar to the previous items, you should generally not grant significant permissions to `anonymous` (the anonymous user) or authenticated (any authenticated user) when using an authorization strategy that allows finer-grained control (like plugin:matrix-auth[Matrix Authorization Strategy]).
+Granting Overall/Administer permission to _anonymous_ is similar to _Anyone can do anything_, while granting that permission to _authenticated_ is essentially the same as _Logged-in users can do anything_.
+
+Built-in node::
+// What about doing the link for "distributed builds" in next sentence?
+Users with limited permissions link:/doc/book/security/controller-isolation/[must not be able to configure jobs that run on the built-in node].
+When setting up a new Jenkins instance, adding users and switching authorization strategies, it is important to also set up distributed builds and limit what jobs are able to run on the built-in node.
+
+//In addition to the above items that discuss who may (effectively) be granted administrative access to Jenkins, you should be careful who you give any read access to Jenkins.
+//See link:/doc/book/security/access-control/permissions/#overall-read[the documentation of the level of access that granting basic read access gives].
+
+== Disabling Access Control
+
+See link:/doc/book/security/access-control/disable/[Disable Access Control].
+
