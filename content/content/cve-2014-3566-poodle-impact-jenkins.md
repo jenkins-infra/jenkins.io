@@ -1,4 +1,0 @@
----
-:layout: refresh
-:refresh_to_post_id: "/blog/2014/10/15/cve-2014-3566-poodle-impact-on-jenkins"
----
