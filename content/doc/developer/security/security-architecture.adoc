@@ -1,5 +1,5 @@
 ---
-title: Security Architecture
+title: Jenkins Security Architecture
 layout: developerchapter
 wip: true
 references:
@@ -12,24 +12,25 @@ references:
 // this is a straight import of https://wiki.jenkins.io/display/JENKINS/Making+your+plugin+behave+in+secured+Jenkins
 // TODO check contents and remove wiki page
 
-
-== Security Architecture of Jenkins
-
-Jenkins has a security mechanism in place so that the administrator of Jenkins can control who gets access to what part of Jenkins.
+Jenkins has a security mechanism that enables the Jenkins administrator to control who gets access to what part of Jenkins.
 The key components of this mechanism are the followings:
 
 * jenkinsdoc:Permission[], which represents an activity that requires a security privilege.
   This is usually a verb, like "configure", "administer", "tag", etc.
-* `Authentication`, which represents the current user and roles (AKA groups) he/she has.
-  When a thread runs in Jenkins, it always carry an `Authentication` object implicitly, which represents the user that the thread is serving. (If a thread is a part of Jenkins and not serving any user request, like `Executor{`}s, then it carries an almighty "system" `Authentication` object.)
+* `Authentication`, which represents the roles and groups for the current user.
+When a thread runs in Jenkins, it implicitly carries an `Authentication` object, which represents the user being served by the thread.
+// The next line had `Executor{`}s that did not render correctly
+(If a thread is a part of Jenkins and not serving any user request, such as `Executor`, then it carries an almighty "system" `Authentication` object.)
 * jenkinsdoc:ACL[], which decides whether the `Authentication` object carried by the current thread has the given permission or not.
 * jenkinsdoc:AccessControlled[], which is implemented by an object who owns ACL.
 
-So the overall picture is this; various objects in Jenkins (such as jenkinsdoc:Job[], jenkinsdoc:Jenkins[], jenkinsdoc:User[], jenkinsdoc:View[], etc.) are jenkinsdoc:AccessControlled[] objects, and therefore they own ACLs.
-The code is then written in such a way that before a security-sensitive operation is performed, it checks ACL.
+So the overall picture is this:
+
+* Various objects in Jenkins (such as jenkinsdoc:Job[], jenkinsdoc:Jenkins[], jenkinsdoc:User[], jenkinsdoc:View[], etc.) are jenkinsdoc:AccessControlled[] objects, and therefore they own ACLs.
+* Plugin code should be written to check the ACL before performing a security-sensitive operation.
 
 For example, the following code is taken from the jenkinsdoc:Jenkins[] class, which lets you shut down the JVM by requesting `/exit`.
-You can easily imagine that in a security sensitive environment you don't want random users to invoke this, so it makes sure that the caller has the "ADMINISTER" permission of the system before proceeding to do the work:
+Clearly, random users should not be able to invoke this in a security-sensitive environment, so it makes sure that the caller has the "ADMINISTER" permission of the system before proceeding to do the work:
 
 ----
     public void doExit( StaplerRequest req, StaplerResponse rsp ) throws IOException {
@@ -49,8 +50,9 @@ You can easily imagine that in a security sensitive environment you don't want r
 ----
 <1> This throws an exception if the user accessing this URL doesn't have `Administer` permission.
 
-If the administrator configured no security mechanism, the checkPermission method simply becomes no-op.
-The administrator could configure matrix-based ACL, in which case every `AccessControlled` object will share the single ACL (whose contents is controlled by the configuration done by the administrator.) In more elaborate case, each `AccessControlled` object might have different ACLs.
+If the administrator did not configure a security mechanism, the `checkPermission` method simply becomes no-op.
+The administrator could configure matrix-based ACL, in which case every `AccessControlled` object shares the single ACL (whose contents is controlled by the configuration done by the administrator.)
+In more elaborate cases, each `AccessControlled` object could have different ACLs.
 In all cases, this is the code you need to write.
 
 == Controlling read access to `AccessControlled` objects
@@ -58,20 +60,23 @@ In all cases, this is the code you need to write.
 The recommended way to control read access to `AccessControlled` objects is to implement the `StaplerProxy` interface.
 See link:read-access[Restricting HTTP Access to `AccessControlled` Objects] for more information.
 
-== What do plugins need to do to protect web methods?
+== Protecting Web Methods
+
+Plugins must do the following to protect web methods:
 
 * Identify the operations in code that can be potentially security sensitive.
-  This includes anything that can change state in the server, have other side effects (like elaborate form validation `doCheck` methods), or potentially discloses protected information (like auto-completion `doAutoComplete` methods).
+  This includes anything that can change state in the server, have other side effects (like elaborate form validation `doCheck` methods), or potentially disclose protected information (like auto-completion `doAutoComplete` methods).
   These methods should perform `checkPermission`.
 * Identify the nearest `AccessControlled` objects to check permissions with.
-  If your 'this' object is already access-controlled, then that's obviously it.
+  If your 'this' object is already access-controlled, use that.
   Otherwise, try to look for the nearest logical ancestor.
   If all else fails, use the `Jenkins` singleton.
 * Identify the `Permission` object to use.
-  If you extend from an `ExtensionPoint`, it might already define some permission objects as public static final fields in them.
-  If you are defining a sub-system of a substantial size, you might want to create new `Permission` objects (see the end of the `View` class for this example.) If you don't know, you can use `Jenkins.ADMINISTER` as a starting point.
+  If you extend from an `ExtensionPoint`, it might already define some permission objects as public static final fields.
+  If you are defining a sub-system of a substantial size, you may want to create new `Permission` objects (see the end of the `View` class for this example).
+If you are unsure, use `Jenkins.ADMINISTER` as a starting point.
 
-With these three information, you can now insert:
+Based on this information, you can now insert:
 
 ----
 AccessControlled ac = ... do the step 2 above ...
@@ -83,7 +88,7 @@ See also link:form-validation[Securely implementing form validation].
 
 === Checking permissions in Jelly files
 
-If your entire HTML page rendered by Jelly needs to be protected, you can use the attributes of the `<l:layout>` tag, like this:
+If your entire HTML page rendered by Jelly needs to be protected, use the attributes of the `<l:layout>` tag, like this:
 
 ----
 <l:layout permission="${app.ADMINISTER}">
@@ -93,10 +98,11 @@ The permission is always checked against the "it" object, so that needs to be an
 NOTE: This only prevents access to the view (e.g. configuration form), and does not prevent submissions to the form submission endpoints.
 This will still need to be done as described in the previous section.
 
-==== Disabling a part of page rendering if the user doesn't have a permission
+==== Modify page rendering based on permissions
 
-Sometimes you'd like to change the page rendering, based on the user's permissions.
-For example, if the user cannot delete a project, it doesn't make sense to show a link to do that.
+==== Disabling a part of page rendering if the user doesn't have a permission
+Page rendering can be modified based on the user's permissions.
+For example, if the user cannot delete a project, it does not make sense to show a link to do that.
 To do this, write Jelly like this:
 ----
 <j:if test="${h.hasPermission(app.ADMINISTER)}">
@@ -109,8 +115,9 @@ Users can still hit the URL directly, so you still need to protect the operation
 
 === Authentication ways
 
-In Jenkins the security engine that is used is Spring Security.
-Without any special plugins to manage authentication, an instance of Jenkins is packaged
+Jenkins uses
+link:https://spring.io/projects/spring-security[Spring Security] as its security engine.
+With no special plugins that manage authentication installed, a Jenkins instance is packaged
 with the following authentication ways:
 
 * Web UI
@@ -128,8 +135,8 @@ with the following authentication ways:
 
 === Authentication flow
 
-Depending on the authentication method you use, the processing flow will differ drastically.
-By flow we mean the involved classes that will check your credentials for validity.
+the processing flow differs drastically depending on the authentication method you use.
+By flow we mean the involved classes that check your credentials for validity.
 
 ==== Web UI and REST API
 
@@ -150,22 +157,23 @@ For the CLI part, the things become a bit more complicated, not by the complexit
 
 image:cli_flow.svg["CLI flow", role=center]
 
-The first case (remoting) is deprecated but explained as potentially it's still used.
+Remoting is deprecated but explained because it may still be used.
 The principle is to create a sort of session between the login command and the logout one.
 The authentication is checked using the same classes that we use for the Web UI or the REST API with password.
-Once the authentication is verified, the credentials are stored in a local cache that will enable future calls to be authenticated automatically.
+After the authentication is verified, the credentials are stored in a local cache that enables future calls to be authenticated automatically.
 
-The second way put the username and the password as additional parameters of the command (`--username` and `--password`).
+The second way puts the username and the password as additional parameters of the command (`--username` and `--password`).
 
 For the third and fourth ways, we pass the parameters to connect like in an HTTP call in the header.
 The authentication is checked exactly the same way as for the REST API depending on the provided password or token.
 
-Last possibility for the Jenkins CLI is using the SSH transport mode offered by SSHD module (also available for plugins).
-It uses normal SSH configuration using your local keys to authenticate.
+Last possibility for the Jenkins CLI is using the SSH transport mode offered by the SSHD module (also available for plugins).
+It uses the normal SSH configuration using your local keys to authenticate.
 It shares the same verifier with the Native CLI way.
 
 ==== Other ways
-The plugin have the possibility to propose a new `SecurityRealm` or implements some ``ExtensionPoint``s
+
+A plugin may propose a new `SecurityRealm` or implement some ``ExtensionPoint``s
 (like https://github.com/jenkinsci/jenkins/blob/master/core/src/main/java/jenkins/security/QueueItemAuthenticator.java[QueueItemAuthenticator])
 in order to provide new ways for a user to authenticate.
 
