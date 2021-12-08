@@ -1,0 +1,287 @@
+---
+title: Jenkins Configuration as Code (JCasC)
+layout: section
+wip: true
+---
+
+The Jenkins Configuration as Code (JCasC) feature defines Jenkins configuration parameters
+in a human-readable YAML file that can be stored under source code.
+This essentially captures the configuration parameters and values that are used when configuring Jenkins from the web UI.
+The configuration can then be modified by editing this file and then applying it.
+
+Configuring and tuning Jenkins and its plugins is a complex process,
+with dozens of parameters to set within the web UI `manage` section.
+Traditionally, experienced Jenkins administrators
+created Apache Groovy `init` scripts
+to automate the configuration for their Jenkins instances.
+This works but requires in-depth understanding of Jenkins APIs
+and the ability to write Groovy scripts.
+Such scripts are powerful and can do almost anything,
+but they also provide few protections against configuration errors.
+
+JCasC provides the convenience and flexibility
+of configuring controllers without using the UI.
+It does not require more understanding of the configuration parameters
+than is required to configure Jenkins through the UI
+and it provides some checks on the values that are provided.
+
+The JCasC configuration file can be checked into an SCM,
+which enables you to determine who made what modifications to the configuration
+and to roll back to a previous configuration if necessary.
+
+The
+link:https://plugins.jenkins.io/configuration-as-code[Configuration as Code] plugin
+must be installed on the Jenkins controller that you will use to build out your JCasC configuration.
+This plugin is not currently included in the suggested plugins list for Jenkins
+but the Docker image in the
+link:https://github.com/jenkinsci/docker[Docker] container
+includes the Configuration as Code plugin.
+It may also be
+link:https://github.com/jenkinsci/docker#preinstalling-plugins[pre-installed]
+on your instance.
+
+== Viewing the JCasC File
+
+When the Configuration as Code plugin is installed,
+you will see *Configuration as Code* in the *System Configuration* section
+of the *Manage Jenkins* page on your dashboard.
+Click on this link,
+then click on *View Configuration*
+to view the YAML file.
+
+This file is an export of the current configuration on this controller.
+It is *not* intended to offer a directly-usable Jenkins YAML configuration;
+it may be partial and may fail for some components.
+It does, however, provide a useful starting point.
+
+[NOTE]
+====
+The *Configuration as Code* UI page shows the full pathname of the YAML file being used
+and gives a box where you can specify a different file to use.
+See the information below about how to modify the location used for JCasC YAML files.
+====
+
+The default JCasC YAML file has four sections:
+
+* `jenkins` section defines the root Jenkins object,
+with configurations that can be set with the
+*Manage Jenkins >> Configure System*
+and *Manage Jenkins >> Configure Nodes and Clouds* screens.
+
+* `tool` section defines build tools that can be set on the
+*Manage Jenkins >> Global Tool Configuration* screen.
+
+* *unclassified* section definies miscellaneous configurations,
+including configuration for installed plugins.
+
+* `credentials` section defines credentials that can be set on the
+*Manage Jenkins >> Manage Credentials* screen.
+You may want to delete this section from your YAML file;
+this is discussed beginning at 27:53 in
+link:https://www.youtube.com/watch?v=ANU7jkxbZSM[How to Install Jenkins on CentOS 7 Using Ansible and JCasC].
+
+== YAML File Syntax
+
+JCasC defines the controller configuration in a YAML file.
+YAML is a popular serialization language for configuration information,
+with a syntax is straight-forward and easy to read but precise.
+
+Some key points about YAML syntax:
+
+* YAML files are case sensitive.
+* Indentation is very significant and specific.
+* Each item is a key/value pair.
+** The key is followed by a colon (:) and a space.
+** YAML converts certain strings into other types unless they are in quotes.
+*** true, false, Yes, No, et cetera are converted to Boolean values.
+*** Values such as 2 and 3.0 are converted to floating point values.
+* A value can be a list:
+** Each list item is on a separate line starting with a dash (`-`).
+** Each list item in the file must start at the same indentation.
+*** Use spaces, never tabs, for indentation.
+** Never leave a blank line in a YAML file -- things will break!
+
+See the
+link:https://yaml.org/refcard.html[YAML Reference Card]
+for more details about YAML file syntax.
+
+== Checking the *.yaml File into SCM
+
+To get the maximum benefit of JCasC, the YAML files should be stored in SCM.
+This gives you a history that you can use to trace changes that are made
+and allow you to easily roll back to an earlier version of the file if necessary.
+
+JCasC does not require that the file be stored in SCM
+and so does not enforce any rules about how you do this.
+The most common practice is to create one SCM repository
+in which you store all of your JCasC files.
+
+If you are storing your JCasC YAML files in SCM,
+you should commit the first default file that is generated,
+before you make any modifications to the file.
+
+== Modifying the JCasC File
+
+To modify the JCasC YAML file,
+use the text editor of your choice to edit the file
+that is listed on the *Manage Jenkins >> Configuration as Code* UI page.
+By default, this is _$JENKINS_HOME/jenkins.yaml_.
+
+For a simple exercise to work through the process,
+you can modify the value of the "System Message"
+that is displayed on the Jenkins dashboard.
+
+. Open the JCasC YAML file with the text editor of your choice.
+. Find the `systemMessage` line near the top of the file:
++
+[source,yaml]
+----
+jenkins:
+  systemMessage: "Jenkins configured automatically by Jenkins Configuration as Code plugin\n\n"
+----
+
+. Modify the text between the quotation marks to contain your new text.
+. Write/save the file.
+. Click the *Reload existing configuration* button to apply the changes.
+. View the modified "System Message" on your dashboard.
+
+[NOTE]
+====
+It is not necessary to restart Jenkins to apply the JCasC changes,
+although you should try to restart Jenkins with the modifications
+before you check the modified YAML file into SCM,
+especially when making more substantive configuration changes.
+====
+
+When you have made and tested your desired changes,
+push the modified JCasC YAML file to your SCM.
+
+== Configuring a Plugin with JCasC
+
+To configure a plugin with JCasC:
+
+. Use the UI of the current system to install and configure the plugin.
+. Click *Apply >> Save* to save the configuration.
+. Use *Manage Jenkins >> Configuration as Code >> View Configuration*
+to view the JCasC file with the plugin configured.
+. Click on *Download Configuration*  to save the modified configuration file locally.
+. Edit the JCasC YAML file to modify the configuration, if necessary.
+Save the file.
+. Click *Reload existing configuration* to load the local changes onto the Jenkins server.
+. Verify the changes on the UI.
+. When you have thoroughly tested the plugin configuration,
+push the modified YAML file to your SCM.
+
+See the
+link:https://www.jenkins.io/blog/2021/05/20/configure-plugins-with-jcasc/[Configure Plugins with JCasC]
+blog for detailed instructions
+and an embedded video demonstration of this process.
+
+== YAML File Location
+
+By default, the YAML file for the CasC configuration
+is located in `$JENKINS_HOME/jenkins.yaml`.
+The location and name of the file being used is displayed
+on the *Configuration as Code* UI page.
+You can specify a different file to view by typing the full pathname
+into the *Path or URL* field.
+
+You can specify a different location or a different file name
+for the creation of the JCasC YAML file by doing either of the following:
+
+* Populate the `CASC_JENKINS_CONFIG` environment variable to point to
+a comma-separated list that defines where configuration files are located.
+
+* Use the `casc.jenkins.config` Java property to control the file name and location.
+This is useful when installing Jenkins via a package management tool.
+It can not set an environment variable outside of a package-managed file,
+because it could be overwritten by an update.
++
+
+On RHEL/CentOS systems, you can append the following to the
+`JENKINS_JAVA_OPTIONS` entry in the `/etc/sysconfig/jenkins` file:
++
+[source,bash]
+----
+`-Dcasc.jenkins.config=/jenkins/casc_configs`
+----
+
+The file location and name can be specified as any of the following:
+
+* Path to a folder containing a set of config files such as `/var/jenkins_home/casc_configs`.
+* A full path to a single file such as `/var/jenkins_home/casc_configs/jenkins.yaml`.
+* A URL pointing to a file served on the web such as `https://acme.org/jenkins.yaml`.
+
+The value of the `CASC_JENKINS_CONFIG` variable is unpacked
+according to the following rules:
+
+* If an element of `CASC_JENKINS_CONFIG` points to a folder,
+the plugin recursively traverses the folder to find file(s)
+with the .yml, .yaml, .YAML, or .YML suffix.
+
+* It excludes hidden files or files that contain a hidden folder
+(such as/ `jenkins/casc_configs/.dir1/config.yaml`)
+in **any part** of the full path.
+
+* It follows symbolic links for both files and directories.
+
+* The order of traversal does not matter to the final outcome
+because all configuration files that are discovered MUST be supplementary.
+If a file attempts to overwrite configuration values from another file,
+it creates a conflict and raises a `ConfiguratorException`.
+
+=== CasC Configuration and UI Modifications
+
+Configuration for a Jenkins controller should be implemented
+either with CasC or with the UI, but not by both.
+By default, the system allows you to use the UI
+to modify configuration options that were configured by CasC,
+but these modifications are overwritten the next time the controller restarts.
+
+To ensure that configuration changes are not made through the UI,
+install and enable the
+link:https://www.jenkins.io/blog/2020/05/25/read-only-jenkins-announcement/[Read-only Jenkins Configuration]
+plugin.
+When this plugin is installed,
+all configuration fields set by JCasC display as read-only values
+that cannot be modified through the UI.
+
+== For More Information
+
+=== General Information
+
+* link:https://www.youtube.com/watch?v=47D3H1BZi4o[Look Ma! No Hands! -- Manage Jenkins Configuration as Code]
+is a video of the 2018 DevOps World presentation
+that introduced the JCasC feature.
+
+* link:https://www.jenkins.io/blog/2021/05/20/configure-plugins-with-jcasc/[Configure Plugins with JCasC]
+is a blog post with video that demonstrates how to set the JCasC configuration of a plugin.
+
+* link:https://www.youtube.com/watch?v=ANU7jkxbZSM[How to Install Jenkins on CentOS 7 Using Ansible and JCasC]
+is a video presentation with details about using JCasc.
+
+=== Implementation details
+
+Much of the detailed JCasC documentation is provided in the
+link:https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/docs[Github repository].
+
+** link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/IMPLEMENTATION.md[Implementation details]
+
+* The
+link:https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos[demos] 
+directory contains sample _*.yaml_ files for configuring specific Jenkins components and plugins,
+with a _README_ file in each directory that describes the configurations for that component.
+
+* link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/seed-jobs.md[How to create initial "seed" job]
+
+* link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/usageScenarios.md[Usage scenarios]
+
+* link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/features/configurationReload.md[Triggering Configuration Reload]
+
+* link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/features/configExport.md[Exporting configurations]
+
+=== Information for Plugin Developers and Maintainers
+
+** link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/DEVELOPER.md[Developer documentation] for JCasC
+
+** link:https://github.com/jenkinsci/configuration-as-code-plugin/blob/master/docs/REQUIREMENTS.md[JCasC Requirements - guide for plugin maintainers]
