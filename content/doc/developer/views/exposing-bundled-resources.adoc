@@ -1,0 +1,106 @@
+---
+title: Exposing bundled resources
+layout: developerguide
+---
+
+Resource files bundled with Jenkins and plugins are by default exposed through several different mechanisms.
+
+== Static resource files
+
+Jenkins exposes static resource files of allowed file types (`.js`, `.css`, `.jpeg`, `.jpg`, `.png`, `.gif`, `.html`, `.htm` as of Jenkins 2.290) in core and plugins at the `/resources/` URL.
+This is implemented by jenkinsdoc:jenkins.model.Jenkins#doResources[`Jenkins#doResources`].
+
+In views, the URL prefix to use is available as `app.VIEW_RESOURCE_PATH`.
+The full path can be computed using jenkinsdoc:hudson.Functions#getViewResource-java.lang.Object-java.lang.String-[`h.getViewResource(...)`].
+`https://github.com/jenkinsci/jenkins/blob/master/core/src/main/resources/lib/layout/breadcrumb.gif` is exposed at, e.g., `https://ci.jenkins.io/resources/cachekey/lib/layout/breadcrumb.gif`.
+
+The URL should not be hardcoded, as headers controlling caching are set; and the computed cache key will result in different Jenkins versions having a different prefix.
+
+These resources are available to users with _Overall/Read_ permissions.
+
+
+== Adjuncts
+
+The Stapler web framework provides a mechanism called _adjuncts_ that is intended to be used to include CSS and JS files related to a view being rendered.
+Using this mechanism ensures that each adjunct file is only included once.
+Through the same URL space, some static resource files like images are accessible.
+See staplerdoc:org.kohsuke.stapler.framework.adjunct.AdjunctManager#allowResourceToBeServed[`AdjunctManager#allowResourceToBeServed`] for supported file types (`.css`, `.js`, `.gif`, `.png` as of Jenkins 2.290).
+These resources are typically exposed through the `st:adjunct` tag in Jelly or Groovy views, but the URLs are predictable:
+`https://github.com/jenkinsci/jenkins/blob/master/core/src/main/resources/lib/layout/breadcrumb.gif` is exposed at, e.g., `https://ci.jenkins.io/adjuncts/cachekey/lib/layout/breadcrumb.gif`.
+
+The URL should not be hardcoded, as headers controlling caching are set; and the computed cache key will result in different Jenkins versions having a different prefix.
+
+These resources are available to any user without authentication, not requiring _Overall/Read_ permission.
+
+
+== Resource bundles
+
+`Messages_??.properties` (including `Messages.properties`) files contain localized message strings.
+
+For the classic Jenkins UI, they are generally used directly as described in link:/doc/developer/internationalization/[Internationalization and Localization].
+
+Additionally for modern web UIs, localized resources are exposed at `/i18n/resourceBundle/`, at URLs like `https://ci.jenkins.io/i18n/resourceBundle?baseName=hudson.Messages`.
+See jenkinsdoc:jenkins.I18n[I18n] for details.
+
+These resources are available to users with _Overall/Read_ permissions.
+
+
+== Descriptor help files
+
+=== Stapler views
+
+`Descriptor#doHelp` will serve corresponding `help.jelly` views, if they exist, and lets Stapler localize them (i.e. uses `help_??.jelly` with locale suffix, if it exists).
+
+An example of such a Stapler view is `https://github.com/jenkinsci/jenkins/blob/master/core/src/main/resources/hudson/tasks/Maven/help.jelly` available at `https://ci.jenkins.io/descriptor/hudson.tasks.Maven/help`.
+
+These are usually used by the automatically determined help URL corresponding to the descriptor (and optionally form field name), and a help link will be shown on the UI if this file exists.
+
+These help views are available to users with _Overall/Read_ permissions.
+
+
+
+=== HTML files
+
+`Descriptor#doHelp` looks up `com/acme/package/MyDescribable/help-fieldname_??.html` HTML files and serves them at `/descriptor/myDescriptorSymbol/help/fieldname`, typically corresponding to specific fields in views. It also supports com/acme/package/MyDescribable/help_??.html at `/descriptor/myDescriptorSymbol/help`.
+
+An example of such an HTML file is `https://github.com/jenkinsci/jenkins/blob/master/core/src/main/resources/hudson/tasks/Shell/help.html`, which is exposed at `https://ci.jenkins.io/descriptor/hudson.tasks.Shell/help`.
+
+These are usually used by the automatically determined help URL corresponding to the descriptor (and optionally form field name), and a help link will be shown on the UI if this file exists.
+
+These help files are available to users with _Overall/Read_ permissions.
+
+
+
+== Webapp Resources
+
+=== Jenkins Core
+
+Jenkins core `webapp/` resources are exposed at their expected path relative to the context root directory.
+Example: https://github.com/jenkinsci/jenkins/blob/master/war/src/main/webapp/robots.txt is exposed at https://ci.jenkins.io/robots.txt
+
+This is implemented by `Stapler#service` invoking `#openResourcePathByLocale`.
+This in turn ends up invoking `LocaleDrivenResourceProvider#lookupResource`, an SPI implemented in Jenkins core as `MetaLocaleDrivenResourceProvider` from 2.173.
+This in turn looks up implementations of `PluginLocaleDrivenResourceProvider` in plugins.
+plugin:localization-support[Localization Support Plugin] provides `PluginLocaleDrivenResourceProviderImpl`.
+
+These resources are available to any user without authentication, not requiring _Overall/Read_ permission.
+
+=== Plugins
+
+Plugins expose `src/main/webapp/` resource files directly packaged into the `jpi` file via `Plugin#doDynamic` at `/plugin/namehere/` invoking `StaplerResponse#serveLocalizedFile`.
+This calls `#selectResourceByLocale` which ends up invoking `LocaleDrivenResourceProvider#lookupResource`.
+See the section on core webapp resources for further details.
+
+These resources are available to users with _Overall/Read_ permissions.
+
+== Jenkins Core Assets
+
+Jenkins core exposes _assets_ (any static resource files visible to the Jenkins core classloader with the `asset/` package prefix) at the `/assets/` URL.
+This is implemented by the jenkinsdoc:AssetManager[`AssetManager`] class.
+
+These resources are available to any user without authentication, not requiring _Overall/Read_ permission.
+
+This was used from Jenkins 2.0 to 2.288 (inclusive) to serve JavaScript assets (jQuery, Handlebars, etc.).
+The infrastructure remains in place after 2.288.
+
+NOTE: Assets from plugins are served by reusing the plugin webapp resources serving feature `Plugin#doDynamic`.

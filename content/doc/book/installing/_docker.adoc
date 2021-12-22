@@ -24,7 +24,7 @@ docker network create jenkins
 ----
 . In order to execute Docker commands inside Jenkins nodes, download and run
   the `docker:dind` Docker image using the following
-  link:https://docs.docker.com/engine/reference/run/ [`docker run`]
+  link:https://docs.docker.com/engine/reference/run/[`docker run`]
   command:
 +
 [source,bash]
@@ -89,21 +89,20 @@ docker run --name jenkins-docker --rm --detach \
 . Customise official Jenkins Docker image, by executing below two steps:
 .. Create Dockerfile with the following content:
 +
-[source]
+[source,subs="attributes+"]
 ----
-FROM jenkins/jenkins:2.277.2-lts-jdk11
+FROM jenkins/jenkins:{jenkins-stable}-jdk11
 USER root
-RUN apt-get update && apt-get install -y apt-transport-https \
-       ca-certificates curl gnupg2 \
-       software-properties-common
-RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
-RUN apt-key fingerprint 0EBFCD88
-RUN add-apt-repository \
-       "deb [arch=amd64] https://download.docker.com/linux/debian \
-       $(lsb_release -cs) stable"
+RUN apt-get update && apt-get install -y lsb-release
+RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
+  https://download.docker.com/linux/debian/gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.asc] \
+  https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 RUN apt-get update && apt-get install -y docker-ce-cli
 USER jenkins
-RUN jenkins-plugin-cli --plugins "blueocean:1.24.6 docker-workflow:1.26"
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.2 docker-workflow:1.26"
 ----
 .. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:1.1":
 +
@@ -218,14 +217,40 @@ docker network create jenkins
 +
 [source]
 ----
-docker run --name jenkins-docker --rm --detach ^
-  --privileged --network jenkins --network-alias docker ^
-  --env DOCKER_TLS_CERTDIR=/certs ^
-  --volume jenkins-docker-certs:/certs/client ^
-  --volume jenkins-data:/var/jenkins_home ^
+docker run --name jenkins-docker --rm --detach `
+  --privileged --network jenkins --network-alias docker `
+  --env DOCKER_TLS_CERTDIR=/certs `
+  --volume jenkins-docker-certs:/certs/client `
+  --volume jenkins-data:/var/jenkins_home `
   docker:dind
 ----
-. Build a customised official Jenkins Docker image using above Dockerfile and `docker build` command.
+. Customise official Jenkins Docker image, by executing below two steps:
+.. Create Dockerfile with the following content:
++
+[source,subs="attributes+"]
+----
+FROM jenkins/jenkins:{jenkins-stable}-jdk11
+USER root
+RUN apt-get update && apt-get install -y lsb-release
+RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
+  https://download.docker.com/linux/debian/gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.asc] \
+  https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+RUN apt-get update && apt-get install -y docker-ce-cli
+USER jenkins
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.2 docker-workflow:1.26"
+----
+.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:1.1":
++
+[source,bash]
+----
+docker build -t myjenkins-blueocean:1.1 .
+----
+Keep in mind that the process described above will automatically download the official Jenkins Docker image
+if this hasn't been done before.
+
 
 . Run your own `myjenkins-blueocean:1.1` image as a container in Docker using the following
   link:https://docs.docker.com/engine/reference/run/[`docker run`]
@@ -233,11 +258,11 @@ docker run --name jenkins-docker --rm --detach ^
 +
 [source]
 ----
-docker run --name jenkins-blueocean --rm --detach ^
-  --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
-  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 ^
-  --volume jenkins-data:/var/jenkins_home ^
-  --volume jenkins-docker-certs:/certs/client:ro ^
+docker run --name jenkins-blueocean --rm --detach `
+  --network jenkins --env DOCKER_HOST=tcp://docker:2376 `
+  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 `
+  --volume jenkins-data:/var/jenkins_home `
+  --volume jenkins-docker-certs:/certs/client:ro `
   --publish 8080:8080 --publish 50000:50000 myjenkins-blueocean:1.1
 ----
 . Proceed to the <<setup-wizard,Setup wizard>>.

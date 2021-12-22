@@ -1,0 +1,182 @@
+---
+layout: gsocproject
+title: "Jenkins Remoting Monitoring"
+goal: "Support monitoring and troubleshooting of Jenkins remoting system with OpenTelemetry."
+category: Plugins, Core
+year: 2021
+project: remoting
+tags:
+- gsoc2021
+- remoting
+- monitoring
+- prometheus
+status: "Active"
+student: aki-7
+mentors:
+- "oleg_nenashev"
+- "darshank15"
+- "stellargo"
+- "cyrille-leclerc"
+links:
+  github: https://github.com/jenkinsci/remoting-opentelemetry-plugin
+  chat: /projects/gsoc/2021/projects/remoting-monitoring/#chat
+  draft: TODO
+  idea: /projects/gsoc/2021/project-ideas/remoting-monitoring
+  meetings: "/projects/gsoc/2021/projects/remoting-monitoring/#office-hours"
+  discourse: https://community.jenkins.io/t/gsoc21-remoting-monitoring-end-user-survey/118
+---
+
+link:https://github.com/jenkinsci/remoting-opentelemetry-plugin[🔗 GitHub Repository]
+link:https://plugins.jenkins.io/remoting-opentelemetry/[🔗 Jenkins plugin page]
+
+=== Purpose
+
+In Jenkins, we have a Remoting module, which implements a communication layer in the Jenkins automation server.
+It’s being primarily used for controller ⇔ agent interaction.
+The purpose of this project is to develop a software to support the monitoring and troubleshooting of Remoting systems.
+
+This can benefit to system admins who often manage Jenkins on a daily basis.
+Such integration with monitoring tools will help system admins to faster address the issues, bottlenecks when working with Jenkins.
+Therefore, this plugin will help to provide a better monitoring experience for system admins in using Jenkins as their daily automation pipeline.
+
+=== Goal
+
+image:/images/gsoc/2021/remoting-monitoring/goal.png[]
+
+The goal of this project:
+
+* collect telemetry data(metrics, traces, logs) of Remoting module with OpenTelemetry.
+* send the telemetry data to OpenTelemetry Protocol endpoint.
+
+Which OpenTelemetry endpoint to use and how to visualize the data are up to users.
+
+=== Phase 1 summary.
+
+User survey::
+
+Our team conducted a user survey to understand the pain point regarding the Jenkins Remoting.
+Please see the link:/blog/2021/07/31/remoting-monitoring-phase-1/#user-survey[User survey section]
+in the phase 1 blog post for details.
+
+Proof of Concept::
+
+How to deliver the monitoring program to the agents:::
+We tried two approaches
+. Send the monitoring program to the agent over Remoting +
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/sending-monitoring-program-via-remoting.png[]
+. Install the monitoring engine when provisioning a new agent +
+image:/images/post-images/2021-07-31-remoting-monitoring-phase-1/install-monitoring-engine-when-provisioning.png[]
+
++
+Then, I decided to take the second approach.
+Please see link:/blog/2021/07/31/remoting-monitoring-phase-1/#how-to-deliver-the-monitoring-program-to-agents[the relevant section]
+in the phase 1 blog post for details.
+
++
+How to instrument remoting for tracing:::
+*Approach 1* Use link:https://javadoc.jenkins.io/component/remoting/hudson/remoting/EngineListener.html[EngineListener]
+: link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/pull/49[Pull Request] +
+↑ This PR was merged once but removed later.
++
+*Approach 2* Add instrumentation extension points to Remoting module
+: link:https://github.com/jenkinsci/remoting/pull/471[Pull Request]
++
+We tried two approaches above, but I couldn't find out a good approach to instrument Remoting.
+Please see the <<Future work>> section and
+link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/issues/70[GitHub issue] for details.
+
+Metrics::
+
+We implemented a feature to collect general metrics (e.g., System CPU load, JVM memory usage)
+and export them to an OTLP endpoint.
+The list of metric types collected in the phase1 is listed
+link:/blog/2021/07/31/remoting-monitoring-phase-1/#metrics[here].
+
+=== Phase 2 summary.
+
+Log feature::
+Export agent logs to an OTLP/gRPC endpoint: link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/pull/67[PR #67]
+
+Release as Jenkins plugin::
+We released this project as Jenkins plugin🎉
+
+🔗 link:https://plugins.jenkins.io/remoting-opentelemetry/[Plugin page]
+
+Regex metrics filter::
+Filter metrics to collect by the regular expression. link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/pull/80[PR #80]
+
+Additional metrics::
+- Filesystem metrics: link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/pull/82[PR #82]
+
+Configuration::
++
+Users can configure the monitoring engine via environment variables e.g., OTLP endpoint.
+Please see link:https://github.com/jenkinsci/remoting-opentelemetry-plugin#configuration-options[README] for more options. +
+We created a simple configuration framework for this project.
+link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/pull/86[PR #86]
+
+Demo Examples::
+We prepared two demo examples so that users can quickly try out the features.
++
+[[docker-compose-demo, Docker Compose Demo]]
+Docker Compose Demo:::
+We prepared Docker Compose example, which sets up
+
+* Jenkins controller
+** preconfigured with JCasC
+* Jenkins inbound agents
+** instrumented with our monitoring engine
+* OpenTelemetry Collector
+* Loki for Log aggregation
+* Prometheus for metric backend
+* Grafana for log and metric visualization
+** datasource is preconfigured
+
++
+Please see the
+link:https://github.com/jenkinsci/remoting-opentelemetry-plugin#using-docker-compose[relevant section in README]
+for details.
+
++
+Kubernetes Demo:::
+
+We also prepared a demo with Kubernetes.
+It sets up all the component mentioned in the <<docker-compose-demo>> section on a Kubernetes cluster,
+and launches agents using link:https://plugins.jenkins.io/kubernetes/[Kubernetes plugin].
+Service instance id, by which OpenTelemetry identifies the data producing instance,
+will be automatically set to Jenkins agent name.
++
+Please see
+link:https://github.com/Aki-7/remoting-opentelemetry-kubernetes-demo[Demo repository] for details.
+
+Demo snapshot::
+
+*_Click to open in new tab_*
+
+image:/images/gsoc/2021/remoting-monitoring/demo-loki.png[logging demo snapshot, width=40%, link=/images/gsoc/2021/remoting-monitoring/demo-loki.png, window=_blank ]
+image:/images/gsoc/2021/remoting-monitoring/demo-prometheus.png[logging demo snapshot, width=40%, link=/images/gsoc/2021/remoting-monitoring/demo-prometheus.png, window=_blank ]
+
+=== Future work
+
+During this GSoC period, I couldn't find out a good way to instrument Remoting module for tracing.
+Also, I couldn't identify the valuable tracing in Remoting,
+which really helps admins to monitoring and troubleshooting the Remoting system.
+
+I summarized what I tried and what I thought during this GSoC in the
+link:https://github.com/jenkinsci/remoting-opentelemetry-plugin/issues/70[issue].
+This is the feature work of this project.
+
+=== Chat
+
+We use the `#gsoc-jenkins-remoting-monitoring` channel in the CDF Slack workspace.
+link:/chat/#continuous-delivery-foundation[How to join].
+
+=== References
+
+* Plugin page: https://plugins.jenkins.io/remoting-opentelemetry/
+* Kubernetes Demo repository: https://github.com/Aki-7/remoting-opentelemetry-kubernetes-demo/
+* Remoting library: https://github.com/jenkinsci/remoting
+* Remoting sub-project: https://jenkins.io/projects/remoting/
+* OpenTelemetry https://opentelemetry.io/
+* Prometheus: https://prometheus.io/
+* Grafana: https://grafana.com/
