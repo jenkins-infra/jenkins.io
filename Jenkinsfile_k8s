@@ -1,18 +1,125 @@
-#!/usr/bin/env groovy
+pipeline {
+  agent {
+    kubernetes {
+      inheritFrom 'jnlp-linux'
+      yaml '''
+apiVersion: "v1"
+kind: "Pod"
+metadata:
+  labels:
+    jenkins: "agent"
+    job: "jenkins-io"
+spec:
+  tolerations:
+    - key: "os"
+      operator: "Equal"
+      value: "linux"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                  - linux
+  restartPolicy: "Never"
+  containers:
+    - name: "node"
+      image: "node:16.13.1-alpine"
+      securityContext:
+        privileged: false
+      tty: true
+      command:
+      - cat
+    - name: "ruby"
+      image: "ruby:2.6.9"
+      securityContext:
+        privileged: false
+      tty: true
+      command:
+      - cat
+    - name: "blobxfer"
+      image: "mcr.microsoft.com/blobxfer:1.9.1"
+      command:
+      - cat
+      securityContext:
+        privileged: false
+      tty: true
+      '''
+    }
+  }
 
-/* Only keep the 10 most recent builds. */
-def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
-]
+  environment {
+    TZ = "UTC"
+    USE_LOCAL_NODE = "true"
+    USE_LOCAL_RUBY = "true"
+    HOME = "/tmp"
+  }
 
-def principalBranch = 'master'
+  options {
+    timeout(time: 60, unit: 'MINUTES')
+    ansiColor('xterm')
+    buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '5')
+  }
 
-/* Start by building the image, and eventually pushing it if the execution is on the master branch */
-buildDockerAndPublishImage('jenkinsio', [mainBranch: principalBranch])
+  stages {
+    stage('NPM Install') {
+      steps {
+        container('node') {
+          sh 'npm install'
+        }
+      }
+    }
 
-if (env.BRANCH_NAME == principalBranch) {
-  withCredentials([string(credentialsId: 'updatecli-github-token', variable: 'UPDATECLI_GITHUB_TOKEN')]) {
+    stage('Bundle Install') {
+      steps {
+        container('ruby') {
+          sh 'bundle install'
+        }
+      }
+    }
 
-    updatecli(action: 'apply')
+    stage('Build') {
+      steps {
+        container('node') {
+          sh 'make assets'
+        }
+        container('ruby') {
+          sh 'make fetch'
+        }
+        container('ruby') {
+          sh 'bundle exec awestruct --generate --verbose --source-dir=content --output-dir=./_site'
+      }
+    }
+
+    stage('Deploy to preview site') {
+      when {
+        changeRequest target: 'master'
+      }
+      environment {
+        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
+      }
+      steps {
+        container('node') {
+          script {
+            def netlifySite = readJSON(text: sh(script: 'yarn exec netlify sites:list --json', returnStdout: true).trim()).find { it.name == "jenkins-io-site-pr" }
+            env.NETLIFY_SITE_ID = netlifySite['site_id']
+            env.NETLIFY_DOMAIN = netlifySite['default_domain']
+          }
+          sh('yarn exec netlify deploy --message "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d ./_site')
+          script {
+            def body = """<!-- DEPLOY PREVIEW -->✔️ Deploy Preview for jenkins-io-site-pr ready!\n\n😎 Browse the preview: https://deploy-preview-${CHANGE_ID}--jenkins-plugin-site-pr.netlify.app""".stripIndent()
+            def comment = pullRequest.comments.toList().find { it.body.contains("<!-- DEPLOY PREVIEW -->") }
+            if (comment != null) {
+              pullRequest.editComment(comment.id, body)
+            } else {
+              pullRequest.comment(body)
+            }
+          }
+        }
+      }
+    }
   }
 }

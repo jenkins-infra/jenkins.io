@@ -4,26 +4,10 @@ WORKDIR /usr/src/jenkinsio/_site/
 ENV ASSETS_DIR=/usr/src/jenkinsio/_site/assets/bower
 ENV FONTS_DIR=/usr/src/jenkinsio/_site/css/fonts
 
-COPY package* ./
+COPY Makefile package* ./
 
 RUN npm install
-RUN mkdir -p assets/bower css/fonts
-
-RUN find node_modules \( -iname "*.eot" -o -iname "*.woff" -o -iname "*.ttf" \) -not -path "./node_modules/.cache/*" >> $$line ;\
-    while read -r line; do\
-		echo "Copying $line into assets/bower"; \
-		cp "$line" assets/bower; \
-	done < $$line
-
-RUN for d in bootstrap jquery tether; do \
-        echo "Copying node_modules/$d/dist/* into assets/bower/$d/"; \
-        mkdir -p assets/bower/$d; \
-        cp -R node_modules/$d/dist/* assets/bower/$d/ ; \
-	  done;
-RUN mkdir -p assets/bower/anchor-js/ assets/bower/ionicons
-RUN cp node_modules/anchor-js/*.js assets/bower/anchor-js/
-RUN cp -R node_modules/ionicons/dist/css assets/bower/ionicons
-RUN cp -R node_modules/ionicons/dist/fonts assets/bower/ionicons
+RUN make assets
 
 FROM ruby:2.6 as builder
 
@@ -32,7 +16,7 @@ RUN bundle config --global frozen 1
 
 WORKDIR /usr/src/jenkinsio
 
-COPY Gemfile Gemfile.lock ./
+COPY Makefile Gemfile Gemfile.lock ./
 RUN bundle install
 
 COPY scripts scripts
