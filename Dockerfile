@@ -1,15 +1,18 @@
-FROM node:alpine as node
+FROM node:16.13.1 as node
+ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/_site/
 ENV ASSETS_DIR=/usr/src/jenkinsio/_site/assets/bower
 ENV FONTS_DIR=/usr/src/jenkinsio/_site/css/fonts
 
 COPY Makefile package* ./
+COPY scripts ./scripts
 
 RUN npm install
 RUN make assets
 
-FROM ruby:2.6 as builder
+FROM ruby:2.6.9 as builder
+ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
 RUN bundle config --global frozen 1
