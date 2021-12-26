@@ -21,7 +21,9 @@ run: prepare scripts/awestruct
 
 generate: site
 
-site: prepare scripts/awestruct
+site: prepare scripts/awestruct real_generate
+
+real_generate:
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
 check-broken-links: site
