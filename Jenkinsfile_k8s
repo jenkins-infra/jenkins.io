@@ -102,6 +102,7 @@ spec:
       }
     }
 
+    /*
     stage('Deploy to azure') {
       when {
         branch "master"
@@ -126,7 +127,26 @@ spec:
         }
       }
     }
+    */
 
+    stage('Deploy master to netlify') {
+      when {
+        branch "master"
+      }
+      environment {
+        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
+      }
+      steps {
+        container('node') {
+          script {
+            def netlifySite = readJSON(text: sh(script: 'npx netlify sites:list --json', returnStdout: true).trim()).find { it.name == "jenkins-io-site-pr" }
+            env.NETLIFY_SITE_ID = netlifySite['site_id']
+            env.NETLIFY_DOMAIN = netlifySite['default_domain']
+          }
+          sh('npx netlify deploy --message "Deploy" -d build/_site')
+        }
+      }
+    }
     stage('Deploy to preview site') {
       when {
         changeRequest target: 'master'
