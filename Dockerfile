@@ -1,9 +1,9 @@
 FROM node:16.13.1 as node
 ENV USE_LOCAL_NODE=true
 
-WORKDIR /usr/src/jenkinsio/_site/
-ENV ASSETS_DIR=/usr/src/jenkinsio/_site/assets/bower
-ENV FONTS_DIR=/usr/src/jenkinsio/_site/css/fonts
+WORKDIR /usr/src/jenkinsio/build/_site/
+ENV ASSETS_DIR=/usr/src/jenkinsio/build/_site/assets/bower
+ENV FONTS_DIR=/usr/src/jenkinsio/build/_site/css/fonts
 
 COPY Makefile package* ./
 COPY scripts ./scripts
@@ -25,16 +25,16 @@ RUN bundle install
 COPY scripts scripts
 COPY content content
 
-RUN mkdir _site
-COPY --from=node /usr/src/jenkinsio/_site/assets/bower ./_site/assets/bower
-COPY --from=node /usr/src/jenkinsio/_site/css/fonts ./_site/css/fonts
-RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./_site/releases.rss
+RUN mkdir -p ./build/_site
+COPY --from=node /usr/src/jenkinsio/build/_site/assets/bower ./build/_site/assets/bower
+COPY --from=node /usr/src/jenkinsio/build/_site/css/fonts ./build/_site/css/fonts
+RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./build/_site/releases.rss
 RUN bundle exec ./scripts/fetch-external-resources
-RUN awestruct --generate --verbose --source-dir=content --output-dir=./_site
+RUN make real_generate
 
 
 FROM nginx:1.17
 
-COPY --from=builder /usr/src/jenkinsio/_site /usr/share/nginx/html
+COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
