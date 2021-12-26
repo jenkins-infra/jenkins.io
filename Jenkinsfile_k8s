@@ -1,3 +1,24 @@
+def recordDeployment(owner, repo, status, environmentURL, environment = "preview", description = "Deploy to preview environment") {
+  withCredentials([usernamePassword(credentialsId: 'github-app-infra', usernameVariable: 'GITHUB_APP', passwordVariable: 'GH_TOKEN')]) {
+    withEnv([
+        "OWNER=${owner}",
+        "REPO=${repo}",
+        "STATUS=${status}",
+        "ENVIRONMENT_URL=${environmentURL}",
+        "ENVIRONMENT=${environment}",
+        "DESCIPTION=${description}",
+    ]) {
+      def id = readJSON(text: sh(script: 'gh api repos/${OWNER}/${REPO}/deployments -f "ref=${GIT_COMMIT}" -f "environment=${ENVIRONMENT}" -f "description=${DESCIPTION}" -X POST', returnStdout: true).trim()).id
+      if (id == ''){
+        error('Unable to create deployment')
+      }
+      withEnv([ "DEPLOYMENT_ID=${id}" ]) {
+        sh('gh api repos/${OWNER}/${REPO}/deployments/${DEPLOYMENT_ID}/statuses -f "state=${STATUS}"  -f "environment=${ENVIRONMENT}" -f "description=${DESCIPTION}" -f "log_url=${BUILD_URL}/console" -f "environment_url=${ENVIRONMENT_URL}"')
+      }
+    }
+  }
+}
+
 pipeline {
   agent {
     kubernetes {
@@ -42,6 +63,13 @@ spec:
       - cat
     - name: "blobxfer"
       image: "mcr.microsoft.com/blobxfer:1.9.1"
+      command:
+      - cat
+      securityContext:
+        privileged: false
+      tty: true
+    - name: "builder"
+      image: "jenkinsciinfra/builder:1.2.0"
       command:
       - cat
       securityContext:
@@ -154,6 +182,18 @@ spec:
       environment {
         NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
       }
+      post {
+        success {
+          container('builder') {
+            recordDeployment('jenkins-infra', 'plugin-site', 'success', "https://deploy-preview-${CHANGE_ID}--jenkins-plugin-site-pr.netlify.app")
+          }
+        }
+        failure {
+          container('builder') {
+            recordDeployment('jenkins-infra', 'plugin-site', 'failure', "https://deploy-preview-${CHANGE_ID}--jenkins-plugin-site-pr.netlify.app")
+          }
+        }
+      }
       steps {
         container('node') {
           script {
@@ -162,15 +202,6 @@ spec:
             env.NETLIFY_DOMAIN = netlifySite['default_domain']
           }
           sh('npx netlify deploy --message "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d build/_site')
-          script {
-            def body = """<!-- DEPLOY PREVIEW -->✔️ Deploy Preview for jenkins-io-site-pr ready!\n\n😎 Browse the preview: https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app""".stripIndent()
-            def comment = pullRequest.comments.toList().find { it.body.contains("<!-- DEPLOY PREVIEW -->") }
-            if (comment != null) {
-              pullRequest.editComment(comment.id, body)
-            } else {
-              pullRequest.comment(body)
-            }
-          }
         }
       }
     }
