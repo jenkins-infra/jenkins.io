@@ -58,9 +58,14 @@ spec:
     HOME = "/tmp"
   }
 
+  triggers {
+    cron("${env.BRANCH_NAME == 'master' ? 'H/30 * * * *' : ''}")
+  }
+
   options {
     timeout(time: 60, unit: 'MINUTES')
     ansiColor('xterm')
+    disableConcurrentBuilds()
     buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '5')
   }
 
@@ -93,6 +98,32 @@ spec:
         }
         container('ruby') {
           sh 'bundle exec awestruct --generate --verbose --source-dir=content --output-dir=./_site'
+        }
+      }
+    }
+
+    stage('Deploy to azure') {
+      when {
+        branch "master"
+      }
+      environment {
+        BLOBXFER_STORAGEACCOUNTKEY = credentials('BLOBXFER_STORAGEACCOUNTKEY')
+      }
+      steps {
+        container('blobxfer') {
+          sh('''
+              blobxfer upload \
+            --local-path _site \
+            --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY \
+            --storage-account prodjenkinsio \
+            --remote-path jenkinsio \
+            --recursive \
+            --mode file \
+            --skip-on-md5-match \
+            --file-md5 \
+            --connect-timeout 30
+          ''')
+        }
       }
     }
 
