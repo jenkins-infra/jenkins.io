@@ -1,21 +1,25 @@
 def recordDeployment(owner, repo, status, environmentURL, environment = "preview", description = "Deploy to preview environment") {
   withCredentials([usernamePassword(credentialsId: 'github-app-infra', usernameVariable: 'GITHUB_APP', passwordVariable: 'GH_TOKEN')]) {
-    withEnv([
-        "OWNER=${owner}",
-        "REPO=${repo}",
-        "STATUS=${status}",
-        "ENVIRONMENT_URL=${environmentURL}",
-        "ENVIRONMENT=${environment}",
-        "DESCIPTION=${description}",
-    ]) {
-      def id = readJSON(text: sh(script: 'gh api repos/${OWNER}/${REPO}/deployments -f "ref=${GIT_COMMIT}" -f "environment=${ENVIRONMENT}" -f "description=${DESCIPTION}" -X POST', returnStdout: true).trim()).id
-      if (id == ''){
-        error('Unable to create deployment')
-      }
-      withEnv([ "DEPLOYMENT_ID=${id}" ]) {
-        sh('gh api repos/${OWNER}/${REPO}/deployments/${DEPLOYMENT_ID}/statuses -f "state=${STATUS}"  -f "environment=${ENVIRONMENT}" -f "description=${DESCIPTION}" -f "log_url=${BUILD_URL}/console" -f "environment_url=${ENVIRONMENT_URL}"')
-      }
+    def json = writeJSON(returnText: true, json: [
+        "ref": env.GIT_COMMIT,
+        "environment": environment,
+        "description": description,
+        "required_contexts":[],
+        "auto_merge":false,
+        "transient_environment":false,
+    ])
+    def id = readJSON(text: sh(script: "gh api repos/${owner}/${repo}/deployments  -X POST --input - << EOF\n${json}\nEOF", returnStdout: true).trim()).id
+    if (id == ''){
+      error('Unable to create deployment')
     }
+    json = writeJSON(returnText: true, json: [
+        "state": status,
+        "environment": environment,
+        "description": description,
+        "log_url": "${BUILD_URL}/console",
+        "environment_url": environmentURL,
+    ])
+    sh("gh api repos/${owner}/${repo}/deployments/${id}/statuses  -X POST --input - << EOF\n${json}\nEOF")
   }
 }
 
@@ -130,51 +134,6 @@ spec:
       }
     }
 
-    /*
-    stage('Deploy to azure') {
-      when {
-        branch "master"
-      }
-      environment {
-        BLOBXFER_STORAGEACCOUNTKEY = credentials('BLOBXFER_STORAGEACCOUNTKEY')
-      }
-      steps {
-        container('blobxfer') {
-          sh('''
-              blobxfer upload \
-            --local-path build/_site \
-            --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY \
-            --storage-account prodjenkinsio \
-            --remote-path jenkinsio \
-            --recursive \
-            --mode file \
-            --skip-on-md5-match \
-            --file-md5 \
-            --connect-timeout 30
-          ''')
-        }
-      }
-    }
-    */
-
-    stage('Deploy master to netlify') {
-      when {
-        branch "master"
-      }
-      environment {
-        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
-      }
-      steps {
-        container('node') {
-          script {
-            def netlifySite = readJSON(text: sh(script: 'npx netlify sites:list --json', returnStdout: true).trim()).find { it.name == "jenkins-io-site-pr" }
-            env.NETLIFY_SITE_ID = netlifySite['site_id']
-            env.NETLIFY_DOMAIN = netlifySite['default_domain']
-          }
-          sh('npx netlify deploy --message "Deploy" -d build/_site')
-        }
-      }
-    }
     stage('Deploy to preview site') {
       when {
         changeRequest target: 'master'
@@ -200,8 +159,9 @@ spec:
             def netlifySite = readJSON(text: sh(script: 'npx netlify sites:list --json', returnStdout: true).trim()).find { it.name == "jenkins-io-site-pr" }
             env.NETLIFY_SITE_ID = netlifySite['site_id']
             env.NETLIFY_DOMAIN = netlifySite['default_domain']
+
+            sh('npx netlify deploy --message "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d build/_site')
           }
-          sh('npx netlify deploy --message "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d build/_site')
         }
       }
     }
