@@ -1,15 +1,15 @@
 
-BUILD_DIR=build
-OUTPUT_DIR=$(BUILD_DIR)/_site
+BUILD_DIR ?= build
+OUTPUT_DIR ?= $(BUILD_DIR)/_site
 AWESTRUCT_CONFIG=--source-dir=content --output-dir=$(OUTPUT_DIR)
-ASSETS_DIR=$(OUTPUT_DIR)/assets/bower
-FONTS_DIR=$(OUTPUT_DIR)/css/fonts
-VERSION=$(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
-GITHUB_USER=$(USER)
-BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
-USER_SITE_URL=https://$(GITHUB_USER).github.io/jenkins.io/$(BRANCH)/
-AWESTRUCT_USER_SITE=-P user-site --url "$(USER_SITE_URL)"
-DOCKER_ORG?=jenkinsciinfra
+ASSETS_DIR ?= $(OUTPUT_DIR)/assets/bower
+FONTS_DIR ?= $(OUTPUT_DIR)/css/fonts
+VERSION ?= $(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
+GITHUB_USER ?= $(USER)
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+USER_SITE_URL ?= https://$(GITHUB_USER).github.io/jenkins.io/$(BRANCH)/
+AWESTRUCT_USER_SITE ?= -P user-site --url "$(USER_SITE_URL)"
+DOCKER_ORG ?= jenkinsciinfra
 
 # Generate everything
 all: fetch-reset prepare generate archive
@@ -21,7 +21,9 @@ run: prepare scripts/awestruct
 
 generate: site
 
-site: prepare scripts/awestruct
+site: prepare scripts/awestruct real_generate
+
+real_generate:
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
 check-broken-links: site
