@@ -27,7 +27,6 @@ def recordDeployment(owner, repo, ref, status, environmentURL, environment = "pr
 pipeline {
   agent {
     kubernetes {
-      inheritFrom 'jnlp-linux'
       yaml '''
 apiVersion: "v1"
 kind: "Pod"
@@ -51,35 +50,15 @@ spec:
                 values:
                   - linux
   restartPolicy: "Never"
+  automountServiceAccountToken: false
   containers:
-    - name: "node"
-      image: "node:16.13.1"
-      securityContext:
-        privileged: false
-      tty: true
-      command:
-      - cat
-    - name: "ruby"
-      image: "ruby:2.6.9"
-      securityContext:
-        privileged: false
-      tty: true
-      command:
-      - cat
-    - name: "blobxfer"
-      image: "mcr.microsoft.com/blobxfer:1.9.1"
-      command:
-      - cat
-      securityContext:
-        privileged: false
-      tty: true
-    - name: "builder"
-      image: "jenkinsciinfra/builder:1.2.0"
-      command:
-      - cat
-      securityContext:
-        privileged: false
-      tty: true
+    - name: "jnlp"
+      image: "jenkinsciinfra/builder:2.0.3"
+      resources:
+        limits: {}
+        requests:
+          memory: "4Gi"
+          cpu: "2"
       '''
     }
   }
@@ -88,7 +67,6 @@ spec:
     TZ = "UTC"
     USE_LOCAL_NODE = "true"
     USE_LOCAL_RUBY = "true"
-    HOME = "/tmp"
   }
 
   triggers {
@@ -105,33 +83,23 @@ spec:
   stages {
     stage('NPM Install') {
       steps {
-        container('node') {
-          sh 'npm install'
-        }
+        sh 'npm install'
       }
     }
 
     stage('Bundle Install') {
       steps {
-        container('ruby') {
-          // throw errors if Gemfile has been modified since Gemfile.lock
-          sh 'bundle config --global frozen 1'
-          sh 'bundle install'
-        }
+        // throw errors if Gemfile has been modified since Gemfile.lock
+        sh '''
+          bundle config --global frozen 1
+          bundle install
+          '''
       }
     }
 
     stage('Build') {
       steps {
-        container('node') {
-          sh 'make assets'
-        }
-        container('ruby') {
-          sh 'make fetch'
-        }
-        container('ruby') {
-          sh 'make real_generate'
-        }
+        sh 'make'
       }
     }
 
@@ -144,25 +112,19 @@ spec:
       }
       post {
         success {
-          container('builder') {
-            recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'success', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
-          }
+          recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'success', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
         }
         failure {
-          container('builder') {
-            recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'failure', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
-          }
+          recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'failure', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
         }
       }
       steps {
-        container('node') {
-          script {
-            def netlifySite = readJSON(text: sh(script: 'npx netlify sites:list --json', returnStdout: true).trim()).find { it.name == "jenkins-io-site-pr" }
-            env.NETLIFY_SITE_ID = netlifySite['site_id']
-            env.NETLIFY_DOMAIN = netlifySite['default_domain']
+        script {
+          def netlifySite = readJSON(text: sh(script: 'npx netlify sites:list --json', returnStdout: true).trim()).find { it.name == "jenkins-io-site-pr" }
+          env.NETLIFY_SITE_ID = netlifySite['site_id']
+          env.NETLIFY_DOMAIN = netlifySite['default_domain']
 
-            sh('npx netlify deploy --message "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d build/_site')
-          }
+          sh('npx netlify deploy --message "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d build/_site')
         }
       }
     }
