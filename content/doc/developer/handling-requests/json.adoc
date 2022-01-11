@@ -54,11 +54,10 @@ import org.kohsuke.stapler.json.JsonBody;
 import org.kohsuke.stapler.json.JsonHttpResponse;
 import org.kohsuke.stapler.verb.GET;
 import org.kohsuke.stapler.verb.POST;
-import org.kohsuke.stapler.verb.PUT;
 
 
 @Extension /* (2) */
-public static class JsonAPIForTests implements RootAction /* (3) */ {
+public static class JsonAPI implements RootAction /* (3) */ {
 
     @CheckForNull
     @Override
@@ -95,8 +94,7 @@ public static class JsonAPIForTests implements RootAction /* (3) */ {
     @GET
     @WebMethod(name = "get-error500")
     public JsonHttpResponse getError500() { /* (10) */
-        JsonHttpResponse error500 = new JsonHttpResponse(
-                JSONObject.fromObject(new MyJsonObject("You got an error 500")), 500);
+        JsonHttpResponse error500 = new JsonHttpResponse(JSONObject.fromObject(new MyJsonObject("You got an error 500")), 500);
         throw error500;
     }
 }
@@ -120,13 +118,13 @@ A `mvn hpi:run` in the plugin should be enough to run it locally; assuming that 
 ```shell
 curl -XGET -w "\n STATUS:%{http_code}" http://localhost:8080/jenkins/custom-api/get-example-param?paramValue=hello
 {"message":"I am Jenkins hello"}
- STATUS:200%   
+ STATUS:200
 ```
 
 ### Exemple of test with JenkinsRule
 
 ```java
-public class JenkinsRuleTest {
+public class JsonAPITest {
 
     @Rule
     public JenkinsRule j = new JenkinsRule();
@@ -162,5 +160,56 @@ public class JenkinsRuleTest {
         response = j.getJSON("custom-api/get-example-param?paramValue=hello", webClientAcceptException.withBasicApiToken(admin));
         assertEquals(response.getStatusCode(), 200);
     }
+
+```
+
+### Handling POST with Jenkins
+
+Starting from the class `JsonAPI` provided for GET example, add:
+
+```java
+@POST
+@WebMethod(name = "")
+public JsonHttpResponse create(@JsonBody JSONObject body) {
+    MyJsonObject parsedBody = (MyJsonObject) body.toBean(MyJsonObject.class);
+    //Do any logic required for creation
+    //For the example purpose we just unmarshall and recreate json
+    JSONObject response = JSONObject.fromObject(parsedBody);
+    return new JsonHttpResponse(response, 200);
+}
+
+```
+
+### Testing with CURL
+
+A `mvn hpi:run` in the plugin should be enough to run it locally; assuming that jenkins is up at http://localhost:8080/jenkins/ you should have at this point:
+
+Get the crumb.... TBD
+
+Write a file `my.json` containing the json body:
+```
+{"message":"A nice message to send"}
+```
+
+And then send the POST request:
+```shell
+curl -XPOST -H "Content-Type: application/json" -H "Jenkins-Crumb: test" http://localhost:40393/jenkins/testing-cli/postSomething --data "@/my.json"
+{"message":"A nice message to send"}
+ STATUS:200
+```
+
+### Exemple of test with JenkinsRule
+
+Starting from the class `JsonAPITest` provided for GET example, add:
+
+```java
+@Test
+public void testPostJSON() throws Exception {
+
+    MyJsonObject objectToSend = new MyJsonObject("Jenkins is the way !");
+    JenkinsRule.JSONWebResponse response = j.postJSON("testing-cli/postSomething", jsonBody);
+    assertTrue(response.getContentAsString().contains("Jenkins is the way !")); //because API is returning the same object.
+    assertEquals(response.getStatusCode(), 200);
+}
 
 ```
