@@ -87,16 +87,21 @@ public static class JsonAPI implements RootAction /* (3) */ {
 
     @GET
     @WebMethod(name = "get-example-param")
-    public JsonHttpResponse getWithParameters(@QueryParameter(required = true) String paramValue /* (9) */) {
+    public JsonHttpResponse getWithParameters(
+        @QueryParameter(required = true) String paramValue /* (9) */) {
+
         assertNotNull(paramValue);
-        JSONObject response = JSONObject.fromObject(new MyJsonObject("I am Jenkins " + paramValue));
+        MyJsonObject myJsonObject = new MyJsonObject("I am Jenkins " + paramValue);
+        JSONObject response = JSONObject.fromObject(myJsonObject);
         return new JsonHttpResponse(response, 200);
     }
 
     @GET
     @WebMethod(name = "get-error500")
     public JsonHttpResponse getError500() { /* (10) */
-        JsonHttpResponse error500 = new JsonHttpResponse(JSONObject.fromObject(new MyJsonObject("You got an error 500")), 500);
+        MyJsonObject myJsonObject = new MyJsonObject("You got an error 500");
+        JSONObject jsonResponse = JSONObject.fromObject(myJsonObject);
+        JsonHttpResponse error500 = new JsonHttpResponse(jsonResponse, 500);
         throw error500;
     }
 }
@@ -134,11 +139,13 @@ public class JsonAPITest {
     @Rule
     public JenkinsRule j = new JenkinsRule();
 
+    private static String GET_API_URL = "custom-api/get-example-param?paramValue=hello";
+
     @Test
     public void testGetJSON() throws Exception {
 
         // Testing a simple GET that should answer 200 OK and a json
-        JenkinsRule.JSONWebResponse response = j.getJSON("custom-api/get-example-param?paramValue=hello");
+        JenkinsRule.JSONWebResponse response = j.getJSON(GET_API_URL);
         assertTrue(response.getContentAsString().contains("I am JenkinsRule hello"));
         assertEquals(response.getStatusCode(), 200);
     }
@@ -154,15 +161,17 @@ public class JsonAPITest {
         j.jenkins.setAuthorizationStrategy(auth);
 
         //We need to setup the webclient
+        //By default if the status code is not ok, WebClient throw an exception
+        //Since we want to assert the error status code, we need to set to false.
         JenkinsRule.WebClient webClient = j.createWebClient();
-        webClient.setThrowExceptionOnFailingStatusCode(false); //we need this to assert status code, by default it's throwing an exception.
+        webClient.setThrowExceptionOnFailingStatusCode(false);
 
         // - simple call without authentication should be forbidden
-        response = j.getJSON("custom-api/get-example-param?paramValue=hello", webClientAcceptException);
+        response = j.getJSON(GET_API_URL, webClient);
         assertEquals(response.getStatusCode(), 403);
 
         // - same call but authenticated using withBasicApiToken() should be fine
-        response = j.getJSON("custom-api/get-example-param?paramValue=hello", webClientAcceptException.withBasicApiToken(admin));
+        response = j.getJSON(GET_API_URL, webClient.withBasicApiToken(admin));
         assertEquals(response.getStatusCode(), 200);
     }
 
@@ -217,8 +226,9 @@ public void testPostJSON() throws Exception {
 
     MyJsonObject objectToSend = new MyJsonObject("Jenkins is the way !");
     JenkinsRule.JSONWebResponse response = j.postJSON("testing-cli/postSomething", jsonBody);
-    assertTrue(response.getContentAsString().contains("Jenkins is the way !")); //because API is returning the same object.
+
+    //because API is returning the same object, we assert the input message.
+    assertTrue(response.getContentAsString().contains("Jenkins is the way !")); 
     assertEquals(response.getStatusCode(), 200);
 }
-
 ----
