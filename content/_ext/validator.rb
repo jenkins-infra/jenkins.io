@@ -32,11 +32,11 @@ class Validator
       if !logo['name']
         warning "Missing name for logo #{id}"
       end
-      check_file(logo['url'], "`url` of the logo #{id}")
-      check_file(logo['url_256'], "`url_256` of the logo #{id}") unless logo['url_256'].nil?
-      check_file(logo['vector'], "`vector` of the logo #{id}") unless logo['vector'].nil?
       if !logo['url_256'] && !logo['vector']
          warning "Either vector image or 256px preview must be defined for logo #{id}"
+      check_file("/images/#{logo['url']}", "`url` of the logo #{id}")
+      check_file("/images/#{logo['url_256']}", "`url_256` of the logo #{id}") unless logo['url_256'].nil?
+      check_file("/images/#{logo['vector']}", "`vector` of the logo #{id}") unless logo['vector'].nil?
       end
     end
 
