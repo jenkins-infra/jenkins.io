@@ -11,14 +11,15 @@ references:
   title: Testing Jenkins
 ---
 
-== Expose HTTP API with json content with Jenkins
+This page explains how to expose Json objects over HTTP API in your Jenkins plugins, using `GET` and `POST` verbs.
+This page also shows how to test it with JenkinsRules from link:https://github.com/jenkinsci/jenkins-test-harness[jenkins-test-harness].
 
-It's a common requirement for automation to expose Json object over HTTP API in server. This page show how a plugin can create a Jenkins Extension to expose HTTP API for GET and POST request, and how to test it with JenkinsRules (from acceptance-test-harness).
+== Pre-requisite : a POJO (Plain Old Java Object)
 
-=== Pre-requisite : a POJO (Plain Old Java Object)
+This object represent the structured data that is exchanged between the HTTP server (Jenkins) and the client (Curl for example).
+We are using a very simple java Object for example purpose, but in production code you will have more complex objects to manipulate. 
 
-For this example we are using a very simple Object.
-Note that if you use Stapler for marshalling and unmarshalling JSON, you need an empty constructor.
+Note that if you use Stapler (JSONObject) for marshalling and unmarshalling JSON, you need an empty constructor.
 
 [source,java]
 ----
@@ -42,7 +43,9 @@ public static class MyJsonObject {
 }
 ----
 
-=== Handling GET with Jenkins
+== Handling GET with Jenkins
+
+This part shows how to expose an HTTP GET that return a structured json response.
 
 [source,java]
 ----
@@ -182,7 +185,10 @@ public class JsonAPITest {
 
 ----
 
-=== Handling POST with Jenkins
+== Handling POST with Jenkins
+
+This section shows how to expose an HTTP endpoint that takes a structured json Object as input, and do a response with a json structured Object.
+For this exmaple the same Object is used as input and output, but you can also use different json structure for the response.
 
 Starting from the class `JsonAPI` provided for GET example, add:
 
@@ -190,19 +196,18 @@ Starting from the class `JsonAPI` provided for GET example, add:
 ----
 @POST
 @WebMethod(name = "")
-public JsonHttpResponse create(@JsonBody JSONObject body) {
-    MyJsonObject parsedBody = (MyJsonObject) body.toBean(MyJsonObject.class);
+public JsonHttpResponse create(@JsonBody MyJsonObject body) {
     //Do any logic required for creation
-    //For the example purpose we just unmarshall and recreate json
-    JSONObject response = JSONObject.fromObject(parsedBody);
+    //For the example purpose we just recreate json from the same object.
+    JSONObject response = JSONObject.fromObject(body);
     return new JsonHttpResponse(response, 200);
 }
-
 ----
 
 === Testing with CURL
 
-A `mvn hpi:run` in the plugin should be enough to run it locally.  Assuming that Jenkins is up at http://localhost:8080/jenkins/ , you should have at this point:
+A `mvn hpi:run` in the plugin should be enough to run it locally.
+Assuming that Jenkins is up at http://localhost:8080/jenkins/ , you should have at this point:
 
 Write a file `my.json` containing the JSON body:
 [source,bash]
@@ -253,3 +258,14 @@ public void testPostJSON() throws Exception {
     assertEquals(response.getStatusCode(), 200);
 }
 ----
+
+== Some additional informations
+
+For people that are familiar with REST/json concept you may want to use other HTTP verbs, it should work, but since generally in Jenkins onlly `GET` and `POST are used this page only shows example for this 2 verbs.
+
+You may also want to use several HTTP status code, following HTTP convention like `201` for created, it will also work, and the example above are returning explicit `200` status to show how to manage the HTTP status that is return.
+Some status are managed by Jenkins Core and may be return automatically, like `403` when the user in the request does not have the required permission or is anonymous, or `404` when the HTTP API is not found.
+
+If you are not familiar with Jenkins architecture, you can have a look to link:../../architecture/model[High level view of Jenkins application] and at link:../../architecture[Architecture]
+
+For more advanced reading on the HTTP layer of Jenkins, it's managed by link:https://github.com/jenkinsci/stapler[Stapler].
