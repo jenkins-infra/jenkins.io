@@ -4,18 +4,22 @@ title: Dependency Management
 references:
 - url: https://github.com/jenkinsci/plugin-pom/
   title: Plugin parent POM 4.0 and up
+////
+Should we be linking to the generic BOM or encouraging people to use the BOM
+for the Jenkins version against which they are compiling?
+////
 - url: https://github.com/jenkinsci/jenkins/blob/master/bom/pom.xml
   title: Jenkins Core BOM
 ---
 
-This section details some ways to simplify the management of dependency versions.
+Plugins frequently have dependencies on specific versions of libraries and other plugins,
+each of which is versioned independently.
+Each plugin may have dependencies of its own and different versions
+of different libraries and  plugins may not be compatible with each other.
+Moreover, the dependencies can change with each Jenkins release,
+so managing these dependencies manually can be difficult and time consuming.
 
-== Jenkins Core BOM
-
-Since version 2.195 (and LTS version 2.164.x) Jenkins Core provides a  link:https://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#Importing_Dependencies[Maven Bill Of Materials (BOM)] that centrally defines versions of various libraries used by Jenkins.
-If you are using Maven to build your plugin, then you can simplify dependency management by importing this BOM, at `jenkins.version`.
-Then, dependency versions will automatically be synchronised with whatever version of Jenkins you are building against.
-This can help to avoid build errors like:
+Dependency issues cause `Require upper bound dependencies` build errors such as:
 
 [source]
 ----
@@ -38,18 +42,59 @@ and
     +-org.slf4j:jcl-over-slf4j:1.7.26
 ----
 
+This error says that a conflict exists between the versions of `commons-codec` and `jcl-over-slf4j` specified by the plugin versus Jenkins.
+See
+link:https://www.jenkins.io/doc/developer/plugin-development/updating-parent/#understanding-requireupperbounddeps-failures-and-fixes[Understanding requireUpperBoundDeps failures and fixes] for more information.
 
-What this error is saying is that there is a conflict between the versions of `commons-codec` and `jcl-over-slf4j` specified by the plugin versus Jenkins.
-Without using the BOM, you would need to go and update the dependencies in your plugin to match those required by Jenkins, and then keep changing these as your `jenkins.version` changes.
-With the BOM all you have to do is import the link:https://github.com/jenkinsci/jenkins/blob/master/bom/pom.xml[jenkins-bom] for the version of Jenkins you are building against, and the versions of these and other common dependencies will be matched to that version of Jenkins.
+This page details ways to simplify the management of dependency versions.
 
-To use the Jenkins Core BOM in your plugin, just use plugin-pom (4.0 or later).
+== Apache Maven Bill of Materials (BOM)
 
-== Jenkins Plugin BOM
+The link:https://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#Importing_Dependencies[Apache Maven Bill Of Materials (BOM)]
+defines the versions of various libraries used by Jenkins.
+It is included in version 2.195 (and LTS version 2.164.x) and later of Jenkins Core.
 
-See the link:https://github.com/jenkinsci/bom[jenkinsci/bom] repository
+If you use Maven to build your plugin,
+dependencies are defined in the `dependencyManagement` section of you _pom.xml_ file.
+You can import the appropriate Jenkins BOM to your _pom.xml_ file
+so that dependency versions are automatically synchronised
+with the version of Jenkins against which you are building.
+
+To use the Jenkins Core BOM in your plugin:
+
+////
+Does this need a hint about how to be sure one is using this?
+////
+. Be sure that you are using
+link:https://github.com/jenkinsci/plugin-pom/[Parent POM for Jenkins Plugins] 
+(4.0 or later).
+. Go to the the link:https://github.com/jenkinsci/bom[jenkinsci/bom] repository.
+. Go to the `bom-*` folder that corresponds to
+the Jenkins version against which you are building.
+. Open the _pom.xml_ file in that folder.
+. Copy the `dependencyManagement` section from the _pom.xml_ file.
+. Paste the `dependencyManagement` section into the _pom.xml_ file for your plugin.
+If your file already has a `dependencyManagemnt` section,
+replace it with this text.
+Your _pom.xml_ file should only have one `dependencyManagement` section.
+. Rebuild your plugin to see if this solves your dependency issues.
+
+The _README_ file in the jenkinsci/bom repository includes background
+and more details about using the BOM in your plugin.
+
 
 == Dependabot
 
+////
+PLEASE CHECK THIS CAREFULLY!
+////
+The GitHub link:https://github.com/dependabot[Dependabot] feature
+can be used to simplify dependency management for builds
+no matter what build tools are used.
 See the link:https://groups.google.com/forum/#!msg/jenkinsci-dev/XMllKuWLO_8/H7nN70D1AwAJ[discussion here].
 
+link:https://github.com/jenkinsci/archetypes/blob/master/.github/dependabot.yml[dependabot.yml]
+is the default in the template/archtype.
+
+Some information about how to implement this and some know obstacles
+are in link:https://docs.google.com/document/d/1hRrH8PSCswBQgY_Q-7eHCHCVZHJOl4XgQQCswdUmpKY/edit#heading=h.oqikyovwtohu[Dependabot Evaluation Notes].
