@@ -44,3 +44,46 @@ longitude: '18.6713802'
 
 
 == Easy testing of build improvements without disrupting the work of other developers.
+
+*Background: * KP Labs is a new space company based in Poland that supports deep space exploration with enhanced spacecraft autonomy and a focus on machine vision, machine learning, embedded systems and satellite flight software.  Onboard computer (OBC) on CubeSat is one of the core components directly responsible for mission success. Software running on OBC handles communication with the ground station and performs scheduled tasks, controls all experiments performed during a mission. In the case that Intuition-1 mission OBC is not capable of running "full" operating systems (like Linux), it will force the software to work directly with hardware components. Although some form of hardware emulation is possible and useful for day-to-day development, dependency on hardware components makes it necessary to involve real components (called Engineering Models, EM) in the development process. Unfortunately, it's not feasible to equip every developer with a full set of engineering models. Given these circumstances, it is necessary to include hardware-based testing in a continuous integration process to catch potential hardware incompatibilities early. The limited number of engineering models requires some queueing of CI jobs requiring hardware access. 
+
+Building a project using C++ as the main language can take a long time, especially when aggressive optimizations (like LTO) are used. With build pipelines reaching dozens of minutes, resources available to a CI platform can be a limiting factor to overall developer productivity. Efficient usage of build agents  -- and the ability to easily add new ones when necessary -- gives the developer shorter feedback times. This problem gets a bit more complicated as only several nodes have hardware components attached to them, so jobs have to "jump" between nodes.
+
+Executable files are only one of many artifacts from the build process. Documentation, memory usage, code coverage reports, and test results are important results that need to be easily accessible to all members of the development team from each CI build.
+
+*Goals: Develop software for the onboard computer of the 6U CubeSat satellite, a type of miniaturized satellite for space research.*
+
+*"Jenkins allows us to get fast feedback about codebase changes and ensure proper quality by efficiently managing engineering models."* image:/images/jenkinsistheway/Jenkins-logo.png[image,width=185,height=256] Maciej Nowak, Software Engineer, KP Labs
+
+*Solution & Results:* In our development process, we are using a multibranch pipeline project with 'Jenkinsfile' describing a full build pipeline. Thanks to it being versioned, it is easy to test improvements without disrupting the work of other developers. Each build of every branch is composed of several steps:
+
+* Building Release binary (CPU heavy)
+* Unit tests execution
+* Building Debug binaries and code coverage measurement (CPU heavy)
+* Documentation generation
+* End-to-end testing on the emulated platform (can be disrupted by high CPU load)
+* End-to-end testing on the hardware platform (can be disrupted by high CPU load)
+
+Each of these steps is defined as a stage allowing us to track the progress of each build and measure how long it took. Based on timing information, we can adapt our 'Jenkinsfile' to spread the load between several nodes and parallelize independent stages. Node management for each stage is based on labels. For example, the 'Build Release' stage requires a node with 'build' label, stages involving hardware testing are labeled as 'hw,' etc.
+
+Built-in Jenkins artifact management allows us to move intermediate build results between machines. This, in turn, will enable us to perform CPU-heavy operations on powerful nodes and move for testing to less capable machines without worrying that builds using 100% CPU power will affect test execution. In addition, the 'flow of artifacts' allows us to verify that build output can be used anywhere - in separate stages or in laboratories where final satellite integration will occur.
+
+Access to hardware components is protected using lock resource capability in Jenkins, which forces jobs to queue while waiting for the previous job to finish.
+
+Our 'Jenkinsfile' is using build scripts (mostly CMake targets and Python scripts) to run each stage. This gives us the ability to replicate most of the problems encountered in CI build locally for investigation. 
+
+Several Jenkins plugins are used during the build to collect coverage reports, test results, plot data, and present them later to developers. Plots are especially useful for spotting sudden spikes in memory usage, often caused by pulling in an unwanted standard library function.
+
+We relied on the following to power our processes:
+
+* Jenkins Multibranch pipeline.  The Git controlled build process allows for customization and testing of changes on single feature-branch without disrupting other branches
+* Plots help with coverage and memory usage and makes anomalies easy to spot 
+* Node labeling to control which nodes have hardware testing capabilities and to move loads between machines
+* Warnings plugins
+* Test reports
+
+Jenkins helped us achieve the following results:
+
+* Very few missed hardware-related problems as each branch is tested on hardware 
+* Easy access to up-to-date documentation and memory usage reports 
+* Reduced waiting for free executor by using more nodes

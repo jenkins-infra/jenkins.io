@@ -42,3 +42,92 @@ longitude: '13.404954'
 
 
 == Jenkins plugins and shared libraries give more autonomy, better visibility, and effective way to develop and maintain CI pipelines.
+
+*Background:* Camunda is a global software company that offers a complete process automation tech stack with powerful execution engines for BPMN workflows and DMN decisions paired with essential modeling, operations, and analytics applications.  While the Camunda Platform has multiple teams and products, this project is specific to the Camunda Platform.  In the past, we were using homemade templating based on Jenkins DSL Freestyle jobs which work in upstream/downstream style. We decided to take advantage of Jenkins to build a CI/CD that stood up to our unique requirements detailed below. 
+
+*Complex/advanced use case:*
+
+Camunda Platform is an open source, enterprise project with a complex CI where the core engine works with:
+
+* 9 different database types with many versions (24 versions in total)
+* 6 application server types (20 versions in total)
+* 7 different Java versions (11 types of JDK in total)
+* Multiple types of tests (unit, integration, E2E)
+
+Also, the CI setup needs to support 6 previous versions of the core engine. That's translated to around 400 jobs per single Camunda Platform version.
+
+*Super high learning curve:*
+
+* https://plugins.jenkins.io/job-dsl/[Jenkins Job DSL] is so powerful, however it's first release was in 2012! So it's a bit old now and hard to learn by every developer
+* The old jobs used many technologies and required advanced knowledge in many different areas like Jenkins DSL, Groovy, OOP (which means it needs the whole team to be experts in those topics)
+* It's hard to onboard the new developers, because of the complexity of the old CI jobs. Developers didn't manage the CI jobs directly but with help from the Infrastructure team
+
+*Managing costs and build time:*
+
+* We run our CI jobs on Google Kubernetes Engine, using  autoscaling with preemptible VM  instances (VM's  lifetime is for up to 24 hours  only, which means Jenkins agents could disappear anytime, but it saves about 80% of the costs)
+* We also have some long-running jobs, such as E2E  tests and some slow databases that rely on retry mechanisms (to void run everything from the beginning)
+* One of the biggest challenges was that Jenkins declarative syntax doesn't have a proper retry mechanism for stages within the pipeline (which is necessary to handle short-lived preemptible machines)!
+
+*Miscellaneous Items:*
+
+* There is no complete visualization of the CI jobs in the upstream/downstream style
+* It's hard to know how much time is spent in CI jobs end-to-end
+* Pull request builds in the old style share the same Jenkins jobs (each PR triggers a build in the same job)
+
+*Goal:* Developer enablement and enhancing CI experience.
+
+
+
+
+
+[.testimonal]
+[quote, "Ahmed AbouZaid, DevOps Engineer, Camunda"]
+"What helped us a lot is Jenkins' extensibility, using Jenkins plugins and shared libraries; Jenkins is more like a framework to develop CI/CD that can fit any use case"
+image:/images/jenkinsistheway/ahmed.jpg[image,width=200,height=200]
+
+
+*Solution & Results: *
+
+The following steps are what we did to address our varied requirements:
+
+*Complex/advanced use case:*
+
+* Moved to https://www.jenkins.io/doc/book/pipeline/syntax/[Jenkins Declarative Pipelines], which has a more standard and straightforward syntax
+* Group the 400 jobs into 5 groups (Jenkinsfiles)
+* Added extra functionalities using Jenkins shared libraries (noticeably "conditional retry" for stages within declarative pipelines)
+* Used DSL jobs only for seed jobs (to automate loading Jenkinsfiles)
+
+*Super high learning curve:*
+
+* Using Jenkins's "Declarative Snippet Generator," the developers could easily develop and maintain the CI pipeline
+* Jenkins shared libraries provided an abstraction layer for complex cases and reusable code, making it easier to onboard more new developers from the team
+* The developers who participated in the project were able to onboard the rest of the team quickly without any help from DevOps engineers 
+
+*Managing costs and build time:*
+
+* Using Jenkins shared libraries, we developed our custom steps for code reuse and to manage costs effectively
+* One of the interesting custom steps was "conditional retry" which handles stage failure within the pipeline so no need to rerun the whole pipeline again but only the failed stage
+
+*Miscellaneous Items:*
+
+* Jenkins Blue Ocean UI provided a much better experience to overview the full CI pipelines
+* No more shared jobs between PRs
+
+The key capabilities we relied on were:
+
+* Jenkins declarative pipelines - Better and unified syntax
+* Jenkins shared libraries - Ability to extend Jenkins to fit unique use cases
+* Jenkins Blue Ocean UI - Better visualization of the pipelines
+* Jenkins Configuration as Code - Provided a proper way to configure Jenkins easily
+* Jenkins Kubernetes plugin - Make use of Kubernetes as infrastructure for Jenkins
+
+Here is the final result of one of the Jenkins files:
+
+https://github.com/camunda/camunda-bpm-platform/blob/master/Jenkinsfile
+
+More importantly, here were the results experienced by the team:
+
+* More autonomy: the developers are able to make changes by themselves with no need for help from external teams (developer ennoblement)
+* A much better/clear overview of CI pipelines: the developers have a central place to see all details about their changes/PRs
+* A unified way to develop and maintain CI pipelines effectively, even for the new team members, because of using the declarative syntax
+* A colossal knowledge gain about topics that helps it to perform better, like Kubernetes and infrastructure as code

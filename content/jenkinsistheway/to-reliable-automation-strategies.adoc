@@ -33,3 +33,73 @@ communitySupports:
 
 
 == A SaaS platform to support collaborative assessment, planning and tracking solutions for support workers and their service users.
+
+*Background:* Leaving the monolith approach behind and having adopted the microservices architecture, the technical team realized that the previous deployment processes would not be enough nor compatible at all, in some instances, with the distributed nature of microservices and the need to deploy to completely different platforms or sets of components.
+
+The technical nature of the product is software-as-a-service, and the migration from a physical data center into the cloud world. We chose Azure as the cloud provider, with:
+
+* ACR (Azure Container Registry),
+* AKS (Azure Kubernetes services),
+* Azure Web Apps
+* Azure DataBricks and DataLake
+
+This, however, introduced several challenges in which the team had to be able to build and deploy multiple and different services
+
+* Java-based API's, background services, and scheduled tasks
+* Angular based applications
+
+One of the essential requirements was to follow and adapt to continuous integration and delivery techniques in order to be able to produce frequent deployments to three environments: development, test, and production.
+
+To accomplish that, the team has to identify a number of tools and components that will handle and orchestrate the build, test, code quality check, containerization, deployment to AKS, and rollback actions in case of failures.
+
+To meet the requirements, the team has adopted the following:
+
+. Jenkins is the core component that will act as an orchestrator and will combine and utilize the related tools
+. Maven for building the source code
+. Docker to containerize the microservices
+. Kubectl to interact with the Kubernetes API
+. Sonarqube as the code quality check tool
+. Sonatype Nexus as the repository of all the artifacts (the Java-based microservices as well as Angular components)
+. Spinnaker as the continuous delivery platform
+
+*Goals:* Infrastructure to support our software solution: APT.
+
+
+
+
+
+[.testimonal]
+[quote, "Adrian Gramada, Technical Lead"]
+"The automation and flexibility of the declarative pipelines has taken the number of deployments to hundreds a day."
+image:/images/jenkinsistheway/Jenkins-logo.png[image,width=200,height=200]
+
+
+*Solution & Results:* The adopted solution has been to build a Jenkins cluster: 1 Agent + 2 Nodes. The agent was handling the Java-based services. The first node was responsible for Angular-based applications. The third node was running pipelines that would deploy Java-based artifacts into Azure Data Bricks. The declarative pipeline has become the key aspect as it has allowed the team to add all the required functionality through the pipeline stages feature.
+
+Having the vast number of Jenkins plugins made our lives easier as we integrated some of the Azure cloud components exceptionally well. The flexibility of the declarative pipeline allowed us to improve the complexity of deployments. One good example would be the post actions where, in case of a failure, we had a number of functions to trigger a Spinnaker-based pipeline to perform rollbacks to the last known suitable configurations.
+
+The declarative pipelines have been designed and structured with reusability in mind. One script would serve multiple Jenkins jobs that would be similar in their programming language and type (e.g., API, background service, dependency, etc.).
+
+The pipeline stages the full lifecycle of the code, starting with stages that will check out the code from the SCM, build and test with Maven, then take the code through a quality gate check (Sonarqube). This ensures that the company coding standards and policies are followed and applied by all developers. After that, the pipeline was also wrapping the artifacts in Docker images and pushing those images in cloud-based docker registries.
+
+Some of the critical aspects in the declarative pipeline are the post actions, which allow us to perform further processing based on the action type. An example is the rollback process of any Liquibase scripts that may have been executed earlier, which can be implemented in the failure or unstable post action.
+
+There is still more to explore, and we are currently learning and understanding the parallelism concepts to further improve the speed of execution.
+
+Declarative and scripted pipelines are heavily used. However, many Jenkins plugins have helped us a lot, such as:
+
+* Azure CLI has allowed us to effectively manage our Azure-based resources such as WebApps, Storage accounts, Databricks, Azure Functions, etc.
+* Git integration and the ability to configure all pipeline jobs to pull the groovy scripts from SCM locations 
+* The "Pipeline script from SCM" option, rather than having them hard-coded in each job
+* The integrated management of Java, Maven, Sonarqube, Git, Powershell, and Docker
+* The seamless integration with Sonatype Nexus
+* Credentials management
+* Jenkins plugins such as Azure App Service Plugin, Azure Container Service Plugin, Azure Function Plugin, Docker Pipeline, and many more
+
+We had fantastic results, including:
+
+* 500+ builds within a day on development and test environments.
+* Complete control of rollback strategy and related processes.
+* Automation of other admin tasks. Company website deployment whenever new changes are required, local docker registry purge, and SSL certificate monitoring tool implemented with a bash script and a declarative pipeline.
+* Automation of all Angular/Node.js-based front-end applications into Azure - as a WebApp component.
+* Automation of Java-based artifacts into Azure DataBricks.
