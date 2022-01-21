@@ -11,51 +11,27 @@ endif::[]
 
 Never run builds on the Jenkins controller in production environments.
 Out of the box, Jenkins is set up to run builds on the built-in controller node.
-This makes it easier to get started with Jenkins,
-but, on  production instances,
-builds should only be executed on nodes that are external to the controller.
+This makes it easier to get started with Jenkins, but, on  production instances, builds should only be executed on nodes that are external to the controller.
 
-A build job that uses an agent running on the built-in controller node
-may be able to access Jenkins configuration files and the workspaces of other builds.
-An agent could also request information
-that belongs to other teams or organizations that share the controller.
-Configuring Jenkins as a
-link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[distributed build system]
-enhances the security of your Jenkins instance
-as well as improving its performance and making it more stable.
-This is because builds that run on the built-in node
-have the same level of access to the controller file system as the Jenkins process itself.
-Configuring your Jenkins instance so that builds
-execute on agents running on separate nodes
-protects the Jenkins controller from malicious (or just broken) build scripts.
+A build job that uses an agent running on the built-in controller node may be able to access Jenkins configuration files and the workspaces of other builds.
+An agent could also request information that belongs to other teams or organizations that share the controller.
+Configuring Jenkins as a link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[distributed build system] enhances the security of your Jenkins instance as well as improving its performance and making it more stable.
+This is because builds that run on the built-in node have the same level of access to the controller file system as the Jenkins process itself.
+Configuring your Jenkins instance so that builds execute on agents running on separate nodes protects the Jenkins controller from malicious (or just broken) build scripts.
 
-When distributed builds are implemented,
-the Jenkins controller serves HTTP requests
-and stores all important information related to the builds.
-Nodes are separate physical or virtual machines that are configured.
-The Jenkins controller manages these nodes,
-but the agents manage the task execution on behalf of the Jenkins controller
-and supply most of the computing power required to build and test the software.
-Different nodes can run different operating systems and different tools,
-enabling one Pipeline to build and test the same software
-for a variety of platforms.
+When distributed builds are implemented, the Jenkins controller serves HTTP requests and stores all important information related to the builds.
+Nodes are separate physical or virtual machines that are configured.  The Jenkins controller manages these nodes, but the agents manage the task execution on behalf of the Jenkins controller and supply most of the computing power required to build and test the software.
+Different nodes can run different operating systems and different tools, enabling one Pipeline to build and test the same software for a variety of platforms.
 
 [NOTE]
 ====
 A job that performs administrative tasks such as backups may run on the controller.
-To reduce the chance of someone using this executor to run a job,
-label the executor with a hard-to-guess label
-and only allow it to be used by jobs that specify that label.
+To reduce the chance of someone using this executor to run a job, label the executor with a hard-to-guess label and only allow it to be used by jobs that specify that label.
 
-An executor can be temporarily configured on the controller
-long enough to run the administrative task
-but no executors should be configured on the controller at other times
-to ensure that no builds execute on the controller
-since a clever Pipeline author may be able to work around the label restriction.
+An executor can be temporarily configured on the controller long enough to run the administrative task but no executors should be configured on the controller at other times
+This ensures that no builds execute on the controller since a clever Pipeline author may be able to work around the label restriction.
 
-You can install the plugin:job-restrictions[Job Restrictions Plugin]
-to ensure that builds do not run on the controller
-even if executors are configured.
+You can install the plugin:job-restrictions[Job Restrictions Plugin] to ensure that builds do not run on the controller even if executors are configured.
 ====
 
 An agent can also write malicious code to its local disk so that the node is tainted and can infect a later build.
@@ -66,8 +42,7 @@ By extension, you also should not run agents on the same Docker host as the cont
 == Distributed Components
 
 A Jenkins distributed builds instance includes the following components.
-For more details about these components, see
-link:/doc/book/managing/nodes/[Managing Nodes].
+For more details about these components, see link:/doc/book/managing/nodes/[Managing Nodes].
 
 Jenkins controller::
 
@@ -87,15 +62,12 @@ In practice, nodes and agents are essentially the same but it is good to remembe
 
 Executors::
 
-An executor is a slot for execution of tasks;
-effectively, it is a thread in the agent.
-The number of executors on a node defines the number of concurrent tasks
-that can be executed on that node at one time.
+An executor is a slot for execution of tasks; effectively, it is a thread in the agent.
+The number of executors on a node defines the number of concurrent tasks that can be executed on that node at one time.
 
 == Implementing Distributed Builds
 
-To implement distributed builds on your Jenkins instance,
-you must do the following:
+To implement distributed builds on your Jenkins instance, you must do the following:
 
 * Create nodes and agents where the builds can run.
 * Prevent builds from running on the controller.
@@ -104,11 +76,8 @@ This section also includes other tips and tricks you can use.
 
 === Create Nodes and Agents for Builds
 
-To implement a distributed builds architecture for your Jenkins instance,
-you must configure nodes and agents to use for your builds.
-See
-link:/doc/book/managing/nodes/[Managing Nodes]
-for instructions.
+To implement a distributed builds architecture for your Jenkins instance, you must configure nodes and agents to use for your builds.
+See link:/doc/book/managing/nodes/[Managing Nodes] for instructions.
 
 === Prevent Builds from Running on the Controller
 
@@ -120,37 +89,22 @@ To do this:
 . Set the number of executors to 0.
 . Save the configuration.
 
-NOTE: A job that performs administrative tasks such as backup may run on the controller,
-but be sure to label the executor with a hard-to-guess label
-and only allow it to be used by jobs that use that label.
-Jenkins should normally be configured to have 0 executors on the controller,
-and then be temporarily reconfigured to have 1 executor
-long enough to run the backup or other administrative task.
-Unless the number of executors is 0,
-it is possible for a build to run on the controller.
+NOTE: A job that performs administrative tasks such as backup may run on the controller, but be sure to label the executor with a hard-to-guess label and only allow it to be used by jobs that use that label.
+Jenkins should normally be configured to have 0 executors on the controller, and then be temporarily reconfigured to have 1 executor long enough to run the backup or other administrative task.
+Unless the number of executors is 0, it is possible for a build to run on the controller.
 
 So while not building on the built-in node is a good general practice to protect from bugs and less sophisticated attackers, an agent process taken over by a malicious user would still be able to obtain data or execute commands on the Jenkins controller.
 To prevent this, the Agent &rarr; Controller Access Control system prevents agent processes from being able to send malicious commands to the Jenkins controller.
 
-This system is always enabled  Jenkins 2.326 and later (see link:jep-235[Agent &rarr; Controller Security Changes in 2.326]).
+This system is always enabled in Jenkins 2.326 and later (see link:jep-235[Agent &rarr; Controller Security Changes in 2.326]).
 In Jenkins 2.325 and earlier, it is enabled by default, but can be disabled in the web UI by un-checking the box on the _Manage Jenkins » Configure Global Security_ page.
 
-IMPORTANT: It is strongly recommended that you not disable the Agent &rarr; Controller Access Control system.
-
-As an alternative to disabling Agent &rarr; Controller Access Control, in Jenkins 2.325 and earlier, administrators can selectively allow greater access.
+It is possible for administrators to selectively allow greater access.
 See link:/doc/book/security/controller-isolation/agent-to-controller/[the documentation] for details.
 
 === Other Tips and Tricks
 
-Another way to prevent builds from running on the controller
-is to use a plugin such as the plugin:job-restrictions[Job Restrictions Plugin]
-to limit which jobs can be run on certain nodes (like the built-in controller node),
-independent of what your less trusted users may use as label expression in their job configurations.
+Another way to prevent builds from running on the controller is to use a plugin such as the plugin:job-restrictions[Job Restrictions Plugin] to limit which jobs can be run on certain nodes (like the built-in controller node), independent of what your less trusted users may use as label expression in their job configurations.
 
-If you do not have any other computers on which to run agents,
-you can run an agent process as a different operating system user on the same system
-to achieve a similar isolation effect.
-In this case,
-be sure that the agent process has neither read nor write file system access
-to the Jenkins home directory,
-and that the agent process cannot use `sudo` or other practices to elevate its own permissions.
+If you do not have any other computers on which to run agents, you can run an agent process as a different operating system user on the same system to achieve a similar isolation effect.
+In this case, be sure that the agent process has neither read nor write file system access to the Jenkins home directory, and that the agent process cannot use `sudo` or other practices to elevate its own permissions.
