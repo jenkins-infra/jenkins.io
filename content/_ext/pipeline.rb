@@ -60,6 +60,7 @@ Awestruct::Extensions::Pipeline.new do
   helper ActiveNav
   helper Authorship
   helper Legacy
+  helper JenkinsIsTheWay
   helper AsciidocRender
 
   helper Awestruct::Extensions::GoogleAnalytics
