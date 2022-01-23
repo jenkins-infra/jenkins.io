@@ -6,7 +6,7 @@ require 'awestruct/page'
 # The pages are equivalent
 class SolutionPage
   def execute(site)
-    solutions = site.pages.select { |p| p.source_path =~ /solutions/ }
+    solutions = site.pages.select { |p| p.source_path =~ /\/solutions\// }
     puts 'Loading solution pages'
 
     solutions.each do |solution|
