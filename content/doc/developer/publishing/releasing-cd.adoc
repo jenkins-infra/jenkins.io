@@ -17,58 +17,70 @@ GitHub Actions are used to rebuild the code and deploy it to Artifactory,
 without the need for maintainers to use personal credentials or local builds.
 Release notes are generated automatically according to pull request (PR) titles and some predefined labels.
 
-`maven-release-plugin` (MRP) is not used in this mode.
+IMPORTANT: `maven-release-plugin` (MRP) is not used in this mode.
 Rather than traditional version numbers like `1.23` or `2.3.4` which are chosen by the maintainer,
 a CD release will have a version of the form `123.vabcdef456789`:
 an integer component determined by the Git history depth,
 and an informational component with the Git commit hash.
 
-== Prerequisites
+== Checklist
 
-. The plugin must already have been link:../../plugin-development/incrementals[incrementalified]. A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
-. First enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin.
+. Verify that the plugin has already been link:../../plugin-development/incrementals[incrementalified].
+  `pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` before proceeding with subsequent steps.
+  (A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.)
 
+. Enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin
+  by filing a pull request adding to `permissions/plugin-xxx.yml`:
++
 [source,yaml]
 ----
 cd:
   enabled: true
 ----
 
-Once that has been merged, start checking https://github.com/jenkinsci/your-plugin/settings/secrets/actions and you should soon see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
+. Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
+  until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
 
-== Release notes
-
-Next, if you already have Release Drafter configured, remove any tag-template override in `.github/release-drafter.yml`, and delete `.github/workflows/release-drafter.yml` if using GitHub Actions (or remove the app from the repo otherwise). If you have not yet configured Release Drafter, just create `.github/release-drafter.yml` containing only:
-
+. If you already have Release Drafter configured, remove any `tag-template` override in `.github/release-drafter.yml`,
+  and delete `.github/workflows/release-drafter.yml` if using GitHub Actions (or remove the app from the repo otherwise).
+  If you have not yet configured Release Drafter, just create `.github/release-drafter.yml` containing only:
++
 [source,yaml]
 ----
 _extends: .github
 ----
 
-Be sure to apply one of the link:https://github.com/jenkinsci/.github/blob/ce466227c534c42820a597cb8e9cac2f2334920a/.github/release-drafter.yml#L9-L50[predefined labels]
-to every PR before merging so that Release Drafter can properly categorize changes.
+. Create `.github/workflows/cd.yaml` as a copy of the link:https://github.com/jenkinsci/.github/blob/master/workflow-templates/cd.yaml[cd.yaml template].
 
-== Adding the GitHub action
-
-Create `.github/workflows/cd.yaml` as a copy of the link:https://github.com/jenkinsci/.github/blob/master/workflow-templates/cd.yaml[cd.yaml template].
-
-If this is your first time using a GitHub action on this project then navigate to the 'Actions' tab 
-in your GitHub repository and enable GitHub actions.
-
-If you have a `.github/dependabot.yml`, it is a good idea to add:
-
+. (Optional) If you have a `.github/dependabot.yml`, add:
++
 [source,yaml]
 ----
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: daily
+    interval: weekly
+----
++
+If you did not yet have such a file, create it now. For example:
++
+[source,yaml]
+----
+version: 2
+updates:
+- package-ecosystem: maven
+  directory: /
+  schedule:
+    interval: weekly
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
 ----
 
-== POM file modifications
-
-For a regular component whose version number is not that meaningful:
-
+. Edit `pom.xml` and `.mvn/maven.config` to activate an automatic version number format.
+  For a regular component whose version number is not that meaningful:
++
 [source,diff]
 ----
 --- a/.mvn/maven.config
@@ -91,14 +103,39 @@ For a regular component whose version number is not that meaningful:
          <jenkins.version>2.176.4</jenkins.version>
      </properties>
 ----
-
-Here a CI/release build (`-Dset.changelist` specified) will be of the form `123.vabcdef456789`. A snapshot build will be `999999-SNAPSHOT`: arbitrary but treated as a snapshot by Maven and newer than any release.
-
-It's worth communicating this to your users, as they will see a very different version number format than before.
++
+Thus your resulting `.mvn/maven.config` should look like:
++
+[source]
+----
+-Pconsume-incrementals
+-Pmight-produce-incrementals
+-Dchangelist.format=%d.v%s
+----
++
+and your `pom.xml` should contain a top-level
++
+[source,xml]
+----
+<version>${changelist}</version>
+----
++
+as well as a `<properties>` section containing
++
+[source,xml]
+----
+<changelist>999999-SNAPSHOT</changelist>
+----
++
+but no `<revision>`.
+In this typical case, a CI/release build (`-Dset.changelist` specified) will be of the form `123.vabcdef456789`.
+A snapshot build will be `999999-SNAPSHOT`: arbitrary but treated as a snapshot by Maven and newer than any release.
++
+NOTE: It is worth communicating this to your users, as they will see a very different version number format than before.
 The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
-
++
 For a component whose version number ought to reflect a release version of some wrapped component:
-
++
 [source,diff]
 ----
 --- a/.mvn/maven.config
@@ -121,23 +158,34 @@ For a component whose version number ought to reflect a release version of some 
 +    <changelist>999999-SNAPSHOT</changelist>
      <jenkins.version>2.176.4</jenkins.version>
 ----
-
++
 Here the version numbers will look like `4.0.0-123.vabcdef456789` or `4.0.0-999999-SNAPSHOT`, respectively. 
 When you pick up a new third-party component like `4.0.1`, your version numbers will match;
 to refer to the third-party component, just use:
-
++
 [source,xml]
 ----
 <version>${revision}</version>
 ----
 
+. Commit all of the above source file changes in a branch and file a pull request for them.
+  Do not forgot to `git add .` to make sure any newly created files are included.
+
+. Merge this PR activating CD.
+  Be sure to apply one of the link:https://github.com/jenkinsci/.github/blob/ce466227c534c42820a597cb8e9cac2f2334920a/.github/release-drafter.yml#L9-L50[predefined labels]
+  to this and every subsequent PR before merging so that Release Drafter can properly categorize changes.
+
 == Releasing
 
 Now whenever Jenkins reports a successful build of your default branch,
 and at least one pull request had a label indicating it was of interest to users
-(e.g. enhancement rather than chore), your component will be released to Artifactory and 
+(e.g., `enhancement` rather than `chore`), your component will be released to Artifactory and 
 release notes published in GitHub.
 You do not need any special credentials or local checkout; just merge pull requests with suitable titles and labels.
+
+You will see a lot of workflow runs in the *Actions* tab in GitHub, only a small proportion of which are actual releases.
+Due to technical limitations in GitHub Actions it is not possible to suppress the extraneous runs.
+Actual releases will display a green check next to the *release* stage.
 
 You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins. Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
 If you prefer to only deploy explicitly, not on every push, just comment out the `check_run` section in the workflow.
