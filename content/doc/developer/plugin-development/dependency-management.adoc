@@ -8,14 +8,23 @@ references:
   title: Jenkins Core BOM
 ---
 
-This section details some ways to simplify the management of dependency versions.
+Plugins depend on specific versions of libraries and of other plugins, each of which is versioned independently.
+Each dependency may have dependencies of its own and different versions of different libraries and plugins may not be compatible with each other.
+Moreover, the dependencies can change with each Jenkins release, so managing these dependencies manually can be difficult and time consuming.
 
-== Jenkins Core BOM
+Jenkins has tools that simplify dependency management:
 
-Since version 2.195 (and LTS version 2.164.x) Jenkins Core provides a  link:https://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#Importing_Dependencies[Maven Bill Of Materials (BOM)] that centrally defines versions of various libraries used by Jenkins.
+* <<jenkins-core-bom,Jenkins core Bill of Materials (BOM)>> centrally defines the **library versions** provided by Jenkins core
+* <<jenkins-plugin-bom,Plugin Bill of Materials (BOM)>> centrally defines a set of **plugin versions** that have been tested together
+* <<Dependabot>> automatically proposes a pull request when a new version of a dependency is released
+
+== Jenkins core BOM
+
+Jenkins core provides a link:https://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#Importing_Dependencies[Maven Bill Of Materials (BOM)] that centrally defines versions of various libraries used by Jenkins.
 If you are using Maven to build your plugin, then you can simplify dependency management by importing this BOM, at `jenkins.version`.
-Then, dependency versions will automatically be synchronised with whatever version of Jenkins you are building against.
-This can help to avoid build errors like:
+Dependency versions are then automatically  synchronized with the version of Jenkins against which you are building.
+
+Library dependency issues may cause `Require upper bound dependencies` build errors such as:
 
 [source]
 ----
@@ -38,18 +47,77 @@ and
     +-org.slf4j:jcl-over-slf4j:1.7.26
 ----
 
+This error says that a conflict exists between the versions of `commons-codec` and `jcl-over-slf4j` specified by the plugin versus Jenkins core.
+See link:/doc/developer/plugin-development/updating-parent/#understanding-requireupperbounddeps-failures-and-fixes[Understanding requireUpperBoundDeps failures and fixes] for more information.
 
-What this error is saying is that there is a conflict between the versions of `commons-codec` and `jcl-over-slf4j` specified by the plugin versus Jenkins.
-Without using the BOM, you would need to go and update the dependencies in your plugin to match those required by Jenkins, and then keep changing these as your `jenkins.version` changes.
-With the BOM all you have to do is import the link:https://github.com/jenkinsci/jenkins/blob/master/bom/pom.xml[jenkins-bom] for the version of Jenkins you are building against, and the versions of these and other common dependencies will be matched to that version of Jenkins.
+In many cases, upper bounds dependencies errors are best resolved by updating the Jenkins core Bill of Materials and by using the Jenkins plugin Bill of Materials.
 
-To use the Jenkins Core BOM in your plugin, just use plugin-pom (4.0 or later).
+=== Update the Jenkins Core Bill of Materials (BOM)
 
-== Jenkins Plugin BOM
+Update the parent pom version with the following commands:
 
-See the link:https://github.com/jenkinsci/bom[jenkinsci/bom] repository
+[source,bash]
+----
+$ mvn versions:update-parent
+$ mvn clean verify
+----
+
+See the video below for a step by step guide to updating the parent pom.
+
+.Update the parent pom
+video::Fev8KfFsPZE[youtube, width=852, height=480,start=807]
+
+== Jenkins plugin BOM
+
+The plugin bill of materials (BOM) defines the versions of various plugins used by specific Jenkins versions.
+The plugin bill of materials includes many commonly used plugins
+and simplifies dependency management for plugins that depend on other plugins.
+
+A plugin that tests its Pipeline implementation typically depends on several Pipeline plugins.
+The plugin BOM provides Pipeline plugin version numbers so that the developer does not need to maintain the independent version numbers of the Pipeline plugins.
+
+The plugin bill of materials is defined in the `dependencyManagement` section of your _pom.xml_ file.
+To use the Jenkins plugin BOM in your plugin:
+
+. Confirm that you are using the link:/doc/developer/plugin-development/updating-parent/[current parent pom] with the command `mvn versions:update-parent`
+. Locate the most recent plugin bom version number on the link:https://github.com/jenkinsci/bom/releases[plugin bom releases page]
+. Copy the `dependencyManagement` section from the _pom.xml_ file in that directory
+. Insert this `dependencyManagement` section into the _pom.xml_ file for your plugin
++
+[source,xml]
+----
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>io.jenkins.tools.bom</groupId>
+            <artifactId>bom-2.303.x</artifactId>
+            <!-- Latest version goes here -->
+            <version>1117.v62a_f6a_01de98</version>
+            <scope>import</scope>
+            <type>pom</type>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+----
+. Remove the `<version>` values from plugin dependencies in your plugin's _pom.xml_
+. Rebuild your plugin to see if this solves your dependency issues.
+  Many commonly used plugins are included in the plugin pom.
+  However, not **all** plugins are included.
+  You may need to iterate on removing `<version>` values from specific plugins
+
+See the link:https://github.com/jenkinsci/bom#readme[plugin BOM documentation] for further details.
+The video below demonstrates how to add the plugin BOM to a Jenkins plugin.
+
+.Simplify plugin dependency management with the plugin BOM
+video::pk1gweLvcEI[youtube, width=852, height=480, start=1771]
 
 == Dependabot
 
-See the link:https://groups.google.com/forum/#!msg/jenkinsci-dev/XMllKuWLO_8/H7nN70D1AwAJ[discussion here].
+GitHub link:https://github.com/dependabot[Dependabot] can automate plugin dependency management.
+Newly created plugins built from the link:https://github.com/jenkinsci/archetypes/blob/master/.github/dependabot.yml[Jenkins plugin archetype] include Dependabot by default.
 
+Existing plugins need to configure Dependabot in their existing plugin repository.
+See the video below for an example that adds Dependabot to an existing plugin repository:
+
+.Automate dependency management with Dependabot
+video::2c8wK2jkcIA[youtube, width=852, height=480, start=980]
