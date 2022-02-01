@@ -152,34 +152,36 @@ public class JsonAPITest {
     @Test
     public void testGetJSON() throws Exception {
 
+        JenkinsRule.WebClient webClient = j.createWebClient();
+
         // Testing a simple GET that should answer 200 OK and a JSON
-        JenkinsRule.JSONWebResponse response = j.getJSON(GET_API_URL);
+        JenkinsRule.JSONWebResponse response = webClient.getJSON(GET_API_URL);
         assertTrue(response.getContentAsString().contains("I am JenkinsRule hello"));
         assertEquals(response.getStatusCode(), 200);
     }
 
     @Test
     public void testAdvancedGetJSON() throws Exception {
-        //Testing a GET that requires the user to be authenticated
-        User admin = User.getById("admin", true);
+        //Given a Jenkins setup with a user "admin"
         MockAuthorizationStrategy auth = new MockAuthorizationStrategy()
-                .grant(Jenkins.ADMINISTER).everywhere().to(admin);
+            .grant(Jenkins.ADMINISTER).everywhere().to("admin");
 
         j.jenkins.setSecurityRealm(j.createDummySecurityRealm());
         j.jenkins.setAuthorizationStrategy(auth);
 
-        //We need to setup the webclient
+        //We need to setup the WebClient, we use it to call the HTTP API
+        JenkinsRule.WebClient webClient = j.createWebClient();
+
         //By default if the status code is not ok, WebClient throw an exception
         //Since we want to assert the error status code, we need to set to false.
-        JenkinsRule.WebClient webClient = j.createWebClient();
         webClient.setThrowExceptionOnFailingStatusCode(false);
 
         // - simple call without authentication should be forbidden
-        response = j.getJSON(GET_API_URL, webClient);
+        response = webClient.getJSON(GET_API_URL);
         assertEquals(response.getStatusCode(), 403);
 
         // - same call but authenticated using withBasicApiToken() should be fine
-        response = j.getJSON(GET_API_URL, webClient.withBasicApiToken(admin));
+        response = webClient.withBasicApiToken("admin").getJSON(GET_API_URL);
         assertEquals(response.getStatusCode(), 200);
     }
 
@@ -188,7 +190,7 @@ public class JsonAPITest {
 == Handling POST with Jenkins
 
 This section shows how to expose an HTTP endpoint that takes a structured JSON Object as input, and do a response with a JSON structured Object.
-For this exmaple the same Object is used as input and output, but you can also use different JSON structure for the response.
+For this example the same Object is used as input and output, but you can also use different JSON structure for the response.
 
 Starting from the class `JsonAPI` provided for GET example, add:
 
@@ -251,8 +253,21 @@ Starting from the class `JsonAPITest` provided for the GET example, add:
 @Test
 public void testPostJSON() throws Exception {
 
+    //Given a Jenkins setup with a user "admin"
+    MockAuthorizationStrategy auth = new MockAuthorizationStrategy()
+            .grant(Jenkins.ADMINISTER).everywhere().to("admin");
+
+    j.jenkins.setSecurityRealm(j.createDummySecurityRealm());
+    j.jenkins.setAuthorizationStrategy(auth);
+
+    //We need to setup the WebClient, we use it to call the HTTP API
+    JenkinsRule.WebClient webClient = j.createWebClient();
+
+    // Testing an authenticated POST that should answer 200 OK and return same json
     MyJsonObject objectToSend = new MyJsonObject("Jenkins is the way !");
-    JenkinsRule.JSONWebResponse response = j.postJSON("testing-cli/create", jsonBody);
+    JenkinsRule.JSONWebResponse response = webClient
+                    .withBasicApiToken("admin")
+                    .postJSON( "testing-cli/create", JSONObject.fromObject(objectToSend));
 
     //because API is returning the same object, we assert the input message.
     assertTrue(response.getContentAsString().contains("Jenkins is the way !")); 
@@ -260,7 +275,7 @@ public void testPostJSON() throws Exception {
 }
 ----
 
-== Some additional informations
+== Some additional information
 
 For people that are familiar with REST/JSON concept you may want to use other HTTP verbs, it should work, but since generally in Jenkins only `GET` and `POST` are used this page only shows example for this 2 verbs.
 
