@@ -3,44 +3,54 @@ title: Table to div layout migration
 layout: developerguide
 ---
 
-NOTE: This is a documentation for a new feature in the Jenkins core.
+NOTE: This is documentation for a new feature in Jenkins core.
 See jira:JENKINS-56109[Change Jenkins configuration UI from tables to divs] for details.
 
-Jenkins core changed its form layout from 'table' to 'div' in 2.264.
-The March 2021 LTS is expected to change its form layout from 'table' to 'div'.
-The December 2020, January 2021, and February 2021 LTS releases will *not* change their form layout from 'table' to 'div'.
+Jenkins core changed its form layout from ``<table>`` to ``<div>`` in 2.264 (weekly) and 2.277.1 (LTS).
+Jenkins 2.263.x (LTS) releases did *not* change their form layout from ``<table>`` to ``<div>``.
 
-All core taglib's and views were updated in link:https://github.com/jenkinsci/jenkins/pull/3895[jenkins#3895]
-as part of jira:JENKINS-56109[].
+All core ``taglib``s and views were updated in link:https://github.com/jenkinsci/jenkins/pull/3895[jenkinsci/jenkins#3895] as part of jira:JENKINS-56109[].
 
-For 99% of plugins they do not require any changes at all as they just use the standard jelly tags
-in Jenkins for their forms, such as `f:entry`, `f:textbox`, `f:checkbox`.
+The vast majority of plugins do not require any changes at all because they use the standard Jelly tags in Jenkins for their forms, such as ``<f:entry>``, ``<f:textbox>``, and ``<f:checkbox>``.
 
-== Some plugins are known to be broken
+== Debugging
 
-If you're experiencing problems,
-please check the link:https://issues.jenkins.io/secure/Dashboard.jspa?selectPageId=20741[list of known broken plugins dashboard].
-If you're using any of these plugins, please disable them (or wait to upgrade) and upvote the issue.
+If you are experiencing configuration form problems (e.g., form controls not working, the save button not working, etc.):
 
-If you're experiencing problems (form controls not working, the save button not working)
-you can minimize your Jenkins installation to identify which plugin is the problem.
+. Verify that you followed the instructions in the link:/doc/upgrade-guide/2.277/#upgrading-to-jenkins-lts-2-277-1[Jenkins 2.277.1 upgrade guide], including updating plugins after installing Jenkins 2.277.1.
+. Refer to the link:https://issues.jenkins.io/secure/Dashboard.jspa?selectPageId=20741[known broken plugins dashboard]; if you are using a plugin that is known to be broken, disable it and upvote the issue.
+. Disable any plugins that are no longer in use, particularly if those plugins are https://github.com/jenkins-infra/update-center2/blob/master/resources/artifact-ignores.properties[no longer distributed on the Jenkins update site] (including Team Foundation Server and Perforce).
 
-. If you're uncomfortable using your Jenkins, set up a minimal Jenkins
+=== Identifying the broken plugin
 
-    JENKINS_HOST=username:password@myhost.com:port
-    curl -sSL "http://$JENKINS_HOST/pluginManager/api/xml?depth=1&xpath=/*/*/shortName|/*/*/version&wrapper=plugins" | perl -pe 's/.*?<shortName>([\w-]+).*?<version>([^<]+)()(<\/\w+>)+/\1 \2\n/g'| sed 's/ /:/' | cut -d ':' -f 1 | sort > plugins.txt
-    wget https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.2.0/jenkins-plugin-manager-2.2.0.jar
-    wget https://get.jenkins.io/war/2.266/jenkins.war
-    export JENKINS_HOME=~/.jenkins-tables-to-div
-    java -jar jenkins-plugin-manager-2.2.0.jar -f plugins.txt -d $JENKINS_HOME/plugins --war jenkins.war
-    java -jar jenkins.war
+If the problem persists, perform bisection to identify the broken plugin.
 
-. Create a freestyle job to reproduce the issue
-. Generally disable plugins (in groups of 10) -- recording which you've disabled
-. Restart jenkins
-. If you problem hasn't gone away, keep disabling
-. Once the problem is resolved, enable plugins one at a time to identify the problematic plugin
-. Report an issue with the label `tables-to-divs-regression`
+. If you are uncomfortable using your production Jenkins installation, set up a minimal Jenkins installation:
++
+[source,bash]
+----
+JENKINS_HOST=username:password@myhost.com:port
+curl -sSL "http://$JENKINS_HOST/pluginManager/api/xml?depth=1&xpath=/*/*/shortName|/*/*/version&wrapper=plugins" | perl -pe 's/.*?<shortName>([\w-]+).*?<version>([^<]+)()(<\/\w+>)+/\1 \2\n/g'| sed 's/ /:/' | cut -d ':' -f 1 | sort > plugins.txt
+wget https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.9.0/jenkins-plugin-manager-2.9.0.jar
+wget https://get.jenkins.io/war-stable/2.277.1/jenkins.war
+export JENKINS_HOME=~/.jenkins-tables-to-div
+java -jar jenkins-plugin-manager-2.9.0.jar -f plugins.txt -d $JENKINS_HOME/plugins --war jenkins.war
+java -jar jenkins.war
+----
+. Create a "freestyle" job to reproduce the issue.
+. Generally disable plugins in groups of 10, recording which plugins you have disabled.
+. Restart Jenkins.
+. If the problem persists, keep disabling plugins.
+. Once the problem is resolved, enable plugins one at a time to identify the broken plugin.
+
+=== Reporting issues
+
+When reporting an issue, include the following information:
+
+. Provide the _complete_ list of installed plugins as suggested in the link:/doc/book/system-administration/diagnosing-errors/#how-to-report-a-bug[bug reporting guidelines].
+. Provide a screenshot.
+. Provide steps to reproduce the problem on a minimal Jenkins installation; the scenario should fail when the broken plugin is enabled and pass when the broken plugin is disabled.
+. Use the `tables-to-divs-regression` label.
 
 == Examples of area which may require changes
 
