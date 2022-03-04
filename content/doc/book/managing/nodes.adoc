@@ -14,6 +14,89 @@ endif::[]
 
 = Managing Nodes
 
+== Components of Distributed Builds
+
+Builds in a
+link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[Distributed Builds Architecture]
+use nodes, agents, and executors which are distinct from the Jenkins controller itself.
+Understanding what each of these components are is useful when managing nodes:
+
+////
+Add link to "How Jenkins executes a Pipeline" after
+https://github.com/jenkins-infra/jenkins.io/pull/4612 is merged
+////
+
+Jenkins controller::
+
+The Jenkins controller is the Jenkins service itself
+and is where Jenkins is installed.
+It is a webserver that also acts as a "brain"
+for deciding how, when and where to run tasks.
+Management tasks (configuration, authorization, and authentication)
+are executed on the controller, which serves HTTP requests.
+Files written when a Pipeline executes are written to the filesystem on the controller
+unless they are off-loaded to an artifact repository such as Nexus or Artifactory.
+
+Nodes::
+
+Nodes are the "machines" on which build agents run.
+Jenkins monitors each attached node for
+disk space, free temp space, free swap,
+clock time/sync and response time.
+A node is taken offline if any of these values
+go outside the configured threshold.
+
+The Jenkins controller itself runs on a special _built-in node_.
+It is possible to run agents and executors on this built-in node
+although this can degrade performance, reduce scalability of the Jenkins instance, and create serious security problems
+and is strongly discouraged, especially for production environments.
+
+Agents::
+
+Agents manage the task execution on behalf of the Jenkins controller
+by using executors.
+An agent is actually a small (170KB single jar) Java client process
+that connects to a Jenkins controller and is assumed to be unreliable.
+An agent can use any operating system that supports Java.
+Tools required for builds and tests are installed on the node where the agent runs;
+they can be installed directly or in a container (Docker or Kubernetes).
+Each agent is effectively a process with its own PID (Process Identifier) on the host machine.
+
+In practice, nodes and agents are essentially the same but it is good to remember that they are conceptually distinct.
+
+Executors::
+
+An executor is a slot for execution of tasks;
+effectively, it is a thread in the agent.
+The number of executors on a node defines the number of concurrent tasks
+that can be executed on that node at one time.
+In other words, this determines the number of concurrent Pipeline `stages`
+that can execute on that node at one time.
+
+The proper number of executors per build node must be determined
+based on the resources available on the node
+and the resources required for the workload.
+When determining how many executors to run on a node,
+consider CPU and memory requirements
+as well as the amount of I/O and network activity:
+
+* One executor per node is the safest configuration.
+* One executor per CPU core may work well
+if the tasks being run are small.
+* Monitor I/O performance, CPU load, memory usage, and I/O throughput carefully
+when running multiple executors on a node.
+
+== Creating Agents
+
+Jenkins agents are the "workers" that perform operations requested by the Jenkins controller.
+The Jenkins controller administers the agents and can manage the tooling on the agents.
+Jenkins agents may be statically allocated or they can be dynamically allocated through systems like Kubernetes, OpenShift, Amazon EC2, Azure, Google Cloud, IBM Cloud, Oracle Cloud, and other cloud providers.
+
+This 30 minute tutorial from Darin Pope creates a Jenkins agent and connects it to a controller.
+
+.How to create an agent node in Jenkins
+video::99DddJiH7lM[youtube, width=640, height=360]
+
 == Launch inbound agent via Windows Scheduler
 
 If you are having trouble getting the inbound agent installed as a Windows service (i.e., you followed https://wiki.jenkins.io/display/JENKINS/Installing+Jenkins+as+a+Windows+service[the instructions on installing the agent as a service here] but it didn't work), an alternative method of starting the service automatically when Windows starts is to use the Windows Scheduler. 
@@ -87,7 +170,7 @@ d6a84df1fc4f45ddc9c6ab34b08f13391983ffffffffffb3488b7d5ac77fbc7
 . Start the scheduled task and again check that the agent is connected
 * Go back to the node's web page in Jenkins.  If everything works then page should say "Agent is connected"
 
-=== Monitor and Restart Offline Agents
+== Monitor and Restart Offline Agents
 
 
 This script can monitor and restart offline nodes if they are not disconnected manually.
@@ -95,20 +178,18 @@ It can be executed in the Jenkins Script Console or can run periodically as a Je
 
 Also see link:https://wiki.jenkins-ci.org/display/JENKINS/Display+Information+About+Nodes[Display Information About Nodes]
 
-
 [source,groovy]
 ----
 import hudson.node_monitors.*
 import hudson.slaves.*
 import java.util.concurrent.*
- 
+
 jenkins = Jenkins.instance
- 
+
 import javax.mail.internet.*;
 import javax.mail.*
 import javax.activation.*
- 
- 
+
 def sendMail (agent, cause) {
 
  message = agent + " agent is down. Check http://JENKINS_HOSTNAME:JENKINS_PORT/computer/" + agent + "\nBecause " + cause
@@ -117,16 +198,15 @@ def sendMail (agent, cause) {
  fromAddress = "JENKINS@YOUR_DOMAIN"
  host = "SMTP_SERVER"
  port = "SMTP_PORT"
- 
+
  Properties mprops = new Properties();
  mprops.setProperty("mail.transport.protocol","smtp");
  mprops.setProperty("mail.host",host);
  mprops.setProperty("mail.smtp.port",port);
- 
+
  Session lSession = Session.getDefaultInstance(mprops,null);
  MimeMessage msg = new MimeMessage(lSession);
- 
- 
+
  //tokenize out the recipients in case they came in as a list
  StringTokenizer tok = new StringTokenizer(toAddress,";");
  ArrayList emailTos = new ArrayList();
@@ -141,12 +221,11 @@ def sendMail (agent, cause) {
  msg.setFrom(new InternetAddress(fromAddress));
  msg.setSubject(subject);
  msg.setText(message)
- 
+
  Transport transporter = lSession.getTransport("smtp");
  transporter.connect();
  transporter.send(msg);
 }
-
 
 def getEnviron(computer) {
    def env
@@ -169,21 +248,21 @@ for (agent in jenkins.getNodes()) {
    println "Checking computer ${computer.name}:"
    def isOK = (agentAccessible(computer) && !computer.offline)
    if (isOK) {
-     println "\t\tOK, got PATH back from slave ${computer.name}."
-     println('\tcomputer.isOffline: ' + slave.getComputer().isOffline());
-     println('\tcomputer.isTemporarilyOffline: ' + slave.getComputer().isTemporarilyOffline());
-     println('\tcomputer.getOfflineCause: ' + slave.getComputer().getOfflineCause());
+     println "\t\tOK, got PATH back from agent ${computer.name}."
+     println('\tcomputer.isOffline: ' + computer.isOffline());
+     println('\tcomputer.isTemporarilyOffline: ' + computer.isTemporarilyOffline());
+     println('\tcomputer.getOfflineCause: ' + computer.getOfflineCause());
      println('\tcomputer.offline: ' + computer.offline);
    } else {
      numberOfflineNodes ++
      println "  ERROR: can't get PATH from agent ${computer.name}."
-     println('\tcomputer.isOffline: ' + agent.getComputer().isOffline());
-     println('\tcomputer.isTemporarilyOffline: ' + agent.getComputer().isTemporarilyOffline());
-     println('\tcomputer.getOfflineCause: ' + agent.getComputer().getOfflineCause());
+     println('\tcomputer.isOffline: ' + computer.isOffline());
+     println('\tcomputer.isTemporarilyOffline: ' + computer.isTemporarilyOffline());
+     println('\tcomputer.getOfflineCause: ' + computer.getOfflineCause());
      println('\tcomputer.offline: ' + computer.offline);
-     sendMail(computer.name, agent.getComputer().getOfflineCause().toString())
-     if (agent.getComputer().isTemporarilyOffline()) {
-       if (!agent.getComputer().getOfflineCause().toString().contains("Disconnected by")) {
+     sendMail(computer.name, computer.getOfflineCause().toString())
+     if (computer.isTemporarilyOffline()) {
+       if (!computer.getOfflineCause().toString().contains("Disconnected by")) {
          computer.setTemporarilyOffline(false, agent.getComputer().getOfflineCause())
        }
      } else {

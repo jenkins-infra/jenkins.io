@@ -1,0 +1,432 @@
+== Install Jenkins with Helm v3
+
+A typical Jenkins deployment consists of a controller node and, optionally, one or more agents. To simplify the deployment of Jenkins, we’ll use link:https://helm.sh/[Helm] to deploy Jenkins.
+Helm is a package manager for Kubernetes and its package format is called a chart.
+Many community-developed charts are available on link:https://github.com/helm/charts[GitHub].
+
+Helm Charts provide “push button” deployment and deletion of apps, making adoption and development of Kubernetes apps easier for those with little container or microservices experience.
+
+=== Prerequisites
+
+Helm command line interface::
+If you don't have Helm command line interface installed and configured locally, see the sections below to <<Install Helm>> and <<Configure Helm>>.
+
+=== Install Helm
+
+To install Helm CLI, follow the instructions from the link:https://helm.sh/docs/intro/install/[Installing Helm] page.
+
+=== Configure Helm
+Once Helm is installed and set up properly, add the Jenkins repo as follows:
+
+[source,bash]
+----
+$ helm repo add jenkinsci https://charts.jenkins.io
+$ helm repo update
+----
+
+The helm charts in the Jenkins repo can be listed with the command:
+
+[source,bash]
+----
+$ helm search repo jenkinsci
+----
+
+=== Create a persistent volume
+
+We want to create a link:https://kubernetes.io/docs/concepts/storage/persistent-volumes/[persistent volume] for our Jenkins controller pod.
+This will prevent us from losing our whole configuration of the Jenkins controller and our jobs when we reboot our minikube.
+This link:https://minikube.sigs.k8s.io/docs/handbook/persistent_volumes/[official minikube doc] explains which directories we can use to mount or data.
+In a multi-node Kubernetes cluster, you’ll need some solution like NFS to make the mount directory available in the whole cluster.
+But because we use minikube which is a one-node cluster we don’t have to bother about it.
+
+We choose to use the `/data` directory. This directory will contain our Jenkins controller configuration.
+
+*We will create a volume which is called jenkins-pv:*
+
+. Paste the content from link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-volume.yaml[https://raw.githubusercontent.com/installing-jenkins-on-kubernetes/jenkins-volume.yaml] into a YAML formatted file called `jenkins-volume.yaml`.
+. Run the following command to apply the spec:
++
+[source,bash]
+----
+$ kubectl apply -f jenkins-volume.yaml
+----
+
+NOTE: It’s worth noting that, in the above spec, hostPath uses the /data/jenkins-volume/ of your node to emulate network-attached storage.
+This approach is only suited for development and testing purposes.
+For production, you should provide a network resource like a Google Compute Engine persistent disk, or an Amazon Elastic Block Store volume.
+
+[NOTE]
+====
+Minikube configured for hostPath sets the permissions on /data to the root account only. Once the volume is created you will need to manually change the permissions to allow the jenkins account to write its data.
+[source,bash]
+----
+minikube ssh
+sudo chown -R 1000:1000 /data/jenkins-volume
+----
+====
+
+=== Create a service account
+
+In Kubernetes, service accounts are used to provide an identity for pods.
+Pods that want to interact with the API server will authenticate with a
+particular service account.
+By default, applications will authenticate as the `default` service account in
+the namespace they are running in.
+This means, for example, that an application running in the `test` namespace
+will use the default service account of the `test` namespace.
+
+*We will create a service account called jenkins:*
+
+A ClusterRole is a set of permissions that can be assigned to resources within a given cluster.
+Kubernetes APIs are categorized into API groups, based on the API objects that they relate to.
+While creating a ClusterRole, you can specify the operations that can be performed by the ClusterRole on one or more API objects in one or more API groups, just as we have done above.
+ClusterRoles have several uses. You can use a ClusterRole to:
+
+* define permissions on namespaced resources and be granted within individual namespace(s)
+* define permissions on namespaced resources and be granted across all namespaces
+* define permissions on cluster-scoped resources
+
+If you want to define a role cluster-wide, use a ClusterRole;
+if you want to define a role within a namespace, use a Role.
+
+A role binding grants the permissions defined in a role to a user or set of users.
+It holds a list of subjects (users, groups, or service accounts), and a reference to the role being granted.
+
+A RoleBinding may reference any Role in the same namespace.
+Alternatively, a RoleBinding can reference a ClusterRole and bind that ClusterRole to the namespace of the RoleBinding.
+To bind a ClusterRole to all the namespaces in our cluster, we use a ClusterRoleBinding.
+
+. Paste the content from link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-sa.yaml[https://raw.githubusercontent.com/installing-jenkins-on-kubernetes/jenkins-sa.yaml] into a YAML formatted file called
+`jenkins-sa.yaml`.
++
+. Run the following command to apply the spec:
++
+[source,bash]
+----
+$ kubectl apply -f jenkins-sa.yaml
+----
+
+=== Install Jenkins
+
+We will deploy Jenkins including the Jenkins Kubernetes plugin.
+See the https://github.com/jenkinsci/helm-charts/tree/main/charts/jenkins[official chart] for more details.
+
+. To enable persistence, we will create an override file and pass it as an argument to the
+  Helm CLI.
+   Paste the content from https://raw.githubusercontent.com/jenkinsci/helm-charts/main/charts/jenkins/values.yaml into a YAML formatted file called `jenkins-values.yaml`.
++
+The `jenkins-values.yaml` is used as a template to provide values that are necessary for setup.
+
+. Open the `jenkins-values.yaml` file in your favorite text editor and modify the following:
+
+  * nodePort: Because we are using minikube we need to use NodePort as service type. Only cloud providers offer load balancers. We define port 32000 as port.
+
+    * storageClass:
++
+[source,yaml]
+----
+storageClass: jenkins-pv
+----
+
+    * serviceAccount: the serviceAccount section of the jenkins-values.yaml file should look like this:
++
+[source,yaml]
+----
+serviceAccount:
+create: false
+# Service account name is autogenerated by default
+name: jenkins
+annotations: {}
+----
+
+    Where `name: jenkins` refers to the serviceAccount created for jenkins.
+
+    * We can also define which plugins we want to install on our Jenkins.
+      We use some default plugins like git and the pipeline plugin.
+
+. Now you can install Jenkins by running the `helm install` command and passing it the
+  following arguments:
+
+  * The name of the release `jenkins`
+  * The -f flag with the YAML file with overrides `jenkins-values.yaml`
+  * The name of the chart `jenkinsci/jenkins`
+  * The `-n` flag with the name of your namespace `jenkins`
++
+[source,bash]
+----
+$ chart=jenkinsci/jenkins
+$ helm install jenkins -n jenkins -f jenkins-values.yaml $chart
+----
++
+  This outputs something similar to the following:
++
+[source,bash]
+----
+NAME: jenkins
+LAST DEPLOYED: Wed Sep 16 11:13:10 2020
+NAMESPACE: jenkins
+STATUS: deployed
+REVISION: 1
+----
+
+[NOTE]
+1. Get your 'admin' user password by running:
++
+
+[source,bash]
+----
+$ jsonpath="{.data.jenkins-admin-password}"
+$ secret=$(kubectl get secret -n jenkins jenkins -o jsonpath=$jsonpath)
+$ echo $(echo $secret | base64 --decode)
+----
+2. Get the Jenkins URL to visit by running these commands in the same shell:
++
+[source,bash]
+----
+$ jsonpath="{.spec.ports[0].nodePort}"
+$ NODE_PORT=$(kubectl get -n jenkins -o jsonpath=$jsonpath services jenkins)
+$ jsonpath="{.items[0].status.addresses[0].address}"
+$ NODE_IP=$(kubectl get nodes -n jenkins -o jsonpath=$jsonpath)
+$ echo http://$NODE_IP:$NODE_PORT/login
+----
+3. Login with the password from step 1 and the username: admin
+4. Use Jenkins Configuration as Code by specifying configScripts in your values.yaml file.
+   See the plugin:configuration-as-code[configuration as code documentation] and  https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos[examples].
+
+Visit the link:https://cloud.google.com/solutions/jenkins-on-container-engine[Jenkins on Kubernetes solutions page] for more information on running Jenkins on Kubernetes.
+Visit the https://jenkins.io/projects/jcasc/[Jenkins Configuration as Code project] for more information on configuration as code.
+. Depending on your environment, it can take a bit of time for Jenkins to start up. Enter the
+  following command to inspect the status of your Pod:
+
+[source,bash]
+----
+$ kubectl get pods -n jenkins
+----
+
+Once Jenkins is installed, the status should be  set to Running as in the following output:
+
+[source,bash]
+----
+$ kubectl get pods -n jenkins
+NAME                       READY   STATUS    RESTARTS   AGE
+jenkins-645fbf58d6-6xfvj   1/1     Running   0          2m
+----
+
+. To access your Jenkins server, you must retrieve the password. You can retrieve your password
+  using either of the two options below.
++
+*Option 1*
++
+Run the following command:
++
+[source,bash]
+----
+$ jsonpath="{.data.jenkins-admin-password}"
+$ secret=$(kubectl get secret -n jenkins jenkins -o jsonpath=$jsonpath)
+$ echo $(echo $secret | base64 --decode)
+----
++
+The output should look like this:
++
+[source,text]
+----
+Um1kJLOWQY
+----
++
+[NOTE]
+====
+👆🏻Note that your password will be different.
+====
++
+*Option 2*
++
+Run the following command:
++
+[source,bash]
+----
+$ jsonpath="{.data.jenkins-admin-password}"
+$ kubectl get secret -n jenkins jenkins -o jsonpath=$jsonpath
+----
++
+The output should be a **base64 encoded string** like this:
++
+[source,text]
+----
+WkIwRkdnbDZYZg==
+----
++
+Decode the base64 string and you have your password. You can use link:https://www.base64decode.org/[this website] to decode your output.
+
+. Get the name of the Pod running that is running Jenkins using the following command:
++
+[source,bash]
+----
+$ kubectl get pods -n jenkins
+----
+
+. Use the kubectl command to set up port forwarding:
++
+[source,bash]
+----
+$ kubectl -n jenkins port-forward <pod_name> 8080:8080
+Forwarding from 127.0.0.1:8080 -> 8080
+Forwarding from [::1]:8080 -> 8080
+----
+
+Visit http://127.0.0.1:8080/ and log in using `admin` as the username and the password you retrieved earlier.
+
+== Install Jenkins with YAML files
+
+This section describes how to use a set of YAML (Yet Another Markup Language) files to install Jenkins on a Kubernetes cluster.
+The YAML files are easily tracked, edited, and can be reused indefinitely.
+
+=== Create Jenkins deployment file
+
+Copy the contents link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-deployment.yaml[here] into your preferred text editor and create a jenkins-deployment.yaml file in the “jenkins” namespace we created in this link:/doc/book/installing/kubernetes/#create-a-namespace[section] above.
+
+* This link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-deployment.yaml[deployment file] is defining a Deployment as indicated by the `kind` field.
+* The Deployment specifies a single replica. This ensures one and only one instance
+will be maintained by the Replication Controller in the event of failure.
+* The container image name is jenkins and version is 2.32.2
+* The list of ports specified within the spec are a list of ports to expose from
+the container on the Pods IP address.
+** Jenkins running on (http) port 8080.
+** The Pod exposes the port 8080 of the jenkins container.
+* The volumeMounts section of the file creates a Persistent Volume.
+This volume is mounted within the container at the path /var/jenkins_home and
+so modifications to data within /var/jenkins_home are written to the volume.
+The role of a persistent volume is to store basic Jenkins data and preserve it
+beyond the lifetime of a pod.
+
+Exit and save the changes once you add the content to the Jenkins deployment file.
+
+=== Deploy Jenkins
+
+To create the deployment execute:
+
+[source,bash]
+----
+$ kubectl create -f jenkins-deployment.yaml -n jenkins
+----
+
+The command also instructs the system to install Jenkins within the jenkins namespace.
+
+To validate that creating the deployment was successful you can invoke:
+
+[source,bash]
+----
+$ kubectl get deployments -n jenkins
+----
+
+=== Grant access to Jenkins service
+
+We have a Jenkins instance deployed but it is still not accessible.
+The Jenkins Pod has been assigned an IP address that is internal to the Kubernetes cluster.
+It’s possible to log into the Kubernetes Node and access Jenkins from there but that’s not a very useful way to access the service.
+
+To make Jenkins accessible outside the Kubernetes cluster the Pod needs to be exposed as a Service.
+A Service is an abstraction that exposes Jenkins to the wider network.
+It allows us to maintain a persistent connection to the pod regardless of the changes in the cluster.
+With a local deployment, this means creating a NodePort service type.
+A NodePort service type exposes a service on a port on each node in the cluster.
+The service is accessed through the Node IP address and the service nodePort.
+A simple service is defined link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-service.yaml[here]:
+
+* This link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-service.yaml[service file] is defining a Service as
+indicated by the `kind` field.
+* The Service is of type NodePort. Other options are ClusterIP (only accessible within the cluster) and LoadBalancer (IP address assigned by a cloud provider e.g. AWS Elastic IP).
+* The list of ports specified within the spec is a list of ports exposed by this service.
+** The port is the port that will be exposed by the service.
+** The target port is the port to access the Pods targeted by this service. A port name may also be specified.
+* The selector specifies the selection criteria for the Pods targeted by this service.
+
+To create the service execute:
+
+[source,bash]
+----
+$ kubectl create -f jenkins-service.yaml -n jenkins
+----
+
+To validate that creating the service was successful you can run:
+
+[source,bash]
+----
+$ kubectl get services -n jenkins
+NAME       TYPE        CLUSTER-IP       EXTERNAL-IP    PORT(S)           AGE
+jenkins    NodePort    10.103.31.217    <none>         8080:32664/TCP    59s
+----
+
+=== Access Jenkins dashboard
+
+So now we have created a deployment and service, how do we access Jenkins?
+
+From the output above we can see that the service has been exposed on port 32664.
+We also know that because the service is of type NodeType the service will route
+requests made to any node on this port to the Jenkins pod.
+All that’s left for us is to determine the IP address of the minikube VM.
+Minikube have made this really simple by including a specific command that outputs
+the IP address of the running cluster:
+
+[source,bash]
+----
+$ minikube ip
+192.168.99.100
+----
+
+Now we can access the Jenkins instance at http://192.168.99.100:30104/
+
+To access Jenkins, you initially need to enter your credentials.
+The default username for new installations is admin.
+The password can be obtained in several ways.
+This example uses the Jenkins deployment pod name.
+
+To find the name of the pod, enter the following command:
+
+[source,bash]
+----
+$ kubectl get pods -n jenkins
+----
+
+Once you locate the name of the pod, use it to access the pod’s logs.
+
+[source,bash]
+----
+$ kubectl logs <pod_name> -n jenkins
+----
+
+The password is at the end of the log formatted as a long alphanumeric string:
+
+[source,text]
+----
+*************************************************************
+*************************************************************
+*************************************************************
+
+Jenkins initial setup is required.
+An admin user has been created and a password generated.
+Please use the following password to proceed to installation:
+
+94b73ef6578c4b4692a157f768b2cfef
+
+This may also be found at:
+/var/jenkins_home/secrets/initialAdminPassword
+
+*************************************************************
+*************************************************************
+*************************************************************
+----
+
+You have successfully installed Jenkins on your Kubernetes cluster and can use it to create new and efficient development pipelines.
+
+== Install Jenkins with Jenkins Operator
+
+The link:https://jenkinsci.github.io/kubernetes-operator/docs/[Jenkins Operator] is a Kubernetes native Operator which manages operations
+for Jenkins on Kubernetes.
+
+It was built with immutability and declarative configuration as code in mind, to automate many of the manual tasks required
+to deploy and run Jenkins on Kubernetes.
+
+Jenkins Operator is easy to install with applying just a few yaml manifests or with the use of Helm.
+
+For instructions on installing Jenkins Operator on your Kubernetes cluster and deploying and configuring Jenkins there,
+see link:https://jenkinsci.github.io/kubernetes-operator/docs/getting-started/latest/[official documentation of Jenkins Operator].

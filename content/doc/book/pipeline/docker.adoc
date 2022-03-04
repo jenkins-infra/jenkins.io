@@ -21,7 +21,7 @@ for deploying applications. Starting with Pipeline versions 2.5 and higher,
 Pipeline has built-in support for interacting with Docker from within a
 `Jenkinsfile`.
 
-While this section will cover the basics of utilizing Docker from with a
+While this section will cover the basics of utilizing Docker from within a
 `Jenkinsfile`, it will not cover the fundamentals of Docker, which can be read
 about in the
 link:https://docs.docker.com/get-started/[Docker Getting Started Guide].
@@ -45,7 +45,7 @@ can be used with ease by making only minor edits to a `Jenkinsfile`.
 // Declarative //
 pipeline {
     agent {
-        docker { image 'node:7-alpine' }
+        docker { image 'node:16.13.1-alpine' }
     }
     stages {
         stage('Test') {
@@ -58,7 +58,7 @@ pipeline {
 // Script //
 node {
     /* Requires the Docker Pipeline plugin to be installed */
-    docker.image('node:7-alpine').inside {
+    docker.image('node:16.13.1-alpine').inside {
         stage('Test') {
             sh 'node --version'
         }
@@ -76,11 +76,52 @@ container and execute the defined steps within it:
 [Pipeline] sh
 [guided-tour] Running shell script
 + node --version
-v7.4.0
+v14.15.0
 [Pipeline] }
 [Pipeline] // stage
 [Pipeline] }
 ----
+
+=== Workspace synchronization
+
+Short: if it is important to keep workspace synchronized with other stages, use `reuseNode true`.
+Otherwise, dockerized stage can be run on any other agent or on the same agent, but in temporary workspace.
+
+By default, for containerized stage, Jenkins does:
+
+* pick any agent,
+* create new empty workspace,
+* clone pipeline code into it,
+* mount this new workspace into container.
+
+If you have multiple Jenkins agents, your containerized stage can be started on any of them.
+
+When `reuseNode` set to `true`: no new workspace will be created, and current workspace from current agent will be mounted into container, and container will be started at the same node, so whole data will be synchronized.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            agent {
+                docker {
+                    image 'gradle:6.7-jdk11'
+                    // Run the container on the node specified at the top-level of the Pipeline, in the same workspace, rather than on a new node entirely:
+                    reuseNode true
+                }
+            }
+            steps {
+                sh 'gradle --version'
+            }
+        }
+    }
+}
+// Script //
+// Option "reuseNode true" currently unsupported in scripted pipeline
+----
+
 
 === Caching data for containers
 
@@ -106,7 +147,7 @@ link:https://hub.docker.com/_/maven/[`maven` container],
 pipeline {
     agent {
         docker {
-            image 'maven:3-alpine'
+            image 'maven:3.8.1-adoptopenjdk-11'
             args '-v $HOME/.m2:/root/.m2'
         }
     }
@@ -121,7 +162,7 @@ pipeline {
 // Script //
 node {
     /* Requires the Docker Pipeline plugin to be installed */
-    docker.image('maven:3-alpine').inside('-v $HOME/.m2:/root/.m2') {
+    docker.image('maven:3.8.1-adoptopenjdk-11').inside('-v $HOME/.m2:/root/.m2') {
         stage('Build') {
             sh 'mvn -B'
         }
@@ -148,7 +189,7 @@ pipeline {
     stages {
         stage('Back-end') {
             agent {
-                docker { image 'maven:3-alpine' }
+                docker { image 'maven:3.8.1-adoptopenjdk-11' }
             }
             steps {
                 sh 'mvn --version'
@@ -156,7 +197,7 @@ pipeline {
         }
         stage('Front-end') {
             agent {
-                docker { image 'node:7-alpine' }
+                docker { image 'node:16.13.1-alpine' }
             }
             steps {
                 sh 'node --version'
@@ -169,13 +210,13 @@ node {
     /* Requires the Docker Pipeline plugin to be installed */
 
     stage('Back-end') {
-        docker.image('maven:3-alpine').inside {
+        docker.image('maven:3.8.1-adoptopenjdk-11').inside {
             sh 'mvn --version'
         }
     }
 
     stage('Front-end') {
-        docker.image('node:7-alpine').inside {
+        docker.image('node:16.13.1-alpine').inside {
             sh 'node --version'
         }
     }
@@ -197,7 +238,7 @@ Re-using an example from above, with a more custom `Dockerfile`:
 .Dockerfile
 [source]
 ----
-FROM node:7-alpine
+FROM node:16.13.1-alpine
 
 RUN apk add -U subversion
 ----

@@ -15,7 +15,7 @@ function loaddata() {
 }
 
 function health(nm,cls,ver,rate,desc) {
-  return '<img src="/images/changelog/' + nm + '.png" onclick="rate(\'' + ver + '\',' + rate + ')" class="rate ' + cls + '" alt="' + nm + '" title="' + desc + '"/>';
+  return '<img src="/images/changelog/' + nm + '.svg" onclick="rate(\'' + ver + '\',' + rate + ')" class="rate ' + cls + '" alt="' + nm + '" title="' + desc + '"/>';
 }
 
 function do_loaddata() {
@@ -32,8 +32,11 @@ function do_loaddata() {
         + (r && r[2] ? r[2] + ' ' : '0 ') + health('storm',(r && r[2] ? '' : 'light'),v,-1, 'I had to roll back');
     if (r && r.length > 3) {
       txt += '<span class="related-issues">Community reported issues: ';
-      for (j = 3; j < r.length; j+=2)
-        txt += r[j+1] + '&times;<a href="https://issues.jenkins-ci.org/browse/JENKINS-' + r[j] + '">JENKINS-' + r[j] + '</a> ';
+      var issues = [];
+      for (j = 3; j < r.length; j += 2) {issues.push({id: r[j], count: r[j + 1]})}
+      issues.sort(function (a, b) {return b.count - a.count;});
+      for (j = 0; j < issues.length; j++)
+        txt += issues[j].count + '&times;<a href="https://issues.jenkins.io/browse/JENKINS-' + issues[j].id + '">JENKINS-' + issues[j].id + '</a> ';
       txt += '</span>';
     }
     div2.innerHTML = txt;

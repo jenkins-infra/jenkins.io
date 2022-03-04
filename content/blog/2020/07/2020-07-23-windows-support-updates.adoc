@@ -1,0 +1,169 @@
+---
+layout: post
+title: "Jenkins 2.248: Windows Support Updates"
+tags:
+- announcement
+- windows
+- platform
+- winsw
+author: oleg_nenashev
+description: >
+    This article introduces the new Windows support policy.
+    We also discuss .NET Framework 2.0 support removal in Jenkins 2.248,
+    and new Windows service management features introduced by this release.
+opengraph:
+  image: /images/post-images/2020/07-windows-support-updates/opengraph.png
+---
+
+In this article, I would like to announce the new link:/doc/administration/requirements/windows/[Windows support policy] 
+which was introduced in the Jenkins project in June 2020.
+This policy sets an expectation about how we handle issues and patches related to Windows support for the Jenkins server and agents, and how we organize testing of Windows support in the project.
+We will also talk about .NET Framework 2.0 support removal in link:/changelog/#v2.248[Jenkins 2.248],
+and about new Windows service management features and fixes Jenkins users get with this release.
+
+image::/images/post-images/2020/07-windows-support-updates/header_image.png[title="Jenkins on Windows", align="center"]
+
+== Why?
+
+In theory, Jenkins can run everywhere where you can run Java 8 or Java 11, but, in practice, there are some limitations. 
+The Jenkins core and some plugins contain native code, and hence they rely on operating systems and platforms.
+We use Java Native Access and Java Native Runtime libraries which provide wide platform support for low-level operations,
+but there are platform-specific cases not covered by such generic libraries.
+In the case of Windows platforms we use link:https://github.com/winsw/winsw[Windows Service Wrapper (WinSW)] and 
+link:https://github.com/kohsuke/winp[Windows Process Management Library (WinP)].
+These libraries depend on particular Windows API versions and, in the case of Windows services, on .NET Framework.
+
+Historically Jenkins had no documented support policy for Windows,
+and we were accepting patches for all versions which existed since the Hudson inception in 2004.
+It became a serious obstacle for Windows component maintainers who had to be very conservative about incoming patches so that we could avoid breaking instances running on old platforms.
+Lack of testing for older platforms did not help either.
+And it is not just about maintenance overhead.
+Users were impacted as well, because it blocked us from adopting some new Windows features and making Jenkins more stable/maintainable on modern platforms.
+
+== New policy
+
+To set proper expectations about Windows support,
+in the new policy we defined four support levels.
+See the link:/doc/administration/requirements/windows/[Windows support policy page] for the actual information about the support levels and the supported platforms.
+This blogpost captures the support state as of Jul 23, 2020: 
+
+Level 1 - Full Support::
+We run automated testing for these platforms, and we intend to timely fix the reported issues.
+This support level includes 64-bit (amd-64) Windows Server versions with the latest GA update pack,
+and versions used in the official Jenkins server and agent Docker images.
+
+Level 2 - Supported::
+We do not actively test these platforms, but we intend to keep compatibility.
+We are happy to accept patches.
+This support level includes 64-bit (amd64) Windows Server and Windows 10 versions generally supported by Microsoft.
+
+Level 3 - Patches considered::
+The platforms are generally expected to work, but they may have limitations and extra requirements.
+We do not test compatibility, and we may drop support if needed.
+We will consider patches if they do not put Level 1/2 platforms at risk and if they do not create maintenance overhead.
+This support level includes non-amd64 platforms like x86 (32-bit) and AArch64 (Arm).
+It also applies to non-mainstream release lines like Windows Embedded, preview releases, and versions no longer supported by Microsoft.
+
+Level 4 - Unsupported::
+These versions are known to be incompatible or to have severe limitations.
+We do not support the listed platforms, and we will not accept patches.
+At the moment this level applies to platforms released before 2008.
+
+When the policy was introduced, there were questions raised about platforms listed in the _Level 3_ support category.
+First of all, these platforms are still supported.
+Users are welcome to run Jenkins on these platforms.
+We recognize the importance of the platforms listed there, and we intend to keep compatibility with them.
+At the same time, particular functionality may break there due to the lack of testing when we update Jenkins or upstream dependencies.
+It may take a while until a fix is submitted by a user or contributor,
+because we do not maintain development environments for these platforms.
+By setting a Level 3 support level, we want to set an explicit expectation about those limitations.
+
+If you are interested in expanding the official Windows support policy and adding more platforms there,
+we invite you to participate in link:/participate/test/[quality assurance of Jenkins].
+You may contribute by expanding test automation for Jenkins,
+contributing test environments for your platforms,
+or participating in the link:/download/lts/[LTS release candidate testing] and reporting results.
+Please contact us via link:/sigs/platform/[Platform SIG] channels if you are interested.
+
+== Windows Service Management changes in Jenkins 2.248
+
+image::/images/post-images/2020/07-windows-support-updates/winsw-logo.png[title="WinSW Logo", float=right, width="224px"]
+
+Although the policy was introduced more than 1 month ago,
+link:/changelog/#v2.248[Jenkins 2.248] is the first release where the new policy is applied.
+Starting from this release, we won't support .NET Framework 2.0 for launching the Jenkins server or agents as Windows services.
+ .NET Framework 4.0 or above is now required for using the default service management features.
+
+This release also upgrades link:https://github.com/winsw/winsw[Windows Service Wrapper (WinSW)] from 2.3.0 to 2.9.0 and replaces the bundled binary from .NET Framework 2.0 to 4.0.
+There are many improvements and fixes in these versions,
+big thanks to link:https://github.com/NextTurn[NextTurn] and all other contributors.
+You can find the full WinSW changelog link:https://github.com/winsw/winsw/releases[here],
+just a few highlights important to Jenkins users:
+
+* Prompt for permission elevation when administrative access is required.
+  Now Jenkins users do not need to run the agent process as Administrator to install the agent as a service from GUI. 
+* Enable TLS 1.1/1.2 in .NET Framework 4.0 packages on Windows 7 and Windows Server 2008 R2.
+* Enable strong cryptography when running .NET Framework 4.0 binaries on .NET 4.6.
+* Support security descriptor string in the Windows service definition.
+* Support 'If-Modified-Since' and proxy settings for automatic downloads.
+* Fix Runaway Process Killer extension so that it does not kill wrong processes with the same PID on startup.
+* Fix the default domain name in the `serviceaccount` parameter (jira:JENKINS-12660[])
+* Fix archiving of old logs in the `roll-by-size-time` mode.
+
+As you may see, there are many improvements available with this version,
+and we hope that it will make Windows service installation even more reliable.
+Some of the changes in WinSW also replaced old workarounds in the Jenkins core,
+making the code more maintainable.
+
+=== Use-cases affected by .NET Framework 2.0 support removal
+
+If you use .NET Framework 2.0 to run the Jenkins Windows services,
+the following use-cases are likely to be affected:
+
+* Installing the Jenkins server as a Windows service from Web UI.
+  The official MSI Installer supports .NET Framework 2.0 for the moment, but it will be changed in future versions.
+* Installing agents as Windows services from GUI.
+  This feature is provided by in link:https://github.com/jenkinsci/windows-slave-installer-module[Windows Agent Installer Module] from the Jenkins core.
+* Installing agents over Windows Management Instrumentation (WMI) via the plugin:windows-slaves[WMI Windows Agents] plugin
+* Auto-updating of Windows service wrappers on agents installed from GUI.
+
+=== Upgrade guidelines
+
+If all of your Jenkins server and agent instances already use .NET Framework 4.0 or above,
+there are no special upgrade steps required.
+Please enjoy the new features!
+
+If you run the Jenkins server as a Windows Service with .NET Framework 2.0,
+this instance will require an upgrade of .NET Framework to version 4.0 or above.
+We recommend running with .NET Framework 4.6.1 or above,
+because this .NET version provides many platform features by default
+(e.g. TLS 1.2 encryption and strong cryptography),
+and Windows Service Wrapper does not have to apply custom workarounds.
+
+If you want to continue running some of your agents with .NET Framework 2.0,
+the following extra upgrade steps are required:
+
+1. Disable auto-upgrade of Windows Service Wrapper on agents by setting the 
+  `-Dorg.jenkinsci.modules.windows_slave_installer.disableAutoUpdate=true` flag on the Jenkins server side.
+2. Upgrade agents with .NET Framework 4.0+ by downloading the recent Windows Service Wrapper 2.x
+  version from link:https://github.com/winsw/winsw/releases[WinSW GitHub Releases]
+  and manually replacing the wrapper ".exe" files in the agent workspaces.
+
+== What's next?
+
+We plan to continue expanding the Windows support in Jenkins,
+including providing official Docker images for newer Windows versions.
+For example, there is already a link:https://github.com/jenkinsci/docker-agent/pull/145[pull request] which will introduce official agent images for Windows Server Core LTSC 2019 and 
+for Windows Server Core and Nano Server 1909.
+We are also interested to keep expanding test coverage for Windows platforms.
+Any contributions and feedback will be appreciated!
+
+We also keep working on improving Windows Services.
+link:/blog/authors/buddhikac96[Buddhika Chathuranga], a Google Summer of Code 2020 student, is working on support for YAML Configurations in Windows Service Wrapper,
+and on better verification of XML and YAML Configurations.
+See the details on the link:/projects/gsoc/2020/projects/winsw-yaml-configs/[project page] and in the
+link:/blog/2020/07/08/winsw-yaml-support/[Coding Phase 1 Report].
+In addition to that, there is ongoing work on a new link:https://github.com/winsw/winsw/tree/v3[Windows Service Wrapper 3.0] release which will redesign CLI and introduce a lot more improvements.
+If you are interested in contributing to Windows Service Wrapper,
+see the guidelines link:https://github.com/winsw/winsw/blob/master/CONTRIBUTING.md[here].
+We will also appreciate your feedback on the link:https://gitter.im/winsw/winsw[WinSW Gitter channel].

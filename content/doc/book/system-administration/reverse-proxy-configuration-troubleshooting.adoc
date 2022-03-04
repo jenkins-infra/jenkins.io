@@ -1,0 +1,104 @@
+---
+layout: section
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../resources/managing]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+= Reverse proxy - Issues
+
+[[jenkins-says-my-reverse-proxy-setup-is-broken]]
+== Symptoms
+
+An error message is displayed in the "Manage Jenkins" page
+
+`+It appears that your reverse proxy setup is broken+`
+
+NOTE: This message can also appear if you don't access
+Jenkins through a reverse proxy: Make sure the Jenkins URL configured in
+the System Configuration matches the URL you're using to access Jenkins.
+
+[[troubleshooting]]
+== Background
+
+For a reverse proxy to work correctly, it needs to rewrite both the
+request and the response.
+Request rewriting involves receiving an inbound HTTP call and then making
+a forwarding request to Jenkins (sometimes with some HTTP headers modified, sometimes not).
+Failing to configure the request rewriting is easy to catch, because you
+just won't see any pages at all.
+
+But correct reverse proxying also involves *one of two options*, EITHER
+
+* *rewrite the response* with a "Location" header in the response, which is used during redirects.
+Jenkins sends `Location:{nbsp}\http://actual.server:8080/jenkins/foobar`
+and the reverse proxy must
+rewrite it to `Location:{nbsp}\http://nice.name/jenkins/foobar`.
+Unfortunately, failing to configure this correctly is harder to catch;
+OR
+* *set the headers* `+X-Forwarded-Host+` (and perhaps `+X-Forwarded-Port+`) on the forwarded request.
+Jenkins will parse those headers and generate all the redirects and other
+links on the basis of those headers.
+Depending on your reverse proxy it may be easier to set `+X-Forwarded-Host+`
+and `+X-Forwarded-Port+` to the hostname and port in the original `+Host+`
+header respectively or it may be easier to just pass the original `+Host+`
+header through as  `+X-Forwarded-Host+` and delete the `+X-Forwarded-Port+` #
+header from the request.
+You will also need to set the `+X-Forwarded-Proto+` header if your reverse
+proxy is changing from `+https+` to `+http+` or vice-versa.
+
+Jenkins has proactive monitoring to make sure this is configured correctly.
+It uses XmlHttpRequest to request a specific URL in Jenkins (via relative path,
+so this will always get through provided the request is properly rewritten),
+which will then redirect the user to another page in Jenkins (this only works
+correctly if you configured the response rewriting correctly), which then returns 200.
+
+This error message indicates that this test is failing - and the most
+likely cause is that the response rewriting is misconfigured.
+See the  link:../reverse-proxy-configuration-with-jenkins/[configuration examples] for additional tips about
+configuring a reverse proxy.
+
+Be sure to set the `+X-Forwarded-Proto+` header if your reverse proxy is
+accessed via HTTPS and then Jenkins itself is accessed via HTTP i.e.
+proxying HTTPS to HTTP.
+
+Changing the context path of Jenkins with a reverse proxy is fraught with danger.
+There are lots of URLs that you need to rewrite correctly,
+and even if you get the ones in HTML files you may miss some in
+javascript, CSS or XML resources.
+
+The recommendation is to ensure that Jenkins is running at the context
+path that your reverse proxy is serving Jenkins at.
+You will have the least pain if you keep to this principle.
+
+While it is technically possible to use rewrite rules to change the context path,
+you should be aware that it would be a lot of work to find and fix everything in
+your rewrite rules and the reverse proxy will spend most of its time rewriting
+responses from Jenkins.
+Much easier to change Jenkins to run at the context path your reverse proxy is
+expecting, e.g. if your reverse proxy is forwarding requests at
+\https://manchu.example.org/foobar/ to Jenkins then you could just use
+`+java -jar jenkins.war --prefix=/foobar+` to start jenkins using
+`+/foobar+` as the context path
+
+== Further Diagnosis
+
+For further diagnosis, try using cURL:
+
+[source,sh]
+----
+BASE=administrativeMonitor/hudson.diagnosis.ReverseProxySetupMonitor
+curl -iL -e http://your.reverse.proxy/jenkins/manage \
+            http://your.reverse.proxy/jenkins/${BASE}/test
+----
+
+(assuming your Jenkins is located at
+\http://your.reverse.proxy/jenkins/ - and is open to anonymous read
+access)

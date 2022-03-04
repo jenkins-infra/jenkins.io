@@ -1,0 +1,164 @@
+---
+layout: post
+title: "External Fingerprint Storage Phase-2 Updates"
+tags:
+- plugins
+- fingerprint
+- cloud-native
+- external-storage
+- developer
+- redis
+- gsoc
+- gsoc2020
+author: stellargo
+opengraph:
+  image: /images/post-images/2020/07-external-fingerprint-storage-phase-2/opengraph.png
+---
+
+As another great phase for the
+link:/projects/gsoc/2020/projects/external-fingerprint-storage/[External Fingerprint Storage Project]
+comes to an end, we summarise the work done during this phase in this blog post.
+It was an exciting and fruitful journey, just like the previous phase, and offered some great learning experience.
+
+To understand what the project is about and the past progress, please refer to the
+link:https://www.jenkins.io/blog/2020/06/27/external-fingerprint-storage/[phase 1 blog post].
+
+== New Stories Completed
+
+We targeted four stories in this phase, namely fingerprint cleanup, fingerprint migration, refactoring the current
+implementation to use descriptors, and improved testing of the Redis Fingerprint Storage Plugin.
+We explain these stories in detail below.
+
+=== Fingerprint Cleanup
+
+* link:https://github.com/jenkinsci/jenkins/pull/4817[]
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/23[]
+
+This story involved extending the `FingerprintStorage` API to allow external storage plugins to perform and configure
+their own fingerprint cleanup strategies.
+We added the following functionalities to Jenkins core API:
+
+* `FingerprintStorage#iterateAndCleanupFingerprints(TaskListener taskListener)`
+
+** This allows external fingerprint storage implementations to implement their own custom fingerprint cleanup.
+The method is called periodically by Jenkins core.
+
+* `FingerprintStorage#cleanFingerprint(Fingerprint fingerprint, TaskListener taskListener)`
+
+** This is a reference implementation which can be called by external storage plugins to clean up a fingerprint.
+It is upto the plugin implementation to decide whether to use this method.
+They may choose to write a custom implementation.
+
+We consume these new API functionalities in the
+link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage plugin].
+The plugin uses cursors to traverse the fingerprints, updating the build information, and deleting the build-less
+fingerprints.
+
+Earlier, fingerprint cleanup was always run periodically and there was no way to turn it off.
+We also added an option to allow the user to turn off fingerprint cleanup.
+
+image:/images/post-images/2020/07-external-fingerprint-storage-phase-2/cleanup_disable.png[Fingerprint cleanup disable]
+
+This was done because it may be the case that keeping redundant fingerprints in memory might be cheaper than the
+cleanup operation (especially in the case of external storages, which are cheaper these days).
+
+=== Fingerprint Migration
+
+* link:https://github.com/jenkinsci/jenkins/pull/4825[]
+
+Earlier, there was no support for fingerprints stored in the local storage.
+In this phase, we introduce migration support for users.
+The old fingerprints are now migrated to the new configured external storage whenever they are used (lazy migration).
+This allows gradual migration of old fingerprints from local disk storage to the new external storage.
+
+=== Refactor `FingerprintStorage` to use descriptors
+
+* link:https://github.com/jenkinsci/jenkins/pull/4834[]
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/36[]
+
+Earlier, whenever an external fingerprint storage plugin was installed, it was enabled by default.
+We refactored the implementation to make use of `Descriptor` pattern so the fingerprint engine can now be selected
+as a dropdown from the Jenkins configuration page.
+The dropdown is shown only when multiple fingerprint storage engines are configured on the system.
+link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin] was refactored
+to use this new implementation.
+
+image:/images/post-images/2020/07-external-fingerprint-storage-phase-2/fingerprint_storage_engine_dropdown.png[Fingerprint
+Storage Engine Dropdown]
+
+=== Strengthened testing for the Redis Fingerprint Storage Plugin
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/33[]
+
+We introduced new connection tests in the
+link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin].
+These tests allow testing of cases like slow connection, breakage of connection to Redis, etc.
+These were implemented using the Toxiproxy module inside Testcontainers.
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/31[]
+
+We introduced test for Configuration-as-code (JCasC) compatibility with the plugin.
+The documentation for configuring the plugin using JCasC was also added.
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/39[]
+
+We introduced a suite of authentication tests, to verify the proper working of the Redis authentication system.
+Authentication uses the credentials plugin.
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/32[]
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/pull/36[]
+
+We strengthened our web UI testing to ensure that the configuration page for the plugin works properly as planned.
+
+=== Other miscellaneous tasks
+
+Please refer to the link:https://issues.jenkins.io/browse/JENKINS-62754[Jira Epic] for this phase.
+
+== Releases 🚀
+
+Changes in the Jenkins core (except migration) were released in link:/changelog/#v2.248[Jenkins 2.248].
+
+We drafted link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/releases/tag/redis-fingerprint-storage-parent-1.0-rc-1[1.0-rc-1]
+release for the link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin]
+to deliver the changes.
+This was an increment from the link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/releases/tag/redis-fingerprint-storage-parent-0.1-alpha-1[alpha release]
+we had drafted at the end of the previous phase.
+The plugin is now available at link:https://plugins.jenkins.io/redis-fingerprint-storage/[]!
+
+== Trying out the new features!
+
+The latest release for the plugin can be downloaded from the update center, instructions for which can be
+found in the link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/blob/master/README.adoc[README]
+of the plugin.
+We appreciate you trying out the plugin, and welcome any suggestions, feature requests, bug reports, etc.
+
+== Acknowledgements
+
+The Redis Fingerprint Storage plugin is built and maintained by the Google Summer of Code (GSoC) Team for
+link:/projects/gsoc/2020/projects/external-fingerprint-storage/[External Fingerprint Storage for
+Jenkins]. Special thanks to link:https://github.com/oleg-nenashev[Oleg Nenashev],
+link:https://github.com/afalko[Andrey Falko], link:https://github.com/mikecirioli[Mike Cirioli],
+link:https://github.com/timja[Tim Jacomb], and the entire Jenkins community for all the contribution to this project.
+
+== Future Work
+
+Some of the topics we aim to tackle in the next phase include a new reference implementation (possibly backed
+by PostgreSQL), tracing, etc.
+
+== Reaching Out
+
+Feel free to reach out to us for any questions, feedback, etc. on the project's link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel] or the mailto:jenkinsci-dev@googlegroups.com[Jenkins
+Developer Mailing list].
+We use Jenkins link:https://issues.jenkins.io/[Jira] to track issues.
+Feel free to file issues under `redis-fingerprint-storage-plugin` component.
+
+== Other Links
+
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin]
+* link:https://issues.jenkins.io/browse/JENKINS-62754[Issue Tracker for Phase 2]
+* jep:226[]
+* link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel]
+* link:/projects/gsoc/2020/projects/external-fingerprint-storage/[Project Page]
+* link:/blog/2020/06/27/external-fingerprint-storage/[Phase 1 Blog Post]

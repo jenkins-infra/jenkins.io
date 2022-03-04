@@ -1,0 +1,195 @@
+---
+layout: section
+title: Other Systems
+---
+ifdef::backend-html5[]
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:toclevels: 4
+:hide-uri-scheme:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+endif::[]
+
+[[other-systems]]
+[[other-operating-systems]]
+
+== FreeBSD
+
+Jenkins can be installed on FreeBSD using the standard FreeBSD package manager, `pkg`.
+
+=== Long Term Support release
+
+A link:/download/lts/[LTS (Long-Term Support) release] is chosen every 12 weeks from the stream of regular releases as the stable release for that time period.
+It can be installed from the FreeBSD `pkg` package manager.
+
+[source,bash]
+----
+# pkg install jenkins-lts
+----
+
+[IMPORTANT]
+====
+Disclaimer: The link:https://www.freebsd.org/[FreeBSD project] maintains the Jenkins packaging for FreeBSD.
+The Jenkins package for FreeBSD is NOT officially supported by the Jenkins project,
+but it is actively used by the link:https://www.freebsd.org/[FreeBSD project] at https://ci.freebsd.org/ .
+====
+
+=== Weekly release
+
+A new release is produced weekly to deliver bug fixes and features to users and plugin developers.
+It can be installed from the FreeBSD `pkg` package manager.
+
+[source,bash]
+----
+# pkg install jenkins
+----
+
+The long term support package `jenkins-lts` and the weekly package installation `jenkins` will:
+
+* Configure Jenkins as a daemon which may optionally be launched on start. See `/etc/rc.conf` for more details
+* Create a '`jenkins`' user to run the service
+* Direct console log output to the file `/var/log/jenkins.log`. Check this file when troubleshooting Jenkins
+* Set Jenkins to listen on port 8180 from the path `/jenkins`.  Open \http://localhost:8180/jenkins to login to Jenkins
+
+=== Start Jenkins
+
+You can start the Jenkins service with the command:
+
+[source,bash]
+----
+# service jenkins onestart
+----
+
+You can check the status of the Jenkins service using the command:
+
+[source,bash]
+----
+# service jenkins status
+----
+
+You can stop the Jenkins service with the command:
+
+[source,bash]
+----
+# service jenkins stop
+----
+
+=== Enable Jenkins
+
+Add the following to `/etc/rc.conf` to start Jenkins automatically on system boot:
+
+[source,bash]
+----
+jenkins_enable="YES"
+----
+
+Once Jenkins is enabled, it can be started with:
+
+[source,bash]
+----
+# service jenkins start
+----
+
+Other configuration values that can be set in `/etc/rc.conf` or in `/etc/rc.conf.d/jenkins` are described in `/usr/local/etc/rc.d/jenkins`.
+Refer to the link:https://wiki.freebsd.org/Jenkins[Jenkins page] on the link:https://wiki.freebsd.org/[FreeBSD wiki] for more information specific to Jenkins on FreeBSD.
+
+
+== OpenIndiana Hipster
+
+On a system running link:https://www.openindiana.org/[OpenIndiana Hipster]
+Jenkins can be installed in either the local or global zone using the
+link:https://en.wikipedia.org/wiki/Image_Packaging_System[Image Packaging
+System] (IPS).
+
+[IMPORTANT]
+====
+Disclaimer: This platform is NOT officially supported by the Jenkins team,
+use it at your own risk. Packaging and integration described in this section
+is maintained by the OpenIndiana Hipster team, bundling the generic `jenkins.war`
+to work in that operating environment.
+====
+
+For the common case of running the newest packaged weekly build as a standalone (Jetty) server, simply execute:
+
+[source,bash]
+----
+pkg install jenkins
+svcadm enable jenkins
+----
+
+The common packaging integration for a standalone service will:
+
+* Create a `jenkins` user to run the service and to own the directory structures under `/var/lib/jenkins`.
+* Pull the Java package and other packages required to execute Jenkins, including
+  the `jenkins-core-weekly` package with the latest `jenkins.war`.
+* Set up Jenkins as an SMF service instance (`svc:/network/http:jenkins`) which
+  can then be enabled with the `svcadm` command demonstrated above.
+* Set up Jenkins to listen on port 8080.
+* Configure the log output to be managed by SMF at `/var/svc/log/network-http:jenkins.log`.
+
+Once Jenkins is running, consult the log
+(`/var/svc/log/network-http:jenkins.log`) to retrieve the generated
+administrator password for the initial set up of Jenkins, usually it will be
+found at `/var/lib/jenkins/home/secrets/initialAdminPassword`. Then navigate to
+link:http://localhost:8080[localhost:8080] to <<setup-wizard, complete configuration of the
+Jenkins instance>>.
+
+
+To change attributes of the service, such as environment variables like `JENKINS_HOME`
+or the port number used for the Jetty web server, use the `svccfg` utility:
+
+[source,bash]
+----
+svccfg -s svc:/network/http:jenkins editprop
+svcadm refresh svc:/network/http:jenkins
+----
+
+You can also refer to `/lib/svc/manifest/network/jenkins-standalone.xml` for more
+details and comments about currently supported tunables of the SMF service.
+Note that the `jenkins` user account created by the packaging is specially privileged
+to allow binding to port numbers under 1024.
+
+The current status of Jenkins-related packages available for the given release
+of OpenIndiana can be queried with:
+
+[source,bash]
+----
+pkg info -r '*jenkins*'
+----
+
+Upgrades to the package can be performed by updating the entire operating
+environment with `pkg update`, or specifically for Jenkins core software with:
+
+[source,bash]
+----
+pkg update jenkins-core-weekly
+----
+
+[CAUTION]
+====
+Procedure for updating the package will restart the currently running Jenkins
+process. Make sure to prepare it for shutdown and finish all running jobs
+before updating, if needed.
+====
+
+
+== Solaris, OmniOS, SmartOS, and other siblings
+
+Generally it should suffice to install a link:/doc/administration/requirements/java/[supported Java version], link:/download[download] the
+`jenkins.war`, and run it as a standalone process or under an application server
+such as link:https://tomcat.apache.org[Apache Tomcat].
+
+
+Some caveats apply:
+
+* Headless JVM and fonts: For OpenJDK builds on minimalized-footprint systems,
+  there may be
+  link:https://wiki.jenkins.io/display/JENKINS/Jenkins+got+java.awt.headless+problem[issues
+  running the headless JVM], because Jenkins needs some fonts to render certain
+  pages.
+
+include::doc/book/installing/_setup-wizard.adoc[]

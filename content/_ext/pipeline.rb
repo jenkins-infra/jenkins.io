@@ -12,7 +12,6 @@ Awestruct::Extensions::Pipeline.new do
   # Register all our blog content under the `site.posts` variable
   extension YearPosts.new('/blog', :posts)
   extension Awestruct::Extensions::Indexifier.new
-  extension Awestruct::Extensions::Sitemap.new
 
   extension Awestruct::Extensions::Paginator.new(:posts,
                                                   '/node/index',
@@ -35,7 +34,7 @@ Awestruct::Extensions::Pipeline.new do
                                               '/node/tags',
                                               :per_page => 10)
 
-  extension Awestruct::Extensions::Sitemap.new
+  extension JenkinsSitemap.new
 
   extension Awestruct::IBeams::DataDir.new
 

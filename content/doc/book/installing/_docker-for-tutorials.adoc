@@ -20,82 +20,189 @@ the sibling file _docker.adoc (used in index.adoc).
 ----
 docker network create jenkins
 ----
-. Create the following link:https://docs.docker.com/storage/volumes/[volumes] to
-  share the Docker client TLS certificates needed to connect to the Docker
-  daemon and persist the Jenkins data using the following
-  link:https://docs.docker.com/engine/reference/commandline/volume_create/[`docker volume create`]
-  commands:
-+
-[source,bash]
-----
-docker volume create jenkins-docker-certs
-docker volume create jenkins-data
-----
 . In order to execute Docker commands inside Jenkins nodes, download and run
   the `docker:dind` Docker image using the following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
+  link:https://docs.docker.com/engine/reference/run/[`docker run`]
   command:
 +
-ifeval::["{tutorial-for}" == "node"]
 [source,bash]
 ----
-docker container run --name jenkins-docker --rm --detach \
-  --privileged --network jenkins --network-alias docker \
-  --env DOCKER_TLS_CERTDIR=/certs \
-  --volume jenkins-docker-certs:/certs/client \
-  --volume jenkins-data:/var/jenkins_home \
-  --volume "$HOME":/home \
-  --publish 3000:3000 docker:dind
+docker run \
+  --name jenkins-docker \# <1>
+  --rm \# <2>
+  --detach \# <3>
+  --privileged \# <4>
+  --network jenkins \# <5>
+  --network-alias docker \# <6>
+  --env DOCKER_TLS_CERTDIR=/certs \# <7>
+  --volume jenkins-docker-certs:/certs/client \# <8>
+  --volume jenkins-data:/var/jenkins_home \# <9>
+  --publish 2376:2376 \# <10>
+  --publish 3000:3000 \# <11>
+  docker:dind \# <12>
+  --storage-driver overlay2 # <13>
 ----
-endif::[]
-ifndef::tutorial-for[]
-[source,bash]
-----
-docker container run --name jenkins-docker --rm --detach \
-  --privileged --network jenkins --network-alias docker \
-  --env DOCKER_TLS_CERTDIR=/certs \
-  --volume jenkins-docker-certs:/certs/client \
-  --volume jenkins-data:/var/jenkins_home \
-  --volume "$HOME":/home docker:dind
-----
-endif::[]
-. Run the `jenkinsci/blueocean` image as a container in Docker using the
-  following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command (bearing in mind that this command automatically downloads the image
-  if this hasn't been done):
+<1> ( _Optional_ ) Specifies the Docker container name to use for running the
+image. By default, Docker will generate a unique name for the container.
+<2> ( _Optional_ ) Automatically removes the Docker container (the instance of
+the Docker image) when it is shut down.
+<3> ( _Optional_ ) Runs the Docker container in the background. This instance
+can be stopped later by running `docker stop jenkins-docker`.
+<4> Running Docker in Docker currently requires privileged access to function
+properly. This requirement may be relaxed with newer Linux kernel versions.
+// TODO: what versions of Linux?
+<5> This corresponds with the network created in the earlier step.
+<6> Makes the Docker in Docker container available as the hostname `docker`
+within the `jenkins` network.
+<7> Enables the use of TLS in the Docker server. Due to the use
+of a privileged container, this is recommended, though it requires the use of
+the shared volume described below. This environment variable controls the root
+directory where Docker TLS certificates are managed.
+<8> Maps the `/certs/client` directory inside the container to
+a Docker volume named `jenkins-docker-certs` as created above.
+<9> Maps the `/var/jenkins_home` directory inside the container to the Docker
+volume named `jenkins-data`. This will allow for other Docker
+containers controlled by this Docker container's Docker daemon to mount data
+from Jenkins.
+<10> ( _Optional_ ) Exposes the Docker daemon port on the host machine. This is
+useful for executing `docker` commands on the host machine to control this
+inner Docker daemon.
+<11> Exposes port 3000 from the docker in docker container, used by some of the tutorials.
+<12> The `docker:dind` image itself. This image can be downloaded before running
+by using the command: `docker image pull docker:dind`.
+<13> The storage driver for the Docker volume. See
+link:https://docs.docker.com/storage/storagedriver/select-storage-driver["Docker storage drivers"] for supported
+options.
 +
-[source]
-----
-docker container run --name jenkins-tutorial --rm --detach \
-  --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
-  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
-  --volume jenkins-data:/var/jenkins_home \ # <1>
-  --volume jenkins-docker-certs:/certs/client:ro \
-  --volume "$HOME":/home \ # <2>
-  --publish 8080:8080 jenkinsci/blueocean
-----
-<1> Maps the `/var/jenkins_home` directory in the container to the Docker
-link:https://docs.docker.com/engine/admin/volumes/volumes/[volume] with the name
-`jenkins-data`. If this volume does not exist, then this `docker container run`
-command will automatically create the volume for you.
-<2> Maps the `$HOME` directory on the host (i.e. your local) machine (usually
-the `/Users/<your-username>` directory) to the `/home` directory in the
-container.
-+
-*Note:* If copying and pasting the command snippet above doesn't work, try
+*Note:* If copying and pasting the command snippet above does not work, try
 copying and pasting this annotation-free version here:
 +
-[source]
+[source,bash]
 ----
-docker container run --name jenkins-tutorial --rm --detach \
+docker run --name jenkins-docker --rm --detach \
+  --privileged --network jenkins --network-alias docker \
+  --env DOCKER_TLS_CERTDIR=/certs \
+  --volume jenkins-docker-certs:/certs/client \
+  --volume jenkins-data:/var/jenkins_home \
+  --publish 3000:3000 --publish 2376:2376 \
+  docker:dind --storage-driver overlay2
+----
+. Customise official Jenkins Docker image, by executing below two steps:
+.. Create Dockerfile with the following content:
++
+[source,subs="attributes+"]
+----
+FROM jenkins/jenkins:{jenkins-stable}-jdk11
+USER root
+RUN apt-get update && apt-get install -y lsb-release
+RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
+  https://download.docker.com/linux/debian/gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.asc] \
+  https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+RUN apt-get update && apt-get install -y docker-ce-cli
+USER jenkins
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.3 docker-workflow:1.28"
+----
+.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:{jenkins-stable}-1":
++
+[source,bash,subs="attributes+"]
+----
+docker build -t myjenkins-blueocean:{jenkins-stable}-1 .
+----
+Keep in mind that the process described above will automatically download the official Jenkins Docker image
+if this hasn't been done before.
+
+. Run your own `myjenkins-blueocean:{jenkins-stable}-1` image as a container in Docker using the
+  following
+  link:https://docs.docker.com/engine/reference/run/[`docker run`]
+  command:
++
+[source,bash,subs="attributes+"]
+----
+docker run \
+  --name jenkins-blueocean \# <1>
+  --rm \# <2>
+  --detach \# <3>
+  --network jenkins \# <4>
+  --env DOCKER_HOST=tcp://docker:2376 \# <5>
+  --env DOCKER_CERT_PATH=/certs/client \
+  --env DOCKER_TLS_VERIFY=1 \
+  --publish 8080:8080 \# <6>
+  --publish 50000:50000 \# <7>
+  --volume jenkins-data:/var/jenkins_home \# <8>
+  --volume jenkins-docker-certs:/certs/client:ro \# <9>
+  --volume "$HOME":/home \# <10>
+  myjenkins-blueocean:{jenkins-stable}-1 # <11>
+----
+<1> ( _Optional_ ) Specifies the Docker container name for this instance of
+the Docker image.
+<2> ( _Optional_ ) Automatically removes the Docker container when it is shut down.
+<3> ( _Optional_ ) Runs the current container in the background
+(i.e. "detached" mode) and outputs the container ID. If you do not specify this
+option, then the running Docker log for this container is output in the terminal
+window.
+<4> Connects this container to the `jenkins` network defined in the earlier
+step. This makes the Docker daemon from the previous step available to this
+Jenkins container through the hostname `docker`.
+<5> Specifies the environment variables used by `docker`, `docker-compose`, and
+other Docker tools to connect to the Docker daemon from the previous step.
+<6> Maps (i.e. "publishes") port 8080 of the current container to
+port 8080 on the host machine. The first number represents the port on the host
+while the last represents the container's port. Therefore, if you specified `-p
+49000:8080` for this option, you would be accessing Jenkins on your host machine
+through port 49000.
+<7> ( _Optional_ ) Maps port 50000 of the current container to
+port 50000 on the host machine. This is only necessary if you have set up one or
+more inbound Jenkins agents on other machines, which in turn interact with
+your `jenkins-blueocean` container (the Jenkins "controller").
+Inbound Jenkins agents communicate with the Jenkins
+controller through TCP port 50000 by default. You can change this port number on
+your Jenkins controller through the <<managing/security#,Configure Global Security>>
+page. If you were to change the *TCP port for inbound Jenkins agents* of your Jenkins controller
+to 51000 (for example), then you would need to re-run Jenkins (via this
+`docker run ...` command) and specify this "publish" option with something like
+`--publish 52000:51000`, where the last value matches this changed value on the
+Jenkins controller and the first value is the port number on the machine hosting
+the Jenkins controller. Inbound Jenkins agents communicate with the
+Jenkins controller on that port (52000 in this example).
+Note that link:/blog/2020/02/02/web-socket/[WebSocket agents] do not need this configuration.
+<8> Maps the `/var/jenkins_home` directory in the container to the Docker
+link:https://docs.docker.com/engine/admin/volumes/volumes/[volume] with the name
+`jenkins-data`. Instead of mapping the `/var/jenkins_home` directory to a Docker
+volume, you could also map this directory to one on your machine's local file
+system. For example, specifying the option +
+`--volume $HOME/jenkins:/var/jenkins_home` would map the container's
+`/var/jenkins_home` directory to the `jenkins` subdirectory within the `$HOME`
+directory on your local machine, which would typically be
+`/Users/<your-username>/jenkins` or `/home/<your-username>/jenkins`.
+Note that if you change the source volume or directory for this, the volume
+from the `docker:dind` container above needs to be updated to match this.
+<9> Maps the `/certs/client` directory to the previously created
+`jenkins-docker-certs` volume. This makes the client TLS certificates needed
+to connect to the Docker daemon available in the path specified by the
+`DOCKER_CERT_PATH` environment variable.
+<10> Maps the `$HOME` directory on the host (i.e. your local) machine (usually
+the `/Users/<your-username>` directory) to the `/home` directory in the
+container. Used to access local changes to the tutorial repository.
+<11> The name of the Docker image, which you built in the previous step.
++
+*Note:* If copying and pasting the command snippet above does not work, try
+copying and pasting this annotation-free version here:
++
+[source,bash,subs="attributes+"]
+----
+docker run --name jenkins-blueocean --rm --detach \
   --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
   --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
+  --publish 8080:8080 --publish 50000:50000 \
   --volume jenkins-data:/var/jenkins_home \
   --volume jenkins-docker-certs:/certs/client:ro \
-  --volume "$HOME":/home --publish 8080:8080 jenkinsci/blueocean
+  --volume "$HOME":/home \
+  myjenkins-blueocean:{jenkins-stable}-1
 ----
-. Proceed to the <<setup-wizard,Setup wizard>>.
+. Proceed to the <<setup-wizard,Post-installation setup wizard>>.
 
 
 ==== On Windows
@@ -105,72 +212,139 @@ Be sure that your Docker for Windows installation is configured to run `Linux Co
 See the Docker documentation for instructions to link:https://docs.docker.com/docker-for-windows/#switch-between-windows-and-linux-containers[switch to Linux containers].
 Once configured to run `Linux Containers`, the steps are:
 
-. Open up a command prompt window.
-. Create a link:https://docs.docker.com/network/bridge/[bridge network] in
-  Docker using the following
-  link:https://docs.docker.com/engine/reference/commandline/network_create/[`docker network create`]
-  command:
+. Open up a command prompt window and similar to the <<on-macos-and-linux,macOS and Linux>> instructions above do the following:
+. Create a bridge network in Docker
 +
-[source]
+[source,bash]
 ----
 docker network create jenkins
 ----
-. Create the following link:https://docs.docker.com/storage/volumes/[volumes] to
-  share the Docker client TLS certificates needed to connect to the Docker
-  daemon and persist the Jenkins data using the following
-  link:https://docs.docker.com/engine/reference/commandline/volume_create/[`docker volume create`]
-  commands:
+. Run a docker:dind Docker image
 +
 [source]
 ----
-docker volume create jenkins-docker-certs
-docker volume create jenkins-data
-----
-. In order to execute Docker commands inside Jenkins nodes, download and run
-  the `docker:dind` Docker image using the following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command:
-+
-[source]
-----
-docker container run --name jenkins-docker --rm --detach ^
+docker run --name jenkins-docker --rm --detach ^
   --privileged --network jenkins --network-alias docker ^
   --env DOCKER_TLS_CERTDIR=/certs ^
   --volume jenkins-docker-certs:/certs/client ^
   --volume jenkins-data:/var/jenkins_home ^
-  --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
+  --publish 3000:3000 --publish 2376:2376 ^
   docker:dind
 ----
-. Run the `jenkinsci/blueocean` image as a container in Docker using the
-  following
-  link:https://docs.docker.com/engine/reference/commandline/container_run/[`docker container run`]
-  command (bearing in mind that this command automatically downloads the image
-  if this hasn't been done):
+. Customise official Jenkins Docker image, by executing below two steps:
+.. Create Dockerfile with the following content:
 +
-[source]
+[source,subs="attributes+"]
 ----
-docker container run --name jenkins-tutorial --rm --detach ^
+FROM jenkins/jenkins:{jenkins-stable}-jdk11
+USER root
+RUN apt-get update && apt-get install -y lsb-release
+RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
+  https://download.docker.com/linux/debian/gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.asc] \
+  https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+RUN apt-get update && apt-get install -y docker-ce-cli
+USER jenkins
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.3 docker-workflow:1.28"
+----
+.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:{jenkins-stable}-1":
++
+[source,bash,subs="attributes+"]
+----
+docker build -t myjenkins-blueocean:{jenkins-stable}-1 .
+----
+Keep in mind that the process described above will automatically download the official Jenkins Docker image
+if this hasn't been done before.
+
+. Run your own `myjenkins-blueocean:{jenkins-stable}-1` image as a container in Docker using the following
+  link:https://docs.docker.com/engine/reference/run/[`docker run`]
+  command:
++
+[source,subs="attributes+"]
+----
+docker run --name jenkins-blueocean --rm --detach ^
   --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
   --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 ^
   --volume jenkins-data:/var/jenkins_home ^
   --volume jenkins-docker-certs:/certs/client:ro ^
   --volume "%HOMEDRIVE%%HOMEPATH%":/home ^
-  --publish 8080:8080 --publish 50000:50000 jenkinsci/blueocean
+  --publish 8080:8080 --publish 50000:50000 myjenkins-blueocean:{jenkins-stable}-1
 ----
-For an explanation of these options, refer to the <<on-macos-and-linux,macOS
-and Linux>> instructions above.
 . Proceed to the <<setup-wizard,Setup wizard>>.
 
+[[accessing-the-jenkins-blue-ocean-docker-container]]
+==== Accessing the Docker container
 
-==== Accessing the Jenkins/Blue Ocean Docker container
-
-If you have some experience with Docker and you wish or need to access the
-Jenkins/Blue Ocean Docker container through a terminal/command prompt using the
-link:https://docs.docker.com/engine/reference/commandline/container_exec/[`docker container exec`]
+If you have some experience with Docker and you wish or need to access your
+Docker container through a terminal/command prompt using the
+link:https://docs.docker.com/engine/reference/commandline/exec/[`docker exec`]
 command, you can add an option like `--name jenkins-tutorial` to the `docker exec` command.
 That will access the Jenkins Docker container named "jenkins-tutorial".
 
-This means you could access the Jenkins/Blue Ocean container (through a separate
-terminal/command prompt window) with a `docker container exec` command like:
+This means you could access your docker container (through a separate
+terminal/command prompt window) with a `docker exec` command like:
 
-`docker container exec -it jenkins-tutorial bash`
+`docker exec -it jenkins-blueocean bash`
+
+[[accessing-the-jenkins-console-log-through-docker-logs]]
+==== Accessing the Docker logs
+
+There is a possibility you may need to access the Jenkins console log, for
+instance, when <<unlocking-jenkins,Unlocking Jenkins>> as part of the
+<<setup-wizard,Post-installation setup wizard>>.
+
+The Jenkins console log is easily accessible through the terminal/command
+prompt window from which you executed the `docker run ...` command.
+In case if needed you can also access the Jenkins console log through the
+link:https://docs.docker.com/engine/reference/commandline/logs/[Docker logs] of
+your container using the following command:
+
+`docker logs <docker-container-name>`
+
+Your `<docker-container-name>` can be obtained using the `docker ps` command.
+
+
+==== Accessing the Jenkins home directory
+
+There is a possibility you may need to access the Jenkins home directory, for
+instance, to check the details of a Jenkins build in the `workspace`
+subdirectory.
+
+If you mapped the Jenkins home directory (`/var/jenkins_home`) to one on your
+machine's local file system (i.e. in the `docker run ...` command
+<<downloading-and-running-jenkins-in-docker,above>>), then you can access the
+contents of this directory through your machine's usual terminal/command prompt.
+
+Otherwise, if you specified the `--volume jenkins-data:/var/jenkins_home` option in
+the `docker run ...` command, you can access the contents of the Jenkins home
+directory through your container's terminal/command prompt using the
+link:https://docs.docker.com/engine/reference/commandline/container_exec/[`docker container exec`]
+command:
+
+`docker container exec -it <docker-container-name> bash`
+
+As mentioned <<accessing-the-jenkins-console-log-through-docker-logs,above>>,
+your `<docker-container-name>` can be obtained using the
+link:https://docs.docker.com/engine/reference/commandline/container_ls/[`docker container ls`]
+command. If you specified the +
+`--name jenkins-blueocean` option in the `docker container run ...`
+command above (see also
+<<accessing-the-jenkins-blue-ocean-docker-container,Accessing the Jenkins/Blue
+Ocean Docker container>>), you can simply use the `docker container exec` command:
+
+`docker container exec -it jenkins-blueocean bash`
+
+////
+Might wish to add explaining the `docker run -t` option, which was covered in
+the old installation instructions but not above.
+
+Also mention that spinning up a container of the `jenkins/jenkins` Docker
+image can be done so with all the same
+https://github.com/jenkinsci/docker#usage[configuration options] available to
+the other images published by the Jenkins project.
+
+Explain colon syntax on Docker image references like
+`jenkins/jenkins:latest'.
+////
