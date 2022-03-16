@@ -26,6 +26,8 @@ This page explains how to set up code scanning with this tool.
 In your GitHub repository, select the "Actions" link on top.
 If you already have some workflows in your repository, click "New Workflow".
 In the section "By Jenkins", select "Jenkins Security Scan" and configure the YAML file in your repository.
+We recommend committing directly to the default branch instead of adding this via a pull request:
+new code scanning findings in pull requests are shown publicly, and since there is no scan result on the default branch yet, all findings will be considered new.
 Once saved, you should be able to see findings in the "Security" tab under "Code scanning alerts", and pull requests will have an additional check.
 
 ////
@@ -43,7 +45,44 @@ You can use the same GitHub workflow and action in your Jenkins plugin project h
 Just copy the YAML workflow template from https://github.com/jenkinsci/.github/tree/master/workflow-templates[`jenkinsci/.github`] into your repository's `.github/workflows` directory, replacing the `$default-branch` placeholder as appropriate.
 
 NOTE: Your repository needs to be public or you need https://docs.github.com/en/get-started/learning-about-github/about-github-advanced-security[GitHub Advanced Security].
-Otherwise, uploading the report to the repository's code scan reporting endpoint will fail with error 403 Forbidden.
+Otherwise, uploading the report to the repository's code scan reporting endpoint will fail.
+
+== Common problems
+
+Rate limiting::
+The scan fails to execute with the following error message:
++
+> `Called workflows cannot be queued onto self-hosted runners across organisations/enterprises. Failed to queue this job. Labels: 'ubuntu-latest'.`
++
+As of March 2022, https://github.community/t/called-workflows-cannot-be-queued-onto-self-hosted-runners-across-organisations-enterprises-failed-to-queue-this-job-labels-ubuntu-latest/229355/10[GitHub seems to rate limit actions].
+If this error message appears, you are being rate-limited, for example after adding the code scanning workflow to many repositories at the same time.
+You can manually restart the scan.
+Action permissions::
++
+The workflow has a _startup failure_ with an error message like this:
++
+> `jenkins-infra/fetch-codeql-action@v1 is not allowed to be used in jenkinsci/your-plugin.`
++
+In cases of errors like this, review _Settings » Code and automation » Actions » General » Action permissions_ in your repository.
+Select either _Allow all actions and workflows_ or _Allow jenkinsci, and select non-jenkinsci, actions and workflows_.
+If you select the latter, add `jenkins-infra/*` to the list of specified actions and workflows being allowed.
+Workflow permissions::
++
+The workflow has a _startup failure_ with an error message like this:
++
+> The workflow is not valid. .github/workflows/jenkins-security-scan.yml (Line: 11, Col: 3): Error calling workflow 'jenkins-infra/jenkins-security-scan/.github/workflows/jenkins-security-scan.yaml@v2'. The workflow 'jenkins-infra/jenkins-security-scan/.github/workflows/jenkins-security-scan.yaml@v2' is requesting 'actions: read, security_events: write', but is only allowed 'actions: none, security_events: none'.
++
+This can happen if your repository is configured to limit workflow permissions to read-only access by default, and you're using an older version of the workflow that does not declare the permissions it requires.
+Compare with the https://github.com/jenkinsci/.github/blob/master/workflow-templates/jenkins-security-scan.yaml[template file] and ensure you have the same `permissions` element in your workflow.
+Missing access to Code Scanning API::
++
+The _Upload Scan Results_ step in the workflow fails with the error:
++
+> Error: Advanced Security must be enabled for this repository to use code scanning.
++
+This happens for private repositories that do not have GitHub Advanced Security enabled.
+Review _Settings » Security » Code security and analysis » GitHub Advanced Security_ in your repository and ensure that it is enabled.
+This section of the configuration is only visible if you have an appropriate GitHub paid plan.
 
 == Feedback and Contributing
 
