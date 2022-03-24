@@ -149,6 +149,67 @@ The System V `init(8)` logic was asynchronous; i.e., running `/etc/init.d/jenkin
 The `systemd(1)` logic is synchronous; i.e., running `systemctl start jenkins` will block until Jenkins signals successful startup.
 This allows system administrators to write automation to programmatically deploy Jenkins using modern tools like Ansible.
 
+Jenkins previously restarted itself after upgrading plugins or via the `/restart` or `/safeRestart` endpoints by calling `exec(2)`.
+This was fragile and exposed users to a variety of bugs.
+The `systemd(1)` implementation allows the main process to exit normally before starting it again from scratch.
+In addition to eliminating a category of bugs, this also provides more visibility into service startup progress.
+Some examples are shown below.
+
+From `systemctl status` after upgrading plugins:
+
+```
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: active (running) […]
+   Main PID: […] (java)
+     Status: "Restart in 10 seconds"
+```
+
+As Jenkins is being brought down:
+
+```
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: deactivating (stop-sigterm) since […]
+   Main PID: […] (java)
+     Status: "Stopping Jenkins"
+```
+
+As Jenkins is starting up:
+
+```
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: activating (start) since […]
+   Main PID: […] (java)
+```
+
+After successful startup:
+
+```
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: active (running) since […]
+   Main PID: […] (java)
+```
+
+If Jenkins does not signal startup completion within a configured time,
+the service will be considered failed and will be shut down again.
+As each initialization milestone (i.e., "Started initialization", "Listed all plugins",
+"Prepared all plugins", "Started all plugins", "Augmented all extensions",
+"System config loaded", "System config adapted", "Loaded all jobs",
+"Configuration for all jobs updated", and "Completed initialization") is attained,
+the timeout is extended by the value of the `jenkins.model.Jenkins.extendTimeoutSeconds` system property (by default, 15 seconds).
+The timeout can be configured with the `TimeoutStartSec` directive in the service unit.
+
 === Reporting issues
 
 If you find a regression, please file a bug report in link:https://issues.jenkins.io/[Jira].
