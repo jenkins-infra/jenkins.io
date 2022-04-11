@@ -110,8 +110,6 @@ $(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*" 
 	done;
 	mkdir -p $(ASSETS_DIR)/anchor-js/
 	cp node_modules/anchor-js/*.js $(ASSETS_DIR)/anchor-js/
-	rm -rf $(ASSETS_DIR)/ionicons
-	cp -R node_modules/ionicons/dist $(ASSETS_DIR)/ionicons
 	@touch $(BUILD_DIR)/assets
 
 #######################################################
