@@ -1,0 +1,58 @@
+---
+title: Setup a Crowdin Project
+layout: developersection
+---
+
+== Prerequisites
+=== Your plugin is internationalized
+Before integrating your project with Crowdin, you should have internationalized it.
+Internationalization documentation for Jelly, Java and Groovy can be found link:../internationalization/index.adoc[here].
+
+A practical example of this setup can be found in the link:https://github.com/jenkinsci/design-library-plugin/tree/master/src/main/resources/io/jenkins/plugins/designlibrary[design library plugin]. Every folder contains an `index.properties` file, which contains translation strings for the `index.jelly` file in the same folder.
+These strings are referenced in a typical key-value relation.
+
+=== You have logged into crowdin.jenkins.io
+Before you can request the creation of a project, you, and if available, every team member of your plugin that should have management permissions for the project on crowdin, has to log into link:https://crowdin.jenkins.io[] once. +
+If you head to `Sign up` in the upper right corner you can choose whether you want to create a new account or sign up through GitHub or Google via OAUTH2. Both are valid options to fulfill the prerequisites.
+// TODO SSO via accounts.? -> https://github.com/jenkins-infra/helpdesk/issues/2897
+
+== Setting up a new project
+=== Request the creation of a new project
+To request the creation of a new project,
+open a new issue on the link:https://github.com/jenkins-infra/helpdesk/issues/new/choose[infrastructure helpdesk], select `Crowdin Project & Permissions` and fill out the issue.
+// TODO TBD
+If you are working with several people on a plugin and want to grant them management permissions on crowdin too, mention them while dropping their crowdin usernames too.
+// TODO This is not necessarily something that has to be done by the infra team only.
+// TODO I wouldn't mind assisting and taking care of these kinds of issues, especially in the first time when everyone is still new to stuff.
+
+=== Integrating your GitHub plugin repository with crowdin.jenkins.io
+==== The workflow file
+On GitHub, open the repository you want to integrate. Navigate to "Actions" -> "New workflow" and select "By Jenkins" -> "Crowdin integration" -> "Configure".
+
+The default workflow requires one modification in order to work. +
+Change `CROWDIN_PROJECT_ID: <ID>` to the actual project ID. You can find it in the URL if you edit the project settings on crowdin.jenkins.io, for example `https://jenkins.crowdin.com/u/projects/4/crowdsource`, in this case, the project ID is `4`. You can find your project ID in your helpdesk issue too, if your project has been created.
+
+==== Authenticating the action
+To let the GitHub action access the project, you need to create a personal access token (PAT) on link:https://jenkins.crowdin.com/u/user_settings/access-tokens/create[] +
+Give the PAT a name, select the scope "Projects" and "Create" the token. You may have to confirm your credentials again. Copy the token, it'll never be shown again. +
+Return to your GitHub repository and select "Settings" -> "Security" -> "Secrets" -> "Actions" -> "New repository secret" in the upper right corner. For the name of the secret set `CROWDIN_PERSONAL_TOKEN`, for the value you insert the token you generated on crowdin.
+Finally, hit "Add secret" and you are done.
+
+==== The crowdin.yml file
+Create a `crowdin.yml` in the root directory of your plugin using the following setup:
+
+[source,yaml]
+----
+files:
+  - source: '/src/main/resources/path/to/your/translations/**/*.properties'
+    ignore:
+      - '/src/main/resources/path/to/your/translations/**/%file_name%_%two_letters_code%.properties'
+    translation: '/src/main/resources/path/to/your/translations/**/%file_name%_%two_letters_code%.properties'
+    escape_quotes: 0
+    escape_special_characters: 0
+
+project_id_env: CROWDIN_PROJECT_ID
+api_token_env: CROWDIN_PERSONAL_TOKEN
+----
+Replace `/path/to/your/translations/` with the appropriate folder structure of your plugin, take a look at the link:https://github.com/jenkinsci/design-library-plugin/blob/master/crowdin.yml[design-library] for a practice example. +
+Leave the `_env` variables untouched.
