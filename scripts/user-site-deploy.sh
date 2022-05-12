@@ -28,7 +28,7 @@ else
     echo Delete the local gh-pages and try deploy again.
     exit 1
   else
-    echo "Creating new gh-pages brach"
+    echo "Creating new gh-pages branch"
     git checkout --orphan gh-pages || exit 1
     git rm -rf . || exit 1
   fi

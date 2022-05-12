@@ -1,6 +1,5 @@
 ---
 layout: section
-wip: true
 ---
 ifdef::backend-html5[]
 :notitle:
@@ -90,14 +89,94 @@ when running multiple executors on a node.
 
 Jenkins agents are the "workers" that perform operations requested by the Jenkins controller.
 The Jenkins controller administers the agents and can manage the tooling on the agents.
-Jenkins agents may be statically allocated or they can be dynamically allocated through systems like Kubernetes, OpenShift, Amazon EC2, Azure, Google Cloud, IBM Cloud, Oracle Cloud, andd other cloud providers.
+Jenkins agents may be statically allocated or they can be dynamically allocated through systems like Kubernetes, OpenShift, Amazon EC2, Azure, Google Cloud, IBM Cloud, Oracle Cloud, and other cloud providers.
 
 This 30 minute tutorial from Darin Pope creates a Jenkins agent and connects it to a controller.
 
 .How to create an agent node in Jenkins
 video::99DddJiH7lM[youtube, width=640, height=360]
 
+== Launch inbound agent via Windows Scheduler
+
+If you are having trouble getting the inbound agent installed as a Windows service (i.e., you followed https://wiki.jenkins.io/display/JENKINS/Installing+Jenkins+as+a+Windows+service[the instructions on installing the agent as a service here] but it didn't work), an alternative method of starting the service automatically when Windows starts is to use the Windows Scheduler. 
+
+We take advantage of the Windows Scheduler's ability to run command at system startup
+
+. Configure your node to use the "Launch agents by connecting it to the master" launch method
+* Click Save
+. Note the command required to launch the agent
+* On the new agent node's Jenkins page, note the agent command line shown. 
+** It will be like:
+.....
+java -jar agent.jar \
+-jnlpUrl http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp \
+-secret <some_long_hex_string>
+.....
+. Obtain the agent.jar file and copy it to your new Windows agent node
+* In the command line noted in the last step, the "agent.jar" is a hyperlink. Click it to download the agent.jar file.
+* Copy the agent.jar file to a permanent location on your agent machine
+. Ensure that you have a java version available on your agent machine
+* If not, obtain and install a link:/doc/administration/requirements/java/[supported version] of Java
+. Run the command manually from a CMD window on your agent to confirm that it works
+* Open the CMD window
+* Run the command the one like
+.....
+java -jar agent.jar -jnlpUrl \
+http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp -secret <some_long_hex_string>
+.....
+* Go back to the node's web page in Jenkins.  If everything works then page should say "Agent is connected"
+* Stop the command (control-c)
+. Register a new scheduled job to run the same command
+* Open "Task Scheduler" on your windows machine
+** Start -> Run: task Scheduler
+* Create a basic task (Menu: Action -> Create Basic Task)
+** First page of the wizard:
+*** Name: Jenkins Agent
+*** Description (optional)
+*** Click Next
+** Next page of the wizard
+*** When do you want the task to start: select "When the computer starts"
+*** Click Next
+** Next page of the wizard
+*** What action do you want the task to perform: select "Start a program"
+*** Click Next
+** Next page of the wizard
+*** Program/Script: enter "java.exe" (or the full path to your java.exe)
+*** Add arguments: enter the rest of the command, like
+.....
+-jar agent.jar -jnlpUrl http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp \
+-secret <some_long_hex_string>
+.....
+*** eg:
+.....
+-jar D:\Scripts\jenkins\agent.jar \
+-jnlpUrl http://jenkinshost.example.com:8080/computer/buildNode1/slave-agent.jnlp -secret \
+d6a84df1fc4f45ddc9c6ab34b08f13391983ffffffffffb3488b7d5ac77fbc7
+.....
+*** Click Next
+** Next page of the wizard
+*** Click the check box "Open the Properties dialog for this task when I click Finish
+*** Click Finish
+* Update the task's properties
+** On the General tab
+*** Select the user to run the task as
+*** Select "Run whether user is logged on or not"
+** On the settings tab
+*** Uncheck "Stop the task if it runs longer than"
+*** Check "Run the task as soon as possible after a scheduled start is missed"
+*** Check "If the task failed, restart every: 10 minutes", and "Attempt to restart up to: 3 times"
+** Click OK
+. Start the scheduled task and again check that the agent is connected
+* Go back to the node's web page in Jenkins.  If everything works then page should say "Agent is connected"
+
+== Creating a macOS agent for Jenkins
+
+This video reviews the process of creating a macOS agent for Jenkins using Java 11.
+
+video::DteE1Zf8CIw[youtube,width=800,height=420]
+
 == Monitor and Restart Offline Agents
+
 
 This script can monitor and restart offline nodes if they are not disconnected manually.
 It can be executed in the Jenkins Script Console or can run periodically as a Jenkins job with the plugin:groovy[Groovy plugin].
