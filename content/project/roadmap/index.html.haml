@@ -8,49 +8,61 @@ tags:
 ---
 
 %link{:href => "/css/roadmap.css", :rel => "stylesheet", :type => "text/css"}/
+%script{:src => expand_link('js/roadmap.js'), :type => "text/javascript"}
 
 :ruby
   def tooltip_href(url, title)
     tooltip = {'data-toggle' => 'tooltip', 'data-placement' => 'top', 'title' => title}
-    return tooltip.merge({:href => url, :target => "_blank"})
+    return url != null ? tooltip.merge({:href => url, :target => "_blank", :rel => "noreferrer noopener"}) : tooltip
   end
-
-%p.roadmap-warning-banner
-  %b WARNING!
-  This is a draft roadmap for the Jenkins project, it should not be considered as a final version.
-  See the Jenkins Enhancement Proposal for more information:
-  %a{:href => "https://github.com/jenkinsci/jep/tree/master/jep/14"}
-    JEP-14
 
 %p
   Jenkins project offers a public community-driven roadmap.
   It aggregates key initiatives in all areas: features, infrastructure, documentation, community, etc.
+  See
+  %a{:href => "https://github.com/jenkinsci/jep/tree/master/jep/14"}
+    JEP-14
+  for more information about the public roadmap process.
   We do NOT commit on delivery dates, all initiatives depend on contributions.
-  Anyone is welcome to participate!
+  Anyone is welcome to participate and help us to deliver the initiatives below!
   %a{:href => "/participate/"}
     Contributing to Jenkins
+
+%p
+  Filters:
+  - site.roadmap[:roadmap].labels.each do | label |
+    %input{:type=>"checkbox", :class => "initiative-selector", :id =>"initiative-label-#{label.name}", :onclick=>"filterRoadmap()"}
+      = label.displayName
+
+- statuses = []
+- site.roadmap[:roadmap].statuses.each do | status |
+  - if status.hide
+  - else
+    - statuses << status
 
 %table.roadmap-table
   %thead
     %tr
-      - site.roadmap[:roadmap].statuses.each do | status |
+      - statuses.each do | status |
         %th
           = status.displayName
   %tbody
     - site.roadmap[:roadmap].categories.each do | category |
       %tr.status-category
-        %td.cat-name{:colspan => 4}
+        %td.cat-name{:colspan => 5}
           %span
             = category.name
-      %tr
-        - site.roadmap[:roadmap].statuses.each do | status |
+      %tr.category-initiatives
+        - statuses.each do | status |
           %td{:class => "status #{status.id}", "data-header" => status.displayName}
             - category.initiatives.each do | initiative |
               - if initiative.status == status.id
-
-                %div{:class => "status #{status.id}"}
-                  - # TODO(oleg-nenashev): Better default link for work-in-progress items?
-                  - itemLink = initiative.link.nil? ? "/project/roadmap" : initiative.link
+                - labelClasses = ""
+                - if initiative.labels
+                  - initiative.labels.each do | label |
+                    - labelClasses = "#{labelClasses} initiative-label-#{label}"
+                %div{:class => "status initiative #{status.id} #{labelClasses}"}
+                  - itemLink = initiative.link.nil? ? category.link : initiative.link
                   - itemTooltip = initiative.description.nil? ? status.description : initiative.description
                   %a{tooltip_href(itemLink, itemTooltip)}
                     = initiative.name
@@ -59,7 +71,13 @@ tags:
 %ul
   %li
     %a{:href => "https://github.com/jenkinsci/jep/tree/master/jep/14"}
-      JEP-14 - Roadmap process documentation
+      Roadmap process documentation (JEP-14)
+  %li
+    %a{:href => "https://github.com/jenkinsci/jep/tree/master/jep/14#submitting-roadmap-suggestions"}
+      HOWTO: Suggest a new roadmap item
   %li
     %a{:href => "https://github.com/jenkins-infra/jenkins.io/blob/master/content/_data/roadmap/roadmap.yml"}
-      Open data
+      Open data (roadmap.yml)
+  %li
+    %a{:href => "https://github.com/jenkins-infra/jenkins.io/blob/master/content/_data/roadmap/archive.yml"}
+      Archive (completed and withdrawn roadmap items)

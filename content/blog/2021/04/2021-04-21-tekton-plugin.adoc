@@ -1,0 +1,184 @@
+---
+layout: post
+title: "Easily reuse Tekton and Jenkins X from Jenkins"
+tags:
+- jenkins-x
+- kubernetes
+- pipeline
+- tekton
+- gitops
+- interoperability
+authors:
+- jstrachan
+description: >
+  This post gives an overview of the new Tekton plugin for Jenkins and how it can help you reuse the power of Tekton pipelines, the Tekton Catalog and the automated CI/CD from Jenkins X
+opengraph:
+  image: /images/projects/tekton-client-plugin/opengraph_jx.png
+---
+
+== What is Tekton?
+
+image:/images/projects/tekton-client-plugin/logo.png[TektonLogo,width=200,role="right"]
+
+link:https://tekton.dev/[Tekton] is a powerful and flexible open-source framework for creating CI/CD systems, allowing developers to build, test, and deploy across cloud providers and on-premises systems.
+
+=== Why use Tekton?
+
+Tekton pipelines have a number of benefits:
+
+* they are cloud native and designed from the ground up for kubernetes
+* each Tekton `Pipeline` is fully declarative and completely self described; it does not depend on any separate out of band Jenkins controllers, plugins or plugin/controller configurations
+* each `Pipeline Task` runs as a stand alone kubernetes link:https://kubernetes.io/docs/concepts/workloads/pods/[Pod] which is completely independent of any other pods and pipelines and are fully scheduled by Kubernetes to maximise resilience and optimize resource usage. A bad pipeline cannot take down another one & the kubernetes scheduler manages them all
+* each step can be any command in any container image with whatever secrets, volume mounts, environment variables and resource limits you need
+* there is no need to bundle a JVM or Jenkins Remoting container into the pod so you can keep resources and cost down
+
+== Why use Jenkins and Tekton together?
+
+Jenkins is the most popular open source automation server around. Lots of developers use it every day to get things done.
+Jenkins can now be used to automate link:https://tekton.dev/[Tekton] pipelines too which helps teams digitally transform to more cloud native solutions for their CI and CD.
+In such a case, you can use Tekton pipeline engine while getting all benefits from Jenkins as an orchestrator, user interface and the reporting engine.
+
+== Introducing the Tekton Plugin for Jenkins
+
+The link:https://github.com/jenkinsci/tekton-client-plugin[Tekton Client plugin for Jenkins] lets you easily use Jenkins to automate creating and running Tekton pipelines.
+It bridges the Kubernetes learning gap and allows invoking Tekton Pipelines and resources through Jenkins.
+This allows users to not have much of the Kubernetes specific knowledge beforehand and work.
+
+Its a single Jenkins plugin to install - so it's easy to use.
+
+For background check out the  blog post link:https://cd.foundation/blog/2020/11/05/bridging-the-gap-with-tekton-client-plugin-for-jenkins/[Bridging the Gap with Tekton-client-plugin for Jenkins] by the founder of the plugin link:https://github.com/waveywaves[Vibhav Bobade].
+
+=== Requirements
+
+The link:https://github.com/jenkinsci/tekton-client-plugin[Tekton Client plugin for jenkins] assumes you have access to a kubernetes cluster.
+
+The kubernetes cluster should have link:https://tekton.dev/[Tekton pipelines] installed.
+
+If you have not yet installed link:https://tekton.dev/[Tekton] you could use this link:https://github.com/cdfoundation/tekton-helm-chart[tekton helm chart]
+
+The Jenkins controller should also have kubernetes RBAC access to be able to create Tekton resources and watch them and their associated pods and pod logs.
+
+If you are running your Jenkins controller inside Kubernetes then an easy way to setup the RBAC is to install the link:https://github.com/jenkins-x-charts/jenkins-resources[Jenkins Resource Helm Chart] in the same namespace as your Jenkins controller.
+
+Another option is to use an link:https://jenkins-x.io/v3/[installation of Jenkins X] and let it link:https://jenkins-x.io/v3/admin/guides/jenkins/[setup a Jenkins controller via GitOps]
+
+=== Specifying the Tekton pipelines
+
+You can configure the Tekton pipeline via:
+
+* a file path in a git clone block
+* a URL to a tekton YAML file
+* a block of YAML
+
+We recommend defining Tekton pipelines as YAML files and checking them into a git repository so that you can use link:https://jenkins-x.io/v3/devops/patterns/gitops/[GitOps] and follow the link:https://jenkins-x.io/v3/devops/patterns/pipeline_as_code/[Pipeline As Code] pattern.
+
+This means that you can version your pipelines in git. It also means you can benefit from the link:https://jenkins-x.io/v3/develop/pipelines/editing/#ide-support[various IDE plugins] available for Tekton such as link:https://github.com/redhat-developer/vscode-tekton#tekton-pipelines-extension--[VS Code] and link:https://plugins.jetbrains.com/plugin/14096-tekton-pipelines-by-red-hat[IDEA] so that you get auto completion, formatting and validation while editing the YAML.
+
+So you can use the usual Git provider support in Jenkins to clone the git repository that contains then Tekton YAML file then reference the file by name.
+
+
+== Reusing Pipelines from the Tekton Catalog
+
+The link:https://github.com/tektoncd/catalog[Tekton Catalog] defines a ton of Tekton Tasks you can reuse in your pipelines
+
+We have found when it comes to a microsevices style architecture you end up with lots of repositories and pipelines. Then using a link:https://jenkins-x.io/v3/devops/patterns/pipeline_as_code/[Pipeline As Code] pattern with link:https://jenkins-x.io/v3/devops/patterns/gitops/[GitOps] we want to link:https://jenkins-x.io/v3/devops/patterns/version_everything/[Version Everything] but also make it easy for any repository to use any version of any task or pipeline.
+
+e.g. you may have many repositories using the current version of a pipeline but want to try out a new change to the pipeline in just 1 repository to verify it works well; then if it does, incrementally roll that change out to more repositories.
+
+This can make it hard trying to reuse as much as you can across the different git repositories while also minimising the number of versions and forks of git repositories you have and simplifying the maintenance of all of the pipelines.
+
+We have found on the link:https://jenkins-x.io/[Jenkins X project] that link:https://jenkins-x.io/blog/2021/02/25/gitops-pipelines/[a nice way to do this via GitOps] such that we reference versioned Tekton Tasks and Pipelines in git so that they are easy to link:https://jenkins-x.io/v3/develop/pipelines/catalog/#referencing-a-task-or-step[reuse] or link:https://jenkins-x.io/v3/develop/pipelines/catalog/#overriding-a-pipeline-step-locally[override].
+
+So we reuse Tasks and Pipelines via the link:https://jenkins-x.io/v3/develop/pipelines/catalog/#sourceuri-notation[uses: image notation] which lets us keep all of our Tekton Tasks and Pipelines in vanilla Tekton YAML; so that the IDE completion and validation works - but we can easily reuse Tasks or steps from libraries while also link:https://jenkins-x.io/v3/devops/patterns/version_everything/[Versioning Everything]
+
+**Note** that if wish to reuse steps/tasks via the link:https://jenkins-x.io/v3/develop/pipelines/catalog/#sourceuri-notation[uses: image notation] then you must click the `Tekton Catalog` flag in your Job definition which will then resolve the `uses:` clause with the actual step/task.
+
+== What is Jenkins X?
+
+image:/images/jenkins-x/logo-with-text.svg[Jenkins X Logo,width=250,role="right"]
+
+The link:https://jenkins-x.io/[Jenkins X project] automates your CI/CD on kubernetes to help you link:https://jenkins-x.io/v3/devops/accelerate/[accelerate]:
+
+* link:https://jenkins-x.io/v3/develop/create-project/[Automated CI/CD pipelines] lets you focus on your actually application code while Jenkins X automatically creates battle tested https://github.com/tektoncd/pipeline[Tekton] CI/CD pipelines for your project which are link:https://jenkins-x.io/blog/2021/02/25/gitops-pipelines/[managed via GitOps] so that its super easy to keep your pipelines up to date across your repositories or to upgrade or link:https://jenkins-x.io/v3/develop/pipelines/catalog/#overriding-a-pipeline-step-locally[override pipelines or steps] for specific repositories.
+* link:https://jenkins-x.io/v3/develop/environments/promotion[Automatic promotion of versioned artifacts] via link:https://jenkins-x.io/v3/devops/patterns/gitops/[GitOps] through your link:https://jenkins-x.io/v3/develop/environments/[Environments] such as `Staging`, `Pre-production` and `Production` whether they are running in the same kubernetes cluster or you are using link:https://jenkins-x.io/v3/admin/guides/multi-cluster/[multiple clusters for your environments]
+* link:https://jenkins-x.io/v3/develop/environments/preview/[Preview Environments] lets you propose code changes via Pull Requests and have a Preview Environment automatically created, running your code in kubernetes to get fast feedback from your team before agreeing to merge changes to the main branch
+* link:https://jenkins-x.io/v3/develop/developing/#using-chatops[ChatOps] comment on Pull Requests to give feedback, approve/hold changes, trigger optional pipelines for additional testing and other link:https://jenkins-x.io/v3/develop/reference/chatops/[ChatOps commands]
+
+All of the above is implemented in reusable Tekton pipelines.
+
+=== Reusing Jenkins X Pipelines
+
+So how can we reuse automated CI/CD pipelines from link:https://jenkins-x.io/[Jenkins X project] from Jenkins?
+
+Make sure you have the link:https://github.com/jenkinsci/tekton-client-plugin[Tekton Client plugin for Jenkins] installed in your Jenkins server.
+
+==== Using a working template
+
+If you want to start with a working example then
+
+* link:https://github.com/jstrachan/node-example/generate[Create A Git Repository From This Template]
+
+* add a new `Frestyle project` to your Jenkins server
+* enable the `Git` source code management for your new github.com repository
+* click `Add build Step` (near the bottom of the page) and then select `Tekton : Create Resource (Raw)`
+* make sure that `FILE` is selected for the input and enter the name `.lighthouse/jenkins-x/release.yaml` for the file name
+* if you are using a Jenkins X cluster enter `jx` for the namespace
+* ensure that `Enable Tekton Catalog` is checked
+* now save the pipeline - it should look something like this:
+
+
+image:/images/projects/tekton-client-plugin/example.png["Jenkins Console"]
+
+
+Now if you trigger the pipeline you should see it create a Tekton Pipeline and you should see the output of the tekton pipeline in the Jenkins console. The pipeline is actually running as a completely separate Pod in kubernetes; the Jenkins controller just tails the log into the console.
+
+In a Jenkins X cluster this pipeline should just work (reusing all the cloud resources and IAM roles setup by the Terraform) but in an arbitrary kubernetes cluster you may get issues around not being able to push images or promote due to lack of GitOps environments being defined which we can help you work through via the link:https://jenkins-x.io/community/#slack[Jenkins X slack room]
+
+
+=== Using an existing repository
+
+You can configure a Pull Request or Release pipeline in your project by copying the YAML file for the link:https://github.com/jenkins-x/jx3-pipeline-catalog/tree/master/packs[language pack] you wish to use.
+
+e.g. if you are using maven then copy link:https://github.com/jenkins-x/jx3-pipeline-catalog/blob/master/packs/maven-java11/.lighthouse/jenkins-x/pullrequest.yaml[pullrequest.yaml] or link:https://github.com/jenkins-x/jx3-pipeline-catalog/blob/master/packs/maven-java11/.lighthouse/jenkins-x/release.yaml[release.yaml] into your projects source code then reference it from your Jenkins Job:
+
+Then follow the above instructions for setting up a `Freestyle project` for your git repository and referencing the file name for your pipeline.
+
+== Overriding steps
+
+Being able to reuse steps from libraries of pipelines is awesome; but sometimes you need to change things. The assumptions, commands, arguments, environment variables or approaches used for every step in a library may not quite match what you need on a specific application. You may need to run steps before/after steps in the library or you may need to override a specific step to do something different.
+
+You can easily link:https://jenkins-x.io/v3/develop/pipelines/catalog/#customizing-an-inherited-step[customize any inherited step] in any shared pipeline or link:https://jenkins-x.io/v3/develop/pipelines/catalog/#adding-your-own-steps[add custom steps before/after any step].
+
+The fact that all the Tekton YAML is fully declarative makes it super easy to modify things via your IDE with validation and smart completion and not have to use a scripting language and understand complex shared pipeline libraries.
+
+The easiest way to try overriding a step is to install the link:[jx binary to your $PATH] then link:https://jenkins-x.io/v3/develop/pipelines/catalog/#overriding-a-pipeline-step-locally[use the jx pipeline override command] which will create a new locally overridden step you can then just edit in your IDE.
+
+Then at any time you can link:https://jenkins-x.io/v3/develop/pipelines/catalog/#viewing-the-effective-pipeline[view the effective pipeline when you make local changes]
+
+== Comparing the Kubernetes and Tekton plugins
+
+Those of you using Jenkins on a link:https://kubernetes.io/[Kubernetes] cluster are probably using the link:https://plugins.jenkins.io/kubernetes/[kubernetes plugin] right now.
+
+link:https://github.com/jenkinsci/kubernetes-plugin/tree/master/examples/declarative_from_yaml_file[Here is an example] of how to use a link:https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/declarative_from_yaml_file/Jenkinsfile[Jenkinsfile] with a link:https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/declarative_from_yaml_file/KubernetesPod.yaml[pod YAML file] so that you can run commands in different containers in the pod.
+
+What this means is that:
+
+* a kubernetes pod is created based on the link:https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/declarative_from_yaml_file/KubernetesPod.yaml[pod YAML file] which is scheduled by kubernetes
+* the link:https://github.com/jenkinsci/kubernetes-plugin/blob/master/examples/declarative_from_yaml_file/Jenkinsfile[Jenkinsfile] runs on the Jenkins controller talking over Jenkins remoting to the pod to tell it to run commands in different containers. The pod includes the `jnlp` container which does the remoting between the Jenkins controller and the pod
+
+This has a few issues:
+
+* each container in the pod must have a shell so that jnlp can invoke commands. This may mean you have to create your own images
+* it can be a little slow to start since there is chattiness with the Jenkins controller and the pod - whereas with Tekton pods just start and run locally without any coodination with the Jenkins controller
+* you have to maintain 2 files: the `Jenkinsfile` and the `pod.yaml` and it's hard to share/override both of those files across multiple repositories as you need to make changes (e.g. overriding environment variables/images/commands/resource limits on demand on steps).
+
+Though one downside of the tekton approach is that by default there is no automatic synchronisation of state; after a Task in tekton completes there's no automatic upload of state to the Jenkins controllers disk. You can always add a step in your Task to upload workspace state to the Jenkins controller if that's what you want.
+
+Though remember that tekton plugin doesn't take anything away; so you can mix and match the kubernetes and tekton plugins to suit your needs.
+
+
+== Conclusion
+
+We are really excited about the combination of Jenkins, link:https://tekton.dev/[Tekton] and link:https://jenkins-x.io/[Jenkins X] letting developers pick the best tool for the job while becoming more cloud native and increasing the automation help reduce the amount of manual work creating and maintaining pipelines while also helping to improve the quality and practices of our CI/CD.
+
+Please try it out and link:https://github.com/jenkinsci/tekton-client-plugin/issues[let us know how you get on]!

@@ -1,0 +1,29 @@
+---
+title: Rendering User Content
+layout: developerguide
+---
+
+Plugins need to be careful when presenting user-generated content on the Jenkins UI.
+This usually takes one of two forms:
+
+1. The plugin archives a report of some kind that was generated during the build and makes it available on the Jenkins UI.
+2. The plugin parses a data file of some kind, usually as a post-build step, and presents the contents to the user, e.g. through the use of a `ProminentProjectAction`.
+
+In both scenarios, low-privilege users, perhaps with the permission to configure a job, or even just able to submit a pull request, will be able to influence the report contents.
+They could inject JavaScript code into the report, that would be rendered directly in Jenkins.
+If an administrator then views the job or build, they are attacked and a malicious script would execute with that user's permissions.
+
+## Showing full reports via `DirectoryBrowserSupport`
+
+To circumvent this, Jenkins by default serves archived artifacts, including HTML reports, as well as workspace contents using Content-Security-Policy headers when using the `DirectoryBrowserSupport` class.
+This protection must not be circumvented by plugins.
+
+If reports look broken due to these restrictions, Jenkins administrators should set up a link:/doc/upgrade-guide/2.204/#resource-domain-support[Resource Root URL] from which Jenkins would service user content like archived artifacts without compromising security.
+
+## Rendering Reports Inline
+
+Plugins that directly show report information on the Jenkins UI without going through `DirectoryBrowserSupport` need to be careful to not render potentially unsafe content unescaped.
+jenkinsdoc:hudson.Util#xmlEscape-java.lang.String-[Util#xmlEscape] is a good way to escape content.
+Otherwise, a dependency on a library such as https://github.com/OWASP/java-html-sanitizer[OWASP/java-html-sanitizer] could be used to sanitize HTML and only allow a known subset.
+
+The advice on link:../xss-prevention[Preventing Cross-Site Scripting in Jelly views] may apply here too, depending on implementation.

@@ -1,0 +1,102 @@
+---
+layout: developersection
+title: "Incrementals: Developing Components in Parallel"
+tags:
+- jenkins
+- incrementals
+- core
+- plugin
+description: "This article explains how to use Incrementals for developing plugins in parallel with Jenkins core"
+---
+
+A problem one might stumble upon is developing an API in Jenkins core and simultaneously building a reference
+implementation inside a plugin.
+Another similar but maybe more common problem could be developing an API in a base plugin (upstream) and consuming it
+in a more specific plugin (downstream).
+What to do, one might ask.
+
+Worry not, incrementals are here to the rescue!
+
+With incrementals, we can create incremental versions of Jenkins core or an upstream plugin on which the under
+development downstream plugin can depend upon.
+It also allows keeping track and switching between incremental versions.
+Another advantage is that it allows others to test and collaborate more easily on the project!
+
+Sounds cool? Let's see how to go about it.
+In this tutorial, we explain with the example of developing an API in core and consuming it in a plugin.
+However these steps are very similar for when using an upstream plugin instead of Jenkins core.
+
+This article is meant to be a quickstart for the consumption of incrementals.
+For more details, please refer to the link:https://github.com/jenkinsci/incrementals-tools[incrementals documentation].
+
+== Enabling Incrementals
+
+Inside the (downstream) plugin, which is supposed to be the API consumer, you can enable incrementals by running:
+
+[source,shell]
+----
+mvn incrementals:incrementalify
+----
+
+== Create a Pull Request in Jenkins core
+
+Next step is to link:https://github.com/jenkinsci/jenkins/pulls[create a PR on github] by clicking the "New Pull
+Request" button and push the changes (your new API) to Jenkins core.
+If instead you are developing the API inside an upstream plugin, then do the above in the upstream plugin repository.
+
+image::/images/developer/plugin-development/incrementals/create-pr.png[]
+
+Note: Make sure that your branch has the latest changes from master, otherwise incrementals version
+will NOT be created.
+You can do this either by rebasing or by merging the latest changes from the master branch.
+
+== Wait for all checks to pass
+
+Wait for Jenkins to perform checks.
+
+== Obtain the Incrementals version
+
+After the checks are completed, you should get a message like below:
+
+image::/images/developer/plugin-development/incrementals/checks.png[]
+
+Click on 'Details' adjacent to 'continuous-integration/jenkins/incrementals — Deployed to Incrementals.'
+
+Note: If you only see one Github check 'continuous-integration/jenkins/pr-merge — This commit looks good' then there
+is an error due to which incrementals version was not created.
+One of the most likely reasons is that latest changes from master have not been pulled into the branch.
+You can click on 'Details' adjacent to it to investigate this error from the logs.
+
+== Copy the Version ID
+
+You should be redirected to a page like below:
+
+image::/images/developer/plugin-development/incrementals/incrementals.png[]
+
+Copy the version ID, which in this example would be `2.238-rc29961.5c3c5871cca6`.
+
+Instead, you can also run the following in the upstream repository to obtain the incrementals version:
+```
+mvn -Dset.changelist validate
+```
+
+
+== Update the plugin POM
+
+There are two changes you want to make to your plugin POM.
+
+First, update the Jenkins version to the version ID copied in the previous step:
+
+```
+...
+    <properties>
+        <jenkins.version>2.238-rc29961.5c3c5871cca6</jenkins.version>
+        ...
+    </properties>
+...
+```
+
+In case of upstream plugin, add its version in the `<version>` of your `<dependency>` inside the downstream plugin.
+
+Now you can run your project like you normally do (say using `hpi:run`), and Jenkins will it automatically run it
+against the incrementals version of the upstream project you specified.

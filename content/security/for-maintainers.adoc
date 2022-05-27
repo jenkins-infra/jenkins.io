@@ -6,7 +6,7 @@ section: security
 :toc:
 
 
-The https://issues.jenkins-ci.org/browse/SECURITY[SECURITY project in the Jenkins Jira] is a non-public issue tracker for security vulnerabilities.
+The https://issues.jenkins.io/browse/SECURITY[SECURITY project in the Jenkins Jira] is a non-public issue tracker for security vulnerabilities.
 Public knowledge of these vulnerabilities could put our users at risk, so access to issues is restricted.
 
 We grant access to specific SECURITY issues in JIRA to maintainers of affected plugins.
@@ -57,7 +57,7 @@ Due to the sensitive nature of security vulnerabilities, the following practices
   If you need assistance in fixing the vulnerability, ask for it in the SECURITY issue.
   The Jenkins security team also offers to review your security fix; please ask for a private repository in the `jenkinsci-cert` GitHub organization to be created, and submit your fix there.
 * *Coordinate the date and time of the release* of the fixed plugin with the Jenkins security team.
-  This will allow for assigning link/security/cna[a CVE ID] prior to release, and publishing a link:/security/advisories/[security advisory] informing users of the security vulnerability, and how to address it.
+  This will allow for assigning link:/security/cna[a CVE ID] prior to release, and publishing a link:/security/advisories/[security advisory] informing users of the security vulnerability, and how to address it.
 
 
 [[fix-development]]
@@ -127,7 +127,9 @@ Make sure to follow instructions provided by the Jenkins security team if they d
 === Merge the Fix
 
 First, prepare the release branch:
-If there are unrelated, unreleased changes on the master branch, create a new branch based on the previous release (specifically the `prepare for next development iteration` commit).
+If there are unrelated, unreleased changes on the default branch, create a new branch based on the previous release.
+For plugins with link:/doc/developer/publishing/releasing-manually/[manual release process] this is the `prepare for next development iteration` commit.
+For plugins delivered with link:/doc/developer/publishing/releasing-cd/[JEP-229 CD automated releases]), it is the commit that got tagged as a release.
 
 Next, use the Git command line to *squash-merge pull request branches* in the private jenkinsci-cert repository (`git merge --squash <BRANCH>`).
 
@@ -144,8 +146,10 @@ To find out what name and email address to put there, see `git log <BRANCH>`.
 [[upload]]
 === Stage with Maven
 
-For Maven-based plugins, use the following command to stage the plugin release.
-`REPONAME` is a placeholder for the Maven staging repository name.
+==== Plugins with manual releases
+
+For Maven-based plugins that are usually released manually using `mvn release:prepare release:perform`, use the following command to stage the plugin release.
+`REPONAME` is a placeholder for the name of the Maven staging repository that is provided by the Jenkins security team.
 
 `mvn -DstagingRepository=maven.jenkins-ci.org::default::https://repo.jenkins-ci.org/REPONAME -DpushChanges=false -DlocalCheckout=true org.apache.maven.plugins:maven-release-plugin:2.5.3:prepare org.apache.maven.plugins:maven-release-plugin:2.5.3:stage`
 
@@ -154,6 +158,26 @@ WARNING: The staging repository name (`REPONAME`) is _never_ a GitHub URL or Git
 *Always use `release:stage`* instead of `release:perform`.
 While the latter also supports specifying a different repository, it's not a necessary parameter, so typos in the system property can result in accidental uploads to the public repository, disclosing any vulnerabilities early.
 
+==== Plugins with otherwise automated releases (JEP-229 CD)
+
+For Maven-based plugins that use JEP-229, use the following commands to stage the plugin release.
+`REPONAME` is a placeholder for the name of the Maven staging repository that is provided by the Jenkins security team.
+
+Build and deploy the release::
+`mvn -Dset.changelist -DaltDeploymentRepository=maven.jenkins-ci.org::default::https://repo.jenkins-ci.org/REPONAME deploy`
++
+WARNING: The staging repository name (`REPONAME`) is _never_ a GitHub URL or GitHub repository name.
++
+CAUTION: If your account is allowed to upload plugin releases, be _very_ careful to enter the `-DaltDeploymentRepository` argument correctly, as any typo in the name would end up deploying to the regular Maven repository, creating a public release.
+
+Create the tag::
+`git tag "$( mvn -q help:evaluate -Dexpression=changelist -DforceStdout -Dset.changelist )"`
+
+NOTE: The specific syntax depends on your shell. This command works for `bash` and `zsh`.
+You can also just run `mvn …` first, then copy the output and provide it as argument to `git tag` manually.
+
+Since this release is staged from a private GitHub repository, be careful not to merge changes into the public GitHub repository that would trigger further releases until after the private commits have been made public after advisory publication.
+Otherwise, administrators may not be offered the staged release containing the security fix, but another release created from the public repository.
 
 === Push Commits and Tags
 

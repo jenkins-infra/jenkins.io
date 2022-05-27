@@ -3,16 +3,54 @@ title: Table to div layout migration
 layout: developerguide
 ---
 
-NOTE: This is a documentation for the incoming feature in the Jenkins core.
+NOTE: This is documentation for a new feature in Jenkins core.
 See jira:JENKINS-56109[Change Jenkins configuration UI from tables to divs] for details.
 
-Jenkins core will change its form layout from 'table' to 'div' soon.
+Jenkins core changed its form layout from ``<table>`` to ``<div>`` in 2.264 (weekly) and 2.277.1 (LTS).
+Jenkins 2.263.x (LTS) releases did *not* change their form layout from ``<table>`` to ``<div>``.
 
-All core taglib's and views were updated in link:https://github.com/jenkinsci/jenkins/pull/3895[jenkins#3895]
-as part of jira:JENKINS-56109[].
+All core ``taglib``s and views were updated in link:https://github.com/jenkinsci/jenkins/pull/3895[jenkinsci/jenkins#3895] as part of jira:JENKINS-56109[].
 
-For 99% of plugins they do not require any changes at all as they just use the standard jelly tags
-in Jenkins for their forms, such as `f:entry`, `f:textbox`, `f:checkbox`.
+The vast majority of plugins do not require any changes at all because they use the standard Jelly tags in Jenkins for their forms, such as ``<f:entry>``, ``<f:textbox>``, and ``<f:checkbox>``.
+
+== Debugging
+
+If you are experiencing configuration form problems (e.g., form controls not working, the save button not working, etc.):
+
+. Verify that you followed the instructions in the link:/doc/upgrade-guide/2.277/#upgrading-to-jenkins-lts-2-277-1[Jenkins 2.277.1 upgrade guide], including updating plugins after installing Jenkins 2.277.1.
+. Refer to the link:https://issues.jenkins.io/secure/Dashboard.jspa?selectPageId=20741[known broken plugins dashboard]; if you are using a plugin that is known to be broken, disable it and upvote the issue.
+. Disable any plugins that are no longer in use, particularly if those plugins are https://github.com/jenkins-infra/update-center2/blob/master/resources/artifact-ignores.properties[no longer distributed on the Jenkins update site] (including Team Foundation Server and Perforce).
+
+=== Identifying the broken plugin
+
+If the problem persists, perform bisection to identify the broken plugin.
+
+. If you are uncomfortable using your production Jenkins installation, set up a minimal Jenkins installation:
++
+[source,bash]
+----
+JENKINS_HOST=username:password@myhost.com:port
+curl -sSL "http://$JENKINS_HOST/pluginManager/api/xml?depth=1&xpath=/*/*/shortName|/*/*/version&wrapper=plugins" | perl -pe 's/.*?<shortName>([\w-]+).*?<version>([^<]+)()(<\/\w+>)+/\1 \2\n/g'| sed 's/ /:/' | cut -d ':' -f 1 | sort > plugins.txt
+wget https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/2.9.0/jenkins-plugin-manager-2.9.0.jar
+wget https://get.jenkins.io/war-stable/2.277.1/jenkins.war
+export JENKINS_HOME=~/.jenkins-tables-to-div
+java -jar jenkins-plugin-manager-2.9.0.jar -f plugins.txt -d $JENKINS_HOME/plugins --war jenkins.war
+java -jar jenkins.war
+----
+. Create a "freestyle" job to reproduce the issue.
+. Generally disable plugins in groups of 10, recording which plugins you have disabled.
+. Restart Jenkins.
+. If the problem persists, keep disabling plugins.
+. Once the problem is resolved, enable plugins one at a time to identify the broken plugin.
+
+=== Reporting issues
+
+When reporting an issue, include the following information:
+
+. Provide the _complete_ list of installed plugins as suggested in the link:/doc/book/system-administration/diagnosing-errors/#how-to-report-a-bug[bug reporting guidelines].
+. Provide a screenshot.
+. Provide steps to reproduce the problem on a minimal Jenkins installation; the scenario should fail when the broken plugin is enabled and pass when the broken plugin is disabled.
+. Use the `tables-to-divs-regression` label.
 
 == Examples of area which may require changes
 
@@ -32,38 +70,46 @@ it would be good to contribute fixes or enhancements to core rather than doing t
 
 == Maintaining support for tables and div layout
 
+Maintaining such support is preferred where it is easily possible, to allow plugins to be updated and used
+on Jenkins deployments with older core versions (including current LTS 2.263.x at the time of this writing).
+
 There is a jelly property set on Jenkins instances that use div's for form layout called `divBasedFormLayout`,
 so you can adapt your plugin UI based on the presence of this property.
+
+_Note: This property is only set if the form tag uses the `f:form` jelly tag, and not the HTML `form` tag,
+this will be done automatically for you in form sections but not in actions or custom views._
 
 Jelly example:
 
 [source,xml]
 ----
-<d:taglib uri="local">
-  <d:tag name="blockWrapper">
-        <j:choose>
-            <j:when test="${divBasedFormLayout}">
-                <div>
-                    <d:invokeBody/>
-                </div>
-            </j:when>
-            <j:otherwise>
-                <table style="width:100%">
-                    <d:invokeBody/>
-                </table>
-            </j:otherwise>
-        </j:choose> 
-    </d:tag>
-<d:taglib>
+<j:jelly xmlns:j="jelly:core" xmlns:d="jelly:define" xmlns:local="local">
+  <d:taglib uri="local">
+    <d:tag name="blockWrapper">
+          <j:choose>
+              <j:when test="${divBasedFormLayout}">
+                  <div>
+                      <d:invokeBody/>
+                  </div>
+              </j:when>
+              <j:otherwise>
+                  <table style="width:100%">
+                      <d:invokeBody/>
+                  </table>
+              </j:otherwise>
+          </j:choose> 
+      </d:tag>
+  </d:taglib>
 
-<local:blockWrapper>
-...
-</local:blockWrapper>
+  <local:blockWrapper>
+  ...
+  </local:blockWrapper>
+</j:jelly>
 ----
 
 This will use a table on Jenkins instances that don't have `divBasedFormLayout` and will use a div when it is set.
 
-_Note: You will likely need more tags to adapt the `tr` and `td` tags to divs see link:https://github.com/jenkinsci/multiple-scms-plugin/pull/25[multiple-scms-plugin#25] for a full example._
+_Note: You will likely need more tags to adapt the `tr` and `td` tags to divs see link:https://github.com/jenkinsci/multiple-scms-plugin/pull/25[multiple-scms-plugin#25] for a full example, or link:https://github.com/jenkinsci/notification-plugin/pull/40/files[notification-plugin#40] for an even more extensive example of different wrapper types (note they are shipped in separate files, included from the jelly files to edit with references like `xmlns:p="/lib/notification"` with a path part relative to `src/main/resources/` directory)._
 
 Groovy example:
 
@@ -74,7 +120,7 @@ blockWrapper {
 }
 
 def blockWrapper(Closure closure) {
-    if (context.getVariableWithDefaultValue("divBasedFormLayout", "false") == "true") {
+    if (context.getVariableWithDefaultValue("divBasedFormLayout", false) == true) {
         div() {
             closure.call()
         }

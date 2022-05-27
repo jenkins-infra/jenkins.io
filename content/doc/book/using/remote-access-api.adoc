@@ -1,0 +1,222 @@
+---
+layout: section
+title: Remote Access API
+---
+
+
+Jenkins provides machine-consumable remote access API to its
+functionalities. 
+Currently it comes in three flavors:
+
+. XML
+. JSON with JSONP support
+. Python
+
+Remote access API is offered in a REST-like style. 
+That is, there is no single entry point for all features, 
+and instead they are available under the `+".../api/"+` 
+URL where `+"..."+` portion is the data that it acts on.
+
+For example, if your Jenkins installation sits at https://ci.jenkins.io,
+visiting https://ci.jenkins.io/api/ will show just the top-level API
+features available – primarily a listing of the configured jobs for this
+Jenkins instance. +
+Or if you want to access information about a particular build, e.g.
+https://ci.jenkins.io/job/Infra/job/jenkins.io/job/master/lastSuccessfulBuild/, then go to
+https://ci.jenkins.io/job/Infra/job/jenkins.io/job/master/lastSuccessfulBuild/api/ and you'll
+see the list of functionalities for that build.
+
+[[RemoteaccessAPI-Whatcanyoudowithit]]
+== What can you do with it?
+
+Remote API can be used to do things like these:
+
+. retrieve information from Jenkins for programmatic consumption.
+. trigger a new build
+. create/copy jobs
+
+[[RemoteaccessAPI-Submittingjobs]]
+== Submitting jobs
+
+*Jobs without parameters*
+
+You merely need to perform an HTTP POST on
+`+JENKINS_URL/job/JOBNAME/build+`.
+
+*Jobs with parameters*
+
+Simple example - sending "String Parameters":
+
+[source,sh]
+----
+curl JENKINS_URL/job/JOB_NAME/buildWithParameters \
+  --user USER:TOKEN \
+  --data id=123 --data verbosity=high
+----
+
+Another example - sending a "File Parameter":
+
+[source,sh]
+----
+curl JENKINS_URL/job/JOB_NAME/buildWithParameters \
+  --user USER:PASSWORD \
+  --form FILE_LOCATION_AS_SET_IN_JENKINS=@PATH_TO_FILE
+----
+
+The symbol '@' is important in this example. 
+Also, the path to the file is absolute path.
+In order to make this command work, 
+you need to configure your Jenkins job to take a file parameter
+and match the *File location* field in the Jenkins job configuration with the key in the `--form` option.
+
+[[RemoteaccessAPI-RemoteAPIandsecurity]]
+== Remote API and security
+
+When your Jenkins is secured, you can use HTTP BASIC authentication to authenticate remote API requests. 
+See link:/doc/book/system-administration/authenticating-scripted-clients/[Authenticating scripted clients] for more details.
+
+[[RemoteaccessAPI-CSRFProtection]]
+== CSRF Protection
+
+*Note*: API tokens are preferred instead of crumbs for CSRF protection.
+
+[[RemoteaccessAPI-XPathselection]]
+== XPath selection
+
+The XML API supports a selection by XPath by using the query parameter 'xpath'. 
+This is convenient for extracting information in environments
+where XML manipulation is tedious (such as shell script.) 
+See https://issues.jenkins.io/browse/JENKINS-626[issue #626] for an
+example of how to use this. +
+See `+.../api/+` on your Jenkins server for more up-to-date details.
+
+[[RemoteaccessAPI-XPathexclusion]]
+=== XPath exclusion
+
+Similar to the 'xpath' query parameter above, you can use (possibly
+multiple) 'exclude' query patterns to exclude nodes from the resulting XML. 
+All the nodes that match the specified XPath will be removed from the XML. +
+See `+.../api/+` on your Jenkins server for more up-to-date details.
+
+[[RemoteaccessAPI-Depthcontrol]]
+== Depth control
+
+Sometimes the remote API doesn't give you enough information in one call. 
+For example, if you'd like to find the last successful build of a given view, 
+you'd realize that the invocation to the remote API of the view won't give you this, 
+and you'd have to recursively call the remote API of each project.
+Depth control solves this problem. 
+Depth control is fundamentally connected to the Jenkins data model.
+
+
+The data model that Jenkins maintains internally can be thought of as a
+big tree structure, and when you make a remote API call, 
+you are getting a small subtree of it. 
+The subtree is rooted at the object for which you made a remote API call, 
+and the sub-tree is cut beyond certain depth to avoid returning too much data. 
+You can adjust this cut-off behavior by specifying the depth query parameter. 
+When you specify a positive depthvalue, the subtree cut-off happens that much later.
+
+So the net result is, if you specify a bigger depth value, 
+you'll see that the remote API will now return more data. 
+Because of the algorithm,
+this works in such a way that the data returned by a bigger depth value
+includes all the data returned by smaller depth value.
+
+See `+.../api/+` on your Jenkins server for more up-to-date details.
+
+[[RemoteaccessAPI-PythonAPIwrappers]]
+== Python API wrappers
+
+https://pypi.python.org/pypi/jenkinsapi[JenkinsAPI],
+https://pypi.python.org/pypi/python-jenkins/[Python-Jenkins],
+https://pypi.org/project/api4jenkins/[api4jenkins],
+https://pypi.org/project/aiojenkins/[aiojenkins] are
+object-oriented python wrappers for the Python REST API which aim to
+provide a more conventionally pythonic way of controlling a Jenkins server. 
+It provides a higher-level API containing a number of convenience functions. 
+Services offered currently include:
+
+* Query the test-results of a completed build
+* Get objects representing the latest builds of a job
+* Search for artifacts by simple criteria
+* Block until jobs are complete
+* Install artifacts to custom-specified directory structures
+* Authentication support for Jenkins instances
+* Ability to search for builds by subversion revision
+* Ability to add/remove/query Jenkins agents
+
+[[RemoteaccessAPI-RubyAPIwrappers]]
+== Ruby API wrappers
+
+https://rubygems.org/gems/jenkins_api_client[Jenkins API Client] is an
+object oriented ruby wrapper project that consumes Jenkins's JSON API
+and aims at providing access to all remote API Jenkins provides. 
+It is available as a Rubygem and can be useful to interact with the Job, 
+Node, View, BuildQueue, and System related functionalities. 
+Services currently offered include:
+
+* Creating jobs by sending xml file or by specifying params as options
+with more customization options including source control, notifications,
+etc.
+* Building jobs (with params), stopping builds, querying details of
+recent builds, obtaining build params, etc.
+* Listing jobs available in Jenkins with job name filter, job status
+filter.
+* Adding/removing downstream projects.
+* Chaining jobs i.e given a list of projects each project is added as a
+downstream project to the previous one.
+* Obtaining progressive console output.
+* Username/password based authentication.
+* Command Line Interface with a lot of options provided in the
+libraries.
+* Creating, listing views.
+* Adding jobs to views and removing jobs from views.
+* Adding/removing Jenkins agents, querying details of agents.
+* Obtaining the tasks in build queue, and their age, cause, reason, ETA,
+ID, params and much more.
+* Quiet down, cancel quiet down, safe restart, force restart, and wait
+till Jenkins becomes available after a restart.
+* Ability to list installed/available plugins, obtain information about
+plugins, install/uninstall plugins and much more with plugins.
+
+The project source code is at
+https://github.com/arangamani/jenkins_api_client[here].
+
+[[RemoteaccessAPI-JavaAPIwrappers]]
+== Java API wrappers
+
+The https://github.com/cdancy/jenkins-rest[jenkins-rest] library is an
+object oriented Java project that provides access to the Jenkins REST
+API programmatically to some remote API Jenkins provides. It is built
+using the https://jclouds.apache.org/[jclouds toolkit] and can
+easily be extended to support more REST endpoints. Its feature set
+evolves and users are invited to contribute new endpoints via
+pull-requests. In its current state it is possible with this library to
+submit a job, track its progress through the queue, and monitor its
+execution until its completion, and obtain the build status. Services
+currently offered include:
+
+* Endpoint definition (property or environment variable)
+* Authentication (basic and API token via property or environment
+variable)
+* Crumbs Issuer support (auto-detect crumbs)
+* Folder support
+* Jobs API (build, buildInfo, buildWithParameters, config, create,
+delete, description, disable, enable, jobInfo, lastBuildNumber,
+lastBuildTimestamp and progressiveText)
+* Plugin manager API (installNecessaryPlugins, list current plugins)
+* Queue API (cancel, list queue items, query queue item)
+* Statistics API (overall load)
+* Systems API (systemInfo)
+
+The project can evolve rapidly, this list is accurate only as of the
+date of writing.
+
+[[RemoteaccessAPI-DetectingJenkinsversion]]
+== Detecting Jenkins version
+
+To check the version of Jenkins, load the top page or any
+`+.../api/*+` page and check for the `+X-Jenkins+` response header.
+This contains the version number of Jenkins, like "1.404" This is also a
+good way to check if an URL is a Jenkins URL.

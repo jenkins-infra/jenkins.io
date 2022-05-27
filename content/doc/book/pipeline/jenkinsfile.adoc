@@ -21,7 +21,7 @@ and introduces more useful steps, common patterns, and demonstrates some
 non-trivial `Jenkinsfile` examples.
 
 Creating a `Jenkinsfile`, which is checked into source control
-footnoteref:[scm, https://en.wikipedia.org/wiki/Source_control_management],
+footnote:scm[https://en.wikipedia.org/wiki/Source_control_management],
 provides a number of immediate benefits:
 
 * Code review/iteration on the Pipeline
@@ -178,7 +178,7 @@ node {
 zero exit code is returned by the command. Any non-zero exit code will fail the
 Pipeline.
 <2> `archiveArtifacts` captures the files built matching the include pattern
-(`+**/target/*.jar+`) and saves them to the Jenkins master for later retrieval.
+(`+**/target/*.jar+`) and saves them to the Jenkins controller for later retrieval.
 
 
 [TIP]
@@ -307,41 +307,6 @@ The following sections provide details about handling:
   your application or Pipeline project.
 
 
-=== String interpolation
-
-Jenkins Pipeline uses rules identical to link:http://groovy-lang.org[Groovy] for
-string interpolation. Groovy's String interpolation support can be confusing to
-many newcomers to the language. While Groovy supports declaring a string with
-either single quotes, or double quotes, for example:
-
-[source,groovy]
-----
-def singlyQuoted = 'Hello'
-def doublyQuoted = "World"
-----
-
-Only the latter string will support the dollar-sign (`$`) based string
-interpolation, for example:
-
-[source,groovy]
-----
-def username = 'Jenkins'
-echo 'Hello Mr. ${username}'
-echo "I said, Hello Mr. ${username}"
-----
-
-Would result in:
-
-[source]
-----
-Hello Mr. ${username}
-I said, Hello Mr. Jenkins
-----
-
-Understanding how to use string interpolation is vital for using some of
-Pipeline's more advanced features.
-
-
 [[using-environment-variables]]
 === Using environment variables
 
@@ -358,7 +323,7 @@ EXECUTOR_NUMBER:: The unique number that identifies the current executor (among 
 JAVA_HOME:: If your job is configured to use a specific JDK, this variable is set to the JAVA_HOME of the specified JDK. When this variable is set, PATH is also updated to include the bin subdirectory of JAVA_HOME
 JENKINS_URL:: Full URL of Jenkins, such as \https://example.com:port/jenkins/ (NOTE: only available if Jenkins URL set in "System Configuration")
 JOB_NAME:: Name of the project of this build, such as "foo" or "foo/bar".
-NODE_NAME:: The name of the node the current build is running on. Set to 'master' for master node.
+NODE_NAME:: The name of the node the current build is running on. Set to 'master' for the Jenkins controller.
 WORKSPACE:: The absolute path of the workspace
 
 Referencing or using these environment variables can be accomplished like
@@ -547,6 +512,11 @@ the case in the <<#usernames-and-passwords,Usernames and passwords>> Pipeline
 example below), then these `AWS_...` environment variables would only be scoped
 to the steps in that stage.
 
+TIP: Storing static AWS keys in Jenkins credentials is not very secure.
+If you can run Jenkins itself in AWS (at least the agent),
+it is preferable to use IAM roles for a link:https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html[computer]
+or link:https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html[EKS service account].
+It is also possible to use link:https://github.com/jenkinsci/oidc-provider-plugin#accessing-aws[web identity federation].
 
 ===== Usernames and passwords
 
@@ -634,12 +604,12 @@ by other means. A Pipeline that uses credentials can also disclose
 those credentials.  Don't allow untrusted Pipeline jobs to use trusted
 credentials.
 <2> In this Pipeline example, the credentials assigned to the three
-`COMMON_BITBUCKET_CREDS...` environment variables are scoped only to `Example
+`BITBUCKET_COMMON_CREDS...` environment variables are scoped only to `Example
 stage 1`, so these credential variables are not available for use in this
 `Example stage 2` stage's steps. If, however, the `environment` directive in
 this Pipeline were moved immediately within the <<syntax#declarative-pipeline,
 `pipeline`>> block (as is the case in the <<#secret-text,Secret text>> Pipeline
-example above), then these `COMMON_BITBUCKET_CREDS...` environment variables
+example above), then these `BITBUCKET_COMMON_CREDS...` environment variables
 would be scoped globally and could be used in any stage's steps.
 
 
@@ -847,8 +817,7 @@ Pipeline code readability.
 (the implicit parameter to `sh`) in Groovy above.
 The single-quotes will cause the secret to be expanded by the shell as an environment variable.
 The double-quotes are potentially less secure as the secret is interpolated by Groovy,
-and so typical operating system process listings (as well as Blue Ocean,
-and the pipeline steps tree in the classic UI) will accidentally disclose it :
+and so typical operating system process listings will accidentally disclose it :
 ```
 node {
   withCredentials([string(credentialsId: 'mytoken', variable: 'TOKEN')]) {
@@ -887,6 +856,200 @@ within a single `withCredentials( ... ) { ... }` step by doing the following:
   the `withCredentials( ... ) { ... }` step.
 . Click *Generate Pipeline Script* to generate the final
   `withCredentials( ... ) { ... }` step snippet.
+
+
+=== String interpolation
+
+Jenkins Pipeline uses rules identical to link:http://groovy-lang.org[Groovy] for
+string interpolation. Groovy's String interpolation support can be confusing to
+many newcomers to the language. While Groovy supports declaring a string with
+either single quotes, or double quotes, for example:
+
+[source,groovy]
+----
+def singlyQuoted = 'Hello'
+def doublyQuoted = "World"
+----
+
+Only the latter string will support the dollar-sign (`$`) based string
+interpolation, for example:
+
+[source,groovy]
+----
+def username = 'Jenkins'
+echo 'Hello Mr. ${username}'
+echo "I said, Hello Mr. ${username}"
+----
+
+Would result in:
+
+[source]
+----
+Hello Mr. ${username}
+I said, Hello Mr. Jenkins
+----
+
+Understanding how to use string interpolation is vital for using some of
+Pipeline's more advanced features.
+
+==== Interpolation of sensitive environment variables
+
+[WARNING]
+======
+Groovy string interpolation should [red]*never* be used with credentials.
+======
+
+Groovy string interpolation can leak sensitive environment variables (i.e. credentials, see: <<Handling credentials>>).
+This is because the sensitive environment variable will be interpolated during Groovy evaluation, and the environment variable's value could be made available earlier than intended, resulting in sensitive data leaking in various contexts.
+
+For example, consider a sensitive environment variable passed to the `sh` step.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    environment {
+        EXAMPLE_CREDS = credentials('example-credentials-id')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                /* WRONG! */
+                sh("curl -u ${EXAMPLE_CREDS_USR}:${EXAMPLE_CREDS_PSW} https://example.com/")
+            }
+        }
+    }
+}
+// Script //
+----
+Should Groovy perform the interpolation, the sensitive value will be injected directly into the arguments of the `sh` step, which among other issues, means that the literal value will be visible as an argument to the `sh` process on the agent in OS process listings.
+Using single-quotes instead of double-quotes when referencing these sensitive environment variables prevents this type of leaking.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+    environment {
+        EXAMPLE_CREDS = credentials('example-credentials-id')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                /* CORRECT */
+                sh('curl -u $EXAMPLE_CREDS_USR:$EXAMPLE_CREDS_PSW https://example.com/')
+            }
+        }
+    }
+}
+// Script //
+----
+
+
+==== Injection via interpolation
+
+[WARNING]
+======
+Groovy string interpolation can inject rogue commands into command interpreters via special characters.
+======
+
+Another note of caution. Using Groovy string interpolation for user-controlled variables with steps that pass their arguments to command interpreters such as the `sh`, `bat`, `powershell`, or `pwsh` steps can result in problems analogous to SQL injection.
+This occurs when a user-controlled variable (generally an environment variable, usually a parameter passed to the build) that contains special characters (e.g. `/ \ $ & % ^ > < | ;`) is passed to the `sh`, `bat`, `powershell`, or `pwsh` steps using Groovy interpolation.
+For a simple example:
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent any
+  parameters {
+    string(name: 'STATEMENT', defaultValue: 'hello; ls /', description: 'What should I say?')
+  }
+  stages {
+    stage('Example') {
+      steps {
+        /* WRONG! */
+        sh("echo ${STATEMENT}")
+      }
+    }
+  }
+}
+// Script //
+----
+
+In this example, the argument to the `sh` step is evaluated by Groovy, and `STATEMENT` is interpolated directly into the argument as if `sh('echo hello; ls /')` has been written in the Pipeline.
+When this is processed on the agent, rather than echoing the value `hello; ls /`, it will echo `hello` then proceed to list the entire root directory of the agent.
+Any user able to control a variable interpolated by such a step would be able to make the `sh` step run arbitrary code on the agent.
+To avoid this problem, make sure arguments to steps such as `sh` or `bat` that reference parameters or other user-controlled environment variables use single quotes to avoid Groovy interpolation.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent any
+  parameters {
+    string(name: 'STATEMENT', defaultValue: 'hello; ls /', description: 'What should I say?')
+  }
+  stages {
+    stage('Example') {
+      steps {
+        /* CORRECT */
+        sh('echo ${STATEMENT}')
+      }
+    }
+  }
+}
+// Script //
+----
+
+Credential mangling is another issue that can occur when credentials that contain special characters are passed to a step using Groovy interpolation.
+When the credential value is mangled, it is no longer valid and will no longer be masked in the console log.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent any
+  environment {
+    EXAMPLE_KEY = credentials('example-credentials-id') // Secret value is 'sec%ret'
+  }
+  stages {
+    stage('Example') {
+      steps {
+          /* WRONG! */
+          bat "echo ${EXAMPLE_KEY}"
+      }
+    }
+  }
+}
+// Script //
+----
+
+Here, the `bat` step receives `echo sec%ret` and the Windows batch shell will simply drop the `%` and print out the value `secret`.
+Because there is a single character difference, the value `secret` will not be masked.
+Though the value is not the same as the actual credential, this is still a significant exposure of sensitive information.
+Again, single-quotes avoids this issue.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+  agent any
+  environment {
+    EXAMPLE_KEY = credentials('example-credentials-id') // Secret value is 'sec%ret'
+  }
+  stages {
+    stage('Example') {
+      steps {
+          /* CORRECT */
+          bat 'echo %EXAMPLE_KEY%'
+      }
+    }
+  }
+}
+// Script //
+----
 
 
 === Handling parameters
@@ -1079,10 +1242,10 @@ stage('Test') {
 ----
 <1> The `stash` step allows capturing files matching an inclusion pattern
 (`+**/target/*.jar+`) for reuse within the _same_ Pipeline. Once the Pipeline has
-completed its execution, stashed files are deleted from the Jenkins master.
+completed its execution, stashed files are deleted from the Jenkins controller.
 <2> The parameter in `agent`/`node` allows for any valid Jenkins label
 expression. Consult the <<syntax#, Pipeline Syntax>> section for more details.
-<3> `unstash` will retrieve the named "stash" from the Jenkins master into the
+<3> `unstash` will retrieve the named "stash" from the Jenkins controller into the
 Pipeline's current workspace.
 <4> The `bat` script allows for executing batch scripts on Windows-based
 platforms.
@@ -1115,7 +1278,7 @@ sh([script: 'echo hello'])  /* long form */
 === Advanced Scripted Pipeline
 
 Scripted Pipeline is a domain-specific language
-footnoteref:[dsl, https://en.wikipedia.org/wiki/Domain-specific_language]
+footnote:dsl[https://en.wikipedia.org/wiki/Domain-specific_language]
 based on Groovy, most
 link:http://groovy-lang.org/semantics.html[Groovy syntax]
 can be used in Scripted Pipeline without modification.
