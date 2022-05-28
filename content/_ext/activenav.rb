@@ -4,8 +4,22 @@ module ActiveNav
     return options[:css_class] if page.section == section_name
   end
 
+  def absolute_link(relative_url)
+    # if it is a full url with a schema, then can't do anything with it
+    return relative_url if relative_url.start_with?('https://', 'http://')
+
+    [site.base_url, relative_url.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/').sub(%r{^/}, '')].join('/')
+  end
+
   def expand_link(relative_url)
-    return [site.base_url, relative_url.sub(/^\//, '')].join('/')
+    # if it is a full url with a schema, then can't do anything with it
+    return relative_url if relative_url.start_with?('https://', 'http://')
+
+    link = [URI(site.base_url).path, relative_url.sub(%r{^/}, '')].join('/')
+    # if it has a file extension its a file and shouldn't get a / added
+    link = link + '/' if File.extname(link).empty?
+    # strip double slashes on the end
+    link.gsub(/\/(\/)+/, '/')
   end
 
   def active_href(relative_url, text, options={:class => nil})

@@ -1,0 +1,108 @@
+NOTE: 2.222.1 and 2.204.6 were released on the same day, and both contain the same security fixes.
+This upgrade guide only covers the upgrade from 2.204.6.
+See link:../2.204/[its upgrade guide] for information related to upgrading from 2.204.5, including all information related to security fixes common to both releases.
+
+==== Global build discarder configuration lost on restart
+
+The global build discarder configuration is saved when the administrator modifies it, but is not loaded when Jenkins restarts.
+The default global build discarder configuration is used when Jenkins restarts.
+
+On every restart, Jenkins 2.222.1 will start with the default build discarder configured.
+That means:
+
+* Any custom global build discarder configuration is lost on restart
+* Users who don't want background build discarders get the default one
+
+==== Old builds may be deleted by global build discarders
+
+Jenkins will by default periodically run build discarders configured in projects, even when no builds are currently running.
+**This may delete old builds of projects that have been configured with a more aggressive build discarder configuration since the last build was run.**
+
+We recommend reviewing project configurations for aggressive build discarder settings before upgrading Jenkins if this change in behavior could result in unexpected data loss.
+
+NOTE: We recommend creating backups of your Jenkins configuration and data regularly.
+
+
+
+==== Always enabled CSRF Protection
+
+Jenkins will automatically enable CSRF protection with the default crumb issuer if it was disabled before.
+The ability to not have CSRF protection enabled has been deprecated and removed from the UI.
+
+API clients should authenticate using API tokens, which doesn't require CSRF crumbs since 2.96.
+
+Set the system property `hudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION` to `true` on startup to disable CSRF protection as well as the configuration UI for it.
+This is an unsupported option and may be removed in the future.
+
+While Jenkins is running, the configuration UI can be locked/unlocked by running one of the following commands in the script console:
+
+----
+// to allow disabling
+hudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION = true
+
+// to force enabled
+hudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION = false
+----
+
+This will not immediately change the configured crumb issuer; the _Configure Global Security_ form must be submitted once to change the setting accordingly.
+
+
+
+==== Removed agent protocols
+
+_Inbound TCP Agent Protocol_ versions 1, 2, and 3 (also known as _JNLP Protocols_ or _Java Web Start Protocols_) have been removed.
+These protocols have been deprecated link:/blog/2017/08/11/remoting-update/[since Jenkins 2.75 in 2017].
+
+plugin:ssh-slaves[SSH Build Agents Plugin] uses the latest `agent.jar`, but other agent types may need to have their `agent.jar` updated manually.
+//The following agent types should be updated:
+//
+//TODO Oleg to rewrite
+//TODO Oleg to rewrite
+
+
+
+==== Redesigned password form field
+
+To reduce the number of times that browser password auto-fill will inappropriately fill in saved credentials, the password form fields used in Jenkins configuration forms have been redesigned.
+In case this change causes problems, it can be reverted by setting the system property `hudson.Functions.hidingPasswordFields` to `true`.
+
+
+
+==== Dangerous permissions deprecation
+
+link:https://github.com/jenkinsci/jep/blob/master/jep/223/README.adoc[JEP-223], link:https://issues.jenkins.io/browse/JENKINS-60266[JENKINS-60266]
+
+In 2017 the `Overall/RunScripts`, `Overall/UploadPlugins`, and `Overall/ConfigureUpdateCenter` were announced as potentially dangerous permissions and hidden from view in plugin:matrix-auth[Matrix Authorization Plugin] and plugin:role-strategy[Role-based Strategy Plugin] to prevent accidental misconfigurations (link:/security/advisory/2017-04-10/#matrix-authorization-strategy-plugin-allowed-configuring-dangerous-permissions[2017-04-10 security advisory]).
+
+These permissions are now deprecated and no longer used in Jenkins core.
+Configurations which grant any of these permissions while not granting `Overall/Administer` will no longer work as before, as Jenkins now requires `Overall/Administer` permission for features previously governed by these permissions.
+Custom authorization strategies that grant `Overall/Administer` without implying one or more of those permissions will no longer work as expected as a result.
+Plugins are also expected to switch from requiring these deprecated permissions to requiring `Overall/Administer` instead, resulting in further unexpected behavior changes in these configurations.
+
+
+==== Remove network discovery services 
+
+https://issues.jenkins.io/browse/JENKINS-33596[JENKINS-33596], https://issues.jenkins.io/browse/JENKINS-60913[JENKINS-60913]
+
+Network discovery features, DNS multicast and UDP broadcast, were previously disabled and discouraged because of various problems, including link:/security/advisory/2020-01-29/#SECURITY-1641[SECURITY-1641 in Jenkins Security Advisory 2020-01-29].
+They have now been removed without replacement.
+
+plugin:swarm[Swarm Plugin] needs to be updated to version 3.18 or above, otherwise the error described in https://issues.jenkins.io/browse/JENKINS-61029[JENKINS-61029] occurs. This also removes the network discovery capability of the plugin.
+
+
+
+==== Header and Breadcrumb Layout Improvements
+
+link:https://github.com/jenkinsci/jenkins/pull/4463[PR-4463], link:https://issues.jenkins.io/browse/JENKINS-60920[JENKINS-60920]
+
+Instances with plugins that depend on specific details of the Jenkins UI (like plugin:simple-theme-plugin[Simple Theme plugin]) may experience issues with this release and may need to be updated.
+In the case of the Simple Theme plugin, theme maintainers may need to adapt the theme to the UI changes.
+
+
+
+==== Removal of jenkins-slave.xml resource file
+
+link:https://github.com/jenkinsci/jenkins/pull/4330[PR-4330]
+
+The resource file `jenkins-slave.xml` has been removed as it's been unused in Jenkins core since 2017.
+plugin:windows-slaves[WMI Windows Agents Plugin] needs to be updated to version 1.3.1 or newer (released in March 2017).

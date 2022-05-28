@@ -1,26 +1,115 @@
 ---
-layout: redirect
-redirect_url: https://wiki.jenkins.io/display/JENKINS/Fingerprint
----
-
-////
-
----
 layout: section
+title: Fingerprints
 ---
-:notitle:
-:description:
-:author:
-:email: jenkinsci-docs@googlegroups.com
-:sectanchors:
-:toc:
 
 = Fingerprints
 
-////
-Pages to mark as deprecated by this document:
+== Tracking file usage across Jenkins jobs using fingerprints
 
-https://wiki.jenkins.io/display/JENKINS/Fingerprint
-////
+When you have interdependent projects on Jenkins, it often becomes hard
+to keep track of which version of a file is used by which version of a
+dependency on that file.
+Jenkins supports *file fingerprinting* to track dependencies.
 
-////
+For example, suppose you have a TOP project that depends on a MIDDLE
+project, which in turn depends on a BOTTOM project.
+You are working on the BOTTOM project.
+The TOP team reported that the `+bottom.jar+` that they are using causes
+an NPE, which you (a member of the BOTTOM team) thought you fixed in
+BOTTOM #32.
+Jenkins can tell you which MIDDLE builds and TOP builds are using (or not
+using) your `+bottom.jar+` #32.
+
+== How do I set it up?
+
+To make this work, all the relevant projects need to be configured to
+*Record fingerprints* of the jar files (in the above case,
+`+bottom.jar+`).
+
+For example, if you just want to track which BOTTOM builds are used by
+which TOP builds, configure TOP and BOTTOM to record the fingerprint
+of `+bottom.jar+`.
+If you also want to know which MIDDLE builds are using which
+`+bottom.jar+`, also configure MIDDLE.
+
+Since recording fingerprints is a cheap operation, the simplest thing to
+do is just blindly record all fingerprints of the followings:
+
+. jar files that your project produce
+. jar files that your project rely on
+
+The disk usage is affected more by the number of files fingerprinted, as
+opposed to the size of files or the number of builds they are used.
+So unless you have a plenty of disk space, you don't want to fingerprint
+`+**/*+`.
+
+=== Configure a job to Record Fingerprint(s) of a file or set of files
+
+Go to your project, click *Configure* in the left navigation bar, then
+scroll down to the *Post-build Actions* section of the job
+
+Click on the button to add a *Post-build* action.
+
+Select *Record fingerprints of files to track usage*.
+
+The post-build action configuration fields provide you with a pattern
+option to match the files you want to fingerprint as well as a couple
+check-box selections to do your file fingerprinting.
+
+Maven job type does this automatically for its dependencies and
+artifacts.
+
+== How does it work?
+
+The fingerprint of a file is simply an MD5 checksum. Jenkins maintains a
+database of MD5 checksums, and for each MD5 checksum, Jenkins records
+which builds of which projects used it.
+This database is updated every time a build runs and files are
+fingerprinted.
+
+To avoid excessive disk usage, Jenkins does not store the actual
+file.
+Instead, it just stores MD5 checksums and their usages.
+These files can be seen in
+
+*$JENKINS_HOME/fingerprints*
+
+Plugins can store additional information in these records.
+For example,
+https://plugins.jenkins.io/deployment-notification/[Deployment Notification Plugin]
+tracks files deployed on servers via chef/puppet through fingerprints.
+
+== How can I use it?
+
+Here are a few typical scenarios that benefit from this feature:
+
+You develop the BOTTOM project and you want to know who is using BOTTOM
+#13 in which builds
+
+. Go to BOTTOM #13 build page.
+. Click the "fingerprint" icon of `+bottom.jar+` in the build artifacts
+. You'll see all the projects and builds that use it.
+
+You develop the TOP project and you want to know which build of
+`+bottom.jar+` and `+middle.jar+` you are using in TOP #10.
+
+. Go to TOP #10 build page.
+. Click "see fingerprints"
+. You'll see all the files fingerprinted in TOP #10, along with where
+they came from.
+
+You have the TOP project that builds a jar.
+You also have the TOP-TEST project that runs after the TOP project and does extensive
+integration tests on the latest TOP bits. You want to know the test results of TOP
+#7.
+
+. Go to TOP #7 build page.
+. Click the "fingerprint" icon of `+top.jar+` in the build artifacts
+. You'll see all the TOP-TEST builds that used it.
+. Click it and you'll be taken to the appropriate TOP-TEST build page,
+which will show you test reports.
+. If there's no TOP-TEST builds displayed, then that means TOP-TEST
+build didn't run against TOP #7. Maybe it skipped TOP #7 (this can
+happen if there are a lot of TOP builds in a short period of time), or
+maybe a new TOP-TEST build is in progress.

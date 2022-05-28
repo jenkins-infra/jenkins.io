@@ -1,0 +1,167 @@
+---
+layout: section
+title: Using JMeter with Jenkins
+---
+ifdef::backend-html5[]
+:description:
+:author:
+:email: jenkinsci-docs@googlegroups.com
+:sectanchors:
+:toc:
+:toclevels: 4
+:hide-uri-scheme:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+endif::[]
+
+= Using JMeter with Jenkins
+
+There are big advantages to use JMeter and Jenkins together.
+Continuous Integration and Test Automation become standards on the DevOps world,
+but the performance levels and system complexity are increasing day by day.
+
+Luckily, with Jenkins we can integrate all JMeter tests in our pipeline process
+and better understand the details of our applications.
+
+Some of the main benefits of using JMeter with Jenkins are:
+
+* Unattended test execution for each system
+* Logs of build failures and recovery steps
+* Secure and easy access to test reports of each build
+* Automate routine work
+
+== The Apache JMeter
+
+link:https://jmeter.apache.org/[Apache JMeter] may be used to test performance of static sites, dynamic sites, and complete web applications.
+It can be used to simulate a heavy load on a server, group of servers, network or object to test its strength or to analyze overall performance under different load types.
+
+== Jenkins Installation
+
+The Jenkins docs already have a page to help us with the link:/doc/book/installing/[Jenkins installation process.].
+This guide uses the .jar installation.
+Visit the link:/doc/pipeline/tour/getting-started/[Guided tour page] if you want to use it too.
+Both will give you the same results.
+
+== Install the performance plugin
+
+In order to integrate JMeter with Jenkins, we will work with the plugin:performance[Performance Plugin].
+
+Follow these steps to install it:
+
+1. From your Jenkins dashboard page go to: `Manage Jenkins`
+2. Go to `Manage Plugins` page;
+3. Click on the `Available Tab` and write 'performance' in the search field;
+4. Mark the installation checkbox and press the button: "Install without restart"
++
+image:jmeter/jmeter-00.png[performance plugin]
+5. If everything goes well you will receive this confirmation screen:
++
+image:jmeter/jmeter-01.png[Install confirmation page]
+
+== JMeter Installation
+
+In order to Install JMeter follow these steps:
+
+1. Go to link:https://jmeter.apache.org/download_jmeter.cgi[Apache JMeter download page]
+2. Pick your download option based on your system: .zip for windows or .tgz to Linux (I'm on windows, so I get the .zip option)
+3. Extract the downloaded file in your preferred location. (e.g.: c:\jmeter)
+4. Now edit the file: `<YOUR-JMETER-PATH>>\bin\user.properties`; (e.g.: C:\jmeter\bin in my case)
+5. Add this command to last line of file: `jmeter.save.saveservice.output_format=xml`, save and close the file edit;
++
+image:jmeter/jmeter-03.png[user.properties command]
+6. That command will help us to integrate the JMeter output into Jenkins.
+7. Now let's create our JMeter test plan.
+
+=== First JMeter Test Plan using a GUI
+
+JMeter uses Test Plans to organize each test.
+Once configured Jenkins will call all test plans defined on a pipeline
+and then show the results inside the build reports.
+It means you need to set all Test plans on JMeter as a first step
+and then info to Jenkins which test it needs to call.
+
+Follow these steps to create a Test Plan:
+
+1. Run the file: `<YOUR-JMETER-PATH>>\bin\jmeter.bat` to open the JMeter GUI; (e.g.: C:\jmeter\bin\jmeter.bat in my case)
++
+[NOTE]
+====
+* To Linux user will be the jmeter.sh
+* In a definitive installation you can set these commands to your path system or System variables
+====
+2. From JMeter GUI go to `File menu` and then pick the `New option`;
+3. Fill a name to your test plan. (e.g.: Jenkins.io Test Plan )
+4. Now on the left side, click with the right button on your test plan item, go through this path `Add > Thread(users) > Thread Group`, and select it.
++
+image:jmeter/jmeter-04.png[plan test screen]
+5. Increase the `Number of threads (users)` to 5 at Thread Group and to 2 on the `Loop Count`;
+6. Now on the left side, click with the right button on your Thread Group item, go though: `Add > Sampler > Http Requester` and select Http Requester option;
++
+image:jmeter/jmeter-05.png[Thread Group]
+7. At Http Request, Fill: The `Name` of test, the `Server Name`, and the `Path Context`; (e.g: Installing; www.jenkins.io; and /doc/book/installing/ )
++
+image:jmeter/jmeter-06.png[Http Request sample]
+8. Repeat steps 6 and 7 more two times to different contexts/pages. (e.g.: www.jenkins.io/node)
+9. Now our plan has 3 things to test.
+10. To add a visual report click with the right button on your Thread Group item, go though: `Add > Listener > View results in table` and select View results in table option;
++
+image:jmeter/jmeter-07.png[Save and run test plan]
+11. Now let's save our test plan. Click on "disk icon", give a name a save with a .jmx extension (e.g.: jenkins.io.jml)
+12. Now run the test and see the table results.
++
+image:jmeter/jmeter-08.png[test results]
+
+=== First JMeter Test Plan using terminal commands
+
+Our test is working well in the graphical user interface,
+but in order to integrate it with Jenkins, it needs to run from the command line.
+
+Follow these steps to test:
+
+1. From the terminal run the command:
++
+[bash]
+----
+set OUT=jmeter.save.saveservice.output_format
+set JMX=c:\jmeter\bin\jenkins.io.jmx
+set JTL=c:\jmeter\reports\jenkins.io.report.jtl
+c:\jmeter\bin\jmeter -j %OUT%=xml -n -t %JMX% -l %JTL%
+----
+2. If everything works well the report file will be create at indicated location by -l parameter:
++
+image:jmeter/jmeter-09.png[manual test results]
+
+== Jenkins and JMeter running together
+
+Now we have everything we need to execute JMeter from Jenkins. Follow these steps:
+
+1. From Jenkins dashboard go to `New Item`;
+2. Fill the item name (e.g.: JmeterTest), select freestyle project, then press OK;
+3. Go to `Build Environment` tab, click on `Add build step`, and select the option: `Execute Windows batch command`
+4. Now fill the field with same code we use to run JMeter at previous section:
++
+image:jmeter/jmeter-10.png[Jenkins JMeter build step]
+5. Now go to `Post-build Action tab`, Click on `Add post-build action` then select `Publish Performance test result report`;
++
+[NOTE]
+====
+This option comes from the performance plugin if you can see it now please check the previous section and make sure you have installed the plugin.
+====
+6. Now Fill the source of our reports:
++
+image:jmeter/jmeter-11.png[Source of reports]
+7. Now Save the project and then click on `Build Now` from jmeterTest page
+8. After the job finish, go to the Console output view to see the execution details.
++
+image:jmeter/jmeter-12.png[Execution Details]
+9. Console output view you can access the `Performance Report` and you will see the JMeter report data.
++
+image:jmeter/jmeter-13.png[Report Execution Details]
+
+[NOTE]
+====
+This page outlines how to use Apache JMeter with Jenkins.
+The instructions are intentionally simplified by running Apache JMeter on the Jenkins controller.
+Apache JMeter in a production Jenkins environment should be run on a Jenkins agent, not on the Jenkins controller.
+Learn more about Jenkins agents from the link:/doc/book/using/using-agents/[Using Jenkins agents] page.
+====

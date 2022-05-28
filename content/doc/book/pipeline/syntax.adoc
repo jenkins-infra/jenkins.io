@@ -38,7 +38,7 @@ steps provided by plugins.
 == Declarative Pipeline
 
 Declarative Pipeline is a relatively recent addition to Jenkins Pipeline
-footnoteref:[declarative-version, Version 2.5 of the "Pipeline plugin"
+footnote:declarative-version[Version 2.5 of the "Pipeline plugin"
 introduces support for Declarative Pipeline syntax]
 which presents a more simplified and opinionated syntax on top of the Pipeline
 sub-systems.
@@ -70,6 +70,12 @@ You can use the
 link:../getting-started/#directive-generator[Declarative Directive Generator]
 to help you get started with configuring the directives and sections in your
 Declarative Pipeline.
+
+=== Limitations
+
+There is currently an link:https://issues.jenkins.io/browse/JENKINS-37984[open issue] 
+which limits the maximum size of the code within the `pipeline{}` block. This limitation 
+does not apply to Scripted pipelines.
 
 [[declarative-sections]]
 === Sections
@@ -107,15 +113,35 @@ There are some nuances when adding an agent to the top level or a stage level, a
 In `agents` declared at the outermost level of the Pipeline, the options are invoked *after* entering the agent.
 As an example, when using `timeout` it will be only applied to the execution *within* the agent.
 
+```
+node("myAgent") {
+    timeout(unit: 'SECONDS', time: 5) {
+        stage("One"){
+            sleep 10
+            echo 'hello'
+        }
+    }
+}
+```
 
 [[stage-level-agents]]
 ====== Stage Agents
 In `agents` declared within a stage, the options are invoked *before* entering the `agent` and *before* checking any `when` conditions.
 In this case, when using `timeout`, it is applied *before* the `agent` is allocated.
-The timeout will include the agent provisioning time.
+
+```
+timeout(unit: 'SECONDS', time: 5) {
+    stage("One"){
+        node {
+            sleep 10
+            echo 'Hello'
+        }
+    }
+}
+```
+
+This timeout will include the agent provisioning time.
 Because the timeout includes the agent provisioning time, the Pipeline may fail in cases where agent allocation is delayed.
-When using `timeout`, it will applied before the `agent` therefore the timeout will account for the provisioning time.
-This may cause the pipeline to timeout if it takes too long to allocate an agent.
 
 
 [[agent-parameters]]
@@ -134,6 +160,8 @@ need to contain its own `agent` section. For example: `agent none`
 
 label:: Execute the Pipeline, or stage, on an agent available in the Jenkins
 environment with the provided label. For example: `agent { label 'my-defined-label' }`
++
+Label conditions can also be used. For example: `agent { label 'my-label1 && my-label2' }` or `agent { label 'my-label1 || my-label2' }`
 
 node:: `agent { node { label 'labelName' } }` behaves the same as
 `agent { label 'labelName' }`, but `node` allows for additional options (such
@@ -146,13 +174,13 @@ accept Docker-based Pipelines, or on a node matching the optionally defined
 which may contain arguments to pass directly to a `docker run` invocation, and
 an `alwaysPull` option, which will force a `docker pull` even if the image
 name is already present.
-For example: `agent { docker 'maven:3-alpine' }` or
+For example: `agent { docker 'maven:3.8.1-adoptopenjdk-11' }` or
 +
 [source,groovy]
 ----
 agent {
     docker {
-        image 'maven:3-alpine'
+        image 'maven:3.8.1-adoptopenjdk-11'
         label 'my-defined-label'
         args  '-v /tmp:/tmp'
     }
@@ -229,25 +257,23 @@ For example, if you want a pod with a Kaniko container inside it, you would defi
 ----
 agent {
     kubernetes {
-        label podlabel
-        yaml """
+        defaultContainer 'kaniko'
+        yaml '''
 kind: Pod
-metadata:
-  name: jenkins-slave
 spec:
   containers:
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
     imagePullPolicy: Always
     command:
-    - /busybox/cat
-    tty: true
+    - sleep
+    args:
+    - 99d
     volumeMounts:
       - name: aws-secret
         mountPath: /root/.aws/
       - name: docker-registry-config
         mountPath: /kaniko/.docker
-  restartPolicy: Never
   volumes:
     - name: aws-secret
       secret:
@@ -255,7 +281,7 @@ spec:
     - name: docker-registry-config
       configMap:
         name: docker-registry-config
-"""
+'''
    }
 ----
 +
@@ -278,7 +304,7 @@ Refer to the following example for reference: https://github.com/jenkinsci/kuber
 These are a few options that can be applied to two or more `agent` implementations.
 They are not required unless explicitly stated.
 
-label:: A string. The label on which to run the Pipeline or individual `stage`.
+label:: A string. The label or label condition on which to run the Pipeline or individual `stage`.
 +
 This option is valid for `node`, `docker`, and `dockerfile`, and is required for
 `node`.
@@ -317,7 +343,7 @@ This option is valid for `docker` and `dockerfile`.
 [source, groovy]
 ----
 pipeline {
-    agent { docker 'maven:3-alpine' } // <1>
+    agent { docker 'maven:3.8.1-adoptopenjdk-11' } // <1>
     stages {
         stage('Example Build') {
             steps {
@@ -328,7 +354,7 @@ pipeline {
 }
 ----
 <1> Execute all the steps defined in this Pipeline within a newly created container
-of the given name and tag (`maven:3-alpine`).
+of the given name and tag (`3.8.1-adoptopenjdk-11`).
 =====
 
 .Stage-level Agent Section
@@ -339,7 +365,7 @@ pipeline {
     agent none // <1>
     stages {
         stage('Example Build') {
-            agent { docker 'maven:3-alpine' } // <2>
+            agent { docker 'maven:3.8.1-adoptopenjdk-11' } // <2>
             steps {
                 echo 'Hello, Maven'
                 sh 'mvn --version'
@@ -579,7 +605,7 @@ pipeline {
     stages {
         stage('Example') {
             environment { // <2>
-                AN_ACCESS_KEY = credentials('my-prefined-secret-text') // <3>
+                AN_ACCESS_KEY = credentials('my-predefined-secret-text') // <3>
             }
             steps {
                 sh 'printenv'
@@ -606,7 +632,7 @@ pipeline {
     stages {
         stage('Example Username/Password') {
             environment {
-                SERVICE_CREDS = credentials('my-prefined-username-password')
+                SERVICE_CREDS = credentials('my-predefined-username-password')
             }
             steps {
                 sh 'echo "Service user is $SERVICE_CREDS_USR"'
@@ -614,9 +640,9 @@ pipeline {
                 sh 'curl -u $SERVICE_CREDS https://myservice.example.com'
             }
         }
-        stage('Example Username/Password') {
+        stage('Example SSH Username with private key') {
             environment {
-                SSH_CREDS = credentials('my-prefined-ssh-creds')
+                SSH_CREDS = credentials('my-predefined-ssh-creds')
             }
             steps {
                 sh 'echo "SSH private key is located at $SSH_CREDS"'
@@ -661,7 +687,7 @@ disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
 be useful for preventing simultaneous accesses to shared resources, etc. For
 example: `options { disableConcurrentBuilds() }`
 
-disableResume:: Do not allow the pipeline to resume if the master restarts.
+disableResume:: Do not allow the pipeline to resume if the controller restarts.
 For example: `options { disableResume() }`
 
 newContainerPerStage:: Used with `docker` or `dockerfile` top-level
@@ -724,7 +750,7 @@ For example: `options { parallelsAlwaysFailFast() }`
 [NOTE]
 ====
 A comprehensive list of available options is pending the completion of
-link:https://issues.jenkins-ci.org/browse/INFRA-1053[INFRA-1503].
+link:https://github.com/jenkins-infra/helpdesk/issues/820[help desk ticket 820].
 ====
 
 ===== stage options
@@ -845,7 +871,7 @@ pipeline {
 [NOTE]
 ====
 A comprehensive list of available parameters is pending the completion of
-link:https://issues.jenkins-ci.org/browse/INFRA-1053[INFRA-1503].
+link:https://github.com/jenkins-infra/helpdesk/issues/820[help desk ticket 820].
 ====
 
 ==== triggers
@@ -1025,7 +1051,7 @@ pipeline {
 ==== tools
 ////
 XXX: This is intentionally light until
-https://issues.jenkins-ci.org/browse/WEBSITE-193
+https://issues.jenkins.io/browse/WEBSITE-193
 ////
 
 A section defining tools to auto-install and put on the `PATH`. This is ignored
@@ -1075,7 +1101,7 @@ pipeline {
 ==== input
 
 The `input` directive on a `stage` allows you to prompt for input, using the
-link:https://jenkins.io/doc/pipeline/steps/pipeline-input-step/#input-wait-for-interactive-input[`input` step].
+link:/doc/pipeline/steps/pipeline-input-step/#input-wait-for-interactive-input[`input` step].
 The `stage` will pause after any `options` have been applied, and before
 entering the `agent` block for that `stage` or evaluating the `when` condition of the `stage`. If the `input`
 is approved, the `stage` will then continue. Any parameters provided as part of
@@ -1238,7 +1264,7 @@ For example:
 
 * `when { triggeredBy 'SCMTrigger' }` 
 * `when { triggeredBy 'TimerTrigger' }`
-* `when { triggeredBy 'UpstreamCause' }`
+* `when { triggeredBy 'BuildUpstreamCause' }`
 * `when { triggeredBy  cause: "UserIdCause", detail: "vlinde" }`
 
 ===== Evaluating `when` before entering `agent` in a `stage`
@@ -1484,10 +1510,10 @@ pipeline {
                 branch 'testing'
             }
             options {
-                lock label: 'testing-deploy-envs', quantity: 1, variable: 'deploy-env'
+                lock label: 'testing-deploy-envs', quantity: 1, variable: 'deployEnv'
             }
             steps {
-                echo "Deploying to ${deploy-env}"
+                echo "Deploying to ${deployEnv}"
             }
         }
     }
@@ -1498,6 +1524,7 @@ pipeline {
 .`triggeredBy`
 =====
 [source, groovy]
+----
 pipeline {
     agent none
     stages {
@@ -2117,7 +2144,7 @@ pipeline {
 Scripted Pipeline, like <<declarative-pipeline>>, is built on top of the
 underlying Pipeline sub-system. Unlike Declarative, Scripted Pipeline is
 effectively a general-purpose DSL
-footnoteref:[dsl,link:https://en.wikipedia.org/wiki/Domain-specific_language[Domain-specific
+footnote:dsl[link:https://en.wikipedia.org/wiki/Domain-specific_language[Domain-specific
 language]] built with
 link:http://groovy-lang.org/syntax.html[Groovy].
 Most functionality provided by the Groovy language is made available to users
@@ -2187,18 +2214,18 @@ link:/doc/pipeline/steps[Pipeline Steps reference] contains a comprehensive list
 === Differences from plain Groovy
 
 ////
-XXX: TODO https://issues.jenkins-ci.org/browse/WEBSITE-267
-https://issues.jenkins-ci.org/browse/WEBSITE-289
+XXX: TODO https://issues.jenkins.io/browse/WEBSITE-267
+https://issues.jenkins.io/browse/WEBSITE-289
 ////
 
 In order to provide _durability_, which means that running Pipelines can
-survive a restart of the Jenkins <<../glossary#master, master>>, Scripted
-Pipeline must serialize data back to the master. Due to this design
+survive a restart of the Jenkins <<../glossary#controller, controller>>, Scripted
+Pipeline must serialize data back to the controller. Due to this design
 requirement, some Groovy idioms such as `collection.each { item -> /* perform
 operation */ }` are not fully supported.  See
-https://issues.jenkins-ci.org/browse/JENKINS-27421[JENKINS-27421]
+https://issues.jenkins.io/browse/JENKINS-27421[JENKINS-27421]
 and
-https://issues.jenkins-ci.org/browse/JENKINS-26481[JENKINS-26481]
+https://issues.jenkins.io/browse/JENKINS-26481[JENKINS-26481]
 for more information.
 
 [[compare]]
@@ -2213,7 +2240,7 @@ Jenkins has long shipped with an embedded Groovy engine to provide advanced
 scripting capabilities for admins and users alike. Additionally, the
 implementors of Jenkins Pipeline found Groovy to be a solid foundation upon
 which to build what is now referred to as the "Scripted Pipeline" DSL.
-footnoteref:[dsl].
+footnote:dsl[].
 
 As it is a fully-featured programming environment, Scripted Pipeline offers a
 tremendous amount of flexibility and extensibility to Jenkins users. The
@@ -2235,6 +2262,6 @@ tend to be defined by Groovy itself, rather than any Pipeline-specific systems,
 making it an ideal choice for power-users and those with more complex
 requirements. As the name implies, Declarative Pipeline encourages a
 declarative programming model.
-footnoteref:[declarative, link:https://en.wikipedia.org/wiki/Declarative_programming[Declarative Programming]]
+footnote:declarative[link:https://en.wikipedia.org/wiki/Declarative_programming[Declarative Programming]]
 Whereas Scripted Pipelines follow a more imperative programming model.
-footnoteref:[imperative, link:https://en.wikipedia.org/wiki/Imperative_programming[Imperative Programming]]
+footnote:imperative[link:https://en.wikipedia.org/wiki/Imperative_programming[Imperative Programming]]

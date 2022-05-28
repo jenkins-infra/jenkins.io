@@ -10,8 +10,7 @@
      Google's GSoC site uses Markdown as an engine, using Markdown here allows copy-pasting
  -->
 
-The data below represents the 2020 GSoC application draft.
-Please feel free to contribute to it by proposing pull requests against the page.
+The data below represents the 2020 GSoC application.
 
 ### Organization Profile
 
@@ -36,8 +35,8 @@ Please feel free to contribute to it by proposing pull requests against the page
 
 #### Short description
 
-Jenkins is an open source automation server. 
-It provides hundreds of plugins to support building, testing, deploying and automating virtually any project.
+Jenkins is a popular open source automation server which used is for building, testing, CI/CD, deployment and many other use-cases.
+Our motto is "Build great things at any scale".
 
 #### Long description (Markdown)
 
@@ -45,6 +44,9 @@ It provides hundreds of plugins to support building, testing, deploying and auto
 Jenkins' motto is "Build great things at any scale".
 Using an extensible, plugin-based architecture developers have created hundreds of plugins to adapt Jenkins to a multitude of build, test, and deployment automation workloads. 
 Jenkins is open-source, [MIT License](https://www.opensource.org/licenses/mit-license.php) is used for most of the components.
+
+This year we invite students to join the Jenkins community and to work together to improve Jenkins user experience and reliability.
+We have many strategic project ideas which are important to hundreds of thousands of Jenkins users.
 
 The project has about 600 active contributors working on Jenkins core, plugins, website, project infrastructure, localization activities, etc.
 In total we have more than 2000 components including plugins, libraries, and various utilities. 
@@ -59,8 +61,8 @@ and [Remoting](https://jenkins.io/projects/remoting/)) and
 These entities participate in GSoC as a part of the Jenkins project.
 [Jenkins X](https://jenkins-x.io/) also participates in GSoC under umbrella of the Jenkins project.
 
-This year we invite students to join the Jenkins community and to work together to improve Jenkins user experience and reliability.
-We have many strategic project ideas which are important to hundreds of thousands of Jenkins users.
+Jenkins project is a part of [Continuous Delivery Foundation (CDF)](https://cd.foundation/).
+CDF also participates in Google Summer of Code this year as an umbrella organization for all its projects except Jenkins and Jenkins X ([org profile](https://summerofcode.withgoogle.com/organizations/5550056498790400/)).
 
 #### Proposal process
 

@@ -1,0 +1,137 @@
+---
+layout: gsocproject
+title: "Git Plugin Performance Improvements"
+goal: "Enhance user experience by enabling faster checkouts"
+category: Plugins
+year: 2020
+status: "Completed"
+sig: platform
+tags:
+- gsoc2020
+- git
+- performance
+- plugins
+student: rishabhbudhouliya
+mentors:
+- "markewaite"
+- "fcojfernandez"
+- "justinharringa"
+- "omkar_dsd"
+links:
+  draft: https://docs.google.com/document/d/1vy9tkFbhl5KX7QcjH3QbzFzbKEONw6gaLZSmNXgB06Y/edit?usp=sharing
+  gitter: jenkinsci/git-plugin
+  idea: /projects/gsoc/2020/project-ideas/git-plugin-performance
+  meetings: "/projects/gsoc/2020/projects/git-plugin-performance/#office-hours"
+---
+
+The aim of the project is to find and improve potential areas in the git plugin for performance enhancement. The process of doing that was to find differences in performance between the two co-existing implementations for git, `CLI git` and `JGit`.
+It is logical to leverage those differences by creating a feature which would automatically switch git implementations optimally adjusting to a certain scenario or a use-case.
+It is also logical to fix existing performance issues within the git plugin to enhance its overall performance.
+
+The project identified git SCM checkout as the area which showed potential scope for enhancements. Improving any portion of the process meant a direct reduction in the overall execution time of a Jenkins job.
+
+=== Background of the project
+The git plugin is one of the most widely used Jenkins component which provides git source code management functionalities to the Jenkins ecosystem. These functionalities or the git operations (like fetch or checkout) are provided using two mutually exclusive implementations, link:https://github.com/jenkinsci/git-client-plugin/blob/master/src/main/java/org/jenkinsci/plugins/gitclient/CliGitAPIImpl.java[CliGitAPIImpl] and link:https://github.com/jenkinsci/git-client-plugin/blob/master/src/main/java/org/jenkinsci/plugins/gitclient/JGitAPIImpl.java[JGitAPIImpl]. 
+
+By default, only command line git is enabled for a user. To enable JGit and fully appreciate the benefits of the new features, go to this doc: link:https://plugins.jenkins.io/git-client/#enabling-jgit[Enabling JGit in the git plugin].
+
+The task was to compare both of these available implementations for certain repository parameters (like size of git objects, number of branches) in multiple platforms to derive a so called *universal rule* which would help the plugin decide which implementation is optimal in a certain situation.
+
+=== Project Deliverables
+
+* Remove a redundant fetch (link:https://issues.jenkins.io/browse/JENKINS-49757[JENKINS-49757]) during initial checkout (link:https://github.com/jenkinsci/git-plugin/pull/845[PR-845])
+  ** A fix which ensures no repository/user data loss if second fetch is removed with automated tests to confirm the intended behavior
+
+* Performance comparison using JMH benchmarking framework (link:https://github.com/jenkinsci/git-client-plugin/pull/553[PR-553])
+
+* Performance enhancements in the git plugin (link:https://github.com/jenkinsci/git-plugin/pull/931[PR-931])
+
+=== Performance comparison and its results
+
+Here is the link:https://github.com/jenkinsci/git-client-plugin/pull/521[PR-521] which provides the code and results from the initial investigation of performance comparison between CliGitAPIImpl and JGitAPIImpl.
+
+The graphical results for various benchmarks performed throughout the projects are present in: +
+
+  * link:/blog/2020/07/09/git-performance-improvement-phase1/#benchmarks[Git fetch benchmark analysis]
+  * link:/blog/2020/07/29/git-performance-improvement-phase2/#jmh-benchmarks-in-multiple-environments[Benchmarks in multiple environments]
+
+=== Performance enhancement in the checkout step
+The project has introduced a new feature called the `GitToolChooser` which recommends the optimal git implementation for a particular scenario. +
+The user doesn't have to worry about choosing the correct implementation for the given remote repository. +
+Here is a graphical representation of the feature:
+
+image:/images/post-images/gsoc-git-performance-improvement/git-perf-improv.png[title="Performance improvements in the git plugin"]
+
+=== Evaluation Phase 1
+
+. Integrate JMH benchmarks module into the git client plugin +
+  - Choose a git operation and write a benchmark
+  - Validate the benchmark results
+  - link:https://github.com/jenkinsci/git-client-plugin/tree/master/src/test/java/jmh/benchmark[Repository]
+
+. Fix git redundant fetch issue link:https://issues.jenkins.io/browse/JENKINS-49757[JENKINS-49757]
+  - Create a fix and write automated test cases
+  - Interactive testing before pushing it to production
+
+. Design a strategy to implement performance improvements in the plugin
+
+==== Resources
+
+. Pull Requests:
+  - link:https://github.com/jenkinsci/git-client-plugin/pull/553[Adding JMH benchmarks module]
+  - link:https://github.com/jenkinsci/git-client-plugin/pull/556[Optimising benchmarks module]
+  - link:https://github.com/jenkinsci/git-plugin/pull/904[Fixing JENKINS-49757]
+  - link:https://github.com/jenkinsci/git-plugin/pull/927[Adding a safety switch to retain second fetch]
+. link:/blog/2020/07/09/git-performance-improvement-phase1/[Coding phase 1 summary blog]
+. link:https://docs.google.com/presentation/d/1kaSuYWLBnSvWJWq4lkH5ecOdN-m8n-uymdYHVXcv-EU/edit?usp=sharing[Slides]
+. Phase 1 demo and presentation:
+
+video::HQLhakpx5mk[youtube,start=1791,width=800,height=420]
+
+=== Evaluation Phase 2
+
+. Implementing performance improvement from benchmarks:
+  - GitToolChooser - A class which tries to recommend the optimal git implementation for a particular remote repository
+  - link:https://github.com/jenkinsci/git-plugin/blob/master/src/main/java/jenkins/plugins/git/GitToolChooser.java[Repository]
+
+. Widening the scope of benchmarking in the git client plugin
+  - Benchmarks on multiple repository parameters
+  - Benchmarks on multiple platforms
+
+==== Resources
+
+. Pull Requests:
+  - link:https://github.com/jenkinsci/git-plugin/pull/931[Adding GitToolChooser]
+. link:/blog/2020/07/29/git-performance-improvement-phase2/[Coding phase 2 summary blog with benchmark results]
+. link:https://docs.google.com/presentation/d/1aIr1aOZSE59KeQ8-Hr_mbOYMctZLUlCELJNVuzWAcz4/edit?usp=sharing[Slides]
+. Phase 2 demo and presentation: 
+
+video::b67I6spBdTg[youtube,start=311,width=800,height=420]
+
+=== Evaluation Phase 3
+
+This phase marked the release of the git plugin with all of the performance improvements performed during GSoC period. That includes addition of GitToolChooser, removing redundant second fetch from checkout and adding a JMH benchmark module in git client plugin.
+
+. Git Plugin 4.4.0 released
+  - link:https://github.com/jenkinsci/git-plugin/releases/tag/git-4.4.0[Changelog]
+  - link:https://github.com/jenkinsci/git-plugin/blob/git-4.4.0/README.adoc#global-configuration[Documentation]
+
+. Git Client Plugin 3.4.0 released
+  - link:https://github.com/jenkinsci/git-client-plugin/releases/tag/git-client-3.4.0[Changelog]
+  - link:https://github.com/jenkinsci/git-client-plugin/blob/git-client-3.4.0/README.adoc[Documentation]
+
+==== Resources
+
+. Pull Requests:
+  - link:https://github.com/jenkinsci/git-plugin/pull/931[GitToolChooser]
+  - link:https://github.com/jenkinsci/git-client-plugin/pull/594[Add UnsupportedCommand to the git client plugin]
+  - link:https://github.com/jenkinsci/git-client-plugin/pull/601[Bug fix related to UnsupportedCommand]
+. link:/blog/2020/08/29/git-performance-improvement-phase3/[Coding phase 3 and releases blog]
+. link:https://docs.google.com/presentation/d/1rAjjF_pBjtGDaaC8rgReqVzd9WJ4Z0jZTvaPHabk3SI/edit?usp=sharing[Slides]
+. Phase 3 presentation and results
+
+video::sEqK4dAFg4s[youtube,width=800,height=420]
+
+=== Office hours
+
+Office hours are scheduled each Wednesday at 14:30 UTC, with regular link:https://docs.google.com/document/d/1ov4ug9WfbcTYNHL1DBcsxyRKgCi7EnFVIywdiP36CSk/edit#[meeting notes] available for anyone to read.

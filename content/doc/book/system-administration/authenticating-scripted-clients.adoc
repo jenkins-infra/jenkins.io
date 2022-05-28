@@ -1,0 +1,181 @@
+---
+layout: section
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../resources]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+= Authenticating scripted clients
+
+To make scripted clients (such as wget) invoke operations that require
+authorization (such as scheduling a build), use HTTP BASIC
+authentication to specify the user name and the API token. 
+
+Earlier versions of Jenkins require you to specify your real password,
+and it is only available when your security realm is password-based (for
+example, OpenID, Crowd and CAS plugins authenticate you without a
+password, so you simply don't have any password!) Specifying the real
+password is still supported, but it is not recommended
+because the risk of revealing password, and the human tendency to reuse
+the same password in different places.
+
+The API token is available in your personal configuration page. 
+Click your name on the top right corner on every page, 
+then click "Configure" to see your API token. 
+(The URL `+$root/me/configure+` is a good shortcut.) 
+You can also change your API token from here.
+
+Note that Jenkins does not do any authorization negotiation. 
+i.e. it immediately returns a 403 (Forbidden) response instead
+of a 401 (Unauthorized) response, so make sure to send the authentication
+information from the first request (aka "preemptive authentication").
+
+== Shell with curl
+
+The `curl` command is available for most operating systems including Linux, macOS, Windows, FreeBSD, and more.
+
+[source,sh]
+----
+curl -X POST -L --user your-user-name:apiToken \
+    https://jenkins.example.com/job/your_job/build
+----
+
+== Shell with wget
+
+NOTE: The `wget` command needs the `--auth-no-challenge` option
+to authenticate to Jenkins:
+
+[source,sh]
+----
+wget --auth-no-challenge \
+    --user=user --password=apiToken \
+    http://jenkins.example.com/job/your_job/build
+----
+
+== Groovy script using cdancy/jenkins-rest
+
+The https://github.com/cdancy/jenkins-rest[cdancy/jenkins-rest client]
+greatly simplifies REST API access. 
+The following Groovy code shows how to authenticate to Jenkins and get some system info:
+
+[source,groovy]
+----
+@Grab(group='com.cdancy', module='jenkins-rest', version='0.0.18')
+
+import com.cdancy.jenkins.rest.JenkinsClient
+
+JenkinsClient client = JenkinsClient.builder()
+    .endPoint("http://127.0.0.1:8080") // Optional. Defaults to http://127.0.0.1:8080
+    .credentials("user:apiToken") // Optional.
+    .build()
+
+println(client.api().systemApi().systemInfo())
+----
+
+For additional information, see the
+https://github.com/cdancy/jenkins-rest/wiki[cdancy/jenkins-rest wiki].
+
+[[Authenticatingscriptedclients-PerlLWPexampleforascriptedclient]]
+== Perl LWP example for a scripted client
+
+The following Perl example uses the LWP module to start a Job via a
+"Trigger builds remotely" token:
+
+[source,perl]
+----
+#
+# Use LWP to run a Jenkins job
+# set authorization_basic on the request object
+# to make use of BASIC HTTP authorization, apparently
+# already handling the preemptive part correctly this
+# way.
+#
+use strict;
+use warnings;
+
+use LWP;
+
+my $server = 'srvname';
+my $srvurl = "http://$server/jenkins";
+my $uagent = LWP::UserAgent->new;
+my $req = HTTP::Request->new(
+  GET => "$srvurl/job/test/build?token=theTokenConfiguredForThisJob&cause=LWP+Test"
+);
+$req->authorization_basic('username@mydomain.com', 'apiToken');
+my $res = $uagent->request($req);
+
+# Check the outcome of the response
+print "Result: " . $res->status_line . "\n";
+print $res->headers->as_string;
+print "\n";
+if (!$res->is_success) {
+  print "Failed\n";
+}
+else {
+  print "Success!\n";
+  # print $res->content, "\n";
+}
+----
+
+
+[[Authenticatingscriptedclients-Javaexamplewithhttpclient4.3.x]]
+== Java example with httpclient 4.3.x
+
+This will cause httpclient 4.3 to issue authentication preemptively:
+
+[source,java]
+----
+import java.io.IOException;
+import java.net.URI;
+
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
+public class JenkinsScraper {
+
+    public String scrape(String urlString, String username, String password) 
+        throws ClientProtocolException, IOException {
+        URI uri = URI.create(urlString);
+        HttpHost host = new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme());
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(new AuthScope(uri.getHost(), uri.getPort()), 
+            new UsernamePasswordCredentials(username, password));
+        // Create AuthCache instance
+        AuthCache authCache = new BasicAuthCache();
+        // Generate BASIC scheme object and add it to the local auth cache
+        BasicScheme basicAuth = new BasicScheme();
+        authCache.put(host, basicAuth);
+        CloseableHttpClient httpClient =
+            HttpClients.custom().setDefaultCredentialsProvider(credsProvider).build();
+        HttpGet httpGet = new HttpGet(uri);
+        // Add AuthCache to the execution context
+        HttpClientContext localContext = HttpClientContext.create();
+        localContext.setAuthCache(authCache);
+
+        HttpResponse response = httpClient.execute(host, httpGet, localContext);
+
+        return EntityUtils.toString(response.getEntity());
+    }
+
+}
+----

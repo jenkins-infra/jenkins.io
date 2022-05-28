@@ -1,0 +1,138 @@
+---
+layout: post
+title: "Read-only Jenkins Configuration"
+tags:
+- system-read
+- extended-read
+- configuration-as-code
+- announcement
+author: timja
+---
+
+I'm excited to announce that the 'read-only' Jenkins feature is now available for preview.
+This feature allows restricting configuration UIs and APIs while providing access to essential Jenkins system configuration, diagnostics, and self-monitoring tools through Web UI.
+Such mode is critical for instances managed as code, e.g. with plugin:configuration-as-code[Jenkins Configuration-as-Code] plugin.
+It is delivered as a part of the jep:224[Readonly system configuration] effort.
+
+You will want to use at least Jenkins 2.238 to have all the features mentioned in this post.
+
+Read-only Jenkins currently allows users to have access to:
+
+* job configuration
+* system configuration
+* plugin manager
+* system logs
+* cloud configuration
+* agent configuration
+* agent logs
+
+For more planned integrations see the jira:JENKINS-12548[] epic.
+
+Read-only Jenkins is split into three permissions:
+
+* **Job/ExtendedRead** - Read-only access to job configurations
+  - existed since 2009 but the UI didn't do anything to indicate to the users
+  that they couldn't edit the job configuration page.
+  This has now been adapted to the new read-only engine.
+* **Agent/ExtendedRead** - Read-only access to agent configurations
+  - existed since 2013 but it was undocumented and only allowed access to API and no UI
+  - UI support added in Jenkins 2.238
+* **Overall/SystemRead** - Read-only access to Jenkins system configuration.
+     It is very useful for Jenkins instances managed as code, e.g. with help of the plugin:configuration-as-code[Jenkins Configuration as Code Plugin].
+  - Introduced in Jenkins 2.222 as a part of jep:224[Readonly system configuration]
+
+You can selectively grant the permission(s) as you wish.
+
+== Why do I want this?
+
+Given the rise of the configuration-as-code plugin a lot of Jenkins instances are fully managed as code, 
+which means that no changes are allowed through the UI. 
+
+The problem with this is you don’t know when new plugin versions are available and in order to see what other configuration options are available to a plugin you currently need the 'Administer' permission.
+
+Read-only access to system administration information allows users who are not administrators to more easily debug build issues.
+For example, given a 'Jenkins' error message in a build the user can check:
+
+1. which plugins are installed
+2. the version of the plugin
+
+This can allow the user to solve their issue themselves and makes it easier for the user to report an issue with a plugin directly to the maintainers.
+
+== What can I expect
+
+All built in UI controls have been adapted to clearly distinguish between
+an editable control and a control you don't have permission to edit:
+
+Editable:
+
+image:/images/post-images/2020/05-read-only-jenkins-announcement/build-discarder-edit.png[]
+
+Non editable:
+
+image:/images/post-images/2020/05-read-only-jenkins-announcement/build-discarder-read.png[]
+
+
+_Note: there are other controls such as in the credentials and pipeline plugins that have
+not been updated yet._
+
+Action buttons, (Such as 'Save' and 'Apply') have been hidden in most cases.
+
+Work will continue on read-only configuration.  Some plugins need support added and certain controls
+could have some improvements done to render better.
+
+== How can I use it?
+
+These permissions are currently available in beta and for now disabled by default.
+You can enable them by installing the plugin:extended-read-permission[Extended read permission plugin] v3.2 or above.
+
+Then you will need to add the following permissions to a user / group depending on your use case:
+
+* Overall/SystemRead
+* Job/ExtendedRead
+* Agent/ExtendedRead
+
+_Note: You will need to set the Overall/Read and Job/Read permissions as well.  You might
+want to consider creating a role containing the required permissions._
+
+Here is an example using the plugin:configuration-as-code[Configuration as Code plugin] and the plugin:folder-auth[Folder-based Authorization Strategy plugin]:
+
+[source,yaml]
+----
+jenkins:
+  authorizationStrategy:
+    folderBased:
+      globalRoles:
+        - name: "admin"
+          permissions:
+            - id: "Overall/Administer"
+          sids:
+            - "admin"
+        - name: "global read"
+          permissions:
+            - id: "Agent/ExtendedRead"
+            - id: "Overall/SystemRead"
+            - id: "Overall/Read"
+            - id: "Job/Read"
+            - id: "Job/ExtendedRead"
+          sids:
+            - "reader" 
+----
+
+== I can't see a configuration that I think should be allowed
+
+Most of Jenkins itself has been updated to support read-only Jenkins, but not very many plugins.
+Please create an enhancement issue on the plugins issue tracker.
+If the plugin uses Jira to track issues, then you can add it to the jira:JENKINS-12548[] epic.
+
+== How do I update my plugin to support it
+
+See the link:/doc/developer/views/read-only/[Read only view] section of the developer documentation.
+
+== What's next
+
+In this release we introduce a foundation feature which is already supported in all key Jenkins core controls and in some plugins.
+There are many plugins which contribute to global configurations and diagnostics which still need to be adapted to support the new mode.
+We will keep working on this feature and its adoption so that the next LTS baseline in September provides a full-fledged user experience for Jenkins admins. 
+
+System read permission is a featured project in the link:/events/online-hackfest/2020-uiux/[UI/UX Hackfest]
+happening May 25-29 2020. If you want to get involved please check it out!

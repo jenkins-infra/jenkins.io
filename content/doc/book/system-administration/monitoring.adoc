@@ -1,11 +1,8 @@
 ---
 layout: section
-wip: true
-references:
-- url: https://wiki.jenkins.io/display/JENKINS/Monitoring+Jenkins
-  title: Monitoring Jenkins
 ---
 ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../resources/managing]
 :notitle:
 :description:
 :author:
@@ -15,3 +12,82 @@ ifdef::backend-html5[]
 endif::[]
 
 = Monitoring Jenkins
+
+NOTE: This page is under development, there will be more content added soon.
+See the jira:WEBSITE-738[] EPIC for tasks related to this page, contributions are welcome!
+
+== Monitoring with Datadog
+
+- plugin:datadog[Datadog plugin for Jenkins]
+- plugin:metrics-datadog[Metrics-Datadog plugin for Jenkins]
+- https://www.datadoghq.com/blog/monitor-jenkins-datadog[Jenkins on Datadog]
+
+== Monitoring with Prometheus and Grafana
+
+- plugin:prometheus[Prometheus plugin for Jenkins]
+- https://medium.com/@eng.mohamed.m.saeed/monitoring-jenkins-with-grafana-and-prometheus-a7e037cbb376[How-To blog on Medium]
+
+== Monitoring with JavaMelody
+
+- plugin:monitoring[Monitoring plugin for Jenkins]
+
+== Other Monitoring Plugins
+- plugin:versioncolumn[Versions Node Monitors]
+- plugin:systemloadaverage-monitor[Agents Monitoring for unix nodes]
+- plugin:jqs-monitoring[Job/Queue/Slaves Monitoring]
+
+
+== Ping Thread
+
+Jenkins installs "ping thread" on every remoting connection, such as controller/agent connections, regardless of its
+transport mechanism (such as SSH, JNLP, etc.). The lower level of the Jenkins remoting protocol is a message oriented
+protocol, and a ping thread periodically sends a ping message that the receiving end will reply. The ping thread
+measures the time it takes for the reply to arrive, and if it's taking excessive time (currently
+https://github.com/jenkinsci/remoting/blob/master/src/main/java/hudson/remoting/Launcher.java[4 minutes] and
+configurable), then it assumes that the connection was lost and initiates the formal close down.
+
+This is to avoid an infinite hang, as some of the failure modes in network cannot be detected otherwise. The timeout is
+also set to a long enough value so that a temporary surge in the load or a long garbage collection pause will not trip
+off the close down.
+
+Ping thread is installed on both controller & agent; each side pings the other and tries to detect the problem from
+their own sides.
+
+The ping thread time out is reported through `+java.util.logging+`. In addition, the controller will also report this
+exception in the agent launch log. Note that some agent launchers, most notably SSH agents, writes all stdout/stderr
+outputs from the agent JVM into this same log file, so you need to be careful. See
+https://issues.jenkins.io/browse/JENKINS-25695[JENKINS-25695].
+
+[[PingThread-Disablingpingthread]]
+== Disabling ping thread
+
+Sometimes, for example https://wiki.jenkins.io/display/JENKINS/Remoting+issue[to diagnose the agent connection loss
+problem], you may want to disable the ping thread.  This needs to be done in two places.
+
+To disable the controller from pinging agents, the system property `+hudson.slaves.ChannelPinger.pingInterval+` should
+be set on the controller JVM to -1. You can also change the value in memory for a running Jenkins, if you don't want to
+restart Jenkins *(Deprecated since 2.37)*:
+
+[source,groovy]
+----
+Jenkins.instance.injector.getInstance(hudson.slaves.ChannelPinger.class).@pingInterval = -1
+----
+
+Since 2.37, set pingIntervalSeconds and pingTimeoutSeconds on the controller JVM to -1:
+
+[source,groovy]
+----
+Jenkins.instance.injector.getInstance(hudson.slaves.ChannelPinger.class).@pingIntervalSeconds = -1
+Jenkins.instance.injector.getInstance(hudson.slaves.ChannelPinger.class).@pingTimeoutSeconds = -1
+----
+
+----
+The above will only affect newly connected agents. Existing connected agents will continue running pings.
+----
+
+To disable agents from pinging the controller, the system property
+----
+-Dhudson.remoting.Launcher.pingIntervalSec=-1
+----
+needs to be set to agents.
+How to do this depends on the launcher.

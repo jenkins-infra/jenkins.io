@@ -1,0 +1,222 @@
+---
+layout: post
+title: "External Fingerprint Storage Phase-3 Update: Introducing the PostgreSQL Fingerprint Storage Plugin"
+tags:
+- plugins
+- fingerprint
+- cloud-native
+- external-storage
+- developer
+- PostgreSQL
+- gsoc
+- gsoc2020
+author: stellargo
+opengraph:
+  image: /images/post-images/2020/08-external-fingerprint-storage-phase-3/opengraph.png
+---
+
+The final phase for the link:/projects/gsoc/2020/projects/external-fingerprint-storage/[External Fingerprint Storage
+Project] has come to an end and to finish off, we release one more fingerprint storage plugin:
+the link:https://github.com/jenkinsci/postgresql-fingerprint-storage-plugin[PostgreSQL Fingerprint Storage Plugin]!
+
+This post highlights the progress made during phase-3.
+To understand what the project is about and the past progress, please refer to the
+link:/blog/2020/06/27/external-fingerprint-storage/[phase-1 post] and the
+link:/blog/2020/06/27/external-fingerprint-storage/[phase-2 post].
+
+== Introducing the PostgreSQL Fingerprint Storage Plugin
+
+=== Why PostgreSQL?
+
+There were several reasons why it made sense to build another reference implementation, especially backed by PostgreSQL.
+
+Redis is a key-value storage, and hence stores the fingerprints as blobs.
+The PostgreSQL plugin defines a relational structure for fingerprints.
+This offers a more powerful way to query the database for fingerprint information.
+Fingerprint facets can store extra information inside the fingerprints, which cannot be queried in Redis directly.
+PostgreSQL plugin allows powerful (indexing) and efficient querying strategies which can even query the facet metadata.
+
+Another reason for building this plugin was to provide a basis for other relational database plugins to be built.
+It also validates the flexibility and design of our external fingerprint storage API.
+
+Since PostgreSQL is a traditional disk storage database, it is more suitable for systems storing a massive number of
+fingerprints.
+
+Among relational databases, PostgreSQL is quite popular, has extensive support, and is open-source.
+We expect the new implementation to drive more adoption, and prove to be beneficial to the community.
+
+=== Installation:
+
+The plugin can be installed using the
+link:https://www.jenkins.io/doc/developer/publishing/releasing-experimental-updates/[experimental update center].
+Follow along the following steps after running Jenkins to download and install the plugin:
+
+. Select `Manage Jenkins`
+
+. Select `Manage Plugins`
+
+. Go to `Advanced` tab
+
+. Configure the Update Site URL as: `https://updates.jenkins.io/experimental/update-center.json`
+
+. Click on `Submit`, and then press the `Check Now` button.
+
+. Go to `Available` tab.
+
+. Search for `PostgreSQL Fingerprint Storage Plugin` and check the box along it.
+
+. Click on `Install without restart`
+
+The plugin should now be installed on the system.
+
+== Usage
+
+Once the plugin has been installed, you can configure the PostgreSQL server details by following the steps below:
+
+. Select `Manage Jenkins`
+
+. Select `Configure System`
+
+. Scroll to the section `Fingerprints` and choose `PostgreSQL Fingerprint Storage` in the dropdown for
+`Fingerprint Storage Engine`.
+
+. Configure the following parameters to connect to your PostgreSQL instance:
+
++
+image:/images/post-images/2020/08-external-fingerprint-storage-phase-3/configure.png[Configure Redis]
++
+
+* `Host` - Enter hostname where PostgreSQL is running
+
+* `Port` - Specify the port on which PostgreSQL is running
+
+* `SSL` - Click if SSL is enabled
+
+* `Database Name` - Specify the database name inside the PostgreSQL instance to be used. Please note that the database
+will not be created by the plugin, the user has to create the database.
+
+* `Connection Timeout` - Set the connection timeout duration in seconds.
+
+* `Socket Timeout` - Set the socket timeout duration in seconds.
+
+* `Credentials` - Configure authentication using username and password to the PostgreSQL instance.
+
+. Use the `Test PostgreSQL Connection` button to verify that the details are correct and Jenkins is able to connect to
+the PostgreSQL instance.
+
+. [IMPORTANT] When configuring the plugin for the first time, it is highly important to press the Perform PostgreSQL
+Schema Initialization button. It will automatically perform schema initialization and create the necessary indexes.
+The button can also be used in the case the database is wiped out and schema needs to be recreated.
+
+. Press the `Save` button.
+
+. Now, all the fingerprints produced by this Jenkins instance should be saved in the configured PostgreSQL instance!
+
+== Querying the Fingerprint Database
+
+Due to the relational structure defined by PostgreSQL, it allows users/developers to query the fingerprint data which
+was not possible using the Redis fingerprint storage plugin.
+
+The fingerprint storage can act as a consolidated storage for multiple Jenkins instances.
+For example, to search for a fingerprint id across Jenkins instances using the file name, the following query could be
+used:
+
+```
+SELECT fingerprint_id FROM fingerprint.fingerprint
+WHERE filename = 'random_file';
+```
+
+A sample query is provided which can be tweaked depending on the parameters to be searched:
+
+```
+SELECT * FROM fingerprint.fingerprint
+WHERE fingerprint_id = 'random_id'
+        AND instance_id = 'random_jenkins_instance_id'
+        AND filename = 'random_file'
+        AND original_job_name = 'random_job'
+        AND original_job_build_number = 'random_build_number'
+        AND timestamp BETWEEN '2019-12-01 23:59:59'::timestamp AND now()::timestamp
+```
+
+The facets are stored in the database as `jsonb`.
+PostgreSQL offers support to query `jsonb`.
+This is especially useful for querying the information stored inside fingerprint facets.
+As an example, the plugin:docker-traceability[Docker Traceability Plugin] stores information like the name of Docker images inside these
+facets.
+These can be queried across Jenkins instances like so:
+
+```
+SELECT * FROM fingerprint.fingerprint_facet_relation
+WHERE facet_entry->>'imageName' = 'random_container';
+```
+
+At the moment these queries require working knowledge of the database.
+In future, these queries can be abstracted away by plugins and the features made available to users directly inside
+Jenkins.
+
+== Demo
+
+.External Fingerprint Storage Demo
+video::HvbbsoljLyg[youtube,width=800,height=420]
+
+link:https://docs.google.com/presentation/d/1QL5m-7QGtep_G1ysEYKRauAHzDq8nTtOdcnE1t4aYE8/edit?usp=sharing[Slide deck]
+
+== Releases 🚀
+
+We released the `0.1-alpha-1` version for the link:https://github.com/jenkinsci/postgresql-fingerprint-storage-plugin[
+PostgreSQL Fingerprint Storage Plugin].
+Please refer to the
+link:https://github.com/jenkinsci/postgresql-fingerprint-storage-plugin/releases/tag/postgresql-fingerprint-storage-0.1-alpha-1[
+changelog] for more information.
+
+link:https://plugins.jenkins.io/redis-fingerprint-storage/[Redis Fingerprint Storage Plugin] `1.0-rc-3` was also
+released.
+The
+link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin/releases/tag/redis-fingerprint-storage-parent-1.0-rc-3[
+changelog] provides more details.
+
+A few API changes made in the Jenkins core were released in link:/changelog/#v2.253[Jenkins-2.253].
+It mainly includes exposing fingerprint range set serialization methods for plugins.
+
+== Future Directions
+
+The relational structure of the plugin allows some performance improvements that can be made when implementing
+cleanup, as well as improving the performance of `Fingerprint#add(String job, int buildNumber)`.
+These designs were discussed and are a scope of future improvement.
+
+The current external fingerprint storage API supports configuring multiple Jenkins instances to a single storage.
+This opens up the possibility of developing traceability plugins which can track fingerprints across Jenkins instances.
+
+Please consider reaching out to us if you feel any of the use cases would benefit you, or if you would like to share
+some new use cases.
+
+== Acknowledgements
+
+The PostgreSQL Fingerprint Storage Plugin and the Redis Fingerprint Storage plugin are maintained by the
+Google Summer of Code (GSoC) Team for link:/projects/gsoc/2020/projects/external-fingerprint-storage/[External
+Fingerprint Storage for Jenkins].
+Special thanks to link:https://github.com/oleg-nenashev[Oleg Nenashev],
+link:https://github.com/afalko[Andrey Falko], link:https://github.com/mikecirioli[Mike Cirioli],
+link:https://github.com/timja[Tim Jacomb], and the entire Jenkins community for all the contribution to this project.
+
+As we wrap up, we would like to point out that there are plenty of future directions and use cases for the externalized
+fingerprint storage, as mentioned in the previous section, and we welcome everybody to contribute.
+
+== Reaching Out
+
+Feel free to reach out to us for any questions, feedback, etc. on the project's
+link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel] or the
+mailto:jenkinsci-dev@googlegroups.com[Jenkins Developer Mailing list].
+We use Jenkins link:https://issues.jenkins.io/[Jira] to track issues.
+Feel free to file issues under either the `postgresql-fingerprint-storage-plugin` or the
+`redis-fingerprint-storage-plugin` component depending on the plugin.
+
+== Other Links
+
+* link:/blog/2020/06/27/external-fingerprint-storage/[Phase 1 Post]
+* link:/blog/2020/06/27/external-fingerprint-storage/[Phase 2 Post]
+* link:https://github.com/jenkinsci/postgresql-fingerprint-storage-plugin[PostgreSQL Fingerprint Storage Plugin]
+* link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin]
+* jep:226[]
+* link:https://gitter.im/jenkinsci/external-fingerprint-storage[Gitter Channel]
+* link:/projects/gsoc/2020/projects/external-fingerprint-storage/[Project Page]

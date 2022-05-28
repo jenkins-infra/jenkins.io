@@ -1,0 +1,153 @@
+---
+title: Backward Compatibility with XStream
+summary: How to make object model changes with XStream while preserving backward compatibility.
+layout: developersection
+---
+
+== Add a new field
+
+Persistence is XML-based,
+and when the data is read back from disk and the XML does not contain data for a particular field,
+the existing field value is left as-is.
+"As-is" normally means the JVM default value (0, `false`, `null`, etc.),
+because the persistence logic does not invoke your constructor to create your object as Java serialization would.
+
+There are a few exceptions to this, where objects first create themselves and then load XML onto themselves.
+These include https://javadoc.jenkins.io/jenkins/model/Jenkins.html[`Jenkins`] and https://javadoc.jenkins.io/hudson/model/Item.html[`Item`],
+but these exceptions are limited to the root object of persistence.
+In these exceptional cases, the values set in the constructor will survive.
+
+If you want to fill in your field with a non-trivial default value,
+you can write a `readResolve` method, which gets invoked right after your object is resurrected from persistence.
+`readResolve` is called by XStream, but it is not part of the Jenkins class hierarchy, so there is no `@Override` annotation.
+Just put it right in your class alongside your fields. For example:
+
+[source,java]
+----
+protected Object readResolve() {
+  if (gridBuilder == null) {
+    if (selectedJob != null) {
+      gridBuilder = new DownstreamProjectGridBuilder(selectedJob);
+    }
+  }
+  return this;
+}
+----
+
+If you need to force the _Manage Old Data_ screen to list jobs, builds, etc. using your data in the old format so that it can be saved in the new format in bulk,
+you cannot use `readResolve`, since it will not notify this system of the problem.
+Instead you must create a static nested class called `ConverterImpl` extending `XStream2.PassthruConverter`,
+which should clean up the storage of your instance and finally call `OldDataMonitor#report` to record the conversion.
+
+== Remove a field
+
+Removing a field requires that you leave the field with the `transient` keyword.
+When Jenkins reads the old XML, XStream will set the value for this field,
+but it will no longer be written back to XML when data is saved.
+
+== Rename a field
+
+Renaming a field is a combination of the above:
+mark your old field as `transient`, declare your new field, and then migrate the data from the old format to the new in your `readResolve` method:
+
+[source,java]
+----
+protected transient Long myObjectId;
+protected List<Long> myObjectIds;
+
+protected Object readResolve() {
+  if (myObjectId != null) {
+   myObjectIds = Arrays.asList(myObjectId)
+  }
+  return this;
+}
+----
+
+== Make a class abstract and introduce concrete subtypes
+
+=== Before
+
+* You decide to extend a class and create new choosable classes; for example, adding additional browsers to an SCM plugin.
+* The old data structure looked like this when you had only one class `SCMBrowser`:
++
+[source,xml]
+----
+<browser>
+  <url>http://example.com/</url>
+</browser>
+----
+
+=== After
+
+* Now you decide to add a new `NewSCMBrowser`. All your `SCMBrowsers` extend `SCMBrowserBase` and your XML suddenly looks like this:
++
+[source,xml]
+----
+<browser class="org.jenkinsci.plugins.foo.NewSCMBrowser">
+  <url>http://example.com/</url>
+</browser>
+----
++
+or
++
+[source,xml]
+----
+<browser class="org.jenkinsci.plugins.foo.SCMBrowser">
+  <url>http://example.com/</url>
+</browser>
+----
+
+* With new jobs, no problem. Old jobs however will probably break.
+* In your `SCMBrowserBase` class add a `readResolve` method (see the link:https://x-stream.github.io/faq.html[XStream FAQ]):
++
+[source,java]
+----
+// compatibility with earlier plugins
+public Object readResolve() {
+  if (this.getClass() != SCMBrowserBase.class) {
+    return this;
+  }
+  // make sure to return the default SCMBrowser only if we no class is given in config.
+  try {
+    return new SCMBrowser(url.toExternalForm());
+  } catch (MalformedURLException e) {
+    throw new RuntimeException(e);
+  }
+}
+----
+
+== Rename a class
+
+Sometimes, you need to rename packages or class names.
+If your serialization data includes a fully qualified class name (which happens, for example, if you have a collection of them),
+then measures must be taken to maintain backward compatibility.
+
+To do this, use `XSTREAM2#addCompatibilityAlias(String, Class)` to register aliases.
+You need to do this against the right XStream instance,
+as a few different instances are used to persist different parts of data.
+
+`Items#XSTREAM2` is used for serializing project configuration,
+and `Run#XSTREAM2` is used for serializing builds and their associated link:https://javadoc.jenkins.io/hudson/model/Action.html[`Action`]s.
+
+For example, to alias `Foo` in the "old" package to the "updated" one,
+you can use this method call:
+
+[source,java]
+----
+Items.XSTREAM2.addCompatibilityAlias("org.acme.old.Foo", org.acme.updated.Foo.class);
+----
+
+To ensure your alias is registered early in the Jenkins boot sequence,
+you can use the link:https://javadoc.jenkins.io/hudson/init/Initializer.html[`Initializer`] annotation on a static method, e.g. in your `DescriptorImpl`:
+
+[source,java]
+----
+@Initializer(before = InitMilestone.PLUGINS_STARTED)
+public static void addAliases() {
+  Items.XSTREAM2.addCompatibilityAlias("org.acme.old.Foo", Foo.class);
+}
+----
+
+== Rename or move the descriptor class of a plugin
+
+Since 1.507 https://javadoc.jenkins.io/hudson/model/Descriptor.html#getConfigFile--[`Descriptor#getConfigFile`] is overridable and https://javadoc.jenkins.io/hudson/XmlFile.html[`XmlFile`] can be instantiated with any XStream instance.

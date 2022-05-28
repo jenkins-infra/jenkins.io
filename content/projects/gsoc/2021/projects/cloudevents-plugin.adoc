@@ -1,0 +1,121 @@
+---
+layout: gsocproject
+title: "CloudEvents plugin for Jenkins"
+goal: "Be able to listen to and emit cloudevents from Jenkins."
+category: Plugins
+year: 2021
+sig: cloud-native
+status: "Completed"
+student: "ShrutiC-git"
+mentors:
+- "waveywaves"
+- "salaboy"
+- "jeffpearce"
+- "marckk"
+tags:
+- gsoc2021
+- cloudevents
+- cloudnative
+links:
+  draft: https://docs.google.com/document/d/1MvdocqnKLOj2Sf8pqAsd4-GGhd9kl_VXGRPffBFNUOI/edit?usp=sharing
+  chat: /projects/gsoc/2021/projects/cloudevents-plugin/#chat
+  idea: /projects/gsoc/2021/project-ideas/cloudevents-plugin
+  meetings: "/projects/gsoc/2021/projects/cloudevents-plugin/#office-hours"
+---
+
+=== Background
+As the CI/CD world is moving more towards interoperability between multiple platforms, Jenkins should also be compatible with the same interoperability standards. Some of these standards with respect to communication between different CI/CD platforms are put forth by the cloudevents specification. This spec outlines the structure of cloudevents, which are produced or consumed by entities which support it, hence making those entities compatible with other CI/CD platforms which also support them allowing them to work together.
+
+Jenkins currently does not support cloudevents, making it hard for users to use it with other platforms which support them.
+
+==== Project Details
+This project idea proposes to implement a Jenkins plugin which extends Jenkins to make cloudevents both discoverable and subscribable. Users should be able to set a global configuration to allow users to subscribe and discover cloudevents.
+
+The project requires the student to start with plugin development from scratch and then work with understanding how to use the Cloudevents Java SDK to create and read events.
+
+In the beginning, the student can work on understanding the Jenkins plugin development by writing code for creating a simple Build Step which creates a CloudEvent, and from there we can move to the GlobalPluginConfiguration on how Jenkins should listen to the cloudevents.
+
+=== Implementation
+
+==== Jenkins as a Source
+
+This plugin extends from Listener classes inside the Hudson-Model package (link:https://javadoc.jenkins.io/hudson/model/[Listeners in Jenkins]), which offers listener-implementation for various events inside the Jenkins server.
+
+The data received from the object-listeners is wrapped into CloudEvents spec using link:https://github.com/cloudevents/sdk-java[CloudEvents Java SDK] as the event payload. In order for this payload to become CloudEvent-compliant, some additional metadata, in the form of headers, need to be passed along in the HTTP request. Using the GlobalConfiguration information received from the user, the event payload along with custom HTTP headers will be sent over to the given HTTP Sink.
+
+An example of what event-payload can look like for a CloudEvent emitting from Jenkins upon a job-build-success
+
+ {
+	"result": "SUCCESS",
+	"endTime": 1469453903,
+	"ciUrl": "http://localhost:8080/jenkins/",
+	"fullJobName": "test_job",
+	"number": 252,
+	"jobName": "test_job",
+	"duration": 11252,
+}
+
+
+Here is an example of additional headers which must be passed along to make the event data CloudEvent-compliant
+
+ ce-specversion: 1.0
+ ce-type: job.build.finished
+ ce-source: <Jenkins' Server>
+ ce-id: <Custom UUID>
+
+
+==== Jenkins as a Sink
+
+This stage will involve implementing RootAction associated to a Jenkins object which would listen to CloudEvents from external systems sent via HTTP. After extracting the CloudEvent payload, a new action will be taken inside the Jenkins server depending upon the source which triggered the event and the type of the event.
+
+
+=== Deliverables
+
+1. **Jenkins as a Source**
+* Extend GlobalPluginConfiguration within the CloudEvents Plugin to support listening and emitting Jenkins events for Jenkins objects (projects, runs, build, etc) across the Jenkins server.
+* UI Changes to allow a user to configure Jenkins as a Source and Sink for emitting and consuming CloudEvents respectively.
+  - Configuration of the external URL of an HTTP Sink where CloudEvents from Jenkins will be sent.
+  - Selection of events a user would like to send over to the Sink (build-started, build-building, build-finished).
+* Listen to Jenkins events across the Jenkins server, and wrap the event-data into CloudEvent-compliant spec to send via HTTP to a Sink.
+
+2. **Jenkins as a Sink**
+* Implement RootAction associated with Jenkins objects (Jobs, Projects, Queues). The URL of the Action will be receiving HTTP requests with CloudEvents payload.
+* Traverse the request received, and extract data which will decide the next action to take within Jenkins.
+* Trigger the next action inside Jenkins server. For example, __build project #5 upon data change event from Debezium__.
+
+3. **Documentation and testing**
+* Rigorous testing and documentation along each stage.
+
+=== Similar Jenkins plugins for reference:
+
+- link:https://github.com/jenkinsci/statistics-gatherer-plugin[Statistics Gatherer Plugin]
+- link:https://github.com/jenkinsci/extreme-notification-plugin[Extreme Notification Plugin]
+- link:https://github.com/jenkinsci/jqs-monitoring-plugin[Monitoring Plugin]
+- link:https://github.com/jenkinsci/generic-webhook-trigger-plugin[Generic Webhook Trigger Plugin]
+
+=== Chat
+
+We use the `#gsoc-2021-jenkins-cloudevents-plugin` channel in the CDF Slack workspace.
+link:/chat/#continuous-delivery-foundation[How to join CDF Slack].
+
+=== Office hours
+
+The CloudEvents Plugin SIG Meeting happens every **Monday at 13:00 UTC**.
+
+Zoom Link: link:https://cloudbees.zoom.us/j/94985456924[https://cloudbees.zoom.us/j/94985456924] (ID: 94985456924, passcode: 167462)
+
+Meeting Docs: link:https://docs.google.com/document/d/11uMgE29StGLZEeOTteRXWIOpohBFk9ztwj1JeiUv9-U/edit#heading=h.7z7g0d3k8x7g[https://docs.google.com/document/d/11uMgE29StGLZEeOTteRXWIOpohBFk9ztwj1JeiUv9-U/edit#heading=h.7z7g0d3k8x7g]
+
+=== References
+
+There are many examples of such documentation on the web:
+
+* link:https://cloudevents.io/[Cloudevents website]
+* link:https://github.com/cloudevents/sdk-java[Cloudevents Java SDK]
+* link:https://en.wikipedia.org/wiki/Event-driven_architecture[Event driven architecture]
+* link:https://www.youtube.com/watch?v=STKCRSUsyP0&t=944s[The many meanings of event driven architecture by Martin Fowler]
+
+=== GSoC Documents
+
+- link:https://docs.google.com/document/d/1nzQ8cqnCR8vWX51kz_Wh9LPvmnMyrPvDXJvvy1qHpOY/edit?usp=sharing[Design Document]
+- link:https://docs.google.com/document/d/1K9P_GSyPY4Y1om0_6Hk2alvqWqX8Dxly5kfVODjGW4A/edit?usp=sharing[Progress Tracker]

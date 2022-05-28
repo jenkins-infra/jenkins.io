@@ -1,0 +1,62 @@
+---
+layout: section
+title: Aborting a build
+---
+
+= Aborting a build
+
+When you click that [x] icon from the UI, the following things happen:
+
+. Browser sends a request to the server.
+. The server interrupts (via Thread.interrupt()) the thread (AKA
+executor thread) that is responsible for carrying out a build.
+. The server returns
+
+At this point, your browser is back, but the actual abort process
+happens from here asynchronously.
+
+. The thread gets the interrupt signal. How quickly this happens depends
+on what the executor is doing at the time of the interruption.
+Specifically, an executor thread can only be interrupted in
+"interruption points" due to the Java design.
+* Waiting for a completion of a child process (for example, maybe the
+build is running Ant) is an interruption point. That means if the
+executor was doing that, it gets interrupted instantaneously.
+* Waiting for a computation on an agent is an interruption point.
+* Waiting for file or network I/O is not an interruption point. This
+often causes the problem where a build appears to be un-abortable. For
+example, checking out a Subversion repository falls in this category.
+* Normal computation is also not an interruption point.
+. The executor performs a clean up operation. This depends on what it
+was doing by the time it noticed the interruption.
+* If it was waiting for a completion of a child process, Jenkins will
+search for all the descendant processes and kill them all. On Unix, this
+is done through `+java.lang.UnixProcess.destroyProcess+`, which sends
+http://en.wikipedia.org/wiki/SIGTERM[SIGTERM] on Unix-based JDK implementations. On Windows,
+this is done through
+http://msdn.microsoft.com/en-us/library/ms686714(VS.85).aspx[TerminateProcess]
+API.
+* If it was waiting for a completion of some computation in an agent, the
+thread that's performing the remote computation is interrupted
+asynchronously. How quickly that threads gets interrupted depends on
+what that thread is doing. See above.
+. Executor starts unwinding the stack, and eventually it finishes the
+unwinding. At this point, the build is marked as aborted and executor
+returns to the idle status.
+
+Pipeline jobs can be stopped by sending an HTTP POST request to URL
+endpoints of a build.
+
+* `+BUILD ID URL/stop+` - aborts a Pipeline.
+* `+BUILD ID URL/term+` - forcibly terminates a build (should only be
+used if `+stop+` does not work).
+* `+BUILD ID URL/kill+` - hard kill a pipeline. This is the most
+destructive way to stop a pipeline and should only be used as a last
+resort.
+
+== If your build isn't aborting
+
+Check the thread dump `+http://yourserver/jenkins/threadDump+` and
+look for the executor thread in question — they are named after the
+agent and executor number. That'll normally tell you where the thread
+is, and often reveals why it's not responding to an interruption.

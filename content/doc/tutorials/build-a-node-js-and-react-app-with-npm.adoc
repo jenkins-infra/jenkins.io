@@ -48,7 +48,8 @@ include::doc/book/installing/_run-jenkins-in-docker.adoc[]
 
 
 [[fork-sample-repository]]
-=== Fork and clone the sample repository on GitHub
+[[fork-and-clone-the-sample-repository-on-github]]
+=== Fork and clone the sample repository
 
 Obtain the simple "Welcome to React" Node.js and React application from GitHub,
 by forking the sample repository of the application's source code into your own
@@ -144,7 +145,7 @@ process.
 pipeline {
     agent {
         docker {
-            image 'node:6-alpine' // <1>
+            image 'node:lts-bullseye-slim' // <1>
             args '-p 3000:3000' // <2>
         }
     }
@@ -159,7 +160,7 @@ pipeline {
 ----
 <1> This `image` parameter (of the link:/doc/book/pipeline/syntax#agent[`agent`]
 section's `docker` parameter) downloads the
-https://hub.docker.com/_/node/[`node:6-alpine` Docker image] (if it's not
+https://hub.docker.com/_/node/[`node:lts-bullseye-slim` Docker image] (if it's not
 already available on your machine) and runs this image as a separate container.
 This means that:
 * You'll have separate Jenkins and Node containers running locally in Docker.
@@ -226,16 +227,7 @@ Ocean interface",width=100%]
 === Add a test stage to your Pipeline
 
 . Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
-. Copy and paste the following Declarative Pipeline syntax immediately under the
-  `agent` section of your `Jenkinsfile`:
-+
-[source,groovy]
-----
-    environment {
-        CI = 'true'
-    }
-----
-as well as the following immediately under the `Build` stage:
+. Copy and paste the following Declarative Pipeline syntax immediately under the `Build` stage:
 +
 [source,groovy]
 ----
@@ -252,12 +244,9 @@ so that you end up with:
 pipeline {
     agent {
         docker {
-            image 'node:6-alpine'
+            image 'node:lts-bullseye-slim'
             args '-p 3000:3000'
         }
-    }
-    environment {
-        CI = 'true' // <1>
     }
     stages {
         stage('Build') {
@@ -265,35 +254,17 @@ pipeline {
                 sh 'npm install'
             }
         }
-        stage('Test') { // <2>
+        stage('Test') { // <1>
             steps {
-                sh './jenkins/scripts/test.sh' // <3>
+                sh './jenkins/scripts/test.sh' // <2>
             }
         }
     }
 }
 ----
-<1> The link:/doc/book/pipeline/syntax#environment[`environment`] directive sets
-the environment variable `CI` with a boolean value of `true`, which is available
-to all steps in this Pipeline. When the `npm test` command in `test.sh` (which
-is run during the `Test` stage defined further down the Pipeline) detects the
-environment variable `CI` with a value of `true`, then this command is run in
-"non-watch" (i.e. non-interactive) mode. In "watch" mode, `npm test` expects
-user input, which can pause running builds of CI/CD applications indefinitely.
-As an alternative to specifying the `environment` directive in a Jenkins
-Pipeline, you could also specify this environment variable in the `package.json`
-file (to pass on to the `npm test` command) by:
-.. Uncommenting the `npm install --save-dev cross-env` command in
-   `jenkins/scripts/test.sh` (to install the `cross-env` dependency during the
-   `Test` stage). Read more about this in the `test.sh` file itself.
-.. Updating the following line in the `package.json` file (at the root of the
-   `simple-node-js-react-npm-app` repository) from:
-   * `"test": "react-scripts test --env=jsdom",` +
-     to
-   * `"test": "cross-env CI=true react-scripts test --env=jsdom",`
-<2> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called
 `Test` that appears on the Jenkins UI.
-<3> This
+<2> This
 link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
 step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) runs the
 shell script `test.sh` located in the `jenkins/scripts` directory from the root
@@ -352,12 +323,9 @@ so that you end up with:
 pipeline {
     agent {
         docker {
-            image 'node:6-alpine'
+            image 'node:lts-buster-slim'
             args '-p 3000:3000'
         }
-    }
-    environment { // <1>
-        CI = 'true'
     }
     stages {
         stage('Build') {
@@ -370,33 +338,29 @@ pipeline {
                 sh './jenkins/scripts/test.sh'
             }
         }
-        stage('Deliver') { // <2>
+        stage('Deliver') { // <1>
             steps {
-                sh './jenkins/scripts/deliver.sh' // <3>
-                input message: 'Finished using the web site? (Click "Proceed" to continue)' // <4>
-                sh './jenkins/scripts/kill.sh' // <5>
+                sh './jenkins/scripts/deliver.sh' // <2>
+                input message: 'Finished using the web site? (Click "Proceed" to continue)' // <3>
+                sh './jenkins/scripts/kill.sh' // <4>
             }
         }
     }
 }
 ----
-<1> This link:/doc/book/pipeline/syntax#environment[`environment`] directive
-might not be present in your Pipeline if you chose to specify the `CI`
-environment variable in the `package.json` file
-<<add-a-test-stage-to-your-pipeline,above>>.
-<2> Defines a new stage called `Deliver` that appears on the Jenkins UI.
-<3> This
+<1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
+<2> This
 link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
 step (of the link:/doc/book/pipeline/syntax/#steps[`steps`] section) runs the
 shell script `deliver.sh` located in the `jenkins/scripts` directory from the
 root of the `simple-node-js-react-npm-app` repository. Explanations about what
 this script does are covered in the `deliver.sh` file itself.
-<4> This
+<3> This
 link:/doc/pipeline/steps/pipeline-input-step/#code-input-code-wait-for-interactive-input[`input`]
 step (provided by the link:/doc/pipeline/steps/pipeline-input-step[Pipeline:
 Input Step] plugin) pauses the running build and prompts the user (with a custom
 message) to proceed or abort.
-<5> This
+<4> This
 link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`]
 step runs the shell script `kill.sh`, also located in the `jenkins/scripts`
 directory. Explanations about what this script does are covered in the `kill.sh`
