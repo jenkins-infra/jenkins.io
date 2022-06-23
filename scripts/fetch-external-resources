@@ -18,11 +18,13 @@ RESOURCES = [
     'https://updates.jenkins.io/latestCore.txt',
     'content/_tmp/latestCore.txt',
     nil,
+    nil,
     nil
   ],
   [
     'https://updates.jenkins.io/stable/latestCore.txt',
     'content/_tmp/latestLTSCore.txt',
+    nil,
     nil,
     nil
   ],
@@ -30,23 +32,27 @@ RESOURCES = [
     'https://github.com/jenkinsci/pipeline-examples/archive/master.zip',
     'content/_tmp/pipeline-examples-master.zip',
     nil,
-    'content/_tmp/examples'
+    'content/_tmp/examples',
+    nil
   ],
   [
     'https://ci.jenkins.io/job/Infra/job/pipeline-steps-doc-generator/job/master/lastSuccessfulBuild/artifact/allAscii.zip',
     'content/_tmp/allAscii.zip',
     nil,
-    'content/doc/pipeline/steps'
+    'content/doc/pipeline/steps',
+    nil
   ],
   [
     'https://repo.jenkins-ci.org/api/search/versions?g=org.jenkins-ci.main&a=jenkins-core&repos=releases&v=?.*.1',
     'content/_data/_generated/lts_baselines.yml',
+    nil,
     nil,
     nil
   ],
   [
     'https://updates.jenkins.io/update-center.actual.json',
     'content/_data/_generated/update_center.yml',
+    nil,
     nil,
     nil
   ],
@@ -60,7 +66,15 @@ RESOURCES = [
     'https://ci.jenkins.io/job/Infra/job/backend-extension-indexer/job/master/lastSuccessfulBuild/artifact/*.adoc/*zip*/extension-indexer.zip',
     'content/_tmp/extension-indexer.zip',
     nil,
-    'content/doc/developer/extensions'
+    'content/doc/developer/extensions',
+    nil
+  ],
+  [
+    'https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-core/2.222.4/jenkins-core-2.222.4.jar', # TODO figure out how to identify the latest release and download that
+    'content/_tmp/jenkins-core.zip',
+    { "layout": "inlinehelp" },
+    'content/doc/help/jenkins-core',
+    /.+(?<!_[a-z]{2})(?<!_[a-z]{2}_[A-Z]{2})[.]html/
   ],
 ]
 
@@ -83,7 +97,7 @@ class Fetcher
     failures = []
     puts "Fetching external resources:"
 
-    resources.each do |origin, destination, frontmatter, zip_dest|
+    resources.each do |origin, destination, frontmatter, zip_dest, zip_pattern|
       response = fetch_resource(origin)
 
       unless response.success?
@@ -94,7 +108,7 @@ class Fetcher
       FileUtils.mkdir_p File.dirname(destination)
 
       File.open(destination, 'w+') do |f|
-        if frontmatter
+        if frontmatter and !zip_dest
           f.write(frontmatter.to_yaml)
           f.write("---\n")
         end
@@ -116,9 +130,24 @@ class Fetcher
         FileUtils.mkdir_p zip_dest
 
         Zip::File.open(destination) do |zip_file|
-          zip_file.each do |f|
-            fpath = File.join(zip_dest, f.name)
-            zip_file.extract(f, fpath)
+          zip_file.each do |z|
+            if !zip_pattern || z.name =~ zip_pattern
+              fpath = File.join(zip_dest, z.name)
+              dirpath = File.dirname(fpath)
+
+              FileUtils.mkdir_p(dirpath)
+
+              if frontmatter
+                content = z.get_input_stream.read
+                File.open(fpath, 'w+') do |f|
+                  f.write(frontmatter.to_yaml)
+                  f.write("---\n")
+                  f.write(content)
+                end
+              else
+                zip_file.extract(z, fpath)
+              end
+            end
           end
         end
       end
