@@ -9,10 +9,8 @@ section: doc
 :imagesdir: ../../book/resources/
 
 Jenkins is an open-source automation server that integrates with a number of
-AWS Services, such as AWS CodeCommit, AWS CodeDeploy, Amazon EC2 Spot,
-and Amazon EC2 Fleet.
-You can use Amazon Elastic Compute Cloud (Amazon
-EC2) to deploy a Jenkins application on AWS in a matter of minutes.
+AWS Services, including: AWS CodeCommit, AWS CodeDeploy, Amazon EC2 Spot, and Amazon EC2 Fleet.
+You can use Amazon Elastic Compute Cloud (Amazon EC2) to deploy a Jenkins application on AWS.
 
 This tutorial walks you through the process of deploying a Jenkins application.
 You will launch an EC2 instance, install Jenkins on that instance, and configure
@@ -21,214 +19,219 @@ need to be augmented on the instance.
 
 In this tutorial, you will perform the following steps:
 
-1. <<Prerequisites>>
-2. <<Create a key pair>> using Amazon EC2 if you already
-have one, you can skip this step
-3. <<Create a security group>> for your Amazon EC2 instance if you already
-have one, you can skip this step
-4. <<Launch an Amazon EC2 instance>>
-5. <<Install and configure Jenkins>>
-6. <<Clean up>>
+. <<Prerequisites>>.
+. <<Creating a key pair,Create a key pair>> using Amazon EC2.
+If you already have one, you can skip to step 3.
+. <<Creating a security group,Create a security group>> for your Amazon EC2 instance. If you already have one, you can skip to step 4.
+. <<Launching an Amazon EC2 instance,Launch an Amazon EC2 instance>>.
+. <<Installing and configuring Jenkins,Install and configure Jenkins>>.
+. <<Cleaning up,Clean up tutorial resources>>.
 
 == Prerequisites
 
-1. An AWS account, if you don't have one, you can register link:https://portal.aws.amazon.com/billing/signup#/start[here]
-2. An Amazon EC2 key pair, if you don't have one, see the <<Create a key pair using Amazon EC2>> section.
+. An *AWS account*. If you don't have one, you can register link:https://portal.aws.amazon.com/billing/signup#/start[here].
+. An Amazon EC2 key pair. If you don't have one, refer to <<Creating a key pair>>.
 
-== Create a key pair
+== Creating a key pair
+
+Creating a key pair helps ensure that the correct form of authentication is used when you install Jenkins.
 
 To create your key pair:
 
-1. Open the Amazon EC2 console at https://console.aws.amazon.com/ec2/ and sign in.
+. Open the Amazon EC2 console at https://console.aws.amazon.com/ec2/ and sign in.
 
-2. In the navigation pane, under **NETWORK & SECURITY**, choose **Key Pairs**.
+. In the navigation pane, under *NETWORK & SECURITY*, select *Key Pairs*.
 
-3. Select **Create key pair**.
+. Select **Create key pair**.
 
-4. For **Name**, enter a descriptive name for the key pair. Amazon EC2 associates the public key with the name that you specify as the key name. A key name can include up to 255 ASCII characters. It can’t include leading or trailing spaces.
+. For *Name*, enter a descriptive name for the key pair.
+Amazon EC2 associates the public key with the name that you specify as the *key name*. 
+A key name can include up to 255 ASCII characters.
+It cannot include leading or trailing spaces.
 
-5. For **File format**, choose the format in which to save the private key. To save the private key in a format that can be used with OpenSSH, choose **pem**. To save the private key in a format that can be used with PuTTY, choose **ppk**.
+. For *File format*, select the format in which to save the private key.
+* For OpenSSH compatibility, select *pem*.
+* For PuTTY compatibility, select *ppk*.
 
-6. Select **Create key pair**.
+. Select *Create key pair*.
 
-7. The private key file is automatically downloaded by your browser. The base file name is the name you specified as the name of your key pair, and the file name extension is determined by the file format you chose. Save the private key file in a safe place.
+. The private key file downloads automatically.
+The base file name is the name you specified as the name of your key pair, and the file name extension is determined by the file format you chose.
+Save the private key file in a safe place.
 +
-NOTE: This is the only chance for you to save the private key file.
+IMPORTANT: This is the only chance for you to save the private key file.
 +
-8. If you will use an SSH client on a macOS or Linux computer to connect to your Linux instance, use the following command to set the permissions of your private key file so that only you can read it.
-
+. If you use an SSH client on a macOS or Linux computer to connect to your Linux instance, run the following command to set the permissions of your private key file so that only you can read it.
++
 [source,bash]
 ----
 $ chmod 400 <key_pair_name>.pem
 ----
 
-NOTE: If you do not set these permissions, then you cannot connect to your instance using this key pair. For more information, see link:https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html#troubleshoot-unprotected-key[Error: Unprotected private key file].
+NOTE: If you do not set these permissions, you cannot connect to your instance using this key pair. For more information, refer to link:https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html#troubleshoot-unprotected-key[Error: Unprotected private key file].
 
-== Create a security group
+== Creating a security group
 
-A security group acts as a firewall that controls the traffic allowed to reach
-one or more EC2 instances.
+A security group acts as a firewall that controls the traffic allowed to reach one or more EC2 instances.
 When you launch an instance, you can assign it one or more security groups.
-You add rules to each security group that control the traffic allowed to reach the
-instances in the security group.
-Note that you can modify the rules for a security group at any time; the new
-rules take effect immediately.
+You add rules that control the traffic allowed to reach the instances in each security group.
+You can modify a security group's rules any time, and the new rules take effect immediately.
 
 For this tutorial, you will create a security group and add the following rules:
+
 * Allow inbound HTTP access from anywhere.
-* Allow inbound SSH traffic from your computer's public IP address so
-that you can connect to your instance.
+* Allow inbound SSH traffic from your computer's public IP address so you can connect to your instance.
 
-**To create and configure your security group:**
+To create and configure your security group:
 
-* Decide who may access your instance, for example, a single computer or
-all trusted computers on a network. For this tutorial, you can use the
-public IP address of your computer. To find your IP address, use the
-link:http://checkip.amazonaws.com/[checkip service] from AWS3 or search for the
-phrase "what is my IP address" in any Internet search engine.
-If you are connecting through an ISP or from behind your firewall
-without a static IP address, you will need to find the range of IP
-addresses used by client computers.
+. Decide who may access your instance.
+For example, a single computer or all trusted computers on a network.
+For this tutorial, you can use the public IP address of your computer.
+* To find your IP address, use the
+link:http://checkip.amazonaws.com/[check IP service tool] from AWS3 or search for the phrase "what is my IP address" in any search engine.
+* If you connect through an ISP or from behind your firewall without a static IP address, you will need the range of IP addresses used by client computers.
 If you don't know this address range, you can use 0.0.0.0/0 for this tutorial.
-However, this is unsafe for production environments because it allows everyone to
++
+IMPORTANT: This is unsafe for production environments because it allows everyone to
 access your instance using SSH.
 
-* Sign in to the link:https://console.aws.amazon.com/ec2/[AWS Management Console].
-* Open the Amazon EC2 console by choosing EC2 under Compute.
+. Sign in to the link:https://console.aws.amazon.com/ec2/[AWS Management Console].
+. Open the Amazon EC2 console by selecting *EC2* under *Compute*.
++
+image::tutorials/AWS/ec2_service.png[Amazon EC2 Services page]
 
-image::tutorials/AWS/ec2_service.png[]
+. In the left-hand navigation bar, select **Security Groups**, and then select *Create Security Group*.
++
+image::tutorials/AWS/create_security_group.png[Amazon security group creation screen]
 
-* In the left-hand navigation bar, choose **Security Groups**, and then click
-**Create Security Group**.
+. In **Security group name**, enter *WebServerSG* or any preferred name of your choice, and provide a description.
+. Select your VPC from the list. You can use the default VPC.
+. On the **Inbound tab**, add the rules as follows:
+.. Select *Add Rule*, and then select *SSH* from the Type list.
+.. Under *Source*, select *Custom*, and in the text box, enter <<Decide who may access your instance,the IP address from step 1>>.
+.. Select *Add Rule*, and then select *HTTP* from the Type list.
+.. Select *Add Rule*, and then select *Custom TCP Rule* from the
+Type list.
+.. Under *Port Range*, enter *8080*.
+. Select Create.
 
-image::tutorials/AWS/create_security_group.png[]
-
-* In **Security group name** enter *WebServerSG* or any preferred name of your choice and provide a description.
-* Choose your VPC from the list, you can use the default VPC.
-* On the **Inbound tab**, add the rules as follows:
-** Click **Add Rule**, and then choose **SSH** from the Type list. Under
-**Source**, select **Custom** and in the text box enter <public IP
-address range that you decided on in step 1>/32 i.e 172.23.23.165/32.
-** Click **Add Rule**, and then choose **HTTP** from the Type list.
-** Click **Add Rule**, and then choose **Custom TCP Rule** from the
-Type list. Under **Port Range** enter **8080**.
-* Click Create.
-
-For more information, see link:http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html[Security Groups] in the Amazon EC2 User Guide for
+For more information, refer to link:http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html[Security Groups] in the Amazon EC2 User Guide for
 Linux Instances.
 
-== Launch an Amazon EC2 instance
+== Launching an Amazon EC2 instance
+
+Now that you have configured a key pair and security group, you can launch an EC2 instance.
 
 To launch an EC2 instance:
 
-* Sign in to the the link:https://console.aws.amazon.com/ec2/[AWS Management Console].
-* Open the Amazon EC2 console by choosing EC2 under Compute.
-* From the Amazon EC2 dashboard, choose Launch Instance.
+. Sign in to the the link:https://console.aws.amazon.com/ec2/[AWS Management Console].
+. Open the Amazon EC2 console by selecting EC2 under *Compute*.
+. From the Amazon EC2 dashboard, select *Launch Instance*.
++
+image::tutorials/AWS/ec2_launch_instance.png[Launching from Amazon]
 
-image::tutorials/AWS/ec2_launch_instance.png[]
+. The *Choose an Amazon Machine Image (AMI)* page displays a list of basic configurations called Amazon Machine Images (AMIs) that serve as templates for your instance.
+Select the HVM edition of the *Amazon Linux AMI*.
++
+NOTE: This configuration is marked *Free tier eligible*.
++
+image::tutorials/AWS/ec2_choose_ami.png[Choosing an Amazon Machine Image]
 
-* The Choose an **Amazon Machine Image (AMI)** page displays a list of basic configurations called Amazon Machine Images (AMIs) that serve as templates for your instance. Select the HVM edition of the **Amazon Linux AMI**. Notice that this configuration is marked **Free tier eligible**.
+. On the *Choose an Instance Type* page, the *t2.micro* instance is selected by default.
+Verify this instance type is selected to stay within the free tier. 
+Once chosen, you can select *Review and Launch*.
++
+image::tutorials/AWS/ec2_choose_instance_type.png[Amazon instance type]
 
-image::tutorials/AWS/ec2_choose_ami.png[]
+. On the *Review Instance Launch* page, select *Edit security groups*.
++
+image::tutorials/AWS/ec2_review_instance_launch.png[Review your amazon launch instance]
 
-* On the **Choose an Instance Type page**, the **t2.micro** instance is selected by default.
-Keep this instance type to stay within the free tier. **Review and Launch**.
+. On the *Configure Security Group* page:
+.. Select *Select an existing security group*.
+.. Select the *WebServerSG* security group that you created.
+.. Select *Review and Launch*.
++
+image::tutorials/AWS/select_security_group.png[Amazon security group selection]
 
-image::tutorials/AWS/ec2_choose_instance_type.png[]
+. On the *Review Instance Launch* page, select *Launch*.
++
+image::tutorials/AWS/review_instance_launch.png[AMazon review your instance prior to launch]
 
-* On the **Review Instance Launch page**, click **Edit security groups**.
+. In the **Select an existing key pair or create a new key pair** dialog box, select *Choose an existing key pair*. Then select the key pair you created in the <<Creating a key pair, creating a key pair>> section above or any existing key pair you intend to use.
++
+image::tutorials/AWS/select_key_pair.png[Selecting a key pair for Amazon]
 
-image::tutorials/AWS/ec2_review_instance_launch.png[]
+. In the left-hand navigation bar, choose **Instances** to view the status of your instance.
+Initially, the status of your instance is pending.
+After the status changes to running, your instance is ready for use.
++
+image::tutorials/AWS/ec2_view_created_instance.png[Amazon view created instance]
 
-* On the Configure Security Group page:
-** Select **Select an existing security group**.
-** Select the **WebServerSG** security group that you created.
-** Click **Review and Launch**.
+== Installing and configuring Jenkins
 
-image::tutorials/AWS/select_security_group.png[]
+Now that the Amazon EC2 instance has been launched, Jenkins can be installed properly.
 
-* On the **Review Instance Launch page**, click **Launch**.
+In this step you will deploy Jenkins on your EC2 instance by completing the following tasks:
 
-image::tutorials/AWS/review_instance_launch.png[]
+. <<Connecting to your Linux instance>>
+. <<Downloading and installing Jenkins>>
+. <<Configuring Jenkins>>
 
-* In the **Select an existing key pair or create a new key pair** dialog
-box, select **Choose an existing key pair**, and then select the key pair
-you created in the <<Create a key pair using Amazon EC2>> section above or
-any existing key pair you intend to use.
+=== Connecting to your Linux instance
 
-image::tutorials/AWS/select_key_pair.png[]
+After you launch your instance, you can connect to it and use it the same way as your local machine.
 
-* In the left-hand navigation bar, choose **Instances** to see the status of
-your instance.
-Initially, the status of your instance is pending. After the
-status changes to running, your instance is ready for use.
+Before you connect to your instance, get the *public DNS* name of the instance using the Amazon EC2 console.
 
-image::tutorials/AWS/ec2_view_created_instance.png[]
+. Select the instance and locate Public DNS.
++
+image::tutorials/AWS/ec2_public_dns.png[Amazon public DNS]
 
-== Install and configure Jenkins
-
-In this step you will deploy Jenkins on your EC2 instance by completing the
-following tasks:
-
-* <<Connect to your Linux instance>>
-* <<Download and install Jenkins>>
-* <<Configure Jenkins>>
-
-=== Connect to your Linux instance
-
-After you launch your instance, you can connect to it and use it the way that you
-would use your local machine.
-
-Before you connect to your instance, get the **public DNS** name of the instance
-using the Amazon EC2 console. Select the instance and locate Public DNS.
-
-image::tutorials/AWS/ec2_public_dns.png[]
-
-NOTE: If your instance doesn't have a public DNS name, open the VPC console, select
-the VPC, and check the Summary tab. If either DNS resolution or DNS
-hostnames is **no**, click **Edit** and change the value to **yes**.
+NOTE: If your instance doesn't have a public DNS name, open the VPC console, select the VPC, and check the *Summary* tab.
+If either DNS resolution or DNS hostnames is *no*, select *Edit* and change the value to *yes*.
 
 ==== Prerequisites
 
-The tool that you use to connect to your Linux instance depends on the
-operating system running on your computer.
-If your computer runs Windows, you will connect using PuTTY.
-If your computer runs Linux or Mac OS X, you will connect using the SSH client.
+The tool that you use to connect to your Linux instance depends on your operating system.
+
+* If your computer runs Windows, you will connect using PuTTY.
+* If your computer runs Linux or Mac OS X, you will connect using the SSH client.
+
 These tools require the use of your key pair.
-Be sure that you created your key pair as described in <<Create a key pair using Amazon EC2>>.
+Be sure that you have created your key pair as described in <<Creating a key pair>>.
 
 
 ==== Using PuTTY to connect to your instance
 
-* From the **Start** menu, choose **All Programs** > **PuTTY** > **PuTTY**.
-* In the Category pane, select **Session**, and complete the following fields:
-** In **Host Name**, enter ec2-user@public_dns_name.
-** Ensure that **Port** is 22.
+. From the *Start* menu, select *All Programs* > *PuTTY* > *PuTTY*.
+. In the *Category* pane, select *Session*, and complete the following fields:
+.. In *Host Name*, enter ec2-user@public_dns_name.
+.. Ensure that *Port* is 22.
++
+image::tutorials/AWS/ec2_putty.png[Amazon EC2 PuTTY selection]
 
-image::tutorials/AWS/ec2_putty.png[]
-
-* In the **Category** pane, expand **Connection**, expand **SSH**, and then
-select **Auth**. Complete the following:
-** Click Browse.
-** Select the .ppk file that you generated for your key pair, as
-described in <<Create a key pair using Amazon EC2>> and then click **Open**.
-** Click Open to start the PuTTY session.
-
-image::tutorials/AWS/putty_select_key_pair.png[]
+. In the *Category* pane, expand *Connection*, expand *SSH*, and then select *Auth*. Complete the following:
+.. Select *Browse*.
+.. Select the .ppk file that you generated for your key pair, as
+described in <<Creating a key pair>> and then select *Open*.
+. Select *Open* to start the PuTTY session.
++
+image::tutorials/AWS/putty_select_key_pair.png[Selecting and opening a new PuTTY session]
 
 ==== Using SSH to connect to your instance
 
-* Use the ssh command to connect to the instance.
+. Use the ssh command to connect to the instance.
 You will specify the private key (.pem) file and ec2-user@public_dns_name.
-
++
 [source,bash]
 ----
 $ ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-
 100-1.compute-1.amazonaws.com
 ----
-
-You will see a response like the following:
-
++
+You will receive a response like the following:
++
 [source,bash]
 ----
 The authenticity of host 'ec2-198-51-100-1.compute1.amazonaws.com (10.254.142.33)' cant be
@@ -240,70 +243,70 @@ Are you sure you want to continue connecting
 (yes/no)?
 ----
 
-* Enter yes.
-
-You will see a response like the following:
-
+. Enter yes.
++
+You will receive a response like the following:
++
 [source,bash]
 ----
 Warning: Permanently added 'ec2-198-51-100-1.compute1.amazonaws.com' (RSA) to the list of known hosts.
 ----
 
-=== Download and install Jenkins
+=== Downloading and installing Jenkins
 
+Completing the previous steps enables you to download and install Jenkins on AWS.
 To download and install Jenkins:
 
-* To ensure that your software packages are up to date on your instance,
-use the following command to perform a quick software update:
-
+. Ensure that your software packages are up to date on your instance by uing the following command to perform a quick software update:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo yum update –y
 ----
 
-* Add the Jenkins repo using the following command:
-
+. Add the Jenkins repo using the following command:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo wget -O /etc/yum.repos.d/jenkins.repo \
     https://pkg.jenkins.io/redhat-stable/jenkins.repo
 ----
 
-* Import a key file from Jenkins-CI to enable installation from the package:
-
+. Import a key file from Jenkins-CI to enable installation from the package:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
 ----
-
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo yum upgrade
 ----
 
-* Install Java:
-
+. Install Java:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo amazon-linux-extras install java-openjdk11 -y
 ----
 
-* Install Jenkins:
-
+. Install Jenkins:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo yum install jenkins -y
 ----
 
-* Enable the Jenkins service to start at boot:
-
+. Enable the Jenkins service to start at boot:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo systemctl enable jenkins
 ----
 
-* Start Jenkins as a service:
-
+. Start Jenkins as a service:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo systemctl start jenkins
@@ -316,63 +319,77 @@ You can check the status of the Jenkins service using the command:
 [ec2-user ~]$ sudo systemctl status jenkins
 ----
 
-=== Configure Jenkins
+=== Configuring Jenkins
 
 Jenkins is now installed and running on your EC2 instance.
 To configure Jenkins:
 
-* Connect to \http://<your_server_public_DNS>:8080 from your favorite browser.
+. Connect to \http://<your_server_public_DNS>:8080 from your browser.
 You will be able to access Jenkins through its management interface:
++
+image::tutorials/AWS/unlock_jenkins.png[Unlock Jenkins screen]
 
-image::tutorials/AWS/unlock_jenkins.png[]
+. As prompted, enter the password found in */var/lib/jenkins/secrets/initialAdminPassword*.
 
-* As prompted, enter the password found in **/var/lib/jenkins/secrets/initialAdminPassword**.
-
-Use the following command to display this password:
-
+.. Use the following command to display this password:
++
 [source,bash]
 ----
 [ec2-user ~]$ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 ----
 
-* The Jenkins installation script directs you to the **Customize Jenkins page**.
-Click **Install suggested plugins**.
+. The Jenkins installation script directs you to the *Customize Jenkins page*.
+Click *Install suggested plugins*.
 
-* Once the installation is complete, **Create First Admin User**, click
-**Save and Continue**.
+. Once the installation is complete, the *Create First Admin User* will open.
+Enter your information, and then select *Save and Continue*.
++
+image::tutorials/AWS/create_admin_user.png[Create your first admin user.]
 
-image::tutorials/AWS/create_admin_user.png[]
-
-* On the left-hand side, click **Manage Jenkins**, and then click **Manage
-Plugins**.
-* Click on the **Available** tab, and then enter **Amazon EC2 plugin** at the top
+. On the left-hand side, select *Manage Jenkins*, and then select *Manage
+Plugins*.
+. Select the *Available* tab, and then enter *Amazon EC2 plugin* at the top
 right.
-* Select the checkbox next to **Amazon EC2 plugin**, and then click **Install
-without restart**.
+. Select the checkbox next to *Amazon EC2 plugin*, and then select *Install
+without restart*.
++
+image::tutorials/AWS/install_ec2_plugin.png[Jenkins Plugin Manager showing available plugins.]
 
-image::tutorials/AWS/install_ec2_plugin.png[]
+. Once the installation is done, select *Back to Dashboard*.
+. Select *Configure a cloud* if there are no existing nodes or clouds.
++
+image::tutorials/AWS/configure_cloud.png[Jenkins Dashboard showing configure a cloud.]
+. If you already have other nodes or clouds set up, select *Manage Jenkins*.
++
+image::tutorials/AWS/manage-jenkins.png[Jenkins dashboard if there are existing clouds.]
 
-* Once the installation is done, click **Back to Dashboard**.
-* Click on **Configure a cloud**.
+.. After navigating to *Manage Jenkins*, select *Configure Nodes and Clouds* from the left hand side of the page.
++
+image::tutorials/AWS/manage-nodes-and-clouds.png[Manage nodes and clouds option from Manage Jenkins page]
+.. From here, select *Configure Clouds*.
++
+image::tutorials/AWS/manage-jenkins-configure-clouds.png[Configure clouds option in navigation.]
 
-image::tutorials/AWS/configure_cloud.png[]
-
-* Click **Add a new cloud**, and select **Amazon EC2**.
+. Select *Add a new cloud*, and select *Amazon EC2*.
 A collection of new fields appears.
-* Fill out all the fields. (Note: You will have to Add Credentials of the kind
-AWS Credentials.)
++
+image::tutorials/AWS/add-amazon-cloud.png[Adding Amazon EC2 cloud to Jenkins.]
+
+. Fill out all the fields.
+You will need to input the *Amazon EC2 Credentials*, ensuring they are *AWS Credentials*.
+
 
 You are now ready to use EC2 instances as Jenkins agents.
 
-== Clean up
+== Cleaning up
 
 After completing this tutorial, be sure to delete the AWS resources that you
-created so that you do not continue to accrue charges.
+created so you do not continue to accrue charges.
 
-=== Delete your EC2 instance
+=== Deleting your EC2 instance
 
-1. In the left-hand navigation bar of the Amazon EC2 console, choose
-**Instances**.
-2. Right-click on the instance you created earlier and select **Terminate**.
-
-image::tutorials/AWS/terminate_instance.png[]
+. In the left-hand navigation bar of the Amazon EC2 console, select
+*Instances*.
+. Right-click on the instance you created earlier, and select *Terminate*.
++
+image::tutorials/AWS/terminate_instance.png[Terminating your AWS EC2 instance.]
