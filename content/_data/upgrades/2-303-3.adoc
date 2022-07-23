@@ -1,0 +1,116 @@
+Multiple changes related to the agent-to-controller security subsystem may result in problems.
+
+[#SECURITY-2458]
+==== Agent-to-controller security hardening (role checks)
+
+Jenkins agents communicate with the controller using the https://github.com/jenkinsci/remoting/[remoting library].
+Individual messages (implementations of the `Callable` interface) instruct the other side to perform operations and/or provide information.
+To restrict what agents can instruct controllers to do, `Callable` implementations are expected to implement a _role check_, i.e. a declaration on which side of the communication channel they can be executed.
+
+To prevent plugins from (unintentionally) not implementing an effective role check, Jenkins will reject `Callables` with unimplemented role checks starting with 2.319 and LTS 2.303.3.
+See link:/doc/book/security/controller-isolation/required-role-check/[the Required Role Check page for more details, including a list of known affected plugins and workarounds].
+
+The link:/doc/developer/security/remoting-callables/[developer documentation] contains guidelines for the safe and correct implementation of the `Callable` interface.
+
+
+[#SECURITY-2455]
+==== Agent-to-controller file path filter security fixes
+
+link:/security/advisory/2021-11-04/#SECURITY-2455[SECURITY-2455]
+
+Jenkins agents communicate with the controller using the https://github.com/jenkinsci/remoting/[remoting library].
+For compatibility with existing plugins, agents are allowed some limited access to files on the Jenkins controller file system.
+Jenkins 2.303.3 and 2.319 fix multiple vulnerabilities that resulted in incomplete access control enforcement.
+
+Any plugins that access files on the Jenkins controller from code running on agents may be affected by these security fixes.
+Beyond previously allowed operations now being prohibited, the newly introduced path canonicalization means that instances using a custom builds directory (link:/doc/book/managing/system-properties/#jenkins-model-jenkins-buildsdir[Java system property `jenkins.model.Jenkins.buildsDir`]) or partitioning `JENKINS_HOME` using symbolic links may fail access control checks to files that are intended to be accessible.
+
+If access to a file is rejected, an exception with the following message is made available to agents; this is typically what also will show up in build logs and similar output:
+
+----
+Agent may not access a file path. See the system log for more details about the error ID ↵
+    '<UUID here>' and https://www.jenkins.io/redirect/security-144 for more information
+----
+
+The link:/doc/book/system-administration/viewing-logs/[Jenkins system log] will contain more details.
+
+As of 2021-11-04, no plugins are known to be affected by this security fix.
+
+In case of problems, you can temporarily link:/doc/book/security/controller-isolation/agent-to-controller/#file-access-rules[customize the file access rules] to allow specific, intended agent-to-controller file path accesses to pass.
+Applying custom rules is also the recommended workaround when using a custom builds directory or using symbolic links to distribute `JENKINS_HOME` across multiple volumes.
+
+// TODO Reference JENKINS issue once filed
+[NOTE]
+====
+Due to a bug in current releases of Jenkins discovered only shortly before release of Jenkins 2.319 and 2.303.3 (https://issues.jenkins.io/browse/JENKINS-67061[JENKINS-67061]), Jenkins will only consider the additional rules defined through the UI from the time that the form is submitted until Jenkins is restarted.
+To work around this bug and load both bundled and custom rules, run the following script in the link:/doc/book/managing/script-console/[script console] after submitting rules through the UI:
+
+[source,groovy]
+----
+ExtensionList.lookupSingleton(
+    jenkins.security.s2m.AdminWhitelistRule.class).filePathRules.load()
+----
+
+====
+
+// This is where we would keep track of affected plugins and their fixes.
+
+NOTE: If you are unable to immediately upgrade Jenkins, you can install the link:/redirect/remoting-security-workaround/[Remoting Security Workaround Plugin].
+It will prevent all agent-to-controller file access using `FilePath` APIs.
+Because it is more restrictive than the Jenkins security fixes, more plugins are incompatible with it.
+Make sure to read the plugin documentation before installing it.
+
+
+[#SECURITY-2428]
+==== Agent-to-controller security fix related to build directory access
+
+Jenkins agents communicate with the controller using the https://github.com/jenkinsci/remoting/[remoting library].
+For compatibility with existing plugins, agents are allowed some limited access to files on the Jenkins controller file system.
+The directories agents are allowed to access include the directories storing build-related information, intended to allow agents to store build-related metadata during build execution.
+As a consequence, this allowed _any_ agent to read and write the contents of _any_ build directory on the Jenkins controller file system with very few restrictions (`build.xml` and some Pipeline-related metadata).
+
+Since Jenkins 2.319 and LTS 2.303.3, agents are only allowed to access contents of build directories related to builds currently running on the agent attempting to access the directory.
+
+Plugins that implement functionality executing on agents that accesses build directories on the Jenkins controller file system may be impacted by this change.
+Plugins accessing directories of builds not currently running on the agent accessing the directory will need to be adapted to no longer do that.
+Jenkins will not associate Pipeline `node` blocks with the agents they're running on unless https://plugins.jenkins.io/workflow-durable-task-step/[Pipeline: Nodes and Processes] has been updated to version 2.40 or newer.
+
+If access to a file by an agent is rejected, an exception with the following message is thrown instead; this is typically what also will show up in build logs and similar output:
+
+----
+Agent tried to access build directory of a build not currently running on this system. ↵
+    Learn more: https://www.jenkins.io/redirect/security-144/
+----
+
+The link:/doc/book/system-administration/viewing-logs/[Jenkins system log] will contain more detailed information.
+
+Additionally, plugins opening a direct channel between the controller and a process, like https://plugins.jenkins.io/maven-plugin/[Maven Integration Plugin], are completely prohibited from accessing build directories.
+
+If access to a file by a process is rejected, an exception with the following message is thrown instead; this is typically what also will show up in build logs and similar output:
+
+----
+Failed to discover context of access to build directory
+----
+
+The link:/doc/book/system-administration/viewing-logs/[Jenkins system log] will contain more detailed information.
+
+As of 2021-11-08, no plugins are known to be affected by this security fix.
+
+// The following plugins are known to be affected by this security fix:
+
+// |===
+// | Plugin | Affected Functionality | Workaround | Fix Version
+
+// | https://plugins.jenkins.io/TODO/[TODO]
+// | TODO
+// | TODO
+// | TODO
+
+// |===
+
+This security fix can be disabled by setting the Java system property link:/doc/book/managing/system-properties/#jenkins-security-s2m-runningbuildfilepathfilter-skip[`jenkins.security.s2m.RunningBuildFilePathFilter.SKIP`] to `true`.
+
+NOTE: If you are unable to immediately upgrade Jenkins, you can install the link:/redirect/remoting-security-workaround/[Remoting Security Workaround Plugin].
+It will prevent all agent-to-controller file access using `FilePath` APIs.
+Because it is more restrictive than the Jenkins security fixes, more plugins are incompatible with it.
+Make sure to read the plugin documentation before installing it.

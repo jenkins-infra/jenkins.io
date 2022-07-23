@@ -4,7 +4,63 @@ layout: developerguide
 ---
 
 
-== Starting Programs
+== Implementing Jenkins-specific APIs
+
+
+=== `Callable` and `RoleSensitive`
+
+`Callable` is essentially an API of Jenkins through the controller/agent communication channel.
+This lets Jenkins plugins execute complex computations on the other end of such a channel.
+
+Care needs to be taken to prevent users able to control agent processes from exploiting this and sending a malicious `Callable` to the controller for execution.
+
+Follow the instructions in the link:/doc/developer/security/remoting-callables/[Remoting Callables developer documentation] to implement `Callable` safely.
+
+
+=== `CrumbExclusion`
+
+`CrumbExclusion` is an extension point that allows excluding certain URLs from https://en.wikipedia.org/wiki/Cross-site_request_forgery[CSRF] protection.
+
+Wherever possible, do not use it to allow bypassing CSRF protection.
+
+Since Jenkins 2.96, requests using Basic authentication providing an API token do not need to provide a CSRF token (crumb).
+Most of the time, only unauthenticated requests (through `UnprotectedRootAction`) when integrating with external systems will need to bypass CSRF protection.
+
+Implementations of jenkinsdoc:CrumbExclusion[`CrumbExclusion`] need to only allow bypassing CSRF protection for the _specific URLs_ that do not need it.
+
+[IMPORTANT]
+====
+Make sure that the `HttpServletRequest#getPathInfo()` _equals_ the specific allowed URL, or _starts with_ a known safe prefix.
+Most URLs handling `POST` requests in Jenkins (web methods annotated using `@POST` or `@RequirePOST`) can receive arbitrary suffixes without impacting processing of the request, so checking for URLs _containing_ a specific string will allow attackers to easily bypass all CSRF protection in Jenkins.
+====
+
+When disabling CSRF protection for an endpoint receiving `POST` requests, be sure to only allow performing safe actions, like informing Jenkins about events that are verified again afterwards anyway before actions are being taken.
+If the URLs without CSRF protection are provided by an `UnprotectedRootAction`, be sure to distinguish between authenticated and unauthenticated (anonymous) requests:
+Do not allow additional access or act on objects only because the current user has permission to access them.
+// This is kind of weird, should CrumbExclusion and UnprotectedRootAction just be merged into one section?
+
+=== `UnprotectedRootAction`
+
+An `UnprotectedRootAction` is a `RootAction` that is available even to users without Overall/Read.
+Types implementing `UnprotectedRootAction` should be kept minimal to reduce the surface that is publicly exposed.
+Be careful to not open up access to otherwise protected objects to users lacking otherwise necessary permissions to access them by having public fields or getters.
+While many types check for permissions in `StaplerProxy#getTarget`, many others do not, and permission checks are expected to be implemented in the getters granting access to navigate to these objects.
+
+See https://github.com/stapler/stapler/blob/master/docs/reference.adoc[the Stapler reference documentation] for how requests are handled in Jenkins.
+
+
+=== `Api` / `@Exported`
+
+When exposing objects using the Jenkins remote API, be sure to check necessary permissions in `@Exported` getters and only expose objects the current user has permission to know about and access.
+Do not rely on permission checks in internal APIs to exist.
+
+NOTE: Permission checks done in `StaplerProxy#getTarget` to control Stapler routing have no effect on `Api` / `@Exported`.
+For `@ExportedBean` annotated types, it may therefore be necessary to implement permission checks both in `StaplerProxy`, as well as on getters returning this type.
+
+
+== General APIs and Libraries
+
+=== Starting Programs
 
 Other programs should generally be invoked using a jenkinsdoc:hudson.Launcher[`Launcher`] instance bound to the appropriate agent through its channel.
 Directly using `Runtime#exec` and similar Java APIs is usually a bug and can in some cases constitute a security vulnerability:
@@ -13,7 +69,7 @@ While users with the permissions to configure and run jobs may be able to invoke
 NOTE: Most Jenkins instances archive artifacts on the Jenkins controller file system, so even possible constraints, such as for the command to exist on the controller's file system, or not taking any arguments, is trivially bypassed.
 
 
-== Dealing with SSL/TLS Connection Issues
+=== Dealing with SSL/TLS Connection Issues
 
 Plugins that integrate with external services may encounter problems establishing connections via HTTPS due to various SSL/TLS issues.
 An easy way to prevent issues due to misconfigurations is to override the hostname verifier (to not perform hostname validation) and/or trust manager (to accept all certificates).
@@ -32,14 +88,25 @@ Ideally, users have fine-grained control over which connections should ignore er
 For example, if a plugin allows integrating with a set of several different remote services, ignoring SSL/TLS errors should be a per-service option, rather than a single global option.
 
 
-== Processing XML, JSON, or YAML
+=== Deserialization Issues
 
 Plugin developers need to be careful when working with user-provided content.
 This can take many forms, but common data formats are XML, JSON, and YAML, and are provided through potentially untrusted sources.
 
 If you're implementing form validation for a build step whose configuration is provided as XML, or a post-build step that processes a file in the workspace, be sure to treat the contents as not fully trusted.
 
-=== XML
+==== Serialized Java Objects (`ObjectInputStream`)
+
+Deserializing untrusted content can easily result in a remote code execution (RCE) vulnerability.
+
+To prevent this, use https://javadoc.jenkins.io/component/remoting/hudson/remoting/ObjectInputStreamEx.html[`ObjectInputStreamEx`] and pass `hudson.remoting.ClassFilter.DEFAULT`.
+This will integrate your deserialization mechanism with https://github.com/jenkinsci/jep/tree/master/jep/200[JEP-200].
+
+Note that this may require adding a `hudson.remoting.ClassFilter` to your plugin that allows deserializing further safe types.
+Make sure to review these types for potentially unsafe `readResolve` and `readObject` implementations.
+If at all possible, prefer serializing object graphs using types already approved.
+
+==== XML
 
 Be sure to review the https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html[OWASP Cheat Sheet for XML External Entity prevention].
 All content should be treated as untrusted except in very specific circumstances.
@@ -50,7 +117,7 @@ See https://github.com/FasterXML/jackson-docs/wiki/JacksonPolymorphicDeserializa
 X-Stream is bundled with Jenkins.
 Jenkins plugins generally should not use it directly, but only through jenkinsdoc:hudson.util.XStream2[`XStream2`].
 
-=== YAML
+==== YAML
 
 When processing YAML, be sure to look into the parser library's security documentation.
 It needs to be configured to prevent the instantiation of arbitrary types.
@@ -60,9 +127,9 @@ Additionally, use at least version 1.26 to get denial-of-service protection ("bi
 Consider depending on the plugin:snakeyaml-api[SnakeYAML API Plugin] instead of bundling SnakeYAML with your plugin.
 
 
-== Groovy Scripting
+=== Groovy Scripting
 
-Many Jenkins plugins allow the use of Groovy to extend their capabilites.
+Many Jenkins plugins allow the use of Groovy to extend their capabilities.
 For example, the plugin:email-ext[Email Extension Plugin] allows executing a script to determine whether an email should be sent.
 
 All such functionality, if available to users without Overall/Administer, must integrate with plugin:script-security[Script Security Plugin].

@@ -1,0 +1,36 @@
+---
+:layout: post
+:title: "Subversion repository change notification: push vs pull"
+:nodeid: 212
+:created: 1276214158
+:tags:
+  - general
+  - jenkinsci
+:author: kohsuke
+---
+
+People often configure https://en.wikipedia.org/wiki/Hudson%20%28software%29[Hudson] to start a new build whenever a change is made to the repository. In fact, this is often considered central to the practice of continuous integration.
+
+
+There are two ways to achieve this. One is the "pull" model, where Hudson periodically reaches out to a Subversion repository to see if there is any changes. The other is the "push" model, where you make the Subversion repository reach out to Hudson.
+
+Both approaches have trade-offs. The pull model is easier to configure, since you can do this entirely from Hudson. But this comes at the expense of increased load to the Subversion server. Even though the overhead of Subversion polling is relatively low, as you add more projects to Hudson and increase the polling frequency, the overhead may get non-trivial (imagine the number of Hudson pollings that the poor https://java.net[java.net] Subversion server gets, for example.) A more serious downside, in my opinion, is that this increases the delay from your commit to a build. For example, if your build just takes 5 mins, then even if you poll every minute, you pay on average 30 seconds delay before a build starts — a 10% overhead!
+
+The push approach eliminates those two downsides, but it requires a post-commit hook configuration in the Subversion repository, which has to be done manually by the administrator, because those scripts are not exposed to external systems like Hudson.
+
+With that said, if you do have an access to the Subversion repository post-commit hook, I highly recommend the push approach, and in Hudson we made it as easy as possible to configure the set up. Here's the script you'll need in your post-commit hook:
+
+```
+REPOS="$1" REV="$2" UUID=\`svnlook uuid $REPOS\` /usr/bin/wget \
+       --header "Content-Type:text/plain;charset=UTF-8" \
+       --post-data "\`svnlook changed --revision $REV $REPOS\`" \
+       --output-document "-" \
+       https://server/hudson/subversion/${UUID}/notifyCommit?rev=$REV
+```
+
+This script basically just tells Hudson that there was a change in a repository. Hudson will then check this information against all the jobs that have a polling configured, and schedule the builds accordingly. The beauty of this approach is two-folds:
+
+* The script doesn't change when you add/remove/rename jobs.
+* The overhead is constant regardless of the number of jobs.
+
+If you haven't configured a push setup yet, now is the time to do so!
