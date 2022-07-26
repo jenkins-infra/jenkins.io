@@ -1,0 +1,114 @@
+---
+title: How to use the Jenkins Security Scan
+layout: developerguide
+references:
+- title: Introductory blog post (2020)
+  url: https://www.jenkins.io/blog/2020/11/04/codeql/
+- title: GitHub CodeQL Repository
+  url: https://github.com/github/codeql
+- title: Jenkins CodeQL Repository
+  url: https://github.com/jenkins-infra/jenkins-codeql
+- title: Jenkins Security Scan Repository
+  url: https://github.com/jenkins-infra/jenkins-security-scan
+---
+
+== Motivation
+
+Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework], instead of a more common framework.
+As a result, generic static analysis tools are often unable to find common vulnerabilities in Jenkins core and plugins.
+
+The link:/security/team/[Jenkins security team] created a custom code scanner based on GitHub's https://github.com/github/codeql[CodeQL].
+It is capable of finding vulnerabilities common in Jenkins plugins.
+
+This page explains how to set up code scanning with this tool.
+
+== Usage in a Jenkins project-hosted plugin
+
+In your GitHub repository, select the "Actions" link on top.
+If you already have some workflows in your repository, click "New Workflow".
+In the section "By Jenkins", select "Jenkins Security Scan".
+
+Configure the YAML workflow file in your repository.
+You can use it without changes.
+We recommend committing to the default branch instead of adding this file via a pull request.
+This way, the code scanning findings will not be visible in a pull request check.
+Once saved, you should be able to see findings for branches in the "Security" tab under "Code scanning alerts".
+Pull requests will have a new check that shows findings added in it.
+
+////
+TODO Decide whether we want to continue to support this.
+== Usage in a Jenkins project-hosted plugin (GitHub topic)
+
+Add the topic `jenkins-security-scan-enabled` to your repository.
+Within 24 hours, the first code scanning results should appear.
+Unlike the GitHub Action, feedback is not immediate, as scans are only running periodically.
+////
+
+== Usage outside the Jenkins project
+
+You can use the same GitHub workflow in your Jenkins plugin project as long as it's hosted on GitHub.
+Copy the https://github.com/jenkinsci/.github/blob/master/workflow-templates/jenkins-security-scan.yaml[YAML workflow template] into your repository's `.github/workflows` directory.
+You need to replace the `$default-branch` placeholder as appropriate.
+
+NOTE: Your repository needs to be public or you need https://docs.github.com/en/get-started/learning-about-github/about-github-advanced-security[GitHub Advanced Security].
+Uploading the report will fail with an error otherwise.
+
+== Common problems
+
+Rate limiting::
+The scan fails to execute with the following error message:
++
+> `Called workflows cannot be queued onto self-hosted runners across organisations/enterprises. Failed to queue this job. Labels: 'ubuntu-latest'.`
++
+As of March 2022, https://github.community/t/called-workflows-cannot-be-queued-onto-self-hosted-runners-across-organisations-enterprises-failed-to-queue-this-job-labels-ubuntu-latest/229355/10[GitHub seems to rate limit actions].
+If this error message appears, you are being rate-limited.
+You can manually restart the scan.
+Action permissions::
++
+The workflow has a _startup failure_ with an error message like this:
++
+> `jenkins-infra/fetch-codeql-action@v1 is not allowed to be used in jenkinsci/your-plugin.`
++
+In cases of errors like this, review _Settings » Code and automation » Actions » General » Action permissions_ in your repository.
+Select either _Allow all actions and workflows_ or _Allow jenkinsci, and select non-jenkinsci, actions and workflows_.
+If you select the latter, add `jenkins-infra/*` to the list of specified actions and workflows being allowed.
+Workflow permissions::
++
+The workflow has a _startup failure_ with an error message like this:
++
+> `The workflow is not valid. .github/workflows/jenkins-security-scan.yml (Line: 11, Col: 3): Error calling workflow 'jenkins-infra/jenkins-security-scan/.github/workflows/jenkins-security-scan.yaml@v2'. The workflow 'jenkins-infra/jenkins-security-scan/.github/workflows/jenkins-security-scan.yaml@v2' is requesting 'actions: read, security_events: write', but is only allowed 'actions: none, security_events: none'.`
++
+This can happen if your repository is configured to limit workflow permissions to read-only access by default, and you're using an older version of the workflow that does not declare the permissions it requires.
+Compare with the https://github.com/jenkinsci/.github/blob/master/workflow-templates/jenkins-security-scan.yaml[template file] and ensure you have the same `permissions` element in your workflow.
+Error in Dependabot commits::
++
+The _Upload Scan Results_ step in the workflow fails with the error:
++
+> `Error: Workflows triggered by Dependabot on the "push" event run with read-only access. Uploading Code Scanning results requires write access. To use Code Scanning with Dependabot, please ensure you are using the "pull_request" event for this workflow and avoid triggering on the "push" event for Dependabot branches. See https://docs.github.com/en/code-security/secure-coding/configuring-code-scanning#scanning-on-push for more information on how to configure these events.`
++
+You're using an older version of the workflow that does not declare the permissions it requires.
+Compare with the https://github.com/jenkinsci/.github/blob/master/workflow-templates/jenkins-security-scan.yaml[template file] and ensure you have the same `permissions` element in your workflow (https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically/automating-dependabot-with-github-actions#changing-github_token-permissions[see documentation]).
+Pull request check is unexpectedly successful::
++
+The _Jenkins Security Scan_ check is successful even though the pull request introduces new issues.
++
+Only some findings mark the check as failed.
+The behavior can be customized in the repository configuration.
+Go to _Settings » Security » Code security and analysis » Code scanning » Check Failure_ and select the behavior you want.
+Missing access to Code Scanning API::
++
+The _Upload Scan Results_ step in the workflow fails with the error:
++
+> `Error: Advanced Security must be enabled for this repository to use code scanning.`
++
+This happens for private repositories that do not have GitHub Advanced Security enabled.
+Review _Settings » Security » Code security and analysis » GitHub Advanced Security_ in your repository and ensure that it is enabled.
+This section of the configuration is only visible if you have an appropriate GitHub paid plan.
+
+== Feedback and Contributing
+
+The custom GitHub workflow is hosted in https://github.com/jenkins-infra/jenkins-security-scan[`jenkins-infra/jenkins-security-scan`], alongside the wrapper script that invokes the CodeQL CLI.
+Please file an issue there to provide feedback for the workflow and its use of actions.
+
+To provide feedback about the findings, please file an issue in https://github.com/jenkins-infra/jenkins-codeql[`jenkins-infra/jenkins-codeql`].
+Improvements to the code scanning rules are also welcome.

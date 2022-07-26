@@ -30,8 +30,6 @@ Choose the technique that best meets your needs:
 
 * <<mod_proxy>>
 * <<mod_proxy with HTTPS>>
-* <<mod_ajp or mod_proxy_ajp>>
-* <<mod_proxy_ajp with SSL>>
 * <<mod_rewrite>>
 
 == mod_proxy
@@ -77,9 +75,14 @@ http://localhost:80/jenkins). +
 Set the context path in Windows by modifying the `+jenkins.xml+`
 configuration file and adding --prefix=/jenkins (or similar) to the
 <arguments> entry. +
-Set the context path  when using the Ubuntu package by adding
-`+--prefix=/jenkins+` to `+JENKINS_ARGS+` in `+/etc/default/jenkins+` (
-or in `+/etc/sysconfig/jenkins+` for RHEL/CentOS package)
+Set the context path when using the Linux package
+by running `systemctl edit jenkins` and adding the following:
+
+[source]
+----
+[Service]
+Environment="JENKINS_PREFIX=/jenkins"
+----
 
 When running on a dedicated server and you are using / as context, make
 sure you add a slash at the end of all URLs in proxy params in apache.
@@ -250,114 +253,6 @@ NameVirtualHost *:443
     RequestHeader set X-Forwarded-Port "443"
 </VirtualHost>
 ----
-
-== mod_ajp or mod_proxy_ajp
-
-Jenkins can be configured to use mod_ajp or mod_proxy_ajp so that Jenkins runs in a different workspace than the typical Tomcat server, but both are available via the Apache web server.
-
-Configure Jenkins to use a different web and ajp port than Tomcat:
-
-[source]
-----
-HTTP_PORT=9080
-AJP_PORT=9009
-...
-nohup java -jar "$WAR" \
-           --httpPort=$HTTP_PORT \
-           --ajp13Port=$AJP_PORT \
-           --prefix=/jenkins >> "$LOG" 2>&1 &
-----
-
-Then setup Apache so that it knows that the prefix `+/jenkins+` is being
-served by AJP in the httpd.conf file:
-
-[source]
-----
-LoadModule jk_module          libexec/httpd/mod_jk.so
-
-AddModule     mod_jk.c
-
-#== AJP hooks ==
-JkWorkersFile /etc/httpd/workers.properties
-JkLogFile     /private/var/log/httpd/mod_jk.log
-JkLogLevel    info
-JkLogStampFormat "[%a %b %d %H:%M:%S %Y] "
-JkOptions     +ForwardKeySize +ForwardURICompat -ForwardDirectories
-JkRequestLogFormat     "%w %V %T"
-# Here are 3 sample applications - 2 that are being served by Tomcat, and Jenkins
-JkMount  /friki/* worker1
-JkMount  /pebble/* worker1
-JkMount  /jenkins/* worker2
-----
-
-Then finally the workers.conf file specified above, that just tells AJP
-which port to use for which web application:
-
-[source]
-----
-# Define 2 real workers using ajp13
-worker.list=worker1,worker2
-# Set properties for worker1 (ajp13)
-worker.worker1.type=ajp13
-worker.worker1.host=localhost
-worker.worker1.port=8009
-worker.worker1.lbfactor=50
-worker.worker1.cachesize=10
-worker.worker1.cache_timeout=600
-worker.worker1.socket_keepalive=1
-# Set properties for worker2 (ajp13)
-worker.worker2.type=ajp13
-worker.worker2.host=localhost
-worker.worker2.port=9009
-worker.worker2.lbfactor=50
-worker.worker2.cachesize=10
-worker.worker2.cache_timeout=600
-worker.worker2.socket_keepalive=1
-worker.worker2.recycle_timeout=300
-----
-
-== mod_proxy_ajp with SSL
-
-AJP is an arguably cleaner alternative for an SSL-enabled reverse proxy,
-since Jenkins will get all pertinent HTTP headers untouched.
-Configuration is a snap too, in three simple steps:
-
-{empty}1. Configure an AJP port for Jenkins (as mentioned above)
-
-[source]
-----
-HTTP_PORT=-1
-AJP_PORT=9009
-...
-nohup java -jar "$WAR" \
-           --httpPort=$HTTP_PORT \
-           --ajp13Port=$AJP_PORT \
-           --prefix=/jenkins >> "$LOG" 2>&1 &
-----
-
-{empty}2. Enable mod_proxy_ajp in Apache:
-
-[source]
-----
-# a2enmod proxy_ajp
-----
-
-{empty}3. Include the following snippet in your SSL-enabled VirtualHost:
-
-[source]
-----
-<VirtualHost *:443>
-...
-    SSLEngine on
-...
-    AllowEncodedSlashes NoDecode
-    ProxyRequests Off
-    ProxyPass /jenkins ajp://localhost:9009/jenkins nocanon
-</VirtualHost>
-----
-
-Note the use of `+AllowEncodedSlashes+` and `+ProxyPass...nocanon+` to
-persuade Apache to leave PATH_INFO alone.
 
 == mod_rewrite
 

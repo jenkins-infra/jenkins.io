@@ -18,7 +18,7 @@ What exactly happens during a build is often controlled by people less trusted t
 They all have some control over commands executed during a build.
 This does not even consider issues like supply chain attacks on build dependencies, whereby attackers take over control of NPM or Maven packages and insert malicious code.
 
-To ensure the stability of the Jenkins controller, builds should be executed on other nodes than the Jenkins master node.
+To ensure the stability of the Jenkins controller, builds should be executed on other nodes than the built-in node.
 This concept is called _distributed builds_ in Jenkins, and you can learn more about this https://wiki.jenkins.io/display/JENKINS/Distributed+builds[here].
 Setting up distributed builds in Jenkins is a great start for protecting the Jenkins controller from malicious (or just broken) build scripts, but care needs to be taken for protections to be effective.
 
@@ -28,21 +28,22 @@ Most Jenkins environments grow over time requiring their trust models to evolve 
 ====
 
 
-== Not building on the master node
-// TODO 'master node' terminology update from https://groups.google.com/g/jenkinsci-dev/c/x5vdlJDvntw
+== Not building on the built-in node
 
-Out of the box, Jenkins is set up to run builds on the master node.
+Out of the box, Jenkins is set up to run builds on the built-in node.
 This is to make it easier to get started with Jenkins, but is inadvisable longer term:
-Any builds running on the master node have the same level of access to the controller file system as the Jenkins process.
+Any builds running on the built-in node have the same level of access to the controller file system as the Jenkins process.
 
-It is therefore highly advisable to not run any builds on the master node, instead using agents (statically configured or provided by _clouds_) to run builds.
+It is therefore highly advisable to not run any builds on the built-in node, instead using agents (statically configured or provided by _clouds_) to run builds.
 
-To prevent builds from running on the master node directly, navigate to _Manage Jenkins » Manage Nodes and Clouds_.
-Select _master_ in the list, then select _Configure_ in the menu.
+// TODO Fix this once https://github.com/jenkinsci/jenkins/pull/5425 is merged and released:
+
+To prevent builds from running on the built-in node directly, navigate to _Manage Jenkins » Manage Nodes and Clouds_.
+Select _Built-In Node_ in the list, then select _Configure_ in the menu.
 Set the number of executors to 0 and save.
 Make sure to also set up clouds or build agents to run builds on, otherwise builds won't be able to start.
 
-Alternatively, use a plugin such as plugin:job-restrictions[Job Restrictions Plugin] to limit which jobs can be run on certain nodes (like the master node), independent of what your less trusted users may use as label expression in their jobs' configurations.
+Alternatively, use a plugin such as plugin:job-restrictions[Job Restrictions Plugin] to limit which jobs can be run on certain nodes (like the built-in node), independent of what your less trusted users may use as label expression in their jobs' configurations.
 
 [NOTE]
 ====
@@ -59,13 +60,16 @@ In this case, ensure that the agent process has no file system access (neither r
 The Jenkins controller and agents can be thought of as a distributed process which executes across multiple discrete processes and machines.
 This allows an agent to ask the controller process for information available to it, for example, the contents of files, etc., and even to have the controller run certain commands when requested by the agent.
 
-So while not building on the master node is a good general practice to protect from bugs and less sophisticated attackers, an agent process taken over by a malicious user would still be able to obtain data or execute commands on the Jenkins controller.
+So while not building on the built-in node is a good general practice to protect from bugs and less sophisticated attackers, an agent process taken over by a malicious user would still be able to obtain data or execute commands on the Jenkins controller.
 To prevent this, the Agent &rarr; Controller Access Control system prevents agent processes from being able to send malicious commands to the Jenkins controller.
-It is enabled by default, but can be disabled in the web UI by un-checking the box on the _Manage Jenkins » Configure Global Security_ page.
 
-IMPORTANT: It is strongly recommended not to disable the Agent &rarr; Controller Access Control system.
+// TODO Also mention first LTS once it's known
+This system is always enabled since Jenkins 2.326 (see link:jep-235[Agent &rarr; Controller Security Changes in 2.326]).
+In Jenkins 2.325 and earlier, it is enabled by default, but can be disabled in the web UI by un-checking the box on the _Manage Jenkins » Configure Global Security_ page.
 
-image::security/configure-global-security-agent-controller-toggle.png["Configure Global Security - Enable Agent => Master Access Control", role=center]
+IMPORTANT: It is strongly recommended that you not disable the Agent &rarr; Controller Access Control system.
 
-As an alternative to disabling Agent &rarr; Controller Access Control, administrators can selectively allow greater access.
-See link:/doc/book/security/agent-to-controller/[the documentation] for details.
+image::security/configure-global-security-agent-controller-toggle.png["Configure Global Security - Enable Agent => Controller Access Control", role=center]
+
+As an alternative to disabling Agent &rarr; Controller Access Control, in Jenkins 2.325 and earlier, administrators can selectively allow greater access.
+See link:/doc/book/security/controller-isolation/agent-to-controller/[the documentation] for details.

@@ -1,6 +1,5 @@
 ---
 layout: section
-wip: true
 ---
 ifdef::backend-html5[]
 :notitle:
@@ -14,45 +13,213 @@ endif::[]
 
 = Managing Nodes
 
-=== Monitor and Restart Offline Agents
+== Components of Distributed Builds
+
+Builds in a
+link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[Distributed Builds Architecture]
+use nodes, agents, and executors which are distinct from the Jenkins controller itself.
+Understanding what each of these components are is useful when managing nodes:
+
+////
+Add link to "How Jenkins executes a Pipeline" after
+https://github.com/jenkins-infra/jenkins.io/pull/4612 is merged
+////
+
+Jenkins controller::
+
+The Jenkins controller is the Jenkins service itself
+and is where Jenkins is installed.
+It is a webserver that also acts as a "brain"
+for deciding how, when and where to run tasks.
+Management tasks (configuration, authorization, and authentication)
+are executed on the controller, which serves HTTP requests.
+Files written when a Pipeline executes are written to the filesystem on the controller
+unless they are off-loaded to an artifact repository such as Nexus or Artifactory.
+
+Nodes::
+
+Nodes are the "machines" on which build agents run.
+Jenkins monitors each attached node for
+disk space, free temp space, free swap,
+clock time/sync and response time.
+A node is taken offline if any of these values
+go outside the configured threshold.
+
+The Jenkins controller itself runs on a special _built-in node_.
+It is possible to run agents and executors on this built-in node
+although this can degrade performance, reduce scalability of the Jenkins instance, and create serious security problems
+and is strongly discouraged, especially for production environments.
+
+Agents::
+
+Agents manage the task execution on behalf of the Jenkins controller
+by using executors.
+An agent is actually a small (170KB single jar) Java client process
+that connects to a Jenkins controller and is assumed to be unreliable.
+An agent can use any operating system that supports Java.
+Tools required for builds and tests are installed on the node where the agent runs;
+they can be installed directly or in a container (Docker or Kubernetes).
+Each agent is effectively a process with its own PID (Process Identifier) on the host machine.
+
+In practice, nodes and agents are essentially the same but it is good to remember that they are conceptually distinct.
+
+Executors::
+
+An executor is a slot for execution of tasks;
+effectively, it is a thread in the agent.
+The number of executors on a node defines the number of concurrent tasks
+that can be executed on that node at one time.
+In other words, this determines the number of concurrent Pipeline `stages`
+that can execute on that node at one time.
+
+The proper number of executors per build node must be determined
+based on the resources available on the node
+and the resources required for the workload.
+When determining how many executors to run on a node,
+consider CPU and memory requirements
+as well as the amount of I/O and network activity:
+
+* One executor per node is the safest configuration.
+* One executor per CPU core may work well
+if the tasks being run are small.
+* Monitor I/O performance, CPU load, memory usage, and I/O throughput carefully
+when running multiple executors on a node.
+
+== Creating Agents
+
+Jenkins agents are the "workers" that perform operations requested by the Jenkins controller.
+The Jenkins controller administers the agents and can manage the tooling on the agents.
+Jenkins agents may be statically allocated or they can be dynamically allocated through systems like Kubernetes, OpenShift, Amazon EC2, Azure, Google Cloud, IBM Cloud, Oracle Cloud, and other cloud providers.
+
+This 30 minute tutorial from Darin Pope creates a Jenkins agent and connects it to a controller.
+
+.How to create an agent node in Jenkins
+video::99DddJiH7lM[youtube, width=640, height=360]
+
+== Launch inbound agent via Windows Scheduler
+
+If you are having trouble getting the inbound agent installed as a Windows service (i.e., you followed https://wiki.jenkins.io/display/JENKINS/Installing+Jenkins+as+a+Windows+service[the instructions on installing the agent as a service here] but it didn't work), an alternative method of starting the service automatically when Windows starts is to use the Windows Scheduler. 
+
+We take advantage of the Windows Scheduler's ability to run command at system startup
+
+. Configure your node to use the "Launch agents by connecting it to the master" launch method
+* Click Save
+. Note the command required to launch the agent
+* On the new agent node's Jenkins page, note the agent command line shown. 
+** It will be like:
+.....
+java -jar agent.jar \
+-jnlpUrl http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp \
+-secret <some_long_hex_string>
+.....
+. Obtain the agent.jar file and copy it to your new Windows agent node
+* In the command line noted in the last step, the "agent.jar" is a hyperlink. Click it to download the agent.jar file.
+* Copy the agent.jar file to a permanent location on your agent machine
+. Ensure that you have a java version available on your agent machine
+* If not, obtain and install a link:/doc/administration/requirements/java/[supported version] of Java
+. Run the command manually from a CMD window on your agent to confirm that it works
+* Open the CMD window
+* Run the command the one like
+.....
+java -jar agent.jar -jnlpUrl \
+http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp -secret <some_long_hex_string>
+.....
+* Go back to the node's web page in Jenkins.  If everything works then page should say "Agent is connected"
+* Stop the command (control-c)
+. Register a new scheduled job to run the same command
+* Open "Task Scheduler" on your windows machine
+** Start -> Run: task Scheduler
+* Create a basic task (Menu: Action -> Create Basic Task)
+** First page of the wizard:
+*** Name: Jenkins Agent
+*** Description (optional)
+*** Click Next
+** Next page of the wizard
+*** When do you want the task to start: select "When the computer starts"
+*** Click Next
+** Next page of the wizard
+*** What action do you want the task to perform: select "Start a program"
+*** Click Next
+** Next page of the wizard
+*** Program/Script: enter "java.exe" (or the full path to your java.exe)
+*** Add arguments: enter the rest of the command, like
+.....
+-jar agent.jar -jnlpUrl http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp \
+-secret <some_long_hex_string>
+.....
+*** eg:
+.....
+-jar D:\Scripts\jenkins\agent.jar \
+-jnlpUrl http://jenkinshost.example.com:8080/computer/buildNode1/slave-agent.jnlp -secret \
+d6a84df1fc4f45ddc9c6ab34b08f13391983ffffffffffb3488b7d5ac77fbc7
+.....
+*** Click Next
+** Next page of the wizard
+*** Click the check box "Open the Properties dialog for this task when I click Finish
+*** Click Finish
+* Update the task's properties
+** On the General tab
+*** Select the user to run the task as
+*** Select "Run whether user is logged on or not"
+** On the settings tab
+*** Uncheck "Stop the task if it runs longer than"
+*** Check "Run the task as soon as possible after a scheduled start is missed"
+*** Check "If the task failed, restart every: 10 minutes", and "Attempt to restart up to: 3 times"
+** Click OK
+. Start the scheduled task and again check that the agent is connected
+* Go back to the node's web page in Jenkins.  If everything works then page should say "Agent is connected"
+
+== Installing a Jenkins agent on Windows
+
+You can install a Jenkins agent on Windows using the command line.
+In this video, Darin reviews setting up and installing the Jenkins agent, including how to create any necessary files.
+
+.How to install a Jenkins agent on Windows
+video::N8AQTlHoBKc[youtube,width=800,height=420]
+
+== Creating a macOS agent for Jenkins
+
+This video reviews the process of creating a macOS agent for Jenkins using Java 11.
+
+video::DteE1Zf8CIw[youtube,width=800,height=420]
+
+== Monitor and Restart Offline Agents
+
 
 This script can monitor and restart offline nodes if they are not disconnected manually.
 It can be executed in the Jenkins Script Console or can run periodically as a Jenkins job with the plugin:groovy[Groovy plugin].
 
 Also see link:https://wiki.jenkins-ci.org/display/JENKINS/Display+Information+About+Nodes[Display Information About Nodes]
 
-
 [source,groovy]
 ----
 import hudson.node_monitors.*
 import hudson.slaves.*
 import java.util.concurrent.*
- 
+
 jenkins = Jenkins.instance
- 
+
 import javax.mail.internet.*;
 import javax.mail.*
 import javax.activation.*
- 
- 
+
 def sendMail (agent, cause) {
-   
+
  message = agent + " agent is down. Check http://JENKINS_HOSTNAME:JENKINS_PORT/computer/" + agent + "\nBecause " + cause
  subject = agent + " agent is offline"
  toAddress = "JENKINS_ADMIN@YOUR_DOMAIN"
  fromAddress = "JENKINS@YOUR_DOMAIN"
  host = "SMTP_SERVER"
  port = "SMTP_PORT"
- 
+
  Properties mprops = new Properties();
  mprops.setProperty("mail.transport.protocol","smtp");
  mprops.setProperty("mail.host",host);
  mprops.setProperty("mail.smtp.port",port);
- 
+
  Session lSession = Session.getDefaultInstance(mprops,null);
  MimeMessage msg = new MimeMessage(lSession);
- 
- 
+
  //tokenize out the recipients in case they came in as a list
  StringTokenizer tok = new StringTokenizer(toAddress,";");
  ArrayList emailTos = new ArrayList();
@@ -67,12 +234,11 @@ def sendMail (agent, cause) {
  msg.setFrom(new InternetAddress(fromAddress));
  msg.setSubject(subject);
  msg.setText(message)
- 
+
  Transport transporter = lSession.getTransport("smtp");
  transporter.connect();
  transporter.send(msg);
 }
-
 
 def getEnviron(computer) {
    def env
