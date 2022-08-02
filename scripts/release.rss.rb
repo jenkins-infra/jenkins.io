@@ -26,9 +26,9 @@ rss = RSS::Maker.make("atom") do |maker|
   maker.channel.updated = Time.now.to_s
   maker.channel.author = "Jenkins History Bot"
   maker.channel.title = "Jenkins plugin releases"
-  maker.channel.links.new_link { |link| link.href = "https://jenkins.io/" }
+  maker.channel.links.new_link { |link| link.href = "https://www.jenkins.io/" }
   maker.channel.links.new_link do |link|
-    link.href = "https://kohsuke.org/test.atom"
+    link.href = "https://www.jenkins.io/releases.rss"
     link.rel = "self"
     link.type = "application/atom+xml"
   end
