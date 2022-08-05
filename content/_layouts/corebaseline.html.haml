@@ -12,29 +12,11 @@ layout: developersection
 
     lts = site._generated[:core_tiers].stableCores
     oldest_lts = lts[0]
+    all_lts = site._generated[:lts_releases].results.map { |v| v.version }
 
-    lts_1 = lts.select { |v| v =~ /[.]1$/ }
+    next_lts_1 = all_lts.select { |v| v =~ /[.]1$/ }[0]
+    # We assume that lts will contain at least one release of the previous LTS line, which is reasonable.
+    # Surely there's going to be at least one plugin depending on the old .1 by the time the next .1 is available.
+    previous_lts_highs = lts.map { |v| v[0...-1] }.uniq[0...-1].map { |l| all_lts.select { |v| v.start_with?(l) }[0] }
 
-    previous_lts_1 = 'undefined'
-    next_lts_1 = 'undefined'
-    # Iterate in reverse order over all split versions, and choose the first set of releases with at least 2 LTS.1 releases that are newer
-    # This attempts to balance wanting few implied dependencies, but also not requiring a very recent core
-    split_versions.reverse_each do |split_version|
-        lts_1_split = lts_1.select { |v| Gem::Version.new(v) > Gem::Version.new("#{split_version}.999") }
-        if lts_1_split.length > 1
-            # There are at least two LTS baselines newer than the split (current and previous) so this is a set of versions we can work with.
-            if lts_1_split.length == 2
-                # If there are just two baselines, recommend those.
-                previous_lts_1 = lts_1_split[0]
-                next_lts_1 = lts_1_split[1]
-            else
-                # If there are three or more (e.g. 2.249.1, 2.235.1, 2.222.1, 2.204.1, 2.190.1), recommend the most recent ones except the current (i.e. 2.235.1 and 2.222.1 in the example).
-                # So no recommended release will be newer than 12 weeks (unless there was a recent split) or older than 36 weeks (~8.3 months).
-                previous_lts_1 = lts_1_split[lts_1_split.length - 3]
-                next_lts_1 = lts_1_split[lts_1_split.length - 2]
-            end
-            break
-        end
-    end
-
-= page.content.gsub('PLACEHOLDER_NEWER_LTS_POINT_ONE', next_lts_1).gsub('PLACEHOLDER_OLDER_LTS_POINT_ONE', previous_lts_1).gsub('PLACEHOLDER_OLDEST_LTS', oldest_lts).gsub('PLACEHOLDER_OLDEST_WEEKLY', oldest_weekly).gsub('PLACEHOLDER_LATEST_SPLIT', latest_split)
+= page.content.gsub('PLACEHOLDER_NEWER_LTS_POINT_ONE', next_lts_1).gsub('PLACEHOLDER_RECENT_LTS_POINT_HIGHS', previous_lts_highs[-2...].join(' and ')).gsub('PLACEHOLDER_OLDER_LTS_POINT_HIGHS', previous_lts_highs[0...-2].join(' and ')).gsub('PLACEHOLDER_OLDEST_LTS', oldest_lts).gsub('PLACEHOLDER_OLDEST_WEEKLY', oldest_weekly).gsub('PLACEHOLDER_LATEST_SPLIT', latest_split)

@@ -45,8 +45,7 @@ docker run \
 ----
 <1> ( _Optional_ ) Specifies the Docker container name to use for running the
 image. By default, Docker will generate a unique name for the container.
-<2> ( _Optional_ ) Automatically removes the Docker container (the instance of
-the Docker image) when it is shut down.
+<2> ( _Optional_ ) Automatically removes the Docker container (the instance of the Docker image) when it is shut down.
 <3> ( _Optional_ ) Runs the Docker container in the background. This instance
 can be stopped later by running `docker stop jenkins-docker`.
 <4> Running Docker in Docker currently requires privileged access to function
@@ -84,7 +83,8 @@ docker run --name jenkins-docker --rm --detach \
   --env DOCKER_TLS_CERTDIR=/certs \
   --volume jenkins-docker-certs:/certs/client \
   --volume jenkins-data:/var/jenkins_home \
-  --publish 2376:2376 docker:dind --storage-driver overlay2
+  --publish 2376:2376 \
+  docker:dind --storage-driver overlay2
 ----
 . Customise official Jenkins Docker image, by executing below two steps:
 .. Create Dockerfile with the following content:
@@ -102,27 +102,27 @@ RUN echo "deb [arch=$(dpkg --print-architecture) \
   $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 RUN apt-get update && apt-get install -y docker-ce-cli
 USER jenkins
-RUN jenkins-plugin-cli --plugins "blueocean:1.25.2 docker-workflow:1.26"
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.5 docker-workflow:1.28"
 ----
-.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:1.1":
+.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:{jenkins-stable}-1":
 +
-[source,bash]
+[source,bash,subs="attributes+"]
 ----
-docker build -t myjenkins-blueocean:1.1 .
+docker build -t myjenkins-blueocean:{jenkins-stable}-1 .
 ----
 Keep in mind that the process described above will automatically download the official Jenkins Docker image
 if this hasn't been done before.
 
-. Run your own `myjenkins-blueocean:1.1` image as a container in Docker using the
+. Run your own `myjenkins-blueocean:{jenkins-stable}-1` image as a container in Docker using the
   following
   link:https://docs.docker.com/engine/reference/run/[`docker run`]
   command:
 +
-[source,bash]
+[source,bash,subs="attributes+"]
 ----
 docker run \
   --name jenkins-blueocean \# <1>
-  --rm \# <2>
+  --restart=on-failure \# <2>
   --detach \# <3>
   --network jenkins \# <4>
   --env DOCKER_HOST=tcp://docker:2376 \# <5>
@@ -132,11 +132,11 @@ docker run \
   --publish 50000:50000 \# <7>
   --volume jenkins-data:/var/jenkins_home \# <8>
   --volume jenkins-docker-certs:/certs/client:ro \# <9>
-  myjenkins-blueocean:1.1 # <10>
+  myjenkins-blueocean:{jenkins-stable}-1 # <10>
 ----
 <1> ( _Optional_ ) Specifies the Docker container name for this instance of
 the Docker image.
-<2> ( _Optional_ ) Automatically removes the Docker container when it is shut down.
+<2> Always restart the container if it stops. If it is manually stopped, it is restarted only when Docker daemon restarts or the container itself is manually restarted.
 <3> ( _Optional_ ) Runs the current container in the background
 (i.e. "detached" mode) and outputs the container ID. If you do not specify this
 option, then the running Docker log for this container is output in the terminal
@@ -157,7 +157,7 @@ more inbound Jenkins agents on other machines, which in turn interact with
 your `jenkins-blueocean` container (the Jenkins "controller").
 Inbound Jenkins agents communicate with the Jenkins
 controller through TCP port 50000 by default. You can change this port number on
-your Jenkins controller through the <<managing/security#,Configure Global Security>>
+your Jenkins controller through the link:/doc/book/managing/security/[Configure Global Security]
 page. If you were to change the *TCP port for inbound Jenkins agents* of your Jenkins controller
 to 51000 (for example), then you would need to re-run Jenkins (via this
 `docker run ...` command) and specify this "publish" option with something like
@@ -186,15 +186,15 @@ to connect to the Docker daemon available in the path specified by the
 *Note:* If copying and pasting the command snippet above does not work, try
 copying and pasting this annotation-free version here:
 +
-[source,bash]
+[source,bash,subs="attributes+"]
 ----
-docker run --name jenkins-blueocean --rm --detach \
+docker run --name jenkins-blueocean --restart=on-failure --detach \
   --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
   --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 \
   --publish 8080:8080 --publish 50000:50000 \
   --volume jenkins-data:/var/jenkins_home \
   --volume jenkins-docker-certs:/certs/client:ro \
-  myjenkins-blueocean:1.1
+  myjenkins-blueocean:{jenkins-stable}-1
 ----
 . Proceed to the <<setup-wizard,Post-installation setup wizard>>.
 
@@ -217,11 +217,12 @@ docker network create jenkins
 +
 [source]
 ----
-docker run --name jenkins-docker --rm --detach `
-  --privileged --network jenkins --network-alias docker `
-  --env DOCKER_TLS_CERTDIR=/certs `
-  --volume jenkins-docker-certs:/certs/client `
-  --volume jenkins-data:/var/jenkins_home `
+docker run --name jenkins-docker --rm --detach ^
+  --privileged --network jenkins --network-alias docker ^
+  --env DOCKER_TLS_CERTDIR=/certs ^
+  --volume jenkins-docker-certs:/certs/client ^
+  --volume jenkins-data:/var/jenkins_home ^
+  --publish 2376:2376 ^
   docker:dind
 ----
 . Customise official Jenkins Docker image, by executing below two steps:
@@ -240,30 +241,29 @@ RUN echo "deb [arch=$(dpkg --print-architecture) \
   $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 RUN apt-get update && apt-get install -y docker-ce-cli
 USER jenkins
-RUN jenkins-plugin-cli --plugins "blueocean:1.25.2 docker-workflow:1.26"
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.5 docker-workflow:1.28"
 ----
-.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:1.1":
+.. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:{jenkins-stable}-1":
 +
-[source,bash]
+[source,bash,subs="attributes+"]
 ----
-docker build -t myjenkins-blueocean:1.1 .
+docker build -t myjenkins-blueocean:{jenkins-stable}-1 .
 ----
 Keep in mind that the process described above will automatically download the official Jenkins Docker image
 if this hasn't been done before.
 
-
-. Run your own `myjenkins-blueocean:1.1` image as a container in Docker using the following
+. Run your own `myjenkins-blueocean:{jenkins-stable}-1` image as a container in Docker using the following
   link:https://docs.docker.com/engine/reference/run/[`docker run`]
   command:
 +
-[source]
+[source,subs="attributes+"]
 ----
-docker run --name jenkins-blueocean --rm --detach `
-  --network jenkins --env DOCKER_HOST=tcp://docker:2376 `
-  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 `
-  --volume jenkins-data:/var/jenkins_home `
-  --volume jenkins-docker-certs:/certs/client:ro `
-  --publish 8080:8080 --publish 50000:50000 myjenkins-blueocean:1.1
+docker run --name jenkins-blueocean --restart=on-failure --detach ^
+  --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
+  --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 ^
+  --volume jenkins-data:/var/jenkins_home ^
+  --volume jenkins-docker-certs:/certs/client:ro ^
+  --publish 8080:8080 --publish 50000:50000 myjenkins-blueocean:{jenkins-stable}-1
 ----
 . Proceed to the <<setup-wizard,Setup wizard>>.
 
