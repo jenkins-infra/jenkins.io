@@ -1,0 +1,189 @@
+////
+This file is only meant to be included as a snippet in other documents.
+Separate versions of this file are provided for the general 'Installing Jenkins' page
+(index.adoc) and for tutorials (_run-jenkins-in-docker.adoc).
+This file is for the index.adoc page used in the general 'Installing Jenkins'
+page.
+////
+
+. Open up a terminal window.
+. Create a project directory named `jenkins`:
++
+[source,bash]
+----
+mkdir jenkins
+----
+. Create a file called `docker-compose.yml` in the above project directory `jenkins` and paste the following:
++
+[source,yaml]
+----
+version: "2.4"
+services:
+  blueocean:
+    container_name: jenkins-blueocean
+    build:
+      context: ./blueocean
+    environment:
+      - DOCKER_HOST=tcp://docker:2376
+      - DOCKER_CERT_PATH=/certs/client
+      - DOCKER_TLS_VERIFY=1
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    restart: on-failure
+    volumes:
+      - type: volume
+        source: docker-certs
+        target: /certs/client
+      - type: volume
+        source: data
+        target: /var/jenkins_home
+    networks:
+      jenkins:
+  dind:
+    container_name: jenkins-docker
+    image: docker:dind
+    privileged: true
+    environment:
+       - DOCKER_TLS_CERTDIR=/certs
+    ports:
+      - "2376:2376"
+    volumes:
+      - type: volume
+        source: docker-certs
+        target: /certs/client
+      - type: volume
+        source: data
+        target: /var/jenkins_home
+    networks:
+      jenkins:
+        aliases:
+          - docker
+volumes:
+  docker-certs:
+    name: jenkins-docker-certs
+  data:
+    name: jenkins-data
+networks:
+  jenkins:
+----
+
+. Extend the official Jenkins Docker image by executing the following two steps:
+.. Create directory `blueocean`
+.. Create Dockerfile in the `blueocean` directory with the following content:
++
+[source,subs="attributes+"]
+----
+FROM jenkins/jenkins:{jenkins-stable}-jdk11
+USER root
+RUN apt-get update && apt-get install -y lsb-release
+RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
+  https://download.docker.com/linux/debian/gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.asc] \
+  https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+RUN apt-get update && apt-get install -y docker-ce-cli
+USER jenkins
+RUN jenkins-plugin-cli --plugins "blueocean:1.25.5 docker-workflow:1.29"
+----
+
+. Change to the project directory `jenkins`, build and run your Jenkins with Compose:
++
+[source,console]
+----
+$ docker-compose up
+Creating network "jenkins_jenkins" with the default driver
+Creating volume "jenkins-docker-certs" with default driver
+Creating volume "jenkins-data" with default driver
+Building blueocean
+Sending build context to Docker daemon   2.56kB
+
+. . .
+
+Creating jenkins-blueocean ... done
+Creating jenkins-docker    ... done
+Attaching to jenkins-blueocean, jenkins-docker
+
+. . .
+
+jenkins-blueocean |
+jenkins-blueocean | *************************************************************
+jenkins-blueocean | *************************************************************
+jenkins-blueocean | *************************************************************
+jenkins-blueocean |
+jenkins-blueocean | Jenkins initial setup is required. An admin user has been created and a password generated.
+jenkins-blueocean | Please use the following password to proceed to installation:
+jenkins-blueocean |
+jenkins-blueocean | ac14963b0dc145bd9432a21fdcbe10aa
+jenkins-blueocean |
+jenkins-blueocean | This may also be found at: /var/jenkins_home/secrets/initialAdminPassword
+jenkins-blueocean |
+jenkins-blueocean | *************************************************************
+jenkins-blueocean | *************************************************************
+jenkins-blueocean | *************************************************************
+jenkins-blueocean |
+----
+
+. Proceed to the <<setup-wizard,Post-installation setup wizard>>.
+
+[[accessing-the-jenkins-blue-ocean-docker-container]]
+== Accessing the Docker container
+
+If you have some experience with Docker and you wish or need to access your
+Docker container through a terminal/command prompt using the
+link:https://docs.docker.com/engine/reference/commandline/exec/[`docker exec`]
+command, you can add an option like `--name jenkins-tutorial` to the `docker exec` command.
+That accesses the Jenkins Docker container named "jenkins-tutorial".
+
+This means you could access your docker container (through a separate
+terminal/command prompt window) with a `docker exec` command like:
+
+`docker exec -it jenkins-blueocean bash`
+
+[[accessing-the-jenkins-console-log-through-docker-logs]]
+== Accessing the Docker logs
+
+There is a possibility you may need to access the Jenkins console log, for
+instance, when <<unlocking-jenkins,Unlocking Jenkins>> as part of the
+<<setup-wizard,Post-installation setup wizard>>.
+
+The Jenkins console log is easily accessible through the terminal/command
+prompt window from which you executed the `docker run ...` command.
+You can also access the Jenkins console log through the
+link:https://docs.docker.com/engine/reference/commandline/logs/[Docker logs] of
+your container using the following command:
+
+`docker logs <docker-container-name>`
+
+Your `<docker-container-name>` can be obtained using the `docker ps` command.
+
+== Accessing the Jenkins home directory
+
+You may need to access the Jenkins home directory, for
+instance, to check the details of a Jenkins build in the `workspace`
+subdirectory.
+
+If you mapped the Jenkins home directory (`/var/jenkins_home`) to one on your
+machine's local file system (i.e. in the `docker run ...` command
+<<downloading-and-running-jenkins-in-docker,above>>), then you can access the
+contents of this directory through your machine's usual terminal/command prompt.
+
+If you specified the `--volume jenkins-data:/var/jenkins_home` option in
+the `docker run ...` command, you can access the contents of the Jenkins home
+directory through your container's terminal/command prompt using the
+link:https://docs.docker.com/engine/reference/commandline/container_exec/[`docker container exec`]
+command:
+
+`docker container exec -it <docker-container-name> bash`
+
+As mentioned <<accessing-the-jenkins-console-log-through-docker-logs,above>>,
+your `<docker-container-name>` can be obtained using the
+link:https://docs.docker.com/engine/reference/commandline/container_ls/[`docker container ls`]
+command. If you specified the +
+`--name jenkins-blueocean` option in the `docker container run ...`
+command above (see also
+<<accessing-the-jenkins-blue-ocean-docker-container,Accessing the Jenkins/Blue
+Ocean Docker container>>), you can simply use the `docker container exec` command:
+
+`docker container exec -it jenkins-blueocean bash`
