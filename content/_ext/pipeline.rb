@@ -58,6 +58,7 @@ Awestruct::Extensions::Pipeline.new do
 
   helper AuthorList::AuthorLink
   helper ActiveNav
+  helper IdGenerator
   helper Authorship
   helper Legacy
   helper AsciidocRender
