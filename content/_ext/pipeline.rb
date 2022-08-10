@@ -39,6 +39,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::IBeams::DataDir.new
 
   extension SolutionPage.new
+  extension WellKnown.new
   extension Releases.new
 
   extension UpgradeGuide.new
