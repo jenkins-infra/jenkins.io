@@ -28,7 +28,8 @@ module Authorship
   def display_user(author)
     if site.authors.has_key? author.to_sym
       full_name = site.authors[author].name
-      avatar = site.authors[author].avatar
+      avatar = Dir.glob("content/images/avatars/#{author}.{bmp,gif,ico,jpg,jpeg,png,svg}").first
+      avatar.sub!('content','') unless !avatar
     else
       raise "File with personal information (content/_data/authors/#{author}.adoc) is missing"
     end
