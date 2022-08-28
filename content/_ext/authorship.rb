@@ -36,7 +36,10 @@ module Authorship
 
     link = author_link(author)
 
-    return "<a class=\"app-author-link\" href=\"#{link}\"><div class=\"app-avatar\"><img alt=\"#{full_name}\" class=\"app-avatar__image\" src=\"#{avatar}\"></div> #{full_name}</a>"
+    if !avatar
+        return "<a class=\"app-author-link\" href=\"#{link}\"><div class=\"app-avatar\"></div> #{full_name}</a>"
+    end
+        return "<a class=\"app-author-link\" href=\"#{link}\"><div class=\"app-avatar\"><img alt=\"#{full_name}\" class=\"app-avatar__image\" src=\"#{avatar}\"></div> #{full_name}</a>"
   end
 
   def display_user_optional(author)
