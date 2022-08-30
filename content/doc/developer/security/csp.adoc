@@ -1,0 +1,110 @@
+---
+title: Content-Security-Policy Compatibility
+layout: developerguide
+---
+
+== Introduction
+
+From https://content-security-policy.com/[content-security-policy.com]:
+
+> _Content-Security-Policy_ is the name of a HTTP response header that modern browsers use to enhance the security of the document (or web page). The Content-Security-Policy header allows you to restrict how resources such as JavaScript, CSS, or pretty much anything that the browser loads.
+
+Using Content-Security-Policy (CSP), injection attacks like cross-site scripting can be prevented.
+
+// TODO Keep up to date with versions
+Unfortunately, as of Jenkins 2.360, the Jenkins classic UI is not yet compatible with the CSP directives that would allow preventing such injection attacks.
+
+This guide documents how to write UI code in a manner that is expected to be compatible with future use of CSP directives on the Jenkins UI.
+
+
+
+== Guidelines
+
+
+=== Inline JavaScript blocks
+
+Do not use inline JavaScript (JS) in the Jenkins GUI, i.e., JS embedded in HTML output.
+
+This is typically done with `<script>` tags, like so:
+
+[source, html]
+<script type="text/javascript">
+alert("Hello, world!");
+</script>
+
+The guidelines in link:/doc/developer/security/xss-prevention/#passing-values-to-javascript[the documentation on XSS prevention] can be useful to pass arguments to JavaScript, or otherwise control its behavior dynamically.
+
+You can generally use https://github.com/jenkinsci/stapler/blob/master/docs/jelly-taglib-ref.adoc#adjunct[Stapler adjuncts] to load files related to UI views and ensure they are loaded only once.
+
+An example of this is https://github.com/jenkinsci/jenkins/pull/6849[jenkinsci/jenkins#6849].
+
+
+=== Inline event handlers
+
+Event handlers like `onclick` or `onblur` should be defined in separate files.
+
+For this to work, the element that would have had the inline event handler attribute(s) needs a class or ID by which it can be looked up from JS.
+
+Depending on how that element is added to the UI, you'd use one of the following methods to add event handlers:
+
+You can use `document.addEventListener('DOMContentLoaded', …)` for one or more elements that are present on the page from the moment it is loaded.
+Look up the elements by their ID or class or similar characteristics, then call `#addEventListener` on them.
+Be mindful of Jenkins's extensibility, so consider including plugin names in element class names or IDs to prevent unintentional conflicts with other plugins.
+
+Use `Behaviour#specify` to add event handlers to elements that may be dynamically added to the page, for example as part of AJAX responses.
+One common instance of this is in configuration forms: `renderOnDemand` is used by common form elements like `hetero-list` to load parts of the page only as the form is being changed.
+The code that adds content from AJAX responses dynamically to the page needs to call `Behaviour#applySubtree` on the newly added content.
+
+Examples of this are: https://github.com/jenkinsci/jenkins/pull/5514[jenkinsci/jenkins#5514]
+
+=== Legacy JavaScript `checkUrl` validation
+
+Do not use "legacy" mode form validation, which supports inline JS with manually specified `checkUrl` parameters.
+It looks like the following:
+
+[source, html]
+<f:textbox checkUrl="'${rootURL}/${h.jsStringEscape(it.url)}checkText?value='+encodeURIComponent(this.value)+'" … />
+
+This combines inline JS and building parts of the string using JEXL expressions in Jelly, with different ways to escape different parts of the content to prevent injection vulnerabilities.
+
+Instead, use the _modern_ `checkUrl` mode, which as of Jenkins 2.360 requires the `checkDependsOn` attribute to be set (but it can be an empty string).
+This mode will automatically add the current form elements value as the query parameter called `value`, so the above examples can be simplified to the following:
+
+[source, html]
+<f:textbox checkUrl="${rootURL}/${it.url}checkText" checkDependsOn="" … />
+
+Examples of this are: https://github.com/jenkinsci/jenkins/pull/6856[jenkinsci/jenkins#6856] https://github.com/jenkinsci/jenkins/pull/6857[jenkinsci/jenkins#6857]
+
+To pass additional values, specify the respective form field names as part of the `checkDependsOn` string.
+
+If you need to pass parameters that are not represented as form fields, the following options exist as of Jenkins 2.360:
+
+* Define a new form validation endpoint.
+  This can be a viable option when it's a boolean value (2 endpoints instead of one).
+* Define a hidden form field (wrap it in `f:invisibleEntry`) with the expected `name` and `value` and specify it in `checkDependsOn`.
+  Make sure to ignore it otherwise.
+  See https://github.com/jenkinsci/jenkins/pull/6859[jenkinsci/jenkins#6859] for an example.
+
+
+=== `eval` calls
+
+`eval` should not be used to interpret a string as JS code.
+
+Depending on your use case, different solutions are possible.
+
+To parse JSON, use `JSON.parse` instead.
+See https://github.com/jenkinsci/jenkins/pull/6868[jenkinsci/jenkins#6868] for an example.
+
+To invoke a callback, have the caller define a global function and pass its name as an argument.
+Then your code can invoke the callback like this:
+
+[source, javascript]
+/* someone else provides this */
+let callbackName = 'foo';
+/* invoke it with arguments */
+window[callbackName](args);
+
+== Testing
+
+To test your code, you can use https://plugins.jenkins.io/csp/[Content Security Policy Plugin].
+It implements CSP directives for the classic Jenkins UI.
