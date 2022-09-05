@@ -157,7 +157,7 @@ NOTE: It is worth communicating this to your users, as they will see a very diff
 The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
 
 Manually controlled prefix::
-If you do not want to have (major) version numbers increase quickly, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
+If you do not want to have large major version numbers, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
 +
 [source,diff]
 ----
@@ -182,7 +182,10 @@ If you do not want to have (major) version numbers increase quickly, like with f
      <jenkins.version>2.176.4</jenkins.version>
 ----
 +
-Here the version numbers will look like `1.321.vabcdef456789` or `1.999999-SNAPSHOT`, respectively, which are more similar to version numbers used by Jenkins itself.
+Here the version numbers will look like `1.321.vabcdef456789` or `1.999999-SNAPSHOT`, respectively.
+This could be appropriate if you are leery of committing up front to having major version numbers be in the triple digits,
+with no option of going back to `maven-release-plugin`-style versioning except by starting at say `1000.1`,
+because version numbers going forward must be mathematically larger than any currently on the update center.
 +
 IMPORTANT: It is _not recommended_ to implement actual semantic versioning with automated releases performed by CD, as that requires great care in always changing the `revision` as part of the changes that semantically would require a `revision` change for the next release.
 Otherwise, automated releases may have version numbers that semantically would not make sense.
@@ -239,6 +242,33 @@ Actual releases will display a green check next to the *release* stage.
 
 You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins. Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
 If you prefer to only deploy explicitly, not on every push, just comment out the `check_run` section in the workflow.
+
+== Noting incompatible changes
+
+It is best to avoid ever making incompatible changes to your plugin.
+If you must make one, then you can define `hpi.compatibleSinceVersion` as for link:../../plugin-development/mark-a-plugin-incompatible[any plugins].
+If `master` is currently `123.vXXX` according to
+
+[source,shell]
+----
+mvn validate -Dset.changelist
+----
+
+then you can set
+
+[source,xml]
+----
+<hpi.compatibleSinceVersion>124</hpi.compatibleSinceVersion>
+----
+
+in your pull request with the breaking changes,
+since the new release version will be `124.vXXX` if you squash-merge this PR,
+or something higher (at least `125.vXXX`) if you true-merge it.
+(It is only important that the value is greater than that of the previous actual release,
+and less than or equal to that of the release containing the breaking change.)
+
+Do not forget to mark the PR with the label `breaking` (or `removed`) to get an appropriate categorization in release notes.
+(These labels also normally cause a release to be triggered automatically upon merge.)
 
 == Fallback
 
