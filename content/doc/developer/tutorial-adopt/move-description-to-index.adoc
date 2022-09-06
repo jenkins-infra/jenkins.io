@@ -1,0 +1,85 @@
+---
+layout: developersection
+title: Move description to index.jelly
+---
+
+:modified-files: src/main/resources/index.jelly pom.xml
+:task-identifier: move-description
+:task-description: Move description to index.jelly
+
+= Move plugin description to index.jelly
+
+The plugin POM file has allowed a `description` that is used in various Jenkins locations.
+The preferred location for the plugin description is in the `src/main/resources/index.jelly`.
+Recent versions of the parent POM require the preferred location and will fail to compile if the plugin description is not availble from `index.jelly` in the expected directory.
+
+Copy the contents of the `description` tag from the POM file to `src/main/resources/index.jelly`
+Unfortunately, in the past they had to use ISO-8859-1 encoding, even for files that needed to represent characters outside of ISO-8859-1.
+Due to a risk of character set confusion when Jenkins reads the property files, Jenkins plugin tests will warn developers when existing property files include characters that are both valid UTF-8 and valid ISO-8859-1.
+When that ambiguity is detected, those files should be encoded to assure they are read correctly.
+
+When such a conversion is needed, the Maven build process will frequently output a message like:
+
+[source]
+----
+[ERROR] Failed to execute goal maven-hpi-plugin:hpi (default-hpi) on
+project your-plugin: Missing target/classes/index.jelly. Delete any
+<description> from pom.xml and create src/main/resources/index.jelly:
+----
+
+// Create the branch
+include::doc/developer/tutorial-adopt/_create-a-branch.adoc[]
+
+== Compile and test to check the transition is needed
+
+Compile the plugin (with a recent parent pom) and confirm that the description transition warning message is displayed
+
+[source,bash]
+----
+$ mvn -ntp clean verify
+[ERROR] Failed to execute goal maven-hpi-plugin:hpi (default-hpi) on
+project your-plugin: Missing target/classes/index.jelly. Delete any
+<description> from pom.xml and create src/main/resources/index.jelly:
+----
+
+If the warning message is not displayed and the plugin is using the most recent parent pom, then no transition is necessary.
+
+== Move description to src/main/resources/index.jelly
+
+Remove the `<description>` tag and its value from the POM.
+Create the `src/main/resources/index.jelly` file and insert the description as follows:
+
+[source,xml]
+----
+<?jelly escape-by-default='true'?>
+<div>
+Insert your plugin description here
+</div>
+----
+
+Review the change with the command:
+
+[source,bash]
+----
+$ git diff
+diff --git a/src/main/resources/index.jelly b/src/main/resources/index.jelly
+new file mode 100644
+index 0000000..9434d10
+--- /dev/null
++++ b/src/main/resources/index.jelly
+@@ -0,0 +1,4 @@
++<?jelly escape-by-default='true'?>
++<div>
++Insert your plugin description here
++</div>
+----
+
+Compile the updated code with the command:
+
+[source,bash]
+----
+$ mvn clean verify
+----
+
+// Create a pull request
+include::doc/developer/tutorial-adopt/_create-a-pull-request.adoc[]
