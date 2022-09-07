@@ -22,19 +22,24 @@ module Authorship
     users.each { |user|
       res << display_user(user)
     }
-    return res.join(', ')
+    return res.join('')
   end
 
   def display_user(author)
     if site.authors.has_key? author.to_sym
       full_name = site.authors[author].name
+      avatar = Dir.glob("content/images/avatars/#{author}.{bmp,gif,ico,jpg,jpeg,png,svg}").first
+      avatar.sub!('content','') unless !avatar
     else
       raise "File with personal information (content/_data/authors/#{author}.adoc) is missing"
     end
 
     link = author_link(author)
 
-    return "<a href=\"#{link}\">#{full_name}</a>"
+    if !avatar
+        return "<a class=\"app-author-link\" href=\"#{link}\"><div class=\"app-avatar\"></div> #{full_name}</a>"
+    end
+        return "<a class=\"app-author-link\" href=\"#{link}\"><div class=\"app-avatar\"><img alt=\"#{full_name}\" class=\"app-avatar__image\" src=\"#{avatar}\"></div> #{full_name}</a>"
   end
 
   def display_user_optional(author)
