@@ -45,7 +45,7 @@ can be used with ease by making only minor edits to a `Jenkinsfile`.
 // Declarative //
 pipeline {
     agent {
-        docker { image 'node:14-alpine' }
+        docker { image 'node:16.13.1-alpine' }
     }
     stages {
         stage('Test') {
@@ -58,7 +58,7 @@ pipeline {
 // Script //
 node {
     /* Requires the Docker Pipeline plugin to be installed */
-    docker.image('node:14-alpine').inside {
+    docker.image('node:16.13.1-alpine').inside {
         stage('Test') {
             sh 'node --version'
         }
@@ -108,7 +108,9 @@ pipeline {
             agent {
                 docker {
                     image 'gradle:6.7-jdk11'
-                    // Run the container on the node specified at the top-level of the Pipeline, in the same workspace, rather than on a new node entirely:
+                    // Run the container on the node specified at the
+                    // top-level of the Pipeline, in the same workspace,
+                    // rather than on a new node entirely:
                     reuseNode true
                 }
             }
@@ -197,7 +199,7 @@ pipeline {
         }
         stage('Front-end') {
             agent {
-                docker { image 'node:14-alpine' }
+                docker { image 'node:16.13.1-alpine' }
             }
             steps {
                 sh 'node --version'
@@ -216,7 +218,7 @@ node {
     }
 
     stage('Front-end') {
-        docker.image('node:14-alpine').inside {
+        docker.image('node:16.13.1-alpine').inside {
             sh 'node --version'
         }
     }
@@ -238,7 +240,7 @@ Re-using an example from above, with a more custom `Dockerfile`:
 .Dockerfile
 [source]
 ----
-FROM node:14-alpine
+FROM node:16.13.1-alpine
 
 RUN apk add -U subversion
 ----
@@ -288,6 +290,34 @@ to use for running Docker-based Pipelines.
 
 image::pipeline/configure-docker-label.png[Configuring the Pipeline Docker Label]
 
+=== Path setup for mac OS users
+
+The `/usr/local/bin` directory is not included in the macOS `PATH` for Docker images by default.
+If executables from `/usr/local/bin` need to be called from within Jenkins, then the `PATH` needs to be extended to include `/usr/local/bin`.
+Add a path node in the file "/usr/local/Cellar/jenkins-lts/XXX/homebrew.mxcl.jenkins-lts.plist" like this:
+
+.Contents of homebrew.mxcl.jenkins-lts.plist
+[source,xml]
+----
+<key>EnvironmentVariables</key>
+<dict>
+<key>PATH</key
+<string><!-- insert revised path here --></string>
+</dict>
+----
+
+The revised `PATH` `string` should be a colon separated list of directories in the same format as the `PATH` environment variable and should include:
+
+* `/usr/local/bin`
+* `/usr/bin`
+* `/bin`
+* `/usr/sbin`
+* `/sbin`
+* `/Applications/Docker.app/Contents/Resources/bin/`
+* `/Users/XXX/Library/Group\ Containers/group.com.docker/Applications/Docker.app/Contents/Resources/bin` (where `XXX` is replaced by your user name)
+
+Now restart jenkins using "brew services restart jenkins-lts" 
+
 == Advanced Usage with Scripted Pipeline
 
 === Running "sidecar" containers
@@ -312,7 +342,8 @@ node {
      * In order to communicate with the MySQL server, this Pipeline explicitly
      * maps the port (`3306`) to a known port on the host machine.
      */
-    docker.image('mysql:5').withRun('-e "MYSQL_ROOT_PASSWORD=my-secret-pw" -p 3306:3306') { c ->
+    docker.image('mysql:5').withRun('-e "MYSQL_ROOT_PASSWORD=my-secret-pw"' +
+                                    ' -p 3306:3306') { c ->
         /* Wait until mysql service is up */
         sh 'while ! mysqladmin ping -h0.0.0.0 --silent; do sleep 1; done'
         /* Run some tests which require MySQL */
@@ -447,7 +478,8 @@ flag:
 node {
     checkout scm
     def dockerfile = 'Dockerfile.test'
-    def customImage = docker.build("my-image:${env.BUILD_ID}", "-f ${dockerfile} ./dockerfiles") // <1>
+    def customImage = docker.build("my-image:${env.BUILD_ID}",
+                                   "-f ${dockerfile} ./dockerfiles") // <1>
 }
 ----
 <1> Builds `my-image:${env.BUILD_ID}` from the Dockerfile found at `./dockerfiles/Dockerfile.test`. 
