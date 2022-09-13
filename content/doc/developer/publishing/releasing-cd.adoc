@@ -17,16 +17,24 @@ GitHub Actions are used to rebuild the code and deploy it to Artifactory,
 without the need for maintainers to use personal credentials or local builds.
 Release notes are generated automatically according to pull request (PR) titles and some predefined labels.
 
-`maven-release-plugin` (MRP) is not used in this mode.
+IMPORTANT: `maven-release-plugin` (MRP) is not used in this mode.
 Rather than traditional version numbers like `1.23` or `2.3.4` which are chosen by the maintainer,
 a CD release will have a version of the form `123.vabcdef456789`:
 an integer component determined by the Git history depth,
 and an informational component with the Git commit hash.
 
-== Prerequisites
+== Checklist
 
-. The plugin must already have been link:../../plugin-development/incrementals[incrementalified]. A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
-. First enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin.
+=== Incrementals Enablement
+
+Verify that the plugin has already been link:../../plugin-development/incrementals[incrementalified].
+`pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` and the files `.mvn/extensions.xml` and `.mvn/maven.config` should exist *before proceeding with subsequent steps*.
+
+NOTE: A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
+
+=== Enable CD Permissions
+
+Enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin by filing a pull request adding to `permissions/plugin-xxx.yml`:
 
 [source,yaml]
 ----
@@ -34,41 +42,81 @@ cd:
   enabled: true
 ----
 
-Once that has been merged, start checking https://github.com/jenkinsci/your-plugin/settings/secrets/actions and you should soon see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
+Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
+until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
 
-== Release notes
+=== Configure Release Drafter
 
-Next, if you already have Release Drafter configured, remove any tag-template override in `.github/release-drafter.yml`, and delete `.github/workflows/release-drafter.yml` if using GitHub Actions (or remove the app from the repo otherwise). If you have not yet configured Release Drafter, just create `.github/release-drafter.yml` containing only:
+Create or update `.github/release-drafter.yml` to contain only:
 
 [source,yaml]
 ----
 _extends: .github
 ----
+Make sure to remove any `tag-template` override that may have been configured previously.
 
-Be sure to apply one of the link:https://github.com/jenkinsci/.github/blob/ce466227c534c42820a597cb8e9cac2f2334920a/.github/release-drafter.yml#L9-L50[predefined labels]
-to every PR before merging so that Release Drafter can properly categorize changes.
+Optionally you can also remove `.github/release-drafter.yml` as the default is to assume link:https://github.com/probot/octokit-plugin-config/blob/fa1700ed56e2c76afb4dd618bf27e7c8a445c4d8/src/util/get-config-files.ts#L37-L51[`_extends: .github`]
 
-== Adding the GitHub action
+Delete `.github/workflows/release-drafter.yml` if you previously enabled Release Drafter using the GitHub Actions,
+or link:https://github.com/apps/release-drafter/installations/775283[remove the App from the repository] if it was configured that way.
+
+IMPORTANT: These files may have been set up this way by the https://github.com/jenkinsci/archetypes/[plugin archetype] that you used to initialize the plugin.
+
+=== Configure CD Workflow
 
 Create `.github/workflows/cd.yaml` as a copy of the link:https://github.com/jenkinsci/.github/blob/master/workflow-templates/cd.yaml[cd.yaml template].
 
-If this is your first time using a GitHub action on this project then navigate to the 'Actions' tab 
-in your GitHub repository and enable GitHub actions.
+=== Configure Dependabot (optional)
 
-If you have a `.github/dependabot.yml`, it is a good idea to add:
+If you have a `.github/dependabot.yml`, add:
 
 [source,yaml]
 ----
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: daily
+    interval: weekly
 ----
 
-== POM file modifications
+If you did not yet have such a file, create it now. For example:
 
-For a regular component whose version number is not that meaningful:
+[source,yaml]
+----
+version: 2
+updates:
+- package-ecosystem: maven
+  directory: /
+  schedule:
+    interval: weekly
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
+----
 
+=== Update Maven POM and Config
+
+Update the file `.mvn/maven.config` so it looks like this:
+
+[source]
+----
+-Pconsume-incrementals
+-Pmight-produce-incrementals
+-Dchangelist.format=%d.v%s
+----
+
+Update the Maven `pom.xml` as described below, depending on your preferred version number format.
+
+// Putting this here because definition lists have no indentation, making it impossible to tell this isn't part of the last item.
+Once you're done with these changes, commit all of the source file changes in a branch and file a pull request for them.
+Do not forget to `git add .` to make sure any newly created files are included.
+Merge this PR activating CD.
+Be sure to apply one of the link:https://github.com/jenkinsci/.github/blob/ce466227c534c42820a597cb8e9cac2f2334920a/.github/release-drafter.yml#L9-L50[predefined labels]
+to this and every subsequent PR before merging so that Release Drafter can properly categorize changes.
+
+Fully automated versioning::
+For a regular component whose version number is not that meaningful, let the version number be automatically determined by setting a top-level `<version>+++${changelist}+++</version>` and having an entry `<changelist>999999-SNAPSHOT</changelist>` in the `<properties>` section, removing `<revision>`:
++
 [source,diff]
 ----
 --- a/.mvn/maven.config
@@ -91,14 +139,60 @@ For a regular component whose version number is not that meaningful:
          <jenkins.version>2.176.4</jenkins.version>
      </properties>
 ----
-
-Here a CI/release build (`-Dset.changelist` specified) will be of the form `123.vabcdef456789`. A snapshot build will be `999999-SNAPSHOT`: arbitrary but treated as a snapshot by Maven and newer than any release.
-
-It's worth communicating this to your users, as they will see a very different version number format than before.
++
+In this typical case, a CI/release build (`-Dset.changelist` specified) will be of the form `123.vabcdef456789`.
+A snapshot build will be `999999-SNAPSHOT`: arbitrary but treated as a snapshot by Maven and newer than any release.
+You can see examples of the proposed snapshot and release versions in your case by running:
++
+[source,shell]
+----
+mvn validate
+mvn validate -Dset.changelist -Dignore.dirt
+----
++
+IMPORTANT: Note that you will very quickly create releases with version numbers greater than 100, as the major version component corresponds to the number of commits in the branch you're releasing from.
+If you're not ready to commit to all future versions of your plugin being this large, see the next option.
++
+NOTE: It is worth communicating this to your users, as they will see a very different version number format than before.
 The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
 
-For a component whose version number ought to reflect a release version of some wrapped component:
+Manually controlled prefix::
+If you do not want to have large major version numbers, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
++
+[source,diff]
+----
+--- a/.mvn/maven.config
++++ b/.mvn/maven.config
+@@ -1,2 +1,3 @@
+ -Pconsume-incrementals
+ -Pmight-produce-incrementals
++-Dchangelist.format=%d.v%s
+--- a/pom.xml
++++ b/pom.xml
+@@ -10,12 +10,12 @@
+   <artifactId>some-library-wrapper</artifactId>
+-  <version>${revision}${changelist}</version>
++  <version>${revision}.${changelist}</version>
+   <packaging>hpi</packaging>
+   <properties>
+-    <revision>1.2.3</revision>
+-    <changelist>-SNAPSHOT</changelist>
++    <revision>1</revision>
++    <changelist>999999-SNAPSHOT</changelist>
+     <jenkins.version>2.176.4</jenkins.version>
+----
++
+Here the version numbers will look like `1.321.vabcdef456789` or `1.999999-SNAPSHOT`, respectively.
+This could be appropriate if you are leery of committing up front to having major version numbers be in the triple digits,
+with no option of going back to `maven-release-plugin`-style versioning except by starting at say `1000.1`,
+because version numbers going forward must be mathematically larger than any currently on the update center.
++
+IMPORTANT: It is _not recommended_ to implement actual semantic versioning with automated releases performed by CD, as that requires great care in always changing the `revision` as part of the changes that semantically would require a `revision` change for the next release.
+Otherwise, automated releases may have version numbers that semantically would not make sense.
 
+Versioning with wrapped components::
+Similar to the previous option, for a component whose version number ought to reflect a release version of some wrapped component, use a hyphen (`-`) as the separator between the prefix corresponding to the wrapped component's version and the CD-generated suffix:
++
 [source,diff]
 ----
 --- a/.mvn/maven.config
@@ -121,26 +215,60 @@ For a component whose version number ought to reflect a release version of some 
 +    <changelist>999999-SNAPSHOT</changelist>
      <jenkins.version>2.176.4</jenkins.version>
 ----
-
-Here the version numbers will look like `4.0.0-123.vabcdef456789` or `4.0.0-999999-SNAPSHOT`, respectively. 
-When you pick up a new third-party component like `4.0.1`, your version numbers will match;
-to refer to the third-party component, just use:
-
++
+Here the version numbers will look like `4.0.0-123.vabcdef456789` or `4.0.0-999999-SNAPSHOT`, respectively.
+Use the `revision` property for the `<dependency>` declaration to ensure they always match:
++
 [source,xml]
 ----
-<version>${revision}</version>
+<dependency>
+    <groupId>org.elsewhere</groupId>
+    <artifactId>some-lib</artifactId>
+    <version>${revision}</version>
+</dependency>
 ----
 
 == Releasing
 
 Now whenever Jenkins reports a successful build of your default branch,
 and at least one pull request had a label indicating it was of interest to users
-(e.g. enhancement rather than chore), your component will be released to Artifactory and 
+(e.g., `enhancement` rather than `chore`), your component will be released to Artifactory and 
 release notes published in GitHub.
 You do not need any special credentials or local checkout; just merge pull requests with suitable titles and labels.
 
+You will see a lot of workflow runs in the *Actions* tab in GitHub, only a small proportion of which are actual releases.
+Due to technical limitations in GitHub Actions it is not possible to suppress the extraneous runs.
+Actual releases will display a green check next to the *release* stage.
+
 You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins. Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
 If you prefer to only deploy explicitly, not on every push, just comment out the `check_run` section in the workflow.
+
+== Noting incompatible changes
+
+It is best to avoid ever making incompatible changes to your plugin.
+If you must make one, then you can define `hpi.compatibleSinceVersion` as for link:../../plugin-development/mark-a-plugin-incompatible[any plugins].
+If `master` is currently `123.vXXX` according to
+
+[source,shell]
+----
+mvn validate -Dset.changelist
+----
+
+then you can set
+
+[source,xml]
+----
+<hpi.compatibleSinceVersion>124</hpi.compatibleSinceVersion>
+----
+
+in your pull request with the breaking changes,
+since the new release version will be `124.vXXX` if you squash-merge this PR,
+or something higher (at least `125.vXXX`) if you true-merge it.
+(It is only important that the value is greater than that of the previous actual release,
+and less than or equal to that of the release containing the breaking change.)
+
+Do not forget to mark the PR with the label `breaking` (or `removed`) to get an appropriate categorization in release notes.
+(These labels also normally cause a release to be triggered automatically upon merge.)
 
 == Fallback
 
@@ -164,7 +292,7 @@ Check that `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
 
 Unauthorized means that the credentials were invalid, or not sent by Maven.
 
-This normally means that the secrets configured in the repository have expired, create an issue in the INFRA project on link:https://issues.jenkins.io/[Jira], and let the team know in #jenkins-infra on link:https://libera.chat/[Libera Chat].
+This normally means that the secrets configured in the repository have expired, create an issue in the INFRA helpdesk on link:https://github.com/jenkins-infra/helpdesk/issues/new/choose[GitHub], and let the team know in #jenkins-infra on link:https://libera.chat/[Libera Chat].
 
 Alternatively you can temporarily update the secrets yourself with your own personal credentials.
 

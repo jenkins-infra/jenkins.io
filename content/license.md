@@ -1,5 +1,5 @@
 ---
-:layout: post
+:layout: simplepage
 :title: MIT License
 :nodeid: 300
 :created: 1302813109
