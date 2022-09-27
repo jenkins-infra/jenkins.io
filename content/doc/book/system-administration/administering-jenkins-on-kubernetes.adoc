@@ -13,3 +13,162 @@ ifdef::backend-html5[]
 endif::[]
 
 = Administering Jenkins on Kubernetes
+
+In this section, we will look at,
+
+* Upgrading from one version of Kubernetes to another.
+** How to upgrade the version of Kubernetes in your cluster.
+** Upgrade Kubernetes Cluster maintained by the Jenkins Infrastructure project.
+
+* Upgrade Jenkins Inside a Docker Container.
+
+* Kubernetes Concepts.
+
+
+== Upgrading from one version of Kubernetes to another:
+
+Kubernetes (K8s) is an open-source system for automating deployment, scaling, and management of containerized applications.
+
+A Kubernetes cluster adds a new automation layer to Jenkins. Kubernetes makes sure that resources are used effectively and that your servers and underlying infrastructure are not overloaded. Kubernetes' ability to orchestrate container deployment ensures that Jenkins always has the right amount of resources available.
+
+=== How to upgrade the version of Kubernetes in your cluster:
+
+Upgrading your Kubernetes cluster is one of the tasks you must take on as an operator of Jenkins X. Kubernetes comes out with link:https://kubernetes.io/releases[new releases] regularly, and will only maintain releases for the three latest versions. Meaning if something breaks, or there is a security issue on an older version, Kubernetes will not fix it, but ask you to upgrade. All the major cloud providers only support a given set of latest versions.
+
+Jenkins X at the moment supports kubernetes versions 1.20 and 1.21. Version 1.22 introduces a lot of deprecations, and is not fully supported yet. In the future we aim to support the same set of versions supported by the major cloud providers, Google, Amazon and Azure. These versions are described in the links below, ranging from version 1.20 to version 1.24.
+
+* link:https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html[Amazon]
+* link:https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli#aks-kubernetes-release-calendar[Azure]
+* link:https://cloud.google.com/kubernetes-engine/docs/release-notes[Google]
+
+*Upgrade Procedure:*
+
+* It is highly recommended to test upgrades on a separate cluster, where you have all the same setup as you use in production.
+
+* Run link:https://github.com/FairwindsOps/pluto[Pluto] to find any deprecated CRDs present in your cluster. You can run Pluto both on the cluster using 'pluto detect-helm', and on the files on your cluster repository using 'pluto detect-files'.
+
+* Cross-check the list of deprecations you find, with the list from link:https://kubernetes.io/docs/reference/using-api/deprecation-guide[Kubernetes] and see what is required for the Kubernetes version you want to upgrade to.
+
+* Fix what needs to be fixed, and deploy the changes.
+
+* You may now start the upgrade of Kubernetes.
+** The process has two steps, first, you need to upgrade the control plane, and next upgrade the nodes. Follow the upgrade steps according to your cloud provider.
+*** link:https://docs.aws.amazon.com/eks/latest/userguide/update-cluster.html[Amazon]
+*** link:https://learn.microsoft.com/en-us/azure/aks/upgrade-cluster?tabs=azure-cli[Azure]
+*** link:https://cloud.google.com/kubernetes-engine/docs/how-to/upgrading-a-cluster[Google]
+
+* Pour yourself a cup of your favorite drink while you sit back and wait for the magic to happen.
+
+=== Upgrade Kubernetes Cluster maintained by the Jenkins Infrastructure project:
+
+*Requirements:*
+
+* Create link:https://issues.jenkins.io[Jira] Ticket.
+
+* Announce on:
+** link:https://github.com/jenkins-infra/status[Jenkins Status] page.
+** IRC, channel #jenkins-infra on freenode.
+** link:https://groups.google.com/g/jenkins-infra[Jenkins Infrastructure and Dev Mailing list]
+** link:https://twitter.com/jenkinsci/[Twitter], in case of major upgrade.
+
+*  Review Release Changelogs:
+** link:https://github.com/kubernetes/kubernetes/tree/master/CHANGELOG[Kubernetes]
+** link:https://github.com/Azure/AKS/blob/master/CHANGELOG.md[AKS]
+
+* Review and merge important pull request from link:https://github.com/jenkins-infra/charts[jenkins-infra/charts].
+
+* Block k8smgmnt job on infra.ci
+
+* Pagerduty
+** Bump kubectl docker image link:https://github.com/jenkins-infra/docker-helmfile[docker-helmfile] to the targeted kubernetes controller version.
+** Apply in the jenkins-infra/charts repo: https://github.com/jenkins-infra/charts/pull/1056
+
+* Search for deprecated Kubernetes resources
+** link:https://github.com/FairwindsOps/pluto[Pluto] running 'pluto detect-helm -owide'
+
+*Note:* If you want to learn more about upgrades please link:https://github.com/jenkins-infra/documentation/tree/main/maintenance/kubernetes[click here!]
+
+== Upgrade Jenkins Inside a Docker Container:
+
+First identify your image.
+
+----
+
+$ docker ps --format "{{.ID}}: {{.Image}} {{.Names}}"
+3d2fb2ab2ca5: jenkins-docker jenkins-docker_1
+
+----
+
+Then login into the image as root.
+
+----
+
+$ docker container exec -u 0 -it jenkins-docker_1 /bin/bash
+
+----
+
+Now you are inside the container, download the 'jenkins.war' file from the official site like.
+
+----
+
+# wget wget http://updates.jenkins-ci.org/download/war/2.176.1/jenkins.war
+
+----
+
+Replace the version with the one that fits to you.
+
+The next step is to move that file and replace the oldest one.
+
+----
+
+# mv ./jenkins.war /usr/share/jenkins/
+
+----
+
+Then change permissions.
+
+----
+
+# chown jenkins:jenkins /usr/share/jenkins/jenkins.war
+
+----
+
+The last step is to logout from the container and restart it.
+
+----
+
+$ docker restart jenkins-docker_1
+
+----
+
+You can verify that update was successful by access to you Jenkins url.
+
+== Kubernetes Concepts:
+
+The Concepts section helps you learn about the parts of the Kubernetes system and the abstractions Kubernetes uses to represent your cluster, and helps you obtain a deeper understanding of how Kubernetes works.
+
+* *link:https://kubernetes.io/docs/concepts/overview/[Overview:]* Kubernetes is a portable, extensible, open source platform for managing containerized workloads and services, that facilitates both declarative configuration and automation. It has a large, rapidly growing ecosystem. Kubernetes services, support, and tools are widely available.
+
+* *link:https://kubernetes.io/docs/concepts/architecture/[Cluster Architecture:]* The architectural concepts behind Kubernetes.
+
+* *link:https://kubernetes.io/docs/concepts/containers/[Containers:]* Technology for packaging an application along with its runtime dependencies.
+
+* *link:https://kubernetes.io/docs/concepts/windows/[Windows in Kubernetes]*
+
+* *link:https://kubernetes.io/docs/concepts/workloads/[Workloads:]* Understand Pods, the smallest deployable compute object in Kubernetes, and the higher-level abstractions that help you to run them.
+
+* *link:https://kubernetes.io/docs/concepts/services-networking/[Services, Load Balancing, and Networking:]* Concepts and resources behind networking in Kubernetes.
+
+* *link:https://kubernetes.io/docs/concepts/storage/[Storage:]* Ways to provide both long-term and temporary storage to Pods in your cluster.
+
+* *link:https://kubernetes.io/docs/concepts/configuration/[Configuration:]* Resources that Kubernetes provides for configuring Pods.
+
+* *link:https://kubernetes.io/docs/concepts/security/[Security:]* Concepts for keeping your cloud-native workload secure.
+
+* *link:https://kubernetes.io/docs/concepts/policy/[Policies:]* Policies you can configure that apply to groups of resources.
+
+* *link:https://kubernetes.io/docs/concepts/scheduling-eviction/[Scheduling, Preemption and Eviction:]* In Kubernetes, scheduling refers to making sure that Pods are matched to Nodes so that the kubelet can run them. Preemption is the process of terminating Pods with lower Priority so that Pods with higher Priority can schedule on Nodes. Eviction is the process of proactively terminating one or more Pods on resource-starved Nodes.
+
+* *link:https://kubernetes.io/docs/concepts/cluster-administration/[Cluster Administration:]* Lower-level detail relevant to creating or administering a Kubernetes cluster.
+
+* *link:https://kubernetes.io/docs/concepts/extend-kubernetes/[Extending Kubernetes:]* Different ways to change the behavior of your Kubernetes cluster.
