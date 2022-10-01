@@ -27,57 +27,55 @@ Hosting Jenkins on a Kubernetes Cluster is beneficial for Kubernetes-based deplo
 
 Here, we see a step-by-step process for setting up Jenkins on a Kubernetes Cluster.
 
-== Setup Jenkins On Kubernetes Cluster
+== Setup Jenkins On Kubernetes
 
 For setting up a Jenkins Cluster on Kubernetes, we will do the following.
 
 [arabic]
-. Create a Namespace
-. Create a service account with Kubernetes admin permissions.
-. Create local persistent volume for persistent Jenkins data on Pod restarts.
-. Create a deployment YAML and deploy it.
-. Create a service YAML and deploy it.
-. Access the Jenkins application on a Node Port.
+. <<create-a-namespace,Create a Namespace>>
+. <<create-a-service-account,Create a service account>> with Kubernetes admin permissions.
+. <<create-a-volume,Create local persistent volume>> for persistent Jenkins data on Pod restarts.
+. <<create-a-deployment,Create a deployment YAML>> and deploy it.
+. <<create-a-service,Create a service YAML>> and deploy it.
 
 *Note:* This guide doesn’t use local persistent volume as this is a
 generic guide. For using persistent volume for your Jenkins data, you
 need to create volumes of relevant cloud or on-prem data centre and
 configure it.
 
-== Jenkins Kubernetes Manifest Files
+=== Jenkins Kubernetes Manifest Files
 
 All the Jenkins Kubernetes manifest files used here are hosted on GitHub.
 Please clone the repository if you have trouble copying the manifest
 from the document.
 
+[source,bash]
 ----
-
 git clone https://github.com/scriptcamp/kubernetes-jenkins
-
 ----
 
 Use the GitHub files for reference and follow the steps in the next sections.
 
-== Kubernetes Jenkins Deployment
+=== Kubernetes Jenkins Deployment
 
 Let’s get started with deploying Jenkins on Kubernetes.
 
+[#create-a-namespace]
 *Step 1*: Create a Namespace for Jenkins. It is good to categorize all
 the DevOps tools as a separate namespace from other applications.
 
+[source,bash]
 ----
-
 kubectl create namespace devops-tools
-
 ----
 
+[#create-a-service-account]
 *Step 2:* Create a 'serviceAccount.yaml' file and copy the following admin
 service account manifest.
 
+[source,yaml]
 ----
-
 ---
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -86,17 +84,13 @@ rules:
   - apiGroups: [""]
     resources: ["*"]
     verbs: ["*"]
-
 ---
-
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: jenkins-admin
   namespace: devops-tools
-
 ---
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -109,7 +103,6 @@ subjects:
 - kind: ServiceAccount
   name: jenkins-admin
   namespace: devops-tools
-
 ----
 
 The 'serviceAccount.yaml' creates a 'jenkins-admin' clusterRole, 'jenkins-admin' ServiceAccount and binds the 'clusterRole' to the service account.
@@ -118,26 +111,24 @@ The 'jenkins-admin' cluster role has all the permissions to manage the cluster c
 
 Now create the service account using kubectl.
 
+[source,bash]
 ----
-
 kubectl apply -f serviceAccount.yaml
-
 ----
 
-**Step 3: **Create 'volume.yaml' and copy the following persistent volume
+[#create-a-volume]
+**Step 3: **Create 'volume.yaml' and copy the following persistent volume
 manifest.
 
+[source,yaml]
 ----
-
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
   name: local-storage
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
-
 ---
-
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -163,9 +154,7 @@ spec:
           operator: In
           values:
           - worker-node01
-
 ---
-
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -178,17 +167,15 @@ spec:
   resources:
     requests:
       storage: 3Gi
-
 ----
 
 *Important Note:* Replace 'worker-node01' with any one of your cluster worker nodes hostname.
 
 You can get the worker node hostname using the kubectl.
 
+[source,bash]
 ----
-
 kubectl get nodes
-
 ----
 
 For volume, we are using the 'local' storage class for the purpose of
@@ -209,17 +196,17 @@ administrator to persist data on node failures.
 
 Let’s create the volume using kubectl
 
+[source,bash]
 ----
-
 kubectl create -f volume.yaml
-
 ----
 
+[#create-a-deployment]
 *Step 4:* Create a Deployment file named 'deployment.yaml' and copy the
 following deployment manifest.
 
+[source,yaml]
 ----
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -277,16 +264,14 @@ spec:
         - name: jenkins-data
           persistentVolumeClaim:
               claimName: jenkins-pv-claim
-
 ----
 
-In this
-Jenkins Kubernetes deployment we have used the following.
+In this Jenkins Kubernetes deployment we have used the following:
 
 [arabic]
 . 'securityContext' for Jenkins pod to be able to write to the local
 persistent volume.
-. Liveliness and readiness probe.
+. Liveness and readiness probe to monitor the health of the Jenkins pod
 . Local persistent volume based on local storage class that holds the
 Jenkins data path '/var/jenkins_home'
 
@@ -298,50 +283,45 @@ If you don’t want the local storage persistent volume, you can replace
 the volume definition in the deployment with the host directory as shown
 below.
 
+[source,yaml]
 ----
-
 volumes:
-
 - name: jenkins-data
-
 emptyDir: \{}
-
 ----
 
 Create the deployment using kubectl.
 
+[source,bash]
 ----
-
 kubectl apply -f deployment.yaml
-
 ----
 
 Check the deployment status.
 
+[source,bash]
 ----
-
 kubectl get deployments -n devops-tools
-
 ----
 
 Now, you can get the deployment details using the following command.
 
+[source,bash]
 ----
-
 kubectl describe deployments --namespace=devops-tools
-
 ----
 
-== Accessing Jenkins Using Kubernetes Service
+[#create-a-service]
+=== Accessing Jenkins Using Kubernetes Service
 
 We have created a deployment. However, it is not accessible to the
 outside world. For accessing the Jenkins deployment from the outside
 world, we should create a service and map it to the deployment.
 
-*Step 1:* Create 'service.yaml' and copy the following service manifest.
+Create 'service.yaml' and copy the following service manifest:
 
+[source,yaml]
 ----
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -359,7 +339,6 @@ spec:
     - port: 8080
       targetPort: 8080
       nodePort: 32000
-
 ----
 
 *Note:* Here, we are using the type as 'NodePort' which will expose
@@ -369,40 +348,36 @@ cluster on AWS, Google, or Azure cloud.
 
 Create the Jenkins service using kubectl.
 
+[source,bash]
 ----
-
 kubectl apply -f service.yaml
-
 ---- 
 
-Now if you browse to any one of the Node IPs on port 32000, you will be
+Now if you browse to any one of the Node IPs on port 32000, you will be
 able to access the Jenkins dashboard.
 
+[source]
 ----
-
 http://<node-ip>:32000
-
 ----
 
 Jenkins will ask for the initial Admin password when you access the
 dashboard for the first time.
 
 You can get that from the pod logs either from the Kubernetes dashboard
-or CLI. You can get the pod details using the following CLI command.
+or CLI. You can get the pod details using the following CLI command.
 
+[source,bash]
 ----
-
 kubectl get pods --namespace=devops-tools
-
 ----
 
 And with the pod name, you can get the logs as shown below. replace the
 pod name with your pod name.
 
+[source,bash]
 ----
-
-kubectl logs jenkins-deployment-2539456353-j00w5 --namespace=jenkins
-
+kubectl logs jenkins-deployment-2539456353-j00w5 --namespace=devops-tools
 ----
 
 The password can be found at the end of the log.
@@ -410,10 +385,9 @@ The password can be found at the end of the log.
 Alternatively, you can run the exec command to get the password directly
 from the location as shown below.
 
+[source,bash]
 ----
-
 kubectl exec -it jenkins-559d8cd85c-cfcgk cat /var/jenkins_home/secrets/initialAdminPassword -n devops-tools
-
 ----
 
 Once you enter the password you can proceed to install the suggested
