@@ -194,6 +194,53 @@ A link to the example repository used is also provided in the link:https://youtu
 
 video::eV7roTXrEqg[youtube,width=800,height=420]
 
+=== Statically loading evaluated versions of libraries
+
+As of currently unreleased version of the _Pipeline: Shared Groovy Libraries_ plugin,
+with features proposed in
+link:https://github.com/jenkinsci/pipeline-groovy-lib-plugin/pull/19[PR #19]
+(link:https://issues.jenkins.io/browse/JENKINS-69731[issue JENKINS-69731])
+there are new options for the `@Library` annotation with limited run-time evaluation
+of the version specified for the library. In order to use these features, you should
+explicitly allow them in library configuration (e.g. Global Jenkins configuration of
+your instance).
+
+While the markup for these features is intentionally similar to what you would write
+for Groovy code to simplify maintenance, keep in mind that the version tokens are
+handled by the plugin before it would load libraries and compile the pipeline script.
+
+One addressed use-case regards loading of "same version of library as the version of
+Pipeline script from SCM" by specifying literally `${BRANCH_NAME}`:
+
+[source,groovy]
+----
+@Library('my-shared-library@${BRANCH_NAME}') _
+----
+
+The plugin would try several methods to determine the branch name to use, check if
+such "version" is accepted by SCM source of the library, and fall back to default
+version if not.
+
+This was verified to work for:
+* MultiBranch Project pipelines both with "Modern SCM" and with "Single repository & branch"
+  (in case of the latter, the "name" you specify for the source is what matters for MBP more
+  than the actual SCM branch);
+* Pipelines backed by a single SCM source with a "Branch Specifier" like `*/main`;
+* "In-line" Pipelines not backed by an SCM (just fall back to default version).
+
+Another addressed use-case regards loading of some version of library specified by
+an environment variable value defined when the job starts (e.g. coming from Global
+Jenkins configuration, from build agent configuration, or injected by some plugins):
+
+[source,groovy]
+----
+@Library('my-shared-library@${env.CUSTOM_VAR_NAME}') _
+----
+
+The plugin would try to get the `CUSTOM_VAR_NAME` from environment, and if it exists --
+check if such "version" is accepted by SCM source of the library, and fall back to
+default version if not.
+
 === Loading libraries dynamically
 
 As of version 2.7 of the _Pipeline: Shared Groovy Libraries_ plugin,
