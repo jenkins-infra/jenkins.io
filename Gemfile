@@ -7,6 +7,7 @@ gem 'asciidoctor', '~> 2.0.0'
 gem 'asciidoctor-jenkins-extensions', '~> 0.9.0'
 
 gem 'sassc'
+gem 'rouge'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.1.0'
