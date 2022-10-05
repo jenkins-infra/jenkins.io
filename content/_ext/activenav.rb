@@ -16,8 +16,8 @@ module ActiveNav
     return relative_url if relative_url.start_with?('https://', 'http://')
 
     link = [URI(site.base_url).path, relative_url.sub(%r{^/}, '')].join('/')
-    # if it has a file extension its a file and shouldn't get a / added
-    link = link + '/' if File.extname(link).empty?
+    # if it has a file extension its a file and shouldn't get a / added, same for anchor links with '#'
+    link = link + '/' if File.extname(link).empty? and not link.include? '#'
     # strip double slashes on the end
     link.gsub(/\/(\/)+/, '/')
   end
