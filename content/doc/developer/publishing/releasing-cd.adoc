@@ -45,26 +45,32 @@ cd:
 Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
 until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
 
-=== Configure Release Drafter
-
-Create or update `.github/release-drafter.yml` to contain only:
-
-[source,yaml]
-----
-_extends: .github
-----
-Make sure to remove any `tag-template` override that may have been configured previously.
-
-Optionally you can also remove `.github/release-drafter.yml` as the default is to assume link:https://github.com/probot/octokit-plugin-config/blob/fa1700ed56e2c76afb4dd618bf27e7c8a445c4d8/src/util/get-config-files.ts#L37-L51[`_extends: .github`]
-
-Delete `.github/workflows/release-drafter.yml` if you previously enabled Release Drafter using the GitHub Actions,
-or link:https://github.com/apps/release-drafter/installations/775283[remove the App from the repository] if it was configured that way.
-
-IMPORTANT: These files may have been set up this way by the https://github.com/jenkinsci/archetypes/[plugin archetype] that you used to initialize the plugin.
-
 === Configure CD Workflow
 
-Create `.github/workflows/cd.yaml` as a copy of the link:https://github.com/jenkinsci/.github/blob/master/workflow-templates/cd.yaml[cd.yaml template].
+Create the CD workflow as a copy of the template:
+
+[source,shell]
+----
+mkdir -p .github/workflows
+curl -so .github/workflows/cd.yaml https://raw.githubusercontent.com/jenkinsci/.github/master/workflow-templates/cd.yaml
+git add .github/workflows/cd.yaml
+----
+
+=== Configure Release Drafter
+
+You can delete any existing Release Drafter configuration,
+as the default is to assume link:https://github.com/probot/octokit-plugin-config/blob/fa1700ed56e2c76afb4dd618bf27e7c8a445c4d8/src/util/get-config-files.ts#L37-L51[`_extends: .github`];
+and/or workflow, as that will be subsumed by the CD workflow:
+
+[source,shell]
+----
+git rm .github/release-drafter.y*ml
+git rm .github/workflows/release-drafter.y*ml
+----
+
+Also link:https://github.com/apps/release-drafter/installations/775283[remove the App from the repository] if it was configured that way.
+
+IMPORTANT: These files may have been set up this way by the https://github.com/jenkinsci/archetypes/[plugin archetype] that you used to initialize the plugin.
 
 === Configure Dependabot (optional)
 
@@ -75,7 +81,7 @@ If you have a `.github/dependabot.yml`, add:
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: weekly
+    interval: monthly
 ----
 
 If you did not yet have such a file, create it now. For example:
@@ -87,11 +93,11 @@ updates:
 - package-ecosystem: maven
   directory: /
   schedule:
-    interval: weekly
+    interval: monthly
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: weekly
+    interval: monthly
 ----
 
 === Update Maven POM and Config
@@ -136,7 +142,7 @@ For a regular component whose version number is not that meaningful, let the ver
 -        <revision>1.23</revision>
 -        <changelist>-SNAPSHOT</changelist>
 +        <changelist>999999-SNAPSHOT</changelist>
-         <jenkins.version>2.176.4</jenkins.version>
+         <jenkins.version>2.346.3</jenkins.version>
      </properties>
 ----
 +
@@ -157,7 +163,7 @@ NOTE: It is worth communicating this to your users, as they will see a very diff
 The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
 
 Manually controlled prefix::
-If you do not want to have (major) version numbers increase quickly, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
+If you do not want to have large major version numbers, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
 +
 [source,diff]
 ----
@@ -179,10 +185,13 @@ If you do not want to have (major) version numbers increase quickly, like with f
 -    <changelist>-SNAPSHOT</changelist>
 +    <revision>1</revision>
 +    <changelist>999999-SNAPSHOT</changelist>
-     <jenkins.version>2.176.4</jenkins.version>
+     <jenkins.version>2.346.3</jenkins.version>
 ----
 +
-Here the version numbers will look like `1.321.vabcdef456789` or `1.999999-SNAPSHOT`, respectively, which are more similar to version numbers used by Jenkins itself.
+Here the version numbers will look like `1.321.vabcdef456789` or `1.999999-SNAPSHOT`, respectively.
+This could be appropriate if you are leery of committing up front to having major version numbers be in the triple digits,
+with no option of going back to `maven-release-plugin`-style versioning except by starting at say `1000.1`,
+because version numbers going forward must be mathematically larger than any currently on the update center.
 +
 IMPORTANT: It is _not recommended_ to implement actual semantic versioning with automated releases performed by CD, as that requires great care in always changing the `revision` as part of the changes that semantically would require a `revision` change for the next release.
 Otherwise, automated releases may have version numbers that semantically would not make sense.
@@ -210,7 +219,7 @@ Similar to the previous option, for a component whose version number ought to re
 -    <changelist>-SNAPSHOT</changelist>
 +    <revision>4.0.0</revision>
 +    <changelist>999999-SNAPSHOT</changelist>
-     <jenkins.version>2.176.4</jenkins.version>
+     <jenkins.version>2.346.3</jenkins.version>
 ----
 +
 Here the version numbers will look like `4.0.0-123.vabcdef456789` or `4.0.0-999999-SNAPSHOT`, respectively.
@@ -240,6 +249,33 @@ Actual releases will display a green check next to the *release* stage.
 You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins. Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
 If you prefer to only deploy explicitly, not on every push, just comment out the `check_run` section in the workflow.
 
+== Noting incompatible changes
+
+It is best to avoid ever making incompatible changes to your plugin.
+If you must make one, then you can define `hpi.compatibleSinceVersion` as for link:../../plugin-development/mark-a-plugin-incompatible[any plugins].
+If `master` is currently `123.vXXX` according to
+
+[source,shell]
+----
+mvn validate -Dset.changelist
+----
+
+then you can set
+
+[source,xml]
+----
+<hpi.compatibleSinceVersion>124</hpi.compatibleSinceVersion>
+----
+
+in your pull request with the breaking changes,
+since the new release version will be `124.vXXX` if you squash-merge this PR,
+or something higher (at least `125.vXXX`) if you true-merge it.
+(It is only important that the value is greater than that of the previous actual release,
+and less than or equal to that of the release containing the breaking change.)
+
+Do not forget to mark the PR with the label `breaking` (or `removed`) to get an appropriate categorization in release notes.
+(These labels also normally cause a release to be triggered automatically upon merge.)
+
 == Fallback
 
 You can also release manually if you have configured your machine for link:../releasing-manually[manual release].
@@ -265,6 +301,16 @@ Unauthorized means that the credentials were invalid, or not sent by Maven.
 This normally means that the secrets configured in the repository have expired, create an issue in the INFRA helpdesk on link:https://github.com/jenkins-infra/helpdesk/issues/new/choose[GitHub], and let the team know in #jenkins-infra on link:https://libera.chat/[Libera Chat].
 
 Alternatively you can temporarily update the secrets yourself with your own personal credentials.
+
+=== The upload to the Maven repository fails with "403 Forbidden"
+
+The two most common explanations for this error are:
+
+* You don't have permission to upload to the specified path.
+  link:../requesting-hosting/#request-upload-permissions[Learn more about how to request upload permissions].
+  Check that the path you're allowed to upload to matches the actual upload attempt (i.e. no typos).
+* The specified release already exists and you try to overwrite it.
+  We do not allow replacing existing releases.
 
 === Further troubleshooting help
 

@@ -1,0 +1,168 @@
+---
+title: Content-Security-Policy Compatibility
+layout: developerguide
+---
+
+== Introduction
+
+From https://content-security-policy.com/[content-security-policy.com]:
+
+> _Content-Security-Policy_ is the name of a HTTP response header that modern browsers use to enhance the security of the document (or web page). The Content-Security-Policy header allows you to restrict how resources such as JavaScript, CSS, or pretty much anything that the browser loads.
+
+Using Content-Security-Policy (CSP), injection attacks like cross-site scripting can be prevented.
+
+// TODO Keep up to date with versions
+Unfortunately, as of Jenkins 2.372, the Jenkins classic UI is not yet compatible with the CSP directives that would allow preventing such injection attacks.
+
+This guide documents how to identify components that will be incompatible with CSP rules and how to write and adapt UI code in a manner that is expected to be compatible with future use of CSP directives on the Jenkins UI.
+
+NOTE: Most of this page focuses on problems caused by the `script-src` CSP directive as that is the most common issue across Jenkins plugins and non-compliant code is most likely to result in link:/blog/2020/07/15/xss-severity/[severe vulnerabilities].
+
+
+== Statically Identifying Affected Code and Plugins
+
+To check plugins for CSP compatibility, look for the following code patterns:
+
+Inline `<script>` blocks::
+Referencing a file to load JavaScript from is fine, but inline block contents are not.
+All `<script>` tags without `src` are a problem.
+They will break without `'unsafe-inline'` in the `script-src` CSP directive.
+Inline event handler definitions::
+Any occurrence of `onclick`, `onload`, etc. in HTML files (e.g. Jelly and Groovy views) is a problem.
+Legacy `checkUrl` definitions::
+Check the `checkUrl` attribute for values that are not simple URLs, but JavaScript expressions.
+While the underlying support is implemented in Jenkins core rather than in plugins, this will break without `'unsafe-eval'` in the `script-src` CSP directive.
+You can easily identify them through their use of single quotes inside the double-quoted attribute value (or, rarely, vice versa).
+Use of `eval`::
+Check for the use of `eval` inside any JS resource files (potentially after applying fixes for the previously listed issues).
+This will break without `'unsafe-eval'` in the `script-src` CSP directive.
+
+
+== Dynamically Identifying Plugins
+
+When running Jenkins, you can use the following techniques to identify broken features and the component that defines them:
+
+=== Content Security Policy Plugin
+
+link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
+It can operate both as enforcing and to only gather reports.
+Both modes can be useful with identifying broken functionality.
+
+==== Report Only
+When set to only report issues but not enforce, the UI can be used as usual while letting the browser report violations, allowing to quickly gather a number of findings while not being blocked by broken functionality.
+Afterwards, the reported violations can be reviewed and affected functionality identified this way.
+Navigate to _Manage Jenkins » Content-Security-Policy Report_ and review the violations there.
+
+NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins, so the list should very rarely be empty.
+If the list of violations remains empty after navigating several pages of the Jenkins UI, review your browser's console for errors related to reporting CSP violations.
+For example, some browser extensions will disable CSP reporting.
+
+==== Enforcing
+
+When set to enforce the rules, the UI will more readily break if functionality being accessed is impacted by the rules.
+
+NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins; so enforcing rules like `script-src` that do not allow `'unsafe-inline' 'unsafe-eval'` is expected to result in problems.
+
+=== Enabling Jelly tracing
+
+Run the following script in the script console:
+
+[source]
+org.kohsuke.stapler.jelly.JellyFacet.TRACE = true
+
+This property is documented on link:/doc/developer/views/[Views] and emits comments in the rendered HTML of Jelly views that allow you to better understand how the views are composed, and potentially more easily identify which component is responsible for contributing code that violates the CSP rules.
+
+
+== Development Guidelines
+
+
+=== Inline JavaScript blocks
+
+Do not use inline JavaScript (JS) in the Jenkins GUI, i.e., JS embedded in HTML output.
+
+This is typically done with `<script>` tags, like so:
+
+[source, html]
+<script type="text/javascript">
+alert("Hello, world!");
+</script>
+
+The guidelines in link:/doc/developer/security/xss-prevention/#passing-values-to-javascript[the documentation on XSS prevention] can be useful to pass arguments to JavaScript, or otherwise control its behavior dynamically.
+
+You can generally use https://github.com/jenkinsci/stapler/blob/master/docs/jelly-taglib-ref.adoc#adjunct[Stapler adjuncts] to load files related to UI views and ensure they are loaded only once.
+
+An example of this is https://github.com/jenkinsci/jenkins/pull/6849[jenkinsci/jenkins#6849].
+
+
+=== Inline event handlers
+
+Event handlers like `onclick` or `onblur` should be defined in separate files.
+
+For this to work, the element that would have had the inline event handler attribute(s) needs a class or ID by which it can be looked up from JS.
+
+Depending on how that element is added to the UI, you'd use one of the following methods to add event handlers:
+
+You can use `document.addEventListener('DOMContentLoaded', …)` for one or more elements that are present on the page from the moment it is loaded.
+Look up the elements by their ID or class or similar characteristics, then call `#addEventListener` on them.
+Be mindful of Jenkins's extensibility, so consider including plugin names in element class names or IDs to prevent unintentional conflicts with other plugins.
+
+Use `Behaviour#specify` to add event handlers to elements that may be dynamically added to the page, for example as part of AJAX responses.
+One common instance of this is in configuration forms: `renderOnDemand` is used by common form elements like `hetero-list` to load parts of the page only as the form is being changed.
+The code that adds content from AJAX responses dynamically to the page needs to call `Behaviour#applySubtree` on the newly added content.
+
+Examples of this are: https://github.com/jenkinsci/jenkins/pull/5514[jenkinsci/jenkins#5514]
+
+=== Legacy JavaScript `checkUrl` validation
+
+Do not use "legacy" mode form validation, which supports inline JS with manually specified `checkUrl` parameters.
+It looks like the following:
+
+[source, html]
+<f:textbox checkUrl="'${rootURL}/${h.jsStringEscape(it.url)}checkText?value='+encodeURIComponent(this.value)+'" … />
+
+This combines inline JS and building parts of the string using JEXL expressions in Jelly, with different ways to escape different parts of the content to prevent injection vulnerabilities.
+
+Instead, use the _modern_ `checkUrl` mode, which as of Jenkins 2.360 requires the `checkDependsOn` attribute to be set (but it can be an empty string).
+This mode will automatically add the current form element's value as the query parameter called `value`, so the above example can be simplified to the following:
+
+[source, html]
+<f:textbox checkUrl="${rootURL}/${it.url}checkText" checkDependsOn="" … />
+
+Examples of this are: https://github.com/jenkinsci/jenkins/pull/6856[jenkinsci/jenkins#6856] https://github.com/jenkinsci/jenkins/pull/6857[jenkinsci/jenkins#6857]
+
+To pass additional values, specify the respective form field names as part of the `checkDependsOn` string.
+
+If you need to pass parameters that are not represented as form fields, the following options exist as of Jenkins 2.360:
+
+* Define a new form validation endpoint.
+  This can be a viable option when it's a boolean value (2 endpoints instead of one).
+* Define a hidden form field (wrap it in `f:invisibleEntry`) with the expected `name` and `value` and specify it in `checkDependsOn`.
+  Make sure to ignore it otherwise.
+  See https://github.com/jenkinsci/jenkins/pull/6859[jenkinsci/jenkins#6859] for an example.
+
+
+=== `eval` calls
+
+`eval` should not be used to interpret a string as JS code.
+
+Depending on your use case, different solutions are possible.
+
+To parse JSON, use `JSON.parse` instead.
+See https://github.com/jenkinsci/jenkins/pull/6868[jenkinsci/jenkins#6868] for an example.
+
+To invoke a callback, have the caller define a global function and pass its name as an argument.
+Then your code can invoke the callback like this:
+
+[source, javascript]
+/* someone else provides this */
+let callbackName = 'foo';
+/* invoke it with arguments */
+window[callbackName](args);
+
+== Testing
+
+link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
+It can operate both as enforcing and to only gather reports.
+Both modes can be useful with identifying broken functionality.
+
+NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins; so enforcing rules like `script-src` that do not allow `'unsafe-inline' 'unsafe-eval'` is expected to result in problems with basic Jenkins UI use.
