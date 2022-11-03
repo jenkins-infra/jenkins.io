@@ -1,28 +1,3 @@
-def recordDeployment(owner, repo, ref, status, environmentURL, environment = "preview", description = "Deploy to preview environment") {
-  withCredentials([usernamePassword(credentialsId: 'github-app-infra', usernameVariable: 'GITHUB_APP', passwordVariable: 'GH_TOKEN')]) {
-    def json = writeJSON(returnText: true, json: [
-        "ref": ref,
-        "environment": environment,
-        "description": description,
-        "required_contexts": [],
-        "auto_merge": false,
-        "auto_inactive": false,
-        "transient_environment": environment != "production",
-    ])
-    def id = readJSON(text: sh(script: "gh api repos/${owner}/${repo}/deployments  -X POST --input - << EOF\n${json}\nEOF", returnStdout: true).trim()).id
-    if (id == ''){
-      error('Unable to create deployment')
-    }
-    json = writeJSON(returnText: true, json: [
-        "state": status,
-        "environment": environment,
-        "description": description,
-        "log_url": "${BUILD_URL}console",
-        "environment_url": environmentURL,
-    ])
-    sh("gh api repos/${owner}/${repo}/deployments/${id}/statuses  -X POST --input - << EOF\n${json}\nEOF")
-  }
-}
 
 pipeline {
   agent {
@@ -100,6 +75,26 @@ spec:
     stage('Build') {
       steps {
         sh 'make'
+      }
+    }
+
+    stage('Deploy to preview site') {
+      when {
+        changeRequest target: 'master'
+      }
+      environment {
+        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
+      }
+      post {
+        success {
+          recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'success', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
+        }
+        failure {
+          recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'failure', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
+        }
+      }
+      steps {
+        sh('/usr/local/bin/netlify-deploy --siteName "jenkins-io-site-pr" --title "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d ./build/_site')
       }
     }
   }
