@@ -1,0 +1,85 @@
+---
+title: Dependencies on Other Plugins
+summary: How a plugin can declare dependencies on other plugins
+layout: developersection
+---
+
+## Mandatory dependencies
+
+A plugin can declare dependencies on other plugins.
+When plugin X depends on plugin Y, plugin X can see all the classes in plugin Y, as well as plugin Y's libraries and dependencies.
+(That is, at runtime, Jenkins will set up class loaders in such a way that plugin X's class loader delegates to plugin Y's class loader.)
+
+To declare a dependency, add the following entry to the plugin's `pom.xml`:
+
+[source,xml]
+----
+<dependencies>
+  <dependency>
+    <groupId>org.jvnet.hudson.plugins</groupId>
+    <artifactId>javanet-uploader</artifactId>
+    <version>1.5</version>
+  </dependency>
+[…]
+</dependencies>
+----
+
+The `groupId`, `artifactId`, and `version` need to be changed according to what you want to depend on.
+The Maven mojos associated with the `hpi` packaging will use this information to put the necessary metadata in the plugin manifest,
+which in turn is read by Jenkins at runtime.
+
+## Optional dependencies
+
+By default, dependencies are mandatory -- if any of the dependencies are unavailable,
+then the plugin will be disabled and cannot be used.
+
+However, this is just the default.
+It is possible to declare dependencies on other plugins as optional.
+In this way, even if some of the optional dependencies are unavailable,
+the plugin will continue to be loaded and executed.
+
+To declare an optional dependency,
+add the `<optional/>` tag to the declared dependency in the plugin's `pom.xml`:
+
+[source,xml]
+----
+<dependencies>
+  <dependency>
+    <groupId>org.jvnet.hudson.plugins</groupId>
+    <artifactId>javanet-uploader</artifactId>
+    <version>1.5</version>
+    <optional>true</optional>
+  </dependency>
+...
+</dependencies>
+----
+
+If any of the classes in the unavailable optional dependencies are used in the dependent plugin,
+a `NoClassDefError` will be thrown.
+It is still your responsibility to cope with these errors,
+although Jenkins itself does some of this handling.
+If your particular extension fails to load with a `LinkageError` because of a missing dependency,
+Jenkins will gracefully disable just that extension and move on to try instantiating other extensions.
+
+You can mark your extension as an optional extension by changing the `@Extension` annotation to `@Extension(optional = true)`,
+and Jenkins will not log any class loading errors when instantiating it:
+
+[source,java]
+----
+@Extension(optional = true)
+public static class YourDescriptor extends Descriptor<YourDescribable> {
+    @Override
+    public String getDisplayName() {
+        return "YourDisplayName";
+    }
+}
+----
+
+To determine if an optional dependency is installed, the `Jenkins#getPlugin(String)` method can be used:
+
+[source,java]
+----
+if (Jenkins.get().getPlugin("javanet-uploader") != null) {
+    // use classes in the "javanet-uploader" plugin
+}
+----
