@@ -11,14 +11,14 @@ gem 'rouge'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.1.0'
-gem 'liquid', '~> 5.0'
+gem 'liquid', '~> 5.4.0'
 gem 'kramdown', '~> 2.4.0'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
   gem 'faraday', '~> 1.10.2'
   gem 'faraday_middleware', '~> 1.2.0'
-  gem 'rubyzip', '~> 2.3.0'
+  gem 'rubyzip', '~> 2.3.2'
 end
 
 gem "concurrent-ruby", "~> 1.1"
