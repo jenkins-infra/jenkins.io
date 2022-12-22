@@ -33,7 +33,7 @@ RUN bundle exec ./scripts/fetch-external-resources
 RUN make real_generate
 
 
-FROM nginx:1.17
+FROM nginx:1.23
 
 COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 
