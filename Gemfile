@@ -25,3 +25,4 @@ gem "concurrent-ruby", "~> 1.1"
 
 # for releases.rss.ruby
 gem 'rss'
+gem 'faraday-follow_redirects'
