@@ -16,8 +16,8 @@ gem 'kramdown', '~> 2.4.0'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
-  gem 'faraday', '~> 1.10.2'
-  gem 'faraday_middleware', '~> 1.2.0'
+  gem 'faraday', '~> 2.7.2'
+  gem 'faraday-follow_redirects', '~> 0.3.0'
   gem 'rubyzip', '~> 2.3.2'
 end
 
