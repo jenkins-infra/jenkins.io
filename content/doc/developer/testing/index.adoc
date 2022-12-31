@@ -367,7 +367,48 @@ computer.disconnect(new OfflineCause.IdleOfflineCause());
 ----
 
 === Enabling security
-TODO: Creating fake security realms. Using LocalData presets.
+If you need a security realm for testing you can use a `MockAuthorizationStrategy()` where you can grant rights as needed for your test. In the following example everyone gets `READ` on the Jenkins instance and users *alice* and *bob* get individual rights. Using `LocalData` presets can be used if you need to setup a lot for your test.
+
+[source,java]
+----
+import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
+
+import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.Test;
+
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
+
+public class MyTest {
+
+  @Rule
+  public JenkinsRule j = new JenkinsRule();
+
+  @Test
+  public void testAccess() throws Exception {
+    // create a dummy security realm
+    j.jenkins.setSecurityRealm(j.createDummySecurityRealm());
+    // setup a MockAuthorizationStrategy
+    MockAuthorizationStrategy authorizationStrategy = new MockAuthorizationStrategy();
+    authorizationStrategy.grant(Jenkins.READ).onRoot().toEveryone();
+    authorizationStrategy.grant(Item.DISCOVER).everywhere().to("alice");
+    authorizationStrategy.grant(Item.READ).everywhere().to("bob");
+    j.jenkins.setAuthorizationStrategy(authorizationStrategy);
+
+    // create a freestyle project for test
+    j.createFreeStyleProject("myproject");
+
+    // alice can discover project
+    JenkinsRule.WebClient alice = j.createWebClient().login("alice");
+    FailingHttpStatusCodeException e = assertThrows(FailingHttpStatusCodeException.class, () -> alice.goTo("bypass/myproject"));
+    Assert.assertEquals("alice can discover", 403, e.getStatusCode());
+
+    // bob can read project
+    JenkinsRule.WebClient bob = j.createWebClient().login("bob");
+    bob.goTo("bypass/myproject"); // success    
+  }
+----
 
 === Verifying Logs
 You can verify log messages using `@LoggerRule`.
