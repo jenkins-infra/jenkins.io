@@ -68,6 +68,7 @@ node('docker&&linux') {
                 set -o pipefail
                 set -o xtrace
 
+                make check
                 make all
 
                 illegal_filename="$( find . -name '*[<>]*' )"
