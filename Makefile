@@ -5,10 +5,9 @@ AWESTRUCT_CONFIG=--source-dir=content --output-dir=$(OUTPUT_DIR)
 ASSETS_DIR ?= $(OUTPUT_DIR)/assets/bower
 FONTS_DIR ?= $(OUTPUT_DIR)/css/fonts
 VERSION ?= $(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
-GITHUB_USERNAME ?= $(shell git config --get remote.origin.url | cut -d '/' -f 4)
+GITHUB_USERNAME ?= $(shell git config --get remote.origin.url | cut -d ':' -f 2 | cut -d '/' -f 1 || git config --get remote.origin.url | cut -d '/' -f 4)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 USER_SITE_URL ?= https://$(GITHUB_USERNAME).github.io/jenkins.io/$(BRANCH)/
-AWESTRUCT_USER_SITE ?= -P user-site --url "$(USER_SITE_URL)"
 DOCKER_ORG ?= jenkinsciinfra
 
 # Generate everything
@@ -28,11 +27,6 @@ real_generate:
 
 check-broken-links: site
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
-
-user-site: prepare scripts/awestruct
-	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
-	./scripts/user-site-deploy.sh $(BRANCH)
-	@echo SUCCESS: Published to $(USER_SITE_URL)index.html
 
 # Fetching and generating content from external sources
 #######################################################
