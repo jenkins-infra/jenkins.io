@@ -44,7 +44,7 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.rb scripts/fetch-exter
 # chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
-$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
+$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
