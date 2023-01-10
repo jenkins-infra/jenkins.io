@@ -5,10 +5,7 @@ AWESTRUCT_CONFIG=--source-dir=content --output-dir=$(OUTPUT_DIR)
 ASSETS_DIR ?= $(OUTPUT_DIR)/assets/bower
 FONTS_DIR ?= $(OUTPUT_DIR)/css/fonts
 VERSION ?= $(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
-GITHUB_USER ?= $(USER)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
-USER_SITE_URL ?= https://$(GITHUB_USER).github.io/jenkins.io/$(BRANCH)/
-AWESTRUCT_USER_SITE ?= -P user-site --url "$(USER_SITE_URL)"
 DOCKER_ORG ?= jenkinsciinfra
 
 # Generate everything
@@ -29,11 +26,6 @@ real_generate:
 check-broken-links: site
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
-user-site: prepare scripts/awestruct
-	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
-	./scripts/user-site-deploy.sh $(BRANCH)
-	@echo SUCCESS: Published to $(USER_SITE_URL)index.html
-
 # Fetching and generating content from external sources
 #######################################################
 # NOTE: Fetch only runs once until flag is reset
@@ -52,7 +44,7 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.rb scripts/fetch-exter
 # chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
-$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
+$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
