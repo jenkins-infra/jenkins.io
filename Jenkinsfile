@@ -49,8 +49,11 @@ node('docker&&linux') {
     }
 
     stage('Check for typos') {
-      sh 'make check'
-      recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')], qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
+        if (!infra.isTrusted()) {
+            sh 'make check'
+            recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')],
+                         qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
+        }
     }
 
     stage('Build site') {
