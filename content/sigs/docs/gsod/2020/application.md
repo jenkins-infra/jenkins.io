@@ -16,7 +16,6 @@ The data below represents the Google Season of Docs 2020 application draft.
 
 * Name: Jenkins project
 * Website: https://jenkins.io/
-* Contact email for GSoD: jenkinsci-docs@googlegroups.com 
 * GSoD page link: http://jenkins.io/sigs/docs/gsod
 * Does your organization want to accept the mentor stipend? => Yes
 * Link to project ideas list: https://jenkins.io/sigs/docs/gsod#project-ideas 
@@ -74,7 +73,6 @@ Contributions to Jenkins component documentation (e.g. plugin docs) are usually 
 We also have channels specifically dedicated to the documentation.
 These channels act as an additional contact point for technical writers in the community:
 
-* Mailing list: https://groups.google.com/forum/#!forum/jenkinsci-docs
 * Chat on Gitter: https://gitter.im/jenkinsci/docs
 * Regular Documentation SIG meetings: https://www.jenkins.io/sigs/docs/#meetings
 
