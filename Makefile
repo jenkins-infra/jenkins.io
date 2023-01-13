@@ -95,7 +95,7 @@ $(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*" 
 		echo "Copying $$f into $(FONTS_DIR)"; \
 		cp $$f $(FONTS_DIR); \
 	done;
-	@for d in bootstrap jquery '@popperjs/core'; do \
+	@for d in bootstrap jquery tether; do \
 		echo "Copying node_modules/$$d/dist/* into $(ASSETS_DIR)/$$d/"; \
 		mkdir -p $(ASSETS_DIR)/$$d; \
 		cp -R node_modules/$$d/dist/* $(ASSETS_DIR)/$$d/ ; \
