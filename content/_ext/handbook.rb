@@ -69,8 +69,8 @@ module Awestruct
 
           # Without an chapter file and overview page, there's no point in attempting to add
           # this to the structure
-          next unless File.exists? file
-          next unless File.exists? overview
+          next unless File.exist? file
+          next unless File.exist? overview
 
           yaml = YAML.load(File.read(file))
 
@@ -111,7 +111,7 @@ module Awestruct
               chapter.sections.each do |section|
                 if s == section.key
                   subsection_file = File.join(dir, "#{s}", "_section.yml")
-                  if File.exists?(subsection_file)
+                  if File.exist?(subsection_file)
                     subsection_yaml = YAML.load(File.read(subsection_file))
                     if subsections = subsection_yaml['subsections']
                       subsections.each do |ss|

@@ -1,6 +1,6 @@
 require 'awestruct/ibeams/debuggable_partial'
 require 'awestruct/ibeams/asciidoc_sections'
-require 'awestruct/ibeams/datadir'
+require 'awestruct/extensions/data_dir'
 require 'asciidoctor/jenkins/extensions'
 
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
@@ -36,7 +36,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension JenkinsSitemap.new
 
-  extension Awestruct::IBeams::DataDir.new
+  extension Awestruct::Extensions::DataDir.new
 
   extension SolutionPage.new
   extension Releases.new
