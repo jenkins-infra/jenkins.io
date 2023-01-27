@@ -63,6 +63,7 @@ Awestruct::Extensions::Pipeline.new do
   helper Authorship
   helper Legacy
   helper AsciidocRender
+  helper GetPlugins
 
   helper Awestruct::Extensions::GoogleAnalytics
   helper Awestruct::IBeams::AsciidocSections
