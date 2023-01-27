@@ -1,0 +1,308 @@
+---
+layout: documentation
+title: Build a Jenkins pipeline by using Jenkinsfile Runner GitHub Actions
+section: doc
+---
+
+:toc:
+:toclevels: 3
+:imagesdir: ../../book/resources
+
+This tutorial shows you how to use link:https://jenkinsci.github.io/jfr-action-doc/[Jenkinsfile Runner GitHub Actions] in the link:https://github.com/features/actions[GitHub Actions] context. 
+If you want to use Jenkins pipeline in GitHub Actions context, this tutorial can help you.
+
+=== The Concept and How It Works
+
+Classical Jenkins instances bind physically with the permanently running servers. 
+link:https://github.com/jenkinsci/jenkinsfile-runner[Jenkinsfile Runner] packages the Jenkins core and other necessary items, and it also serves as an entrypoint to your pipeline job.
+Jenkinsfile Runner GitHub Actions are some useful GitHub Actions which can help you run your pipeline. 
+In a word, Jenkinsfile Runner GitHub Actions wrap around the Jenkinsfile Runner and other necessary modules for the user. 
+So once the user commits the changes to the remote GitHub repository, the GitHub Actions will run the pipeline as defined by the Jenkinsfile. 
+After the pipeline ends, the user can view the pipeline log in the GitHub Action pages. 
+What’s more, the user can also integrate the GitHub Actions in the marketplace with the Jenkinsfile Runner GitHub Actions.
+
+=== Prerequisites
+
+For this tutorial, you will need:
+
+* A GitHub Account.
+* A GitHub repository.
+* Git is installed locally.
+* Some fundamental knowledge about link:https://docs.github.com/en/actions[the concept of GitHub Actions and how it works].
+* If you want to integrate Jenkins plugins, you also need to know what link:https://www.jenkins.io/projects/jcasc/[JCasC] is. 
+This tutorial also shows you some basic concepts of JCasC.
+
+=== Create a GitHub repository
+
+We recommend the users to read link:https://docs.github.com/en/get-started/quickstart/create-a-repo[the GitHub official guide] as a starter.
+
+* In the upper-right corner of any page, use the “+” drop-down menu, then select “New” repository.
+* Type a short, memorable name for your repository. For example, "hello-world".
+* Optionally, add a description of your repository. For example, "My first repository on GitHub".
+* Choose a repository visibility. 
+Please note GitHub Action is free for standard GitHub-hosted runners in public repositories, and for self-hosted runners. 
+If you make the repository private, each GitHub account receives a certain amount of free minutes and storage for use with GitHub-hosted runners. 
+Please check link:https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions[the billing and pricing of GitHub Actions] for more information.
+
+=== Create a Jenkinsfile
+
+In this section, you need to create a Jenkinsfile which defines how to run the Jenkins pipeline. 
+You can check the link:https://docs.github.com/en/actions[official manual] for more detail about the workflow definitions. 
+The following is an example Jenkinsfile, where the name of this Jenkinsfile is “Jenkinsfile”:
+[source,groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('hello') {
+            steps {
+                sh 'echo Hello Jenkins!'
+            }
+        }
+    }
+}
+----
+
+=== Create a plugin list file
+
+In this section, you will need to create a plugin list file which specifies which plugins you will need to install in the ephemeral Jenkins instance. 
+You can check link:https://github.com/jenkinsci/plugin-installation-manager-tool#plugin-input-format[the valid plugin input format]. 
+As we don’t have to install any extra plugins, you can create an empty plugin list file called “plugins.txt”.
+
+=== Create a workflow definition in the container
+
+In this section, you’ll learn how to create a workflow definition so you can run Jenkins pipeline in the GitHub Actions.
+
+* In your local GitHub repository, prepare a workflow definition file ci.yml (the file name doesn’t matter but it should be a YAML file) under the “.github/workflows” directory.
+* Create the name of your workflow and the event that triggers your workflow. 
+You can check link:https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#available-events[the available events] that trigger workflows. 
+The “push” event will trigger the workflow when you push a commit or tag.
+[source,yaml]
+----
+name: Java CI
+on: [push]
+----
+* Use a Ubuntu runner for the job.
+[source,yaml]
+----
+jobs:
+  job-name:
+    runs-on: ubuntu-latest
+----
+* (Optional) If you want to use `jfr-container-action` later, you need to declare using the `ghcr.io/jenkinsci/jenkinsfile-runner:master` or any image extending it. 
+If you choose to use `jfr-static-image-action`, you can skip this step.
+[source,yaml]
+----
+jobs:
+  job-name:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jenkinsci/jenkinsfile-runner:master
+----
+* Call the `actions/checkout@v2` to pull your codes into the runner. 
+“Call” means “uses” in the workflow definition specifically. 
+You can check the details about the “uses” keyword.
+[source,yaml]
+----
+- uses: actions/checkout@v2
+----
+* Call the Jenkinsfile-runner actions.
+** If you use `jfr-container-action`, you need to call `jenkinsci/jfr-container-action@master` and give necessary inputs.
+[source,yaml]
+----
+uses:
+  jenkinsci/jfr-container-action@master
+with:
+  command: run
+  jenkinsfile: Jenkinsfile
+  pluginstxt: plugins.txt
+----
+** If you use `jfr-static-image-action`, you need to call `jenkinsci/jfr-static-image-action@master` and give necessary inputs.
+[source,yaml]
+----
+uses:
+  jenkinsci/jfr-static-image-action@master
+with:
+  command: run
+  jenkinsfile: Jenkinsfile
+  pluginstxt: plugins.txt
+----
+
+You can check the full example workflow definition for link:http://jfr-static-image-action[jfr-container-action] and link:http://jfr-static-image-action[jfr-static-image-action]. 
+There is another powerful GitHub Action list called Jenkinsfile Runner Runtime Actions. 
+For these GitHub Actions, you can run them in any runners, which are Windows, Linux and macOS. 
+You can check their step by step usage link:http://jfr-static-image-action[here].
+
+=== Access the workflow logs
+
+Once you create your workflow definition, you can commit all the local changes to the remote repository. 
+When your workflow is triggered, the workflow is executed. 
+After this workflow has started, you can see the visualization graph of the run's progress and view each step's activity on GitHub. 
+If you want to learn more details about viewing your workflow details, you can check link:https://docs.github.com/en/actions/quickstart#viewing-your-workflow-results[the official guide].
+[.boxshadow]
+image:tutorials/jenkinsfile-runner-github-actions-01-access-workflow-logs.jpeg[alt="Access the workflow logs",width=100%]
+
+=== Add JCasC (Optional)
+
+Usually we need to access the web UI to set up Jenkins. 
+However, we’re unable to access the web UI under the circumstances of running Jenkins pipeline in the GitHub Actions because the Jenkins instance is ephemeral. 
+JCasC (link:https://github.com/jenkinsci/configuration-as-code-plugin[Jenkins Configuration as Code]) plugin can configure this ephemeral Jenkins instance by providing the human-readable declarative configuration files. 
+
+In this example, we show how to set up the environment variables by JCasC and access them in the Jenkinsfile.
+* Create a JCasC YAML file called jcasc.yml and declare the environment variables:
+[source,yaml]
+----
+jenkins:
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: hello
+            value: world
+----
+* Create a Jenkinsfile:
+[source,groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('test casc env') {
+            steps {
+                echo "JCasC env.hello: ${env.hello}"
+            }
+        }
+    }
+}
+----
+* Specify the jcasc.yml in the GitHub Actions input:
+[source,yaml]
+----
+uses:
+  jenkinsci/jfr-container-action@master
+with:
+  command: run
+  jenkinsfile: Jenkinsfile
+  pluginstxt: plugins.txt
+  jcasc: jcasc.yml
+----
+
+You can find more link:https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos[examples] provided by configuration-as-code-plugin and learn how to configure the Jenkins instance without using the UI page. 
+Some plugins might not have concrete examples but you can debug and find their JCasC in the UI page. 
+You can check the configuration in Manage Jenkins -> Configuration as Code -> View Configuration. 
+Then you can copy the parts you need to the JCasC file.
+
+=== Add and configure some plugins (Optional)
+
+Jenkins has a powerful plugin system. 
+You can add the plugins in the plugin list file and configure the plugins in the JCasC YAML file as needed.
+
+In this example, we show how to install JDK8 in the ephemeral Jenkins instance.
+* Specify `adoptopenjdk` plugin in the plugins.txt file. 
+As the version is not specified, the latest version will be installed.
+[source,txt]
+----
+adoptopenjdk
+----
+* Create a JCasC Yaml file called jcasc.yml and specify which JDK version to install.
+[source,yaml]
+----
+tool:
+  jdk:
+    installations:
+      - name: jdk8
+        home: "~/jdk8"
+        properties:
+          - installSource:
+              installers:
+                - adoptOpenJdkInstaller:
+                    id: "jdk8u332-b09"
+----
+* Specify the jcasc.yml in the GitHub Actions input.
+[source,yaml]
+----
+uses:
+  jenkinsci/jfr-container-action@master
+with:
+  command: run
+  jenkinsfile: Jenkinsfile
+  pluginstxt: plugins.txt
+  jcasc: jcasc.yml
+----
+
+=== Configure ephemeral Jenkins instance (Optional)
+
+Sometimes JCasC might not be able to provide the configurations you need. 
+In this case, you can use link:https://www.jenkins.io/doc/book/managing/groovy-hook-scripts/[Groovy Hook Scripts] to set up the ephemeral Jenkins instance. 
+These Groovy scripts will have full access to the ephemeral Jenkins server and will be executed right after Jenkins starts up. 
+Please note this option and its core are still in progress so it’s not mentioned in the Jenkinsfile Runner GitHub Actions official guide. 
+But it does work.
+
+In this example, we show how to use the Groovy script to set up the Jenkins instance:
+* Create a directory called “groovy.init.d” (this name can be something else) to store all your Groovy setup scripts.
+* Create a Groovy file called “test.groovy”. (Please don’t name it as init.groovy because this name is already occupied.) Then, add the debug output:
+[source,groovy]
+----
+println 'Hello Groovy Hooks!'
+----
+* Specify the “groovy.init.d” directory in the GitHub Actions input.
+[source,yaml]
+----
+uses:
+  jenkinsci/jfr-container-action@master
+with:
+  command: run
+  jenkinsfile: Jenkinsfile
+  pluginstxt: plugins.txt
+  jcasc: jcasc.yml
+  initHook: groovy.init.d
+----
+* Check the GitHub Actions log and you can find the groovy script is executed right after Jenkins starts up and before the actual pipeline.
+
+=== Integrate with other GitHub Actions (Optional)
+
+You can integrate this with other GitHub Actions in the marketplace via some Jenkinsfile Runner GitHub Actions. 
+However, as the starting time of Jenkins container is different in these GitHub Actions, some GitHub Actions in the marketplace cannot be used. 
+In other words, `jfr-static-image-action` cannot be integrated with the other GitHub Actions except `actions/checkout` but you can integrate other GitHub Actions with `jfr-container-action` and `jfr-runtime-action`. 
+Feel free to check out link:https://jenkinsci.github.io/jfr-action-doc/docs/user-guide/actions-cmp.html[their differences in the official guide].
+
+In this example, we show how to integrate actions/setup-node GitHub Action with jfr-runtime-action to compile a JavaScript project:
+* Use a Ubuntu runner for the job.
+[source,yaml]
+----
+jobs:
+  job-name:
+    runs-on: ubuntu-latest
+----
+* Call the `actions/checkout@v2` to pull your codes into the runner.
+[source,yaml]
+----
+- uses: actions/checkout@v2
+----
+* Call the `actions/setup-node@v3` to set up node 18.
+[source,yaml]
+----
+- uses: actions/setup-node@v3
+  with:
+    node-version: 18
+----
+* Call the `jenkinsci/jfr-setup-action@master` to set up Jenkins.
+[source,yaml]
+----
+- uses: jenkinsci/jfr-setup-action@master
+----
+* Call the `jenkinsci/jfr-plugin-installation-action@master` to install extra plugins.
+[source,yaml]
+----
+- uses: jenkinsci/jfr-plugin-installation-action@master
+  with:
+      pluginstxt: plugins.txt
+----
+* Call the `jenkinsci/jfr-runtime-action@master` to run the Jenkins pipeline
+[source,yaml]
+----
+- uses: jenkinsci/jfr-runtime-action@master
+  with:
+    command: run
+    jenkinsfile: Jenkinsfile
+----
+
+You can check link:https://github.com/jenkinsci/jfr-action-demo/tree/master/demo/javascript/my-react-app[the full example in the official repository].
