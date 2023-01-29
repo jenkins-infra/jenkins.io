@@ -11,7 +11,7 @@ gem 'sassc'
 gem 'rouge'
 
 # Support for various template engines we use
-gem 'haml', '~> 5.2.0'
+gem 'haml', '~> 6.1.0'
 gem 'liquid', '~> 5.4.0'
 gem 'kramdown', '~> 2.4.0'
 
