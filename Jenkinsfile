@@ -48,9 +48,16 @@ node('docker&&linux') {
         checkout scm
     }
 
-    stage('Check for typos') {
-      sh 'make check'
-      recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')], qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
+    stage('Checks') {
+        /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
+         * Checks are advisory only.
+         * They are intentionally skipped when preparing a deployment.
+        */
+        if (!infra.isTrusted() && env.BRANCH_NAME != null) {
+            sh 'make check'
+            recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')],
+                         qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
+        }
     }
 
     stage('Build site') {
@@ -84,9 +91,9 @@ node('docker&&linux') {
         archiveArtifacts artifacts: 'build/**/*.zip', fingerprint: true
     }
 
-    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
+    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
-    if (env.BRANCH_NAME == null) {
+    if (infra.isTrusted() && env.BRANCH_NAME == null) {
         stage('Publish on Azure') {
             /* -> https://github.com/Azure/blobxfer
             Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */

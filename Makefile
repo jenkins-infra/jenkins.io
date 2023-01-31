@@ -75,7 +75,8 @@ update: clean depends
 # If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
-	./scripts/ruby bundle install --path=vendor/gems
+	./scripts/ruby bundle config set --local path 'vendor/gems'
+	./scripts/ruby bundle install
 	@touch $(BUILD_DIR)/ruby
 
 # When we pull dependencies, also pull docker image.
@@ -120,6 +121,7 @@ archive: generate
 # Check Typo
 #######################################################
 check:
+	scripts/check-hard-coded-URL-references
 	curl -qsL https://github.com/crate-ci/typos/releases/download/v1.13.4/typos-v1.13.4-x86_64-unknown-linux-musl.tar.gz | tar xvzf - ./typos
 	curl -qsL https://github.com/halkeye/typos-json-to-checkstyle/releases/download/v0.1.1/typos-checkstyle-v0.1.1-x86_64 > typos-checkstyle && chmod 0755 typos-checkstyle
 	./typos --format json | ./typos-checkstyle - > checkstyle.xml || true
