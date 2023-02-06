@@ -7,7 +7,7 @@ class Releases
     tmp_dir = File.expand_path(File.dirname(__FILE__) + '/../_tmp')
 
     # Something is messed up if our temporary directory doesn't exist
-    unless File.exists? tmp_dir
+    unless File.exist? tmp_dir
       return
     end
 
@@ -19,12 +19,12 @@ class Releases
       site.jenkins = {}
     end
 
-    if File.exists? latest
+    if File.exist? latest
       site.jenkins.latest = File.read(latest).chomp
       site.asciidoctor.attributes['jenkins-latest'] = site.jenkins.latest
     end
 
-    if File.exists? stable
+    if File.exist? stable
       site.jenkins.stable = File.read(stable).chomp
       site.asciidoctor.attributes['jenkins-stable'] = site.jenkins.stable
     end
