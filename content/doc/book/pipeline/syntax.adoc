@@ -103,22 +103,29 @@ section is placed. The section must be defined at the top-level inside the
 |===
 
 [[differences-between-top-and-stage-level]]
-===== Differences between top and stage level Agents
+===== Differences between top level agents and stage level agents
 
-There are some nuances when adding an agent to a top level or stage level, and this is when the `option` directive is applied.
-Refer to the link:../syntax/#options[options] section for more information.
+There are some nuances when adding an agent to the top level or a stage level when the `options` directive is applied.
+Check the section link:#options[options] for more information.
 
 [[top-level-agents]]
 ====== Top Level Agents
-In `agents` declared at the outermost level of the Pipeline.
-First, an agent is allocated to you, and then the option `timeout` is triggered inside that agent.
+
+In `agents` declared at the top level of a Pipeline, an agent is allocated and then the `timeout` option is applied.
+The time to allocate the agent *is not included* in the limit set by the `timeout` option.
 
 ```
-node("myAgent") {                           // Top level agent
-    timeout(unit: 'SECONDS', time: 5) {     // Options directive
-        stage("One"){
-            sleep 10
-            echo 'hello'
+pipeline {
+    agent any
+    options {
+        // Timeout counter starts AFTER agent is allocated
+        timeout(time: 1, unit: 'SECONDS')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
         }
     }
 }
@@ -126,15 +133,24 @@ node("myAgent") {                           // Top level agent
 
 [[stage-level-agents]]
 ====== Stage Agents
-In `agents` declared within a stage, the options are invoked *before* entering the `agent` and *before* checking any `when` conditions.
+
+In `agents` declared within a stage, the options are invoked *before* allocating the `agent` and *before* checking any `when` conditions.
 In this case, when using `timeout`, it is applied *before* the `agent` is allocated.
+The time to allocate the agent *is included* in the limit set by the `timeout` option.
 
 ```
-timeout(unit: 'SECONDS', time: 5) {         // Options directive
-    stage("One"){                           // Stage level agents
-        node {
-            sleep 10
-            echo 'Hello'
+pipeline {
+    agent none
+    stages {
+        stage('Example') {
+            agent any
+            options {
+                // Timeout counter starts BEFORE agent is allocated
+                timeout(time: 1, unit: 'SECONDS')
+            }
+            steps {
+                echo 'Hello World'
+            }
         }
     }
 }
@@ -1843,7 +1859,7 @@ matrix {
 [[matrix-stages]]
 ==== stages   
 
-The `stages` section specifies one or more `stage`s to be executed sequentially in each cell. 
+The `stages` section specifies one or more ``stage``s to be executed sequentially in each cell.
 This section is identical to any other
 <<#sequential-stages, `stages` section>>.  
 
