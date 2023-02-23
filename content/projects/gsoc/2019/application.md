@@ -84,7 +84,7 @@ please feel free to contact us via the mailing list or the chat.
 
 #### Contents
 
-* Chat page URL: https://gitter.im/jenkinsci/gsoc-sig
+* Chat page URL: https://app.gitter.im/#/room/#jenkinsci_gsoc-sig:gitter.im
 
 ### Application
 
