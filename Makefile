@@ -16,14 +16,12 @@ prepare: scripts-permission fetch depends assets
 run: prepare scripts/awestruct
 	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
 
-generate: site
-
-site: prepare scripts/awestruct real_generate
+generate: prepare scripts/awestruct real_generate
 
 real_generate:
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
-check-broken-links: site
+check-broken-links: generate
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
 # Fetching and generating content from external sources
@@ -75,7 +73,8 @@ update: clean depends
 # If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
-	./scripts/ruby bundle install --path=vendor/gems
+	./scripts/ruby bundle config set --local path 'vendor/gems'
+	./scripts/ruby bundle install
 	@touch $(BUILD_DIR)/ruby
 
 # When we pull dependencies, also pull docker image.
@@ -140,4 +139,4 @@ clean:
 #######################################################
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate prepare run site update
+		fetch fetch-reset generate prepare run update
