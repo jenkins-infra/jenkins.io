@@ -73,7 +73,7 @@ Contributions to Jenkins component documentation (e.g. plugin docs) are usually 
 We also have channels specifically dedicated to the documentation.
 These channels act as an additional contact point for technical writers in the community:
 
-* Chat on Gitter: https://gitter.im/jenkinsci/docs
+* Chat on Gitter: https://app.gitter.im/#/room/#jenkins/docs:matrix.org
 * Regular Documentation SIG meetings: https://www.jenkins.io/sigs/docs/#meetings
 
 ### What previous experience has your organization had mentoring individuals?

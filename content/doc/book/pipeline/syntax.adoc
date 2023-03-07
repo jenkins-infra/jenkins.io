@@ -103,22 +103,29 @@ section is placed. The section must be defined at the top-level inside the
 |===
 
 [[differences-between-top-and-stage-level]]
-===== Differences between top and stage level Agents
+===== Differences between top level agents and stage level agents
 
-There are some nuances when adding an agent to a top level or stage level, and this is when the `option` directive is applied.
-Refer to the link:../syntax/#options[options] section for more information.
+There are some nuances when adding an agent to the top level or a stage level when the `options` directive is applied.
+Check the section link:#options[options] for more information.
 
 [[top-level-agents]]
 ====== Top Level Agents
-In `agents` declared at the outermost level of the Pipeline.
-First, an agent is allocated to you, and then the option `timeout` is triggered inside that agent.
+
+In `agents` declared at the top level of a Pipeline, an agent is allocated and then the `timeout` option is applied.
+The time to allocate the agent *is not included* in the limit set by the `timeout` option.
 
 ```
-node("myAgent") {                           // Top level agent
-    timeout(unit: 'SECONDS', time: 5) {     // Options directive
-        stage("One"){
-            sleep 10
-            echo 'hello'
+pipeline {
+    agent any
+    options {
+        // Timeout counter starts AFTER agent is allocated
+        timeout(time: 1, unit: 'SECONDS')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
         }
     }
 }
@@ -126,15 +133,24 @@ node("myAgent") {                           // Top level agent
 
 [[stage-level-agents]]
 ====== Stage Agents
-In `agents` declared within a stage, the options are invoked *before* entering the `agent` and *before* checking any `when` conditions.
+
+In `agents` declared within a stage, the options are invoked *before* allocating the `agent` and *before* checking any `when` conditions.
 In this case, when using `timeout`, it is applied *before* the `agent` is allocated.
+The time to allocate the agent *is included* in the limit set by the `timeout` option.
 
 ```
-timeout(unit: 'SECONDS', time: 5) {         // Options directive
-    stage("One"){                           // Stage level agents
-        node {
-            sleep 10
-            echo 'Hello'
+pipeline {
+    agent none
+    stages {
+        stage('Example') {
+            agent any
+            options {
+                // Timeout counter starts BEFORE agent is allocated
+                timeout(time: 1, unit: 'SECONDS')
+            }
+            steps {
+                echo 'Hello World'
+            }
         }
     }
 }
@@ -174,13 +190,13 @@ accept Docker-based Pipelines, or on a node matching the optionally defined
 which may contain arguments to pass directly to a `docker run` invocation, and
 an `alwaysPull` option, which will force a `docker pull` even if the image
 name is already present.
-For example: `agent { docker 'maven:3.8.7-eclipse-temurin-11' }` or
+For example: `agent { docker 'maven:3.9.0-eclipse-temurin-11' }` or
 +
 [source,groovy]
 ----
 agent {
     docker {
-        image 'maven:3.8.7-eclipse-temurin-11'
+        image 'maven:3.9.0-eclipse-temurin-11'
         label 'my-defined-label'
         args  '-v /tmp:/tmp'
     }
@@ -343,7 +359,7 @@ This option is valid for `docker` and `dockerfile`.
 [source, groovy]
 ----
 pipeline {
-    agent { docker 'maven:3.8.7-eclipse-temurin-11' } // <1>
+    agent { docker 'maven:3.9.0-eclipse-temurin-11' } // <1>
     stages {
         stage('Example Build') {
             steps {
@@ -354,7 +370,7 @@ pipeline {
 }
 ----
 <1> Execute all the steps defined in this Pipeline within a newly created container
-of the given name and tag (`maven:3.8.7-eclipse-temurin-11`).
+of the given name and tag (`maven:3.9.0-eclipse-temurin-11`).
 =====
 
 .Stage-level Agent Section
@@ -365,7 +381,7 @@ pipeline {
     agent none // <1>
     stages {
         stage('Example Build') {
-            agent { docker 'maven:3.8.7-eclipse-temurin-11' } // <2>
+            agent { docker 'maven:3.9.0-eclipse-temurin-11' } // <2>
             steps {
                 echo 'Hello, Maven'
                 sh 'mvn --version'
@@ -582,7 +598,7 @@ additional environment variables will be automatically defined: `MYVARNAME_USR`
 and `MYVARNAME_PSW` respectively.
 SSH with Private Key:: 
 the environment variable specified will be set to the location of the SSH key 
-file that is temporarily created and two additional environment variables may
+file that is temporarily created and two additional environment variables will
 be automatically defined: `MYVARNAME_USR` and `MYVARNAME_PSW` (holding the 
 passphrase).
 
@@ -685,7 +701,7 @@ in a subdirectory of the workspace. For example: `options { checkoutToSubdirecto
 
 disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
 be useful for preventing simultaneous accesses to shared resources, etc. For
-example: `options { disableConcurrentBuilds() }`
+example: `options { disableConcurrentBuilds() }` to queue a build when there's already an executing build of the Pipeline, or `options { disableConcurrentBuilds(abortPrevious: true) }` to abort the running one and start the new build.
 
 disableResume:: Do not allow the pipeline to resume if the controller restarts.
 For example: `options { disableResume() }`
@@ -1843,7 +1859,7 @@ matrix {
 [[matrix-stages]]
 ==== stages   
 
-The `stages` section specifies one or more `stage`s to be executed sequentially in each cell. 
+The `stages` section specifies one or more ``stage``s to be executed sequentially in each cell.
 This section is identical to any other
 <<#sequential-stages, `stages` section>>.  
 
