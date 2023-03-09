@@ -1,32 +1,35 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-if [[ "$1" = "--dev" ]] ; then
-    ./scripts/ruby bundle exec awestruct $@
+set -euo pipefail
+
+readonly BUILD_DIR="build"
+readonly ERROR_FILE="${BUILD_DIR}/error.txt"
+
+function err() {
+  echo "$1" >&2
+  exit "${2:-1}"
+}
+
+if [[ "${1:-}" = "--dev" ]] ; then
+    ./scripts/ruby bundle exec awestruct "$@"
 else
-    mkdir -p build
-    ./scripts/ruby bundle exec awestruct $@ 2> build/error.txt || {
-        cat build/error.txt >&2
-        exit 1
+    mkdir -p "${BUILD_DIR}"
+    ./scripts/ruby bundle exec awestruct "$@" 2> "${ERROR_FILE}" || {
+        err "Build failed. See ${ERROR_FILE} for details." 1
     }
-    if [[ -n "$( grep '\(ERROR\|WARNING\)' build/error.txt )" ]] ; then
-        echo "Failing build due to warnings in log output:" >&2
-        sort -u build/error.txt >&2
+    if grep -qE '(ERROR|WARNING)' "${ERROR_FILE}" ; then
+        err "Build failed due to warnings in log output:\n$(sort -u "${ERROR_FILE}")" 1
+    fi
 
-        if [[ -n "$( grep --fixed-strings 'skipping reference to missing attribute' build/error.txt )" ]] ; then
-          echo
-          echo "NOTE for 'Missing attribute error':"
-          echo "    This means there is a some text that looks like '{some_name}',"
-          echo "    but asciidoctor could not find an attribute called 'some_name'."
-          echo "    If you expected there to be an attribute for substitution,"
-          echo "    check the spelling."
-          echo
-          echo "    To display some literal text such as \${ENV_VAR_NAME}"
-          echo "    you will need to make it a passthrough: +\${ENV_VAR_NAME}+."
-          echo "    To get monospace and passthrough, you must use"
-          echo "    backtick and plus: \`+\${ENV_VAR_NAME}+\`"
-        fi
-
-        exit 1
+    if grep -qF 'skipping reference to missing attribute' "${ERROR_FILE}" ; then
+      printf '\n%s\n' 'NOTE for "Missing attribute error":'
+      printf '%s\n' '    This means there is some text that looks like "{some_name}",'
+      printf '%s\n' '    but Asciidoctor could not find an attribute called "some_name".'
+      printf '%s\n' '    If you expected there to be an attribute for substitution,'
+      printf '%s\n' '    check the spelling.'
+      printf '\n%s\n' '    To display some literal text such as ${ENV_VAR_NAME},'
+      printf '%s\n' '    you will need to make it a passthrough: +${ENV_VAR_NAME}+.'
+      printf '%s\n' '    To get monospace and passthrough, you must use'
+      printf '%s\n' '    backtick and plus: `+${ENV_VAR_NAME}+`'
     fi
 fi
-
