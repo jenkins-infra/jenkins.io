@@ -16,14 +16,12 @@ prepare: scripts-permission fetch depends assets
 run: prepare scripts/awestruct
 	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
 
-generate: site
-
-site: prepare scripts/awestruct real_generate
+generate: prepare scripts/awestruct real_generate
 
 real_generate:
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
-check-broken-links: site
+check-broken-links: generate
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
 # Fetching and generating content from external sources
@@ -141,4 +139,4 @@ clean:
 #######################################################
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate prepare run site update
+		fetch fetch-reset generate prepare run update
