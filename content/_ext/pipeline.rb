@@ -1,6 +1,6 @@
 require 'awestruct/ibeams/debuggable_partial'
 require 'awestruct/ibeams/asciidoc_sections'
-require 'awestruct/ibeams/datadir'
+require 'awestruct/extensions/data_dir'
 require 'asciidoctor/jenkins/extensions'
 
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
@@ -36,7 +36,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension JenkinsSitemap.new
 
-  extension Awestruct::IBeams::DataDir.new
+  extension Awestruct::Extensions::DataDir.new
 
   extension SolutionPage.new
   extension Releases.new
@@ -46,6 +46,7 @@ Awestruct::Extensions::Pipeline.new do
   extension AuthorList.new(:posts,
                         '/node/index',
                         :per_page => 10)
+
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
 
@@ -58,9 +59,11 @@ Awestruct::Extensions::Pipeline.new do
 
   helper AuthorList::AuthorLink
   helper ActiveNav
+  helper IdGenerator
   helper Authorship
   helper Legacy
   helper AsciidocRender
+  helper GetPlugins
 
   helper Awestruct::Extensions::GoogleAnalytics
   helper Awestruct::IBeams::AsciidocSections

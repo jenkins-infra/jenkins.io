@@ -5,10 +5,7 @@ AWESTRUCT_CONFIG=--source-dir=content --output-dir=$(OUTPUT_DIR)
 ASSETS_DIR ?= $(OUTPUT_DIR)/assets/bower
 FONTS_DIR ?= $(OUTPUT_DIR)/css/fonts
 VERSION ?= $(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
-GITHUB_USER ?= $(USER)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
-USER_SITE_URL ?= https://$(GITHUB_USER).github.io/jenkins.io/$(BRANCH)/
-AWESTRUCT_USER_SITE ?= -P user-site --url "$(USER_SITE_URL)"
 DOCKER_ORG ?= jenkinsciinfra
 
 # Generate everything
@@ -19,20 +16,13 @@ prepare: scripts-permission fetch depends assets
 run: prepare scripts/awestruct
 	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
 
-generate: site
-
-site: prepare scripts/awestruct real_generate
+generate: prepare scripts/awestruct real_generate
 
 real_generate:
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
-check-broken-links: site
+check-broken-links: generate
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
-
-user-site: prepare scripts/awestruct
-	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG) $(AWESTRUCT_USER_SITE)
-	./scripts/user-site-deploy.sh $(BRANCH)
-	@echo SUCCESS: Published to $(USER_SITE_URL)index.html
 
 # Fetching and generating content from external sources
 #######################################################
@@ -52,7 +42,7 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.rb scripts/fetch-exter
 # chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
-$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/user-site-deploy.sh ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
+$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
@@ -83,7 +73,8 @@ update: clean depends
 # If the dev deletes vendor/gems independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
-	./scripts/ruby bundle install --path=vendor/gems
+	./scripts/ruby bundle config set --local path 'vendor/gems'
+	./scripts/ruby bundle install
 	@touch $(BUILD_DIR)/ruby
 
 # When we pull dependencies, also pull docker image.
@@ -103,7 +94,7 @@ $(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*" 
 		echo "Copying $$f into $(FONTS_DIR)"; \
 		cp $$f $(FONTS_DIR); \
 	done;
-	@for d in bootstrap jquery tether; do \
+	@for d in bootstrap jquery '@popperjs/core'; do \
 		echo "Copying node_modules/$$d/dist/* into $(ASSETS_DIR)/$$d/"; \
 		mkdir -p $(ASSETS_DIR)/$$d; \
 		cp -R node_modules/$$d/dist/* $(ASSETS_DIR)/$$d/ ; \
@@ -125,6 +116,14 @@ archive: generate
 		zip --quiet -r archives/jenkins.io-$(VERSION).zip jenkins.io-$(VERSION))
 #######################################################
 
+# Check Typo
+#######################################################
+check:
+	scripts/check-hard-coded-URL-references
+	curl -qsL https://github.com/crate-ci/typos/releases/download/v1.13.4/typos-v1.13.4-x86_64-unknown-linux-musl.tar.gz | tar xvzf - ./typos
+	curl -qsL https://github.com/halkeye/typos-json-to-checkstyle/releases/download/v0.1.1/typos-checkstyle-v0.1.1-x86_64 > typos-checkstyle && chmod 0755 typos-checkstyle
+	./typos --format json | ./typos-checkstyle - > checkstyle.xml || true
+#######################################################
 
 # Miscellaneous tasks
 #######################################################
@@ -140,4 +139,4 @@ clean:
 #######################################################
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate prepare run site update
+		fetch fetch-reset generate prepare run update

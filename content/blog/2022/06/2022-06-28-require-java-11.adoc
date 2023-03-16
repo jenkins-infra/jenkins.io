@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Jenkins requires Java 11"
+title: "Jenkins requires Java 11 or newer"
 tags:
 - announcement
 - core
@@ -25,7 +25,7 @@ At the core of this experience is https://www.java.com/[Java], an https://dl.acm
 Since its inception, the Jenkins project has been a major consumer of Java, distributing over 1,800 plugins to an installed base of over 300,000 controllers,
 and Jenkins regularly appears on https://blogs.oracle.com/javamagazine/post/the-top-25-greatest-java-apps-ever-written[lists of the top Java applications of all time].
 
-**Beginning with Jenkins 2.357 (released on June 28, 2022) and the forthcoming September LTS release, Jenkins requires Java 11.**
+**Beginning with Jenkins 2.357 (released on June 28, 2022) and the forthcoming 2.361.1 LTS release, Jenkins requires Java 11 or newer.**
 Additionally, beginning with Jenkins 2.355 (released on June 14, 2022) and Jenkins 2.346.1 LTS (released on June 22, 2022), Jenkins supports Java 17.
 Plugins have already been prepared in https://issues.jenkins.io/browse/JENKINS-68446[JENKINS-68446].
 **Use the Plugin Manager to upgrade all plugins before _and_ after upgrading to Jenkins 2.357.**
@@ -199,11 +199,53 @@ and we can say with confidence that the migration from Java 11 to Java 17 will n
 
 == Upgrading to Java 11 or 17
 
+=== Order of operations
+
+Beginning with Jenkins 2.357 (released on June 28, 2022) and the forthcoming 2.361.1 LTS release,
+Jenkins requires Java 11 or newer on both the controller JVM (i.e., the JVM running `jenkins.war`) and agent JVMs (i.e., JVMs running `remoting.jar`).
+
+This does not imply that you need to build your application with the same version of Java.
+You can continue to use any desired JDK to build your application,
+so long as the JVM used for running Jenkins itself is version 11 or newer.
+For example, the Global Tool Configuration page can still be used to provide a JDK 8 installation for building your application.
+Similarly, you can set up ephemeral or static agents with two installations of Java:
+Java 11 or newer to run `remoting.jar` for Jenkins and Java 8 to build your application.
+
+Since Jenkins 2.296, we have been recommending that users run the controller on Java 11.
+Prior to Jenkins 2.357 and Jenkins 2.361.1, running the controller on Java 11 and agents on Java 8, though not recommended, did not result in errors.
+Beginning with Jenkins 2.357 and Jenkins 2.361.1, running the controller on Java 11 and agents on Java 8 will result in the following error:
+
+[source]
+----
+Error: A JNI error has occurred, please check your installation and try again
+Exception in thread "main" java.lang.UnsupportedClassVersionError: hudson/remoting/Launcher has been compiled by a more recent version of the Java Runtime (class file version 55.0), this version of the Java Runtime only recognizes class file versions up to 52.0
+	at java.lang.ClassLoader.defineClass1(Native Method)
+	at java.lang.ClassLoader.defineClass(ClassLoader.java:756)
+	at java.security.SecureClassLoader.defineClass(SecureClassLoader.java:142)
+	at java.net.URLClassLoader.defineClass(URLClassLoader.java:473)
+	at java.net.URLClassLoader.access$100(URLClassLoader.java:74)
+	at java.net.URLClassLoader$1.run(URLClassLoader.java:369)
+	at java.net.URLClassLoader$1.run(URLClassLoader.java:363)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at java.net.URLClassLoader.findClass(URLClassLoader.java:362)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:418)
+	at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:352)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:351)
+	at sun.launcher.LauncherHelper.checkAndLoadMain(LauncherHelper.java:601)
+----
+
+Therefore, it is critical to upgrade both the controller _and_ agents to Java 11 or newer prior to upgrading Jenkins to 2.357 or 2.361.1.
+Use the https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin to verify that agents are running a compatible version of Java.
+
 === Docker images
 
-The https://hub.docker.com/r/jenkins/jenkins/[official Jenkins Docker images] have been based on Java 11 for many months, with Java 8 available as a fallback and Java 17 available in preview mode.
+The official Jenkins Docker images for https://hub.docker.com/r/jenkins/jenkins/[the controller] and https://hub.docker.com/r/jenkins/inbound-agent/[agents] have been based on Java 11 for many months,
+with Java 8 available as a fallback and Java 17 available in preview mode.
 Beginning with Jenkins 2.357, the Java 8 images will be retired and the Java 17 images will transition from preview to general availability (GA).
 Users of the official Jenkins Docker images need not install or configure Java on their own, as it comes preinstalled in the image.
+
+If you are using a Docker image to run both the agent Java process (i.e., `remoting.jar`) and your own application build and your application build still requires Java 8,
+you will need to provide a Java 11 or newer runtime for the Jenkins agent process and a Java 8 environment for your application build.
 
 === OS packages
 
@@ -231,7 +273,7 @@ https://pkg.jenkins.io/redhat/[Red Hat]:: `alternatives --config java`
 https://pkg.jenkins.io/opensuse/[openSUSE]:: `update-alternatives --config java`
 
 Alternatively, users who do not wish to change the default version of Java can customize the `JAVA_HOME` or `JENKINS_JAVA_CMD` environment variable as part of the Jenkins `systemd(1)` service unit.
-Refer to the https://www.jenkins.io/doc/book/system-administration/systemd-services/[Managing systemd services] section of the Jenkins documentation for more information.
+Refer to the link:/doc/book/system-administration/systemd-services/[Managing systemd services] section of the Jenkins documentation for more information.
 
 === Garbage collection options
 
@@ -257,13 +299,6 @@ Refer to the following https://support.cloudbees.com/hc/en-us/articles/222446987
 
 NOTE: These options are explained in-depth in the https://docs.oracle.com/en/java/javase/11/tools/java.html#GUID-3B1CE181-CD30-4178-9602-230B800D4FAE[Oracle Java documentation] as well as the https://docs.cloudbees.com/docs/admin-resources/latest/jvm-troubleshooting/[CloudBees Jenkins JVM guide].
 
-=== Agents
-
-For best results, it is recommended to run agents with the same version of Java as the version used on the controller.
-Use the https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin to verify that agents are running a compatible version of Java.
-
-NOTE: Running the Jenkins remoting process on an agent with Java 11 or 17 does not imply that you need to run your builds with the same version of Java. You can continue to use any desired version of Java for individual builds.
-
 === Reporting issues
 
 If you find a regression in a plugin, please file a bug report in Jira:
@@ -275,7 +310,7 @@ When reporting an issue, include the following information:
 . Use the https://issues.jenkins.io/browse/JENKINS-67688[JENKINS-67688] epic.
 . Provide the output of `java -version` (e.g., OpenJDK 64-Bit Server VM build 11.0.15+10-Ubuntu-0ubuntu0.22.04.1)
 . Provide the name, version, and architecture of the operating system you are using (e.g., Ubuntu 20.04.4 LTS x86_64).
-. Provide the _complete_ list of installed plugins as suggested in the https://www.jenkins.io/doc/book/system-administration/diagnosing-errors/%23how-to-report-a-bug[bug reporting guidelines].
+. Provide the _complete_ list of installed plugins as suggested in the link:/doc/book/system-administration/diagnosing-errors/#how-to-report-a-bug[bug reporting guidelines].
 . Provide the _complete_ stack trace, if relevant.
 . Provide steps to reproduce the issue _from scratch_ on a minimal Jenkins installation; the scenario should fail on Jenkins 2.356 or earlier when the steps are followed on Java 11 or Java 17 and pass when the steps are followed on Java 8.
 
@@ -294,12 +329,12 @@ The development work for Java 17 support is tracked in the following Jira epics:
 If you have made it this far through this post, you are clearly enthusiastic about the Jenkins platform experience.
 If you have never contributed, why not?
 We would love to work with you.
-Join one of our https://www.jenkins.io/sigs/platform/[Platform Special Interest Group (SIG)] meetings to learn more.
+Join one of our link:/sigs/platform/[Platform Special Interest Group (SIG)] meetings to learn more.
 
 == Conclusion
 
 We expect to see a bit of disruption from these changes but hope that in the long term they will be in the best interests of the Jenkins community.
-Please reach out on the https://www.jenkins.io/mailing-lists/[developers' list] with any questions or suggestions.
+Please reach out on the link:/mailing-lists/[developers' list] with any questions or suggestions.
 
 == Acknowledgments
 
