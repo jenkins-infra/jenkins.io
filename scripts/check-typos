@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+TYPOS_VERSION=1.13.4
+JQ_VERSION=1.6
+
+if [[ -v CI ]] ; then
+    if [[ $OSTYPE == darwin* ]] ; then
+        echo "CI mode for Mac OS has not been implemented!"
+        exit 1
+    fi
+    curl --disable --silent --show-error --location https://github.com/halkeye/typos-json-to-checkstyle/releases/download/v0.1.1/typos-checkstyle-v0.1.1-x86_64 > typos-checkstyle
+    chmod +x typos-checkstyle
+    ./typos --format json | ./typos-checkstyle - > checkstyle.xml || true
+    exit
+else
+    if [[ $OSTYPE == darwin* ]] ; then
+        curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-apple-darwin.tar.gz" | tar xzf - ./typos
+        curl --disable --silent --show-error --location --output jq "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-osx-amd64"
+    else
+        curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar xzf - ./typos
+        curl --disable --silent --show-error --location --output jq "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64"
+    fi
+    chmod +x jq
+    ./typos --format json | ./jq --raw-output 'select ( .type == "typo" ) | "Typo in \( .path ):\( .line_num): \( .typo ) should be one of: \( .corrections | join(" ") )"' || {
+        # typos exits with error when it finds something
+        echo "Found typos!"
+        exit 1
+    }
+fi
