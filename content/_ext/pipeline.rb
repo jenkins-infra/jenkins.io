@@ -15,7 +15,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::Extensions::Paginator.new(:posts,
                                                   '/node/index',
-                                                  :per_page=> 8)
+                                                  :per_page => 9)
 
   extension Awestruct::Extensions::Atomizer.new(:posts,
                                                 '/rss.xml',

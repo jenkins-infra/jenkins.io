@@ -40,7 +40,7 @@ module Authorship
       avatar_element = "<img alt=\"#{full_name}\" class=\"app-avatar__image\" loading=\"lazy\" onload=\"this.style.opacity = 1\" src=\"#{avatar}\">"
     end
 
-    return "<a class=\"app-author-link\" href=\"#{link}\"><div class=\"app-avatar\">#{avatar_element}</div><span>#{full_name}</span></a>"
+    return "<a class=\"app-author-link\" data-user-name=\"#{full_name}\" href=\"#{link}\"><div class=\"app-avatar\">#{avatar_element}</div><span>#{full_name}</span></a>"
   end
 
   def display_user_optional(author)
