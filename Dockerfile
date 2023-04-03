@@ -1,4 +1,4 @@
-FROM node:18.14.0 as node
+FROM node:18.15.0 as node
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
@@ -11,7 +11,7 @@ COPY scripts ./scripts
 RUN npm install
 RUN make assets
 
-FROM ruby:3.2.1 as builder
+FROM ruby:3.2.2 as builder
 ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
