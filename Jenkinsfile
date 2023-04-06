@@ -83,14 +83,6 @@ node('docker&&linux') {
         }
     }
 
-    stage('Archive site') {
-        /* The `archive` task inside the Gradle build should be creating a zip file
-        * which we can use for the deployment of the site. This stage will archive
-        * that artifact so we can pick it up later
-        */
-        archiveArtifacts artifacts: 'build/**/*.zip', fingerprint: true
-    }
-
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
     if (infra.isTrusted() && env.BRANCH_NAME == null) {
