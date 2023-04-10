@@ -15,7 +15,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::Extensions::Paginator.new(:posts,
                                                   '/node/index',
-                                                  :per_page=> 8)
+                                                  :per_page => 9)
 
   extension Awestruct::Extensions::Atomizer.new(:posts,
                                                 '/rss.xml',
@@ -32,7 +32,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Tagger.new(:posts,
                                               '/node/index',
                                               '/node/tags',
-                                              :per_page => 10)
+                                              :per_page => 9)
 
   extension JenkinsSitemap.new
 
@@ -45,7 +45,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension AuthorList.new(:posts,
                         '/node/index',
-                        :per_page => 10)
+                        :per_page => 9)
 
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
