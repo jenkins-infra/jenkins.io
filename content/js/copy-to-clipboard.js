@@ -13,7 +13,7 @@ $(function () {
 
   [].slice
     .call(
-      document.querySelectorAll(".doc pre.highlight, .doc .literalblock pre")
+      document.querySelectorAll(".ctc pre.highlight, .ctc .literalblock pre")
     )
     .forEach(function (pre) {
       var code, language, lang, copy, toast, toolbox;
