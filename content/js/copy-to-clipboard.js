@@ -1,22 +1,22 @@
-(function () {
+$(function () {
   "use strict";
 
-  const CMD_RX = /^\$ (\S[^\\\n]*(\\\n(?!\$ )[^\\\n]*)*)(?=\n|$)/gm;
-  const LINE_CONTINUATION_RX = /( ) *\\\n *|\\\n( ?) */g;
-  const TRAILING_SPACE_RX = / +$/gm;
+  var CMD_RX = /^\$ (\S[^\\\n]*(\\\n(?!\$ )[^\\\n]*)*)(?=\n|$)/gm;
+  var LINE_CONTINUATION_RX = /( ) *\\\n *|\\\n( ?) */g;
+  var TRAILING_SPACE_RX = / +$/gm;
 
-  const config = (document.getElementById("site-script") || { dataset: {} })
+  var config = (document.getElementById("site-script") || { dataset: {} })
     .dataset;
-  const uiRootPath = config.uiRootPath == null ? "." : config.uiRootPath;
-  const svgAs = config.svgAs;
-  const supportsCopy = window.navigator.clipboard;
+  var uiRootPath = config.uiRootPath == null ? "." : config.uiRootPath;
+  var svgAs = config.svgAs;
+  var supportsCopy = window.navigator.clipboard;
 
   [].slice
     .call(
       document.querySelectorAll(".doc pre.highlight, .doc .literalblock pre")
     )
     .forEach(function (pre) {
-      let code, language, lang, copy, toast, toolbox;
+      var code, language, lang, copy, toast, toolbox;
       if (pre.classList.contains("highlight")) {
         code = pre.querySelector("code");
         if ((language = code.dataset.lang) && language !== "console") {
@@ -24,7 +24,7 @@
           lang.appendChild(document.createTextNode(language));
         }
       } else if (pre.innerText.startsWith("$ ")) {
-        let block = pre.parentNode.parentNode;
+        var block = pre.parentNode.parentNode;
         block.classList.remove("literalblock");
         block.classList.add("listingblock");
         pre.classList.add("highlightjs", "highlight");
@@ -42,12 +42,12 @@
         (copy = document.createElement("button")).className = "copy-button";
         copy.setAttribute("title", "Copy to clipboard");
         if (svgAs === "svg") {
-          let svg = document.createElementNS(
+          var svg = document.createElementNS(
             "http://www.w3.org/2000/svg",
             "svg"
           );
           svg.setAttribute("class", "copy-icon");
-          let use = document.createElementNS(
+          var use = document.createElementNS(
             "http://www.w3.org/2000/svg",
             "use"
           );
@@ -58,7 +58,7 @@
           svg.appendChild(use);
           copy.appendChild(svg);
         } else {
-          let img = document.createElement("img");
+          var img = document.createElement("img");
           img.src = uiRootPath + "/img/octicons-16.svg#view-clippy";
           img.alt = "copy icon";
           img.className = "copy-icon";
@@ -75,15 +75,15 @@
     });
 
   function extractCommands(text) {
-    let cmds = [];
-    let m;
+    var cmds = [];
+    var m;
     while ((m = CMD_RX.exec(text)))
       cmds.push(m[1].replace(LINE_CONTINUATION_RX, "$1$2"));
     return cmds.join(" && ");
   }
 
   function writeToClipboard(code) {
-    let text = code.innerText.replace(TRAILING_SPACE_RX, "");
+    var text = code.innerText.replace(TRAILING_SPACE_RX, "");
     if (code.dataset.lang === "console" && text.startsWith("$ "))
       text = extractCommands(text);
     window.navigator.clipboard.writeText(text).then(
@@ -95,4 +95,4 @@
       function () {}
     );
   }
-})();
+});
