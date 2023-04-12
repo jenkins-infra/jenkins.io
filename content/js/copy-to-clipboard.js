@@ -58,11 +58,7 @@ $(function () {
           svg.appendChild(use);
           copy.appendChild(svg);
         } else {
-          var img = document.createElement("img");
-          img.src = uiRootPath + "/img/octicons-16.svg#view-clippy";
-          img.alt = "copy icon";
-          img.className = "copy-icon";
-          copy.appendChild(img);
+          copy.innerHTML = `<ion-icon size="large" name="copy-outline" class="copy-icon"></ion-icon>`;
         }
         (toast = document.createElement("span")).className = "copy-toast";
         toast.appendChild(document.createTextNode("Copied!"));
