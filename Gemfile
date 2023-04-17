@@ -1,8 +1,8 @@
 source 'https://rubygems.org'
 
 gem 'colorize'
-gem 'awestruct', '~> 0.6.5'
-gem 'awestruct-ibeams', :git => 'https://github.com/jenkins-infra/awestruct-ibeams', :tag => 'v0.4.5'
+gem 'awestruct', '~> 0.6.6'
+gem 'naturally', '~> 2.2.1'
 gem 'asciidoctor', '~> 2.0.18'
 gem 'asciidoctor-jenkins-extensions', '~> 0.9.0'
 gem 'webrick', '~> 1.8.1'
