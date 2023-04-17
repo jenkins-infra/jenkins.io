@@ -88,7 +88,7 @@ module AsciidocSections
   # but extracted to be callable in an idempotent fashion
   #
   # @param [String] title of the section provided
-  # @param [Asciidoctor::Document] Document objection the section anchor
+  # @param [Asciidoctor::Document] Document object the section anchor
   #   belongs to, this is necessary to ensure the document's settinsg are
   #   used to provide the appropriate anchor
   # @return [String] Computed section anchor
