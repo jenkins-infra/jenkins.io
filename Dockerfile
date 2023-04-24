@@ -1,4 +1,4 @@
-FROM node:18.15.0 as node
+FROM node:18.16.0 as node
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
