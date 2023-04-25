@@ -1,0 +1,211 @@
+---
+layout: post
+title: "Building Android apps with Jenkins: release management"
+tags:
+- jenkins
+- android
+authors:
+- gounthar
+opengraph:
+  image: /images/post-images/2023/03/29/2023-03-22-android-and-jenkins/love.png
+discourse: true
+---
+
+The previous blog post of this series discusses what I think makes CI/CD for mobile app development a unique kind of animal, and my first steps in building Android apps with Jenkins.
+We were left with a working declarative pipeline per branch, one Docker image per branch too, and an application binary ready to be deployed.
+Ready, really? +
+
+## Release management
+
+I could find the binaries in the workspace in a matter of seconds, but there is no release, just binaries…
+There would be some manual steps to get this into a versioned release we can deliver to the test users for example. +
+Of course, we could create manually a release within GitHub, and then copy paste the binaries from Jenkins artifact archives to the GitHub release page.
+We could also do the same for the Google Play store…
+This is not efficient nor error prone.
+
+Does it make sense to have a release on the Github repository as the same time as on Google Play?
+I think it really depends on the app and its audience, but for this article, let’s assume it’s ok.
+
+### Prerequisites
+
+To automate the release, we have to decide what is a version number, how we update the version number, and what makes a release.
+There is a gradle plugin named link:https://github.com/dipien/semantic-version-gradle-plugin[semantic version] that has a strict set of rules that will help us.
+You can use gradle commands to increment the patch version, the minor version or the major version.
+You can use classifiers like snapshot, beta, alpha or any other version classifier that would help you define a version name.
+
+[source,groovy]
+----
+version = "1.1.11"
+
+apply plugin: "com.dipien.android.semantic-version"
+----
+
+I then searched for a Jenkins plugin that would create a GitHub release.
+Remember:
+[quote]
+There’s a plugin for that.
+
+Does it exist?
+Not really.
+There is a plugin called link:https://plugins.jenkins.io/git-changelog/[Git Changelog] that will merge all your commit messages so that you can produce a readable version of the changes…
+But that does not create the release.
+
+### GitHub release
+
+If you want to stay on the Jenkins’s side, there is no plugin this time but of course, there are lots of different ways to do it.
+You can use the link:https://docs.github.com/en/rest?apiVersion=2022-11-28[GitHub REST API] to create a release, but you can also use the link:https://cli.github.com/[`gh`] command, which can do all the heavy lifting for us… +
+So back to the drawing board, let’s add the command to our Docker image.
+
+[source,dockerfile]
+----
+# Install GitHub command line tool
+ENV GITHUB_TOKEN $GITHUB_TOKEN
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+    apt update && apt install -y --no-install-recommends gh
+----
+
+Once that’s done, we have to use link:https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app[GitHub App authentication] in order to get `gh` to use our credentials.
+To get it to work, you have to install the link:https://plugins.jenkins.io/github-branch-source/[GitHub Branch Source plugin].
+Once it’s done, create a link:https://www.jenkins.io/blog/2020/04/16/github-app-authentication/[GitHub Application].
+
+No need to replicate here the link:https://github.com/jenkinsci/github-branch-source-plugin/blob/master/docs/github-app.adoc[efficient documentation] existing on GitHub.
+The only fields you need to prepare and fill out (currently) are:
+
+ - Github App name - i.e. `Jenkins-<team name>`
+ - Homepage URL - your company's domain or a GitHub repository, anything would do.
+ - Webhook URL - your jenkins instance, i.e. `https://<jenkins-host>/github-webhook/`
+
+At that moment, I was able to query GitHub via `gh` to see if the release was already existing, and create it if it was not. +
+My choice was totally arbitrary: I shall create a release when the version ends with “`RELEASE`”, a draft release when there is no suffix, and a pre-release when the version ends with “`ALPHA`” or “`BETA`”.
+
+
+[source,bash]
+----
+suffix=$(echo $versionName | sed 's/.*-//')
+case $suffix in
+    ALPHA|BETA)
+        echo "Time to do a prerelease"
+        GH_OPTS="$GH_OPTS-p"
+        ;;
+    SNAPSHOT)
+        echo "This is a snapshot, we won't release anything"
+        GH_OPTS="$GH_OPTS DO_NOT_RELEASE"
+        ;;
+    RELEASE)
+        echo "This a real release, so no need to use -d or -p";;
+    *)
+        echo "Unknown suffix \"$suffix\", so we'll do a draft release"
+        GH_OPTS="$GH_OPTS-d"
+        ;;
+esac
+----
+
+Good enough for my use case.
+
+`gh` does a nice job of preparing a release change log, so I’m relying on it. When we’re not building on the main branch, the release is not finalized, so I can still tidy it up afterward. +
+It’s nice to be able to create a release as soon as it’s needed, even when it’s not needed too…
+
+image:/images/post-images/2023/05/03/2023-05-03-android-and-jenkins-pipelines/too-many-releases.png[Too many releases, role=center, width=839]
+
+It looks like I may have gone a little too far with the automatic release creation, don’t you think?
+
+Now, what about using that workflow to create a release on the Play Store?
+
+### Google Play Store release
+
+The version is already handled by the semantic plugin, the release notes are more or less ready to go, we only have to find the right plugin to push to the Google Play store.
+We have a plugin for that, `link:https://github.com/Triple-T/gradle-play-publisher[com.github.triplet.play]`.
+Ok, this time, it’s a link:https://plugins.gradle.org/plugin/com.github.triplet.play[Gradle plugin], not a Jenkins plugin.
+
+What is the first thing to do when you want your app on the Play Store?
+The first thing you have to do when you want your app on the Play Store is to pay, so that you get a developer account, It’s only $25, so that’s ok.
+Once you have paid, you have to register your app, to import Eula (there are link:https://termly.io/products/eula-generator/[free websites] to generate that), to upload the paperwork, and then to upload the app.
+Well, to upload the signed app.
+As it’s not signed yet, let’s do it quickly.
+
+#### Signing the app from the command line
+
+You can sign your app from the command line, using `apksigner` for APKs or `jarsigner` for app bundles, or configure Gradle to sign it for you during the build. Either way, you need to first generate a private key using keytool, as shown below:
+
+[source,bash]
+----
+ keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -validity 10000 -alias my-alias
+----
+
+Let's see quickly how to sign an apk:
+
+1. Align the unsigned APK using zipalign:
++
+[source,bash]
+----
+zipalign -v -p 4 my-app-unsigned.apk my-app-unsigned-aligned.apk
+----
++
+`zipalign` ensures that all uncompressed data starts with a particular byte alignment relative to the start of the file, which may reduce the amount of RAM consumed by an app.
+2. Sign your APK with your previously generated private key using `apksigner`:
++
+[source,bash]
+----
+apksigner sign --ks my-release-key.jks --out my-app-release.apk my-app-unsigned-aligned.apk
+----
++
+This example outputs the signed APK at `my-app-release.apk` after signing it with a private key and certificate that are stored in a single KeyStore file: `my-release-key.jks`.
+
+Now, let's see how to sign an application bundle (located in `app/build/outputs/bundle/debug`) thanks to Gradle.
+
+[source,bash]
+----
+jarsigner -verbose -sigalg SHA256withRSA -keystore ../../../../../my-release-key.jks app-debug.aab my-alias
+----
+
+#### Signing the app from Gradle
+
+Open the module-level `build.gradle` file and add the `signingConfigs {}` block with entries for `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, and then pass that object to the `signingConfig` property in your build type. For example:
+
+[source,groovy]
+----
+ signingConfigs {
+        release {
+            // You need to specify either an absolute path or include the
+            // keystore file in the same directory as the build.gradle file.
+            storeFile file("my-release-key.jks")
+            storePassword "password"
+            keyAlias "my-alias"
+            keyPassword "password"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+----
+
+From now on, when you will create the bundle with gradle, it will be signed, self-signed that is, which is not what we’re aiming for.
+We still have to upload the icon, a summary, screenshots, banner…
+Lots of boilerplate's thingies.
+The next big thing is to create a GCP project
+
+#### Creating a GCP project
+
+video::Vdw1LgBcy3o[youtube, width=839, height=473, role=center]
+
+You have to link:https://developers.google.com/android-publisher/getting_started#enable[enable the Android Publisher API] for that project.
+
+video::eXJBIkHNB48[youtube, width=839, height=473, role=center]
+
+Then you have to link:https://developers.google.com/android-publisher/getting_started#existing[link] your Google Play developer account to the GCP project.
+Then you will have to link:https://cloud.google.com/iam/docs/service-accounts-create[create a service account] and link:https://cloud.google.com/iam/docs/keys-create-delete[key].
+
+We’ll have to create an environment variable within Jenkins…. For that, we first have to install the link:https://plugins.jenkins.io/envinject/[Environment Injector plugin].
+Once it’s done, we have to give the service account permissions to publish apps on our behalf.
+And we’re finally ready to publish our app thanks to gradle on Jenkins.
+
+
+
+
