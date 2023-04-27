@@ -11,27 +11,28 @@ opengraph:
 discourse: true
 ---
 
-The previous blog post of this series discusses what I think makes CI/CD for mobile app development a unique kind of animal, and my first steps in building Android apps with Jenkins.
+The link:https://www.jenkins.io/blog/2023/04/07/android-and-jenkins-discovery/[previous blog post] of this series discusses what I think makes CI/CD for mobile app development a unique kind of animal, and my first steps in building Android apps with Jenkins.
 We were left with a working declarative pipeline per branch, one Docker image per branch too, and an application binary ready to be deployed.
 Ready, really? +
 
 ## Release management
 
-I could find the binaries in the workspace in a matter of seconds, but there is no release, just binaries…
-There would be some manual steps to get this into a versioned release we can deliver to the test users for example. +
-Of course, we could create manually a release within GitHub, and then copy paste the binaries from Jenkins artifact archives to the GitHub release page.
-We could also do the same for the Google Play store…
-This is not efficient nor error prone.
+I was able to find the binaries in the workspace in a matter of seconds, but there is no release available, only binaries.
+This means there would be some manual steps required to create a versioned release that we can deliver to test users, for example.
 
-Does it make sense to have a release on the Github repository as the same time as on Google Play?
-I think it really depends on the app and its audience, but for this article, let’s assume it’s ok.
+We could manually create a release within GitHub and then copy-paste the binaries from Jenkins' artifact archives to the GitHub release page.
+We could also do the same for the Google Play Store…
+However, this approach is neither efficient nor error-proof.
+
+Regarding having a release on the Github repository at the same time as on Google Play, it really depends on the app and its audience.
+For the purposes of this article, let's assume it's okay.
 
 ### Prerequisites
 
-To automate the release, we have to decide what is a version number, how we update the version number, and what makes a release.
-There is a gradle plugin named link:https://github.com/dipien/semantic-version-gradle-plugin[semantic version] that has a strict set of rules that will help us.
-You can use gradle commands to increment the patch version, the minor version or the major version.
-You can use classifiers like snapshot, beta, alpha or any other version classifier that would help you define a version name.
+To automate the release process, we need to determine the criteria for a version number, how to update the version number, and what constitutes a release.
+We can use the "link:https://github.com/dipien/semantic-version-gradle-plugin[Semantic Version]" Gradle plugin, which has a strict set of rules to guide us.
+This plugin allows us to link:https://github.com/dipien/semantic-version-gradle-plugin#incrementing-the-project-version[increment] the patch, minor, or major version using Gradle commands.
+We can also use link:https://github.com/dipien/semantic-version-gradle-plugin#version-classifier[classifiers] such as snapshot, beta, alpha, or any other version classifier to define a version name.
 
 [source,groovy]
 ----
@@ -41,20 +42,20 @@ apply plugin: "com.dipien.android.semantic-version"
 ----
 
 I then searched for a Jenkins plugin that would create a GitHub release.
-Remember:
-[quote]
-There’s a plugin for that.
+As the saying goes,
 
-Does it exist?
-Not really.
-There is a plugin called link:https://plugins.jenkins.io/git-changelog/[Git Changelog] that will merge all your commit messages so that you can produce a readable version of the changes…
-But that does not create the release.
+[quote]
+There's a plugin for that
+
+but unfortunately, I couldn't find one that meets my needs.
+While there is a plugin called link:https://plugins.jenkins.io/git-changelog/[Git Changelog] that can merge commit messages to produce a readable version of the changes, it doesn't create the release.
 
 ### GitHub release
 
-If you want to stay on the Jenkins’s side, there is no plugin this time but of course, there are lots of different ways to do it.
-You can use the link:https://docs.github.com/en/rest?apiVersion=2022-11-28[GitHub REST API] to create a release, but you can also use the link:https://cli.github.com/[`gh`] command, which can do all the heavy lifting for us… +
-So back to the drawing board, let’s add the command to our Docker image.
+If you want to stay on the Jenkins side, there isn't a plugin this time.
+However, there are various ways to create a release.
+You could use the link:https://docs.github.com/en/rest?apiVersion=2022-11-28[GitHub REST API] or the link:https://cli.github.com/[`gh`] command, which can handle all the heavy lifting for us.
+Therefore, let's go back to the drawing board and add the command to our Docker image.
 
 [source,dockerfile]
 ----
@@ -66,9 +67,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     apt update && apt install -y --no-install-recommends gh
 ----
 
-Once that’s done, we have to use link:https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app[GitHub App authentication] in order to get `gh` to use our credentials.
-To get it to work, you have to install the link:https://plugins.jenkins.io/github-branch-source/[GitHub Branch Source plugin].
-Once it’s done, create a link:https://www.jenkins.io/blog/2020/04/16/github-app-authentication/[GitHub Application].
+Once that's done, we need to use link:https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app[GitHub App authentication] to enable `gh` to use our credentials.
+To do this, we have to install the link:https://plugins.jenkins.io/github-branch-source/[GitHub Branch Source plugin] and then create a link:https://www.jenkins.io/blog/2020/04/16/github-app-authentication/[GitHub Application].
 
 No need to replicate here the link:https://github.com/jenkinsci/github-branch-source-plugin/blob/master/docs/github-app.adoc[efficient documentation] existing on GitHub.
 The only fields you need to prepare and fill out (currently) are:
@@ -77,9 +77,8 @@ The only fields you need to prepare and fill out (currently) are:
  - Homepage URL - your company's domain or a GitHub repository, anything would do.
  - Webhook URL - your jenkins instance, i.e. `https://<jenkins-host>/github-webhook/`
 
-At that moment, I was able to query GitHub via `gh` to see if the release was already existing, and create it if it was not. +
-My choice was totally arbitrary: I shall create a release when the version ends with “`RELEASE`”, a draft release when there is no suffix, and a pre-release when the version ends with “`ALPHA`” or “`BETA`”.
-
+At that moment, I link:https://github.com/gounthar/MyFirstAndroidAppBuiltByJenkins/blob/main/jenkins/create-release.sh[queried] GitHub using `gh` to determine whether the release already existed, and created it if it did not. +
+My choice of how to create the release was entirely arbitrary: I decided to create a release when the version ended with `"RELEASE"`, a draft release when there was no suffix, and a pre-release when the version ended with `"ALPHA"` or `"BETA"`.
 
 [source,bash]
 ----
@@ -104,8 +103,9 @@ esac
 
 Good enough for my use case.
 
-`gh` does a nice job of preparing a release change log, so I’m relying on it. When we’re not building on the main branch, the release is not finalized, so I can still tidy it up afterward. +
-It’s nice to be able to create a release as soon as it’s needed, even when it’s not needed too…
+The `gh` command does a nice job of preparing a release change log, so I’m relying on it.
+If we're not building on the main branch, the release is not finalized, so I can still tidy it up later. +
+It’s great to be able to create a release as soon as it's required, even when it's not necessary…
 
 image:/images/post-images/2023/05/03/2023-05-03-android-and-jenkins-releases/too-many-releases.png[Too many releases, role=center, width=839]
 
@@ -115,19 +115,19 @@ Now, what about using that workflow to create a release on the Play Store?
 
 ### Google Play Store release
 
-The version is already handled by the semantic plugin, the release notes are more or less ready to go, we only have to find the right plugin to push to the Google Play store.
-We have a plugin for that, `link:https://github.com/Triple-T/gradle-play-publisher[com.github.triplet.play]`.
-Ok, this time, it’s a link:https://plugins.gradle.org/plugin/com.github.triplet.play[Gradle plugin], not a Jenkins plugin.
+The version is already handled by the semantic plugin, and the release notes are almost ready to go.
+Now, we just need to find the right plugin to push our app to the Google Play Store. +
+Luckily, we have a plugin for that, called link:https://github.com/Triple-T/gradle-play-publisher[`com.github.triplet.play`].
+This time, it's a link:https://plugins.gradle.org/plugin/com.github.triplet.play[Gradle plugin] instead of a Jenkins plugin.
 
-What is the first thing to do when you want your app on the Play Store?
-The first thing you have to do when you want your app on the Play Store is to pay, so that you get a developer account, It’s only $25, so that’s ok.
-Once you have paid, you have to register your app, to import Eula (there are link:https://termly.io/products/eula-generator/[free websites] to generate that), to upload the paperwork, and then to upload the app.
-Well, to upload the signed app.
-As it’s not signed yet, let’s do it quickly.
+The first step to getting your app on the Play Store is to pay the $25 developer account fee.
+After that, you need to register your app, import the EULA (there are link:https://termly.io/products/eula-generator/[free websites] to generate that), upload the required paperwork, and then upload the signed app.
+Since the app is not signed yet, we'll need to do that first.
 
 #### Signing the app from the command line
 
-You can sign your app from the command line, using `apksigner` for APKs or `jarsigner` for app bundles, or configure Gradle to sign it for you during the build. Either way, you need to first generate a private key using keytool, as shown below:
+There are different ways to sign your app - from the command line using `apksigner` for APKs or `jarsigner` for app bundles or you can configure Gradle to sign it during the build.
+In either case, you need to generate a private key using `keytool` before signing the app.
 
 [source,bash]
 ----
@@ -186,10 +186,9 @@ Open the module-level `build.gradle` file and add the `signingConfigs {}` block 
     }
 ----
 
-From now on, when you will create the bundle with gradle, it will be signed, self-signed that is, which is not what we’re aiming for.
-We still have to upload the icon, a summary, screenshots, banner…
-Lots of boilerplate's thingies.
-The next big thing is to create a GCP project
+From now on, when you create the bundle with Gradle, it will be signed, self-signed, which is not what we're aiming for.
+We still need to upload the icon, a summary, screenshots, banners, and other boilerplate content…
+The next step is to create a GCP project.
 
 #### Creating a GCP project
 
@@ -211,9 +210,9 @@ Then you have to create a link:https://cloud.google.com/iam/docs/keys-create-del
 
 video::LdMSK1d63Sw[youtube, width=839, height=473, role=center]
 
-We’ll have to create an environment variable within Jenkins…
-For that, we first have to install the link:https://plugins.jenkins.io/envinject/[Environment Injector plugin].
-Once it’s done, we have to give the service account permissions to publish apps on our behalf.
+To set up the necessary credentials for publishing our app to the Play Store, we'll need to create an environment variable in Jenkins.
+To do this, we first need to install the link:https://plugins.jenkins.io/envinject/[Environment Injector plugin].
+Once that's done, we can grant the necessary permissions to our service account so that it can publish the app on our behalf.
 
 video::LXVydeeMnSU[youtube, width=839, height=473, role=center]
 
@@ -246,7 +245,68 @@ BUILD SUCCESSFUL in 1s
 As we did not store the generated `jks` file in the repo, we have to use a variable to hold the value.
 On your machine, it would work with something like:
 
-[]
+[source,bash]
+----
+export ANDROID_PUBLISHER_CREDENTIALS=`cat *json`
+----
 
+On Jenkins, we will have to create a secret.
+
+video::XkORY9nbgak[youtube, width=839, height=473, role=center]
+
+The secret is now available under the `android-publisher-credentials` key.
+
+The triplet link:https://github.com/Triple-T/gradle-play-publisher#common-configuration[documentation] tells us that we can set up a configuration in the build.gradle file like:
+
+[source,groovy]
+----
+play {
+    // Overrides defaults
+    track.set("internal")
+    updatePriority.set(2)
+    releaseStatus.set(ReleaseStatus.DRAFT)
+    // ...
+}
+----
+
+Gradle Play Publisher supports uploading both the App Bundle and APK, and can promote those artifacts to different tracks.
+You can customize how your artifacts are published using several options:
+
+ * `track`: The target stage for an artifact, such as `internal`/`alpha`/`beta`/`production` or any custom track.
+ ** Defaults to internal.
+ * `releaseStatus`: The type of release, such as `ReleaseStatus.COMPLETED`, `ReleaseStatus.DRAFT`, `ReleaseStatus.HALTED`, or `ReleaseStatus.IN_PROGRESS`.
+ ** Defaults to `ReleaseStatus.COMPLETED`.
+ * `userFraction`: The percentage of users who will receive a staged release.
+ ** This is only applicable where `releaseStatus=[IN_PROGRESS/HALTED]`
+ ** defaults to `0.1` (10%).
+ * `updatePriority`: Sets the update priority for a new release. See link:https://developer.android.com/guide/playcore/in-app-updates[Google's documentation] for more information.
+ ** Defaults to the API value.
+
+Furthermore, according to the link:https://github.com/Triple-T/gradle-play-publisher#uploading-release-notes[documentation], you need to supply a release notes file.
+To do so, you need to add a file under `src/[sourceSet]/play/release-notes/[language]/[track].txt`. +
+Here, `sourceSet` is a full variant name, `language` is one of the Play Store supported codes, and `track` is the channel you want these release notes to apply to.
+If no channel is specified, the default channel will be used.
+
+As an example, let's assume you have these two different release notes:
+
+[source,bash]
+----
+src/main/play/release-notes/en-US/default.txt
+.../beta.txt
+----
+
+When you publish to the beta channel, the `beta.txt` release notes will be uploaded. For any other channel, `default.txt` will be uploaded.
+
+For our use case, we’ll link:https://github.com/gounthar/MyFirstAndroidAppBuiltByJenkins/blob/main/jenkins/create-gps-release.sh[use] the `internal` track, and start from the release notes generated via the `gh` tool to produce a shorter version limited to 500 characters as specified by Google.
+
+[source,bash]
+----
+gh release view v${versionName} | grep -A 500 "\-\-" | grep -v "\-\-" | sed 's/http.*[/]/#/' > $releaseNotesDir/internal.txt
+    content=$(cat < "$releaseNotesDir/internal.txt" && echo .) && content=${content%.} && printf %s "${content:0:500}" > "$releaseNotesDir/internal.txt"
+----
+
+Have we completed all the necessary steps?
+We now have an Android application that builds, has undergone static analysis, and is automatically pushed to both GitHub and the Google Play Store.
+However, there is still much left to cover, which we will explore in upcoming episodes.
 
 
