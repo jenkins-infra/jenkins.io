@@ -1,6 +1,5 @@
-require 'awestruct/ibeams/debuggable_partial'
-require 'awestruct/ibeams/asciidoc_sections'
 require 'awestruct/extensions/data_dir'
+require 'awestruct/extensions/partial'
 require 'asciidoctor/jenkins/extensions'
 
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
@@ -15,7 +14,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::Extensions::Paginator.new(:posts,
                                                   '/node/index',
-                                                  :per_page=> 8)
+                                                  :per_page => 9)
 
   extension Awestruct::Extensions::Atomizer.new(:posts,
                                                 '/rss.xml',
@@ -32,7 +31,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Tagger.new(:posts,
                                               '/node/index',
                                               '/node/tags',
-                                              :per_page => 10)
+                                              :per_page => 9)
 
   extension JenkinsSitemap.new
 
@@ -45,7 +44,7 @@ Awestruct::Extensions::Pipeline.new do
 
   extension AuthorList.new(:posts,
                         '/node/index',
-                        :per_page => 10)
+                        :per_page => 9)
 
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/book'))
@@ -66,6 +65,6 @@ Awestruct::Extensions::Pipeline.new do
   helper GetPlugins
 
   helper Awestruct::Extensions::GoogleAnalytics
-  helper Awestruct::IBeams::AsciidocSections
-  helper Awestruct::IBeams::DebuggablePartial
+  helper AsciidocSections
+  helper Awestruct::Extensions::Partial
 end
