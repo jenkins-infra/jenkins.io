@@ -1,0 +1,67 @@
+---
+layout: documentation
+title: Upgrading Jenkins Java version from 11 to 17
+---
+
+If you're upgrading the JVM used to run Jenkins, and particularly if you're upgrading from Java 11 to Java 17, there are some details you should know and precautions you should take.
+
+This video provides a walkthrough on verifying the current Java version of the controller and agents, upgrading the Java version on the controller and agents separately, and using the plugin:versioncolumn[Versions Node Monitors] plugin.
+
+.Upgrading Jenkins Java version from 11 to Java 17
+video::ZabUz6sl-8I[youtube,width=800,height=420]
+
+== Backup
+
+As with any upgrade, we recommend backing up `JENKINS_HOME` and testing the upgrade with the backup, before performing the upgrade on your production instance.
+
+== Upgrading Jenkins
+
+If you need to upgrade Jenkins as well as the JVM, we recommend that you:
+
+. Back up `JENKINS_HOME`.
+. Stop your Jenkins instance.
+. Upgrade the JVM on which Jenkins is running.
+* Use a package manager to install the new JVM.
+* Make sure the default JVM is the newly installed version.
+If it is not, run `systemctl edit jenkins` and set either the `JAVA_HOME` environment variable or the `JENKINS_JAVA_CMD` environment variable.
+. Upgrade Jenkins to the most recent version
+* How you upgrade Jenkins depends upon your original Jenkins installation method.
+* We recommend that you use the package manager of your system, such as `apt` or `yum`.
+. Validate the upgrade to confirm that all plugins and jobs are loaded.
+. Upgrade the required plugins.
+
+Since the Jenkins 2.357 weekly release and Long Term Support release 2.361.1, Java 11 is required and Java 17 is fully supported.
+
+== Upgrading Plugins
+
+It's important to upgrade the plugins that support Java 17.
+Plugin upgrades assure compatibility with the most recent Jenkins releases.
+
+NOTE: If you discover a previously unreported issue, please let us know: read link:/participate/report-issue/#issue-reporting[how to report an issue] for guidance.
+
+== Jakarta XML Binding
+
+Some plugins use JAXB libraries provided by the JDK.
+However, the `java.xml.bind` and `javax.activation` modules are no longer included in OpenJDK 11 or higher, and plugins can fail if no replacement is offered.
+
+To fix this problem, we've bundled those libraries into a new detached plugin: plugin:jaxb[JAXB plugin].
+When any Jenkins core more recent than `2.163` is running on Java 11 or higher, this plugin is automatically installed.
+However, if you manage your plugins outside Jenkins, for example, if you use `plugins.txt` in your Docker images, you might need to install the plugin explicitly.
+
+== JVM version on agents
+
+All agents must be running on the same JVM version as the controller due to how controllers and agents communicate.
+If you're upgrading your Jenkins controller to run on Java 17, you must also upgrade the JVM on your agents.
+
+You can validate the version of each agent with the plugin:versioncolumn[Versions Node Monitors] plugin.
+This plugin provides information about the JVM version of each agent on the node management screen of your Jenkins instance.
+You can also configure this plugin to automatically disconnect any agent with an incorrect JVM version.
+
+== Java Web Start
+
+Java Web Start has been removed as of Java 11.
+When a Jenkins controller runs on Java 11 or higher, the Java Web Start button will no longer appear in the Web UI.
+You can't launch agents for a Java 11 or higher Jenkins server from a `*.jnlp` file downloaded to a web browser.
+
+There are no plans to replace this functionality.
+Connect agents to Jenkins on Java 17 with plugins like the plugin:ssh-slaves[SSH Build Agents Plugin], operating system command line calls to `java -jar agent.jar`, or by using containers.
