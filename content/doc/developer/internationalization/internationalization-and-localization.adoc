@@ -5,7 +5,7 @@ layout: developersection
 
 link:/doc/book/using/using-local-language/[How to view Jenkins in your language].
 
-'''''
+== What plugin developers need to do
 
 == Developer tasks
 
@@ -13,169 +13,10 @@ Developers must do the following to localize a plugin or other module:
 
 . link:/doc/developer/internationalization/i18n-source-code/[Internationalize messages in Java source code]
 . link:/doc/developer/internationalization/i18n-jelly-views/[Internationalize messages in Jelly views]
-. (Optional) link:/doc/developer/crowdin/translating-plugins/[Enable Crowdin translation support for the plugin]
+. link:/doc/developer/crowdin/translating-plugins/[Enable Crowdin translation support for the plugin] (Optional)
 
-=== Generate of `+Messages+` classes
-
-Jenkins uses the Java https://docs.oracle.com/middleware/1212/wls/WLAPI/weblogic/i18n/Localizer.html[Localizer]
-package to generate classes for that access message resources in a type-safe way.
-For each `+src/main/resources/**/Messages.properties+`, a Messages class is generated.
-See the referenced page to see what this class looks like.
-If your IDE fails to find these classes, manually add the "target/generated-sources/localizer" directory to your source root.
-
-Wherever the code returns a String for display purposes (such as `+Descriptor.getDisplayName()+`), use the Messages class to obtain a localized message.
-At runtime, a proper locale is selected automatically.
-A typical workflow for this is as follows:
-
-. Identify messages that need to be localized.
-Place those messages in Messages.properties.
-You can use a file for each package, or you could have one such file for the whole module/plugin.
-Run `+mvn compile+` once to re-generate `+Messages.java+`.
-Update your code to use the newly generated message formatting method.
-
-+
-[cols="",]
-|===
-|As usual, looking at how the core code does this might help you get an idea of how to do this.
-|===
-
-+
-[cols="",]
-|===
-|*Note:* If your message contains a single quote character ('), then you need to escape it with another single quote character such as ''.
-So "that's" becomes "that''s".
-If you're in need of an apostrophe character you might consider using ’ - the unicode character U+2019, written in
-properties file as \u2019.
-|===
-
-=== Marking messages in jelly files
-
-Your jelly files in `+src/main/resources+` often contain messages that need to be localized, and those need to be marked as well.
-
-In the simplest case, suppose you have a part of a Jelly file that looks like the following:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<h1>Output</h1>
-<p>...</p>
-....
-
-|===
-
-Change this to the following:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<h1>${%Output}</h1>
-<p>...</p>
-....
-
-|===
-
-The $\{%...} marker tells stapler, (explained in link:doc/developer/architecture/web/) to look for localized resources,
-and, if none are found, it prints "Output" for this, which is what you want.
-
-Let's consider the case where the localization requires parameters.
-Suppose you have a Jelly file `+foo.jelly+` like this:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<p>Click <a href="${obj.someMethod(a,b,c)}" >here</a></p>
-....
-
-|===
-
-In this case, first, you must write `+foo.properties+` for the default locale:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-click.here.link=Click <a href="{0}" >here</a>
-....
-
-|===
-
-Then update `+foo.jelly+` to refer to this:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<p>${%click.here.link(obj.someMethod(a,b,c))}</p>
-....
-
-|===
-
-You can pass multiple parameters, separating them with ',' (just like a function call), and from property files, you can reference them as \{0}, \{1}, etc., by following link:https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/text/MessageFormat.html[the
-MessageFormat class convention].
-
-Now consider the case where you put a message in an expression.
-Suppose you have a Jelly file like this:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<p>${h.ifThenElse(x,"no error","error")}</p>
-....
-
-|===
-
-You can mark those two strings for localization like this:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<p>${h.ifThenElse(x,"%no error","%error")}</p>
-....
-
-|===
-
-Finally, because you can use expressions in Jelly, you need to ensure your regular strings don't contain brackets. +
-For example, this will *not* parse correctly, as it will be parsed as an expression:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<h1>${%Path to file (.ipa or .apk)}</h1>
-....
-
-|===
-
-You need to create two separate strings in this case:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<h1>${%Path to file} (${%.ipa or .apk})</h1>
-....
-
-|===
-
-=== Create of html files for help tips.
-
-You can configure entries in jelly files that display a tip message when the user clicks on a help icon.
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-<f:entry title="${%title}" help="/plugin/myPlugin/help.html">
-....
-
-|===
-
-Then, just create the file help.html for English or help_xx.html for the 'xx' language.
+link:/doc/developer/internationalization/prepare-a-java-source-file/[Prepare a Java source file for localization] shows the detailed internationalization steps.
+The link:/doc/developer/internationalization/advanced-localization/[advanced localization] documentation provides guidance for more sophisticated internationalization, like date formatting, time formatting, and number formatting.
 
 == Translator tasks
 
@@ -204,35 +45,6 @@ If looking at `+Messages.properties+` alone does not give you enough contextual 
 You can access messages with the type-safe `+Messages+` class generated by
 link:https://docs.oracle.com/middleware/1212/wls/WLAPI/weblogic/i18n/Localizer.html[Localizer].
 To find out where messages are actually used, use your IDE to find all the usages of the message format method.
-
-=== Translating message references in Jelly
-
-The other messages that need to be translated are in Jelly view files, which are in `+src/main/resources/**.jelly+`.
-To localize them, first, you run Maven to generate a skeleton property file for your locale:
-
-[width="100%",cols="100%",]
-|===
-a|
-....
-$ cd jenkins/core  (or a plugin dir)
-$ mvn stapler:i18n -Dlocale=fr
-....
-
-|===
-
-If looking at `+Messages.properties+` alone does not give you enough contextual information about where the messages are used.
-You can access messages with the type-safe `+Messages+` class generated by
-link:https://docs.oracle.com/middleware/1212/wls/WLAPI/weblogic/i18n/Localizer.html[Localizer].
-To find out where messages are actually used, use your IDE to find all the usages of the message format method.
-
-You can then translate messages in each property file.
-It is not necessary to translate the entire file; entries that are empty fall back to the default locale.
-
-[cols="",]
-|===
-|https://addons.mozilla.org/en-US/firefox/addon/locale-switcher/[Quick Locale Switcher]
-extension to firefox is useful to toggle between various locales.
-|===
 
 === Translating static HTML resources
 
