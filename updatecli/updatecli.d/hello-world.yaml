@@ -33,10 +33,17 @@ sources:
     transformers:
       - trimprefix: "maven-"
   rubyAlpineLatestVersion:
-    kind: dockerdigest
+    kind: githubrelease
     spec:
-      image: "ruby"
-      tag: "alpine"
+      owner: "ruby"
+      repository: "ruby"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+    transformers:
+      - trimprefix: "v"
+      - replacer:
+          from: "_"
+          to: "."
   pythonAlpineLatestVersion:
     kind: dockerdigest
     spec:
@@ -85,6 +92,14 @@ conditions:
       file: content/doc/pipeline/tour/hello-world.adoc
       matchpattern: >-
         .*agent.*docker.*image.*maven:.*
+  testRubyAlpineImagePublished:
+    name: "Test ruby:<latest_version>-eclipse-temurin-17 docker image tag"
+    kind: dockerimage
+    sourceid: rubyAlpineLatestVersion
+    spec:
+      image: "ruby"
+    transformers:
+      - addsuffix: "-alpine"
   testRubyAlpineArg:
     name: "Does the 'Hello World!' tutorial have a reference to the ruby alpine image?"
     kind: file
@@ -177,7 +192,7 @@ targets:
         (.*agent.*docker.*image.*\')ruby:(.*)(\'.*)
       # like regex? Try them at https://regex101.com/ and select golang and substitution
       replacepattern: >-
-        ${1}ruby:{{ source "rubyAlpineLatestVersion" }}${3}
+        ${1}ruby:{{ source "rubyAlpineLatestVersion" }}-alpine${3}
     scmid: default
   updateHelloWorldTutorialRubyScripted:
     name: "Update the value of the ruby docker image for scripts in the 'Hello World!' tutorial"
@@ -189,7 +204,7 @@ targets:
         (.*docker.*image.*\')ruby:(.*)(\'.*)
       # like regex? Try them at https://regex101.com/ and select golang and substitution
       replacepattern: >-
-        ${1}ruby:{{ source "rubyAlpineLatestVersion" }}${3}
+        ${1}ruby:{{ source "rubyAlpineLatestVersion" }}-alpine${3}
     scmid: default
   updateHelloWorldTutorialPythonPipeline:
     name: "Update the value of the python docker image for pipelines in the 'Hello World!' tutorial"
