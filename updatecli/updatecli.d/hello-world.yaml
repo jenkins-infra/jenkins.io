@@ -45,10 +45,14 @@ sources:
           from: "_"
           to: "."
   pythonAlpineLatestVersion:
-    kind: dockerdigest
+    kind: githubrelease
     spec:
-      image: "python"
-      tag: "3-alpine"
+      owner: "python"
+      repository: "cpython"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+    transformers:
+      - trimprefix: "v"
   phpAlpineLatestVersion:
     kind: dockerdigest
     spec:
@@ -116,6 +120,14 @@ conditions:
       file: content/doc/pipeline/tour/hello-world.adoc
       matchpattern: >-
         .*agent.*docker.*image.*python:.*
+  testPythonAlpineImagePublished:
+    name: "Test python:<latest_version>-alpine docker image tag"
+    kind: dockerimage
+    sourceid: pythonAlpineLatestVersion
+    spec:
+      image: "python"
+    transformers:
+      - addsuffix: "-alpine"
   testPhpAlpineArg:
     name: "Does the 'Hello World!' tutorial have a reference to the php alpine image?"
     kind: file
@@ -216,7 +228,7 @@ targets:
         (.*agent.*docker.*image.*\')python:(.*)(\'.*)
       # like regex? Try them at https://regex101.com/ and select golang and substitution
       replacepattern: >-
-        ${1}python:{{ source "pythonAlpineLatestVersion" }}${3}
+        ${1}python:{{ source "pythonAlpineLatestVersion" }}-alpine${3}
     scmid: default
   updateHelloWorldTutorialPythonScripted:
     name: "Update the value of the python docker image for scripts in the 'Hello World!' tutorial"
@@ -228,7 +240,7 @@ targets:
         (.*docker.*image.*\')python:(.*)(\'.*)
       # like regex? Try them at https://regex101.com/ and select golang and substitution
       replacepattern: >-
-        ${1}python:{{ source "pythonAlpineLatestVersion" }}${3}
+        ${1}python:{{ source "pythonAlpineLatestVersion" }}-alpine${3}
     scmid: default
   updateHelloWorldTutorialPhpPipeline:
     name: "Update the value of the php docker image for pipelines in the 'Hello World!' tutorial"
