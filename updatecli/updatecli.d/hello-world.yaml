@@ -20,10 +20,14 @@ sources:
       image: "node"
       tag: "alpine"
   mavenTemurinAlpineLatestVersion:
-    kind: dockerdigest
+    kind: githubrelease
     spec:
-      image: "maven"
-      tag: "3-eclipse-temurin-17"
+      owner: "apache"
+      repository: "maven"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+    transformers:
+      - trimprefix: "maven-"
   rubyAlpineLatestVersion:
     kind: dockerdigest
     spec:
@@ -53,6 +57,14 @@ conditions:
       file: content/doc/pipeline/tour/hello-world.adoc
       matchpattern: >-
         .*docker.*image.*\'node:.*
+  testMavenTemurinAlpineImagePublished:
+    name: "Test maven:<latest_version>-eclipse-temurin-17 docker image tag"
+    kind: dockerimage
+    sourceid: mavenTemurinAlpineLatestVersion
+    spec:
+      image: "maven"
+    transformers:
+      - addsuffix: "-eclipse-temurin-17"
   testMavenTemurinAlpineArg:
     name: "Does the 'Hello World!' tutorial have a reference to the mvn temurin image?"
     kind: file
@@ -129,7 +141,7 @@ targets:
         (.*agent.*docker.*image.*\')maven:(.*)(\'.*)
       # like regex? Try them at https://regex101.com/ and select golang and substitution
       replacepattern: >-
-        ${1}maven:{{ source "mavenTemurinAlpineLatestVersion" }}${3}
+        ${1}maven:{{ source "mavenTemurinAlpineLatestVersion" }}-eclipse-temurin-17${3}
     scmid: default
   updateHelloWorldTutorialMavenScripted:
     name: "Update the value of the maven docker image for scripts in the 'Hello World!' tutorial"
@@ -141,7 +153,7 @@ targets:
         (.*docker.*image.*\')maven:(.*)(\'.*)
       # like regex? Try them at https://regex101.com/ and select golang and substitution
       replacepattern: >-
-        ${1}maven:{{ source "nodeAlpineLatestVersion" }}${3}
+        ${1}maven:{{ source "mavenTemurinAlpineLatestVersion" }}-eclipse-temurin-17${3}
     scmid: default
   updateHelloWorldTutorialRubyPipeline:
     name: "Update the value of the ruby docker image for pipelines in the 'Hello World!' tutorial"
