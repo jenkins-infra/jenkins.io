@@ -1,0 +1,246 @@
+---
+layout: post
+title: "Jenkins plugin development requires Java 11 or newer"
+tags:
+- announcement
+- developer
+- jenkins
+author: basil
+description: >
+  Beginning with 4.52, the plugin build toolchain requires Java 11 or newer and Jenkins 2.361 or newer.
+opengraph:
+  image: /images/post-images/2022-12-require-java-11/jvms.png
+---
+
+== 🚀 Java Platform update
+
+Jenkins has link:/blog/2022/06/28/require-java-11/[required Java 11 or newer]
+since https://github.com/jenkinsci/jenkins/releases/tag/jenkins-2.361.1[2.361.1 LTS] (released on September 7, 2022)
+and has supported Java 17 since https://github.com/jenkinsci/jenkins/releases/tag/jenkins-2.346.1[2.346.1 LTS] (released on June 16, 2022).
+At the time, more users were running Jenkins on Java 8 than on Java 11,
+and a negligible number of users were running Jenkins on Java 17.
+In recent months, usage of Java 11 has surpassed usage of Java 8,
+and usage of Java 17 has entered a phase of rapid adoption:
+
+image:/images/post-images/2022-12-require-java-11/jvms.png[JVMS by date as of November 2022]
+
+With all _known_ production issues on Java 17 resolved, we continue to encourage users to upgrade to Java 17,
+particularly in light of the fact that many Java vendors plan to stop providing free public updates for Java 11 https://en.wikipedia.org/wiki/Java_version_history#Release_table[on or after October 2024].
+Report any issues running on Java 17 in https://issues.jenkins.io/browse/JENKINS-67908[JENKINS-67908].
+The https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin, which helps keep track of Java versions across agents, has also been recently updated.
+
+== 👷 Changes for plugin developers
+
+With the migration to Java 11 now well underway for both end users and Jenkins core alike,
+the focus has shifted to the plugin development toolchain.
+With link:/doc/developer/plugin-development/choosing-jenkins-baseline/[the developer documentation] now recommending 2.361.4 as a baseline for plugins,
+this raises the question about when to require Java 11 for plugin development.
+
+Historically the Jenkins project has supported old baselines for a long time in the plugin build toolchain,
+with recent versions of the plugin build toolchain supporting baselines up to two (2) years old.
+This provides a high degree of flexibility for plugin maintainers and ultimately end users.
+For the reasons given on https://groups.google.com/g/jenkinsci-dev/c/pjfvsMw-EMM/m/OIw_hveUBwAJ[the developer mailing list], however,
+this level of compatibility could not be preserved throughout the transition to Java 11.
+We therefore took the decision to require a baseline of 2.361 or newer for plugins in recent releases of the plugin build toolchain,
+about a year ahead of our usual timeline.
+This unusually aggressive timeline does not represent a change in policy for the Jenkins project
+but is rather an exception to the rule to facilitate migration to a number of breaking changes in the upstream Java community.
+
+Such a transition constitutes a https://en.wikipedia.org/wiki/Flag_day_(computing)[flag day], or breaking change.
+Below are answers to frequently asked questions,
+inspired by Uma Chingunde's excellent framework for https://umach.medium.com/communicating-organizational-changes-6277e4b47cff[communicating organizational changes] and building on the excellent https://community.jenkins.io/t/solving-failing-parent-pom-upgrade-from-4-51-to-4-52-cheatsheet/4958[cheat sheet] started by Jean-Marc Meessen.
+
+=== What is the change?
+
+Beginning with https://github.com/jenkinsci/plugin-pom/releases/tag/plugin-4.52[4.52],
+the plugin build toolchain requires Java 11 or newer and Jenkins 2.361 or newer.
+
+=== When is the change effective?
+
+The change is effective as of plugin parent POM 4.52, which was released on December 1, 2022.
+
+=== Why is it happening?
+
+Due to a large number of breaking changes in the upstream Java community,
+it became impractical to support both Java 8 and Java 11 in the same build toolchain.
+For more details, see https://groups.google.com/g/jenkinsci-dev/c/pjfvsMw-EMM/m/OIw_hveUBwAJ[the developer mailing list].
+
+=== Who is affected by the change?
+
+This change affects all plugin developers,
+particularly those who receive updates to the plugin build toolchain via Dependabot pull requests.
+
+=== What action do I need to take?
+
+At a high level, three actions need to be taken, the third of which depends on the first two:
+
+. Adjust the `Jenkinsfile` to use Java 11 or newer, removing any Java 8 configuration(s).
+. Update the baseline to 2.361 or newer.
+. Update the plugin parent POM to 4.52 or newer.
+
+We will elaborate on each of these three points below.
+
+==== Adjust the `Jenkinsfile` to use Java 11 or newer
+
+First, consult the matrix of build configurations in the plugin's `Jenkinsfile`.
+The goal is to ensure the plugin is building on Java 11 and 17 and not on Java 8,
+as recommended in https://github.com/jenkinsci/archetypes/blob/master/common-files/Jenkinsfile[the latest version of the archetype]:
+
+[source,groovy]
+----
+buildPlugin(
+  useContainerAgent: true, // Set to `false` if you need to use Docker for containerized tests
+  configurations: [
+    [platform: 'linux', jdk: 17],
+    [platform: 'windows', jdk: 11],
+])
+----
+
+Note the explicit `configurations` entry with two versions: Java 11 and 17.
+If there is an explicit configuration for Java 8, remove it -- Java 8 is no longer supported as of plugin parent POM 4.52.
+
+[NOTE]
+====
+If you are not already using container agents, we recommend adding `useContainerAgent: true` (but this is not mandatory).
+Doing so results in `ci.jenkins.io` spawning a link:https://github.com/jenkins-infra/documentation/blob/main/ci.adoc#container-agents[container agent] for executing the build instead of a virtual machine,
+which is usually faster to start and reduces costs for the Jenkins project.
+====
+
+Some older ``Jenkinsfile``s may not have an explicit list of configurations:
+
+[source,groovy]
+----
+buildPlugin()
+----
+
+Such builds will use https://github.com/jenkins-infra/pipeline-library/blob/master/vars/buildPlugin.groovy[the defaults for `buildPlugin()`],
+which (at the time of this writing) are Java 8 on Linux and Windows.
+Since plugin parent POM 4.52 and newer require Java 11, such a configuration is incompatible,
+and it should be changed to an explicit configuration that includes Java 11 and 17 as shown above.
+
+NOTE: At some point in the future, the default may change from Java 8 to Java 11; however, such a change was considered premature at the time of this writing.
+
+Note that changes to a plugin's `Jenkinsfile` require write access to take effect in pull request builds.
+If you submit a pull request to a repository to which you do not have write access,
+any `Jenkinsfile` changes will be ignored with this message:
+
+> `Jenkinsfile` has been modified in an untrusted revision
+
+Pending https://issues.jenkins.io/browse/JENKINS-46795[JENKINS-46795],
+the pull request will need to be refiled by someone with write access
+to ensure the `Jenkinsfile` changes take effect.
+
+==== Update the baseline to 2.361 or newer
+
+The process for updating the baseline is described in link:/doc/developer/plugin-development/choosing-jenkins-baseline/[the developer documentation].
+To summarize, set the `jenkins.version` property in `pom.xml` to 2.361 or newer:
+
+[source,xml]
+----
+<properties>
+  <jenkins.version>2.361.4</jenkins.version>
+</properties>
+----
+
+The baseline is often encoded in one other place in `pom.xml`: the version of the https://github.com/jenkinsci/bom[plugin BOM].
+Check the `<dependencyManagement>` section for an entry with the group ID `io.jenkins.tools.bom` and an artifact ID that starts with `bom-`.
+If there is such an entry,
+and if it is using a line older than the baseline,
+then update it to match the baseline.
+For the latest version, see https://github.com/jenkinsci/bom/releases[the list of BOM releases].
+At the time of this writing, the latest version is 1750.v0071fa_4c4a_e3:
+
+[source,xml]
+----
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>io.jenkins.tools.bom</groupId>
+      <artifactId>bom-2.361.x</artifactId>
+      <version>1750.v0071fa_4c4a_e3</version>
+      <scope>import</scope>
+      <type>pom</type>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+----
+
+For more information about the plugin BOM, see its https://github.com/jenkinsci/bom[`README`].
+
+==== Update the plugin parent POM to 4.52 or newer
+
+Having completed the above prerequisites,
+the plugin parent POM can be successfully upgraded to 4.52 or newer.
+For the latest version, see https://github.com/jenkinsci/plugin-pom/releases[the list of plugin parent POM releases].
+At the time of this writing, the latest version is 4.53:
+
+[source,xml]
+----
+<parent>
+  <groupId>org.jenkins-ci.plugins</groupId>
+  <artifactId>plugin</artifactId>
+  <version>4.53</version>
+  <relativePath />
+</parent>
+----
+
+==== Java level
+
+Some plugins may have a `Jenkinsfile` with an older `javaLevel` property,
+and some plugins may have a `pom.xml` file with a `java.level` property.
+These have been deprecated since https://github.com/jenkinsci/plugin-pom/releases/tag/plugin-4.40[plugin parent POM 4.40].
+If present, they should be deleted.
+At the time of this writing, their presence will log a warning.
+
+WARNING: At some point in the future, this warning will be changed to an error and will fail the build.
+
+==== Other flag days
+
+When updating the plugin parent POM from a version older than 4.39,
+you may run into an error like the following:
+
+> [ERROR] Failed to execute goal `org.jenkins-ci.tools:maven-hpi-plugin:3.38:hpi` (`default-hpi`) on project `azure-credentials`: Missing `target/classes/index.jelly`. Delete any `<description>` from `pom.xml` and create `src/main/resources/index.jelly`
+
+This was a flag day introduced in https://github.com/jenkinsci/plugin-pom/releases/tag/plugin-4.39[4.39].
+See the release notes for more information.
+
+Similarly, be on the lookout for warnings like these:
+
+> [WARNING] `+<connection>scm:git:git://github.com/${gitHubRepo}.git</connection>+` is invalid because `git://` URLs are deprecated. Replace it with `+<connection>scm:git:https://github.com/${gitHubRepo}.git</connection>+`. In the future this warning will be changed to an error and will break the build.
+
+Now is a good time to address them as suggested, though doing so is not mandatory.
+
+=== Is there an example I can follow?
+
+Yes! Consult https://github.com/jenkinsci/text-finder-plugin/pull/138[jenkinsci/text-finder-plugin#138] for an example.
+
+=== What happens if I fail to take action?
+
+Nothing will happen in the immediate future if you do not cross this flag day.
+You can still build and release plugins with Java 8 and their current baseline.
+In the long term, however, an out-of-date plugin build toolchain creates the risk of plugin compatibility testing (PCT) failures
+and negatively impacts the Jenkins core development team.
+
+If you neglect to update the baseline to 2.361 or newer, you will receive the following error:
+
+> This version of `maven-hpi-plugin` requires Jenkins 2.361 or later.
+
+If you neglect to update the `Jenkinsfile` to remove any Java 8 configurations (or try to build locally with Java 8),
+you will receive a low-level class version error:
+
+> [ERROR] Failed to execute goal `org.jenkins-ci.tools:maven-hpi-plugin:3.38:validate` (`default-validate`) on project `text-finder`: Execution `default-validate` of goal `org.jenkins-ci.tools:maven-hpi-plugin:3.38:validate` failed: Unable to load the mojo `validate` in the plugin `org.jenkins-ci.tools:maven-hpi-plugin:3.38` due to an API incompatibility: `org.codehaus.plexus.component.repository.exception.ComponentLookupException`: `org/jenkinsci/maven/plugins/hpi/ValidateMojo` has been compiled by a more recent version of the Java Runtime (class file version 55.0), this version of the Java Runtime only recognizes class file versions up to 52.0
+
+=== Whom should I contact for help?
+
+If you have doubts or if the information in this post does not work for you,
+do not hesitate to discuss the matter on https://groups.google.com/g/jenkinsci-dev/c/pjfvsMw-EMM/m/OIw_hveUBwAJ[the developer mailing list].
+
+=== What future work is planned?
+
+We recognize that maintaining plugin builds can be onerous for many,
+especially when crossing flag days like this.
+Like http://www.linker-aliens.org[linkers and loaders],
+Jenkins plugin build maintenance is a sub-specialty within a sub-specialty.
+In the long term, we aspire and hope to automate much of this build maintenance
+to allow the community to focus its attention on the delivery of features and bug fixes.
+In the meantime, we appreciate the community's patience and support as we pass through these periods of transition.

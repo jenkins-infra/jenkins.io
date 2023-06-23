@@ -6,7 +6,6 @@ ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 ifdef::env-github[:imagesdir: ../resources]
 ifndef::env-github[:imagesdir: ../../resources]
@@ -46,6 +45,7 @@ sub-systems.
 All valid Declarative Pipelines must be enclosed within a `pipeline` block, for
 example:
 
+[.width-min ]
 [source,groovy]
 ----
 pipeline {
@@ -104,41 +104,60 @@ section is placed. The section must be defined at the top-level inside the
 |===
 
 [[differences-between-top-and-stage-level]]
-===== Differences between top and stage level Agents
+===== Differences between top level agents and stage level agents
 
-There are some nuances when adding an agent to the top level or a stage level, and this when the `options` directive is applied.
+There are some nuances when adding an agent to the top level or a stage level when the `options` directive is applied.
+Check the section link:#options[options] for more information.
 
 [[top-level-agents]]
 ====== Top Level Agents
-In `agents` declared at the outermost level of the Pipeline, the options are invoked *after* entering the agent.
-As an example, when using `timeout` it will be only applied to the execution *within* the agent.
 
-```
-node("myAgent") {
-    timeout(unit: 'SECONDS', time: 5) {
-        stage("One"){
-            sleep 10
-            echo 'hello'
+In `agents` declared at the top level of a Pipeline, an agent is allocated and then the `timeout` option is applied.
+The time to allocate the agent *is not included* in the limit set by the `timeout` option.
+
+[source,groovy]
+----
+pipeline {
+    agent any
+    options {
+        // Timeout counter starts AFTER agent is allocated
+        timeout(time: 1, unit: 'SECONDS')
+    }
+    stages {
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
         }
     }
 }
-```
+----
 
 [[stage-level-agents]]
 ====== Stage Agents
-In `agents` declared within a stage, the options are invoked *before* entering the `agent` and *before* checking any `when` conditions.
-In this case, when using `timeout`, it is applied *before* the `agent` is allocated.
 
-```
-timeout(unit: 'SECONDS', time: 5) {
-    stage("One"){
-        node {
-            sleep 10
-            echo 'Hello'
+In `agents` declared within a stage, the options are invoked *before* allocating the `agent` and *before* checking any `when` conditions.
+In this case, when using `timeout`, it is applied *before* the `agent` is allocated.
+The time to allocate the agent *is included* in the limit set by the `timeout` option.
+
+[source,groovy]
+----
+pipeline {
+    agent none
+    stages {
+        stage('Example') {
+            agent any
+            options {
+                // Timeout counter starts BEFORE agent is allocated
+                timeout(time: 1, unit: 'SECONDS')
+            }
+            steps {
+                echo 'Hello World'
+            }
         }
     }
 }
-```
+----
 
 This timeout will include the agent provisioning time.
 Because the timeout includes the agent provisioning time, the Pipeline may fail in cases where agent allocation is delayed.
@@ -174,13 +193,13 @@ accept Docker-based Pipelines, or on a node matching the optionally defined
 which may contain arguments to pass directly to a `docker run` invocation, and
 an `alwaysPull` option, which will force a `docker pull` even if the image
 name is already present.
-For example: `agent { docker 'maven:3.8.1-adoptopenjdk-11' }` or
+For example: `agent { docker 'maven:3.9.0-eclipse-temurin-11' }` or
 +
 [source,groovy]
 ----
 agent {
     docker {
-        image 'maven:3.8.1-adoptopenjdk-11'
+        image 'maven:3.9.0-eclipse-temurin-11'
         label 'my-defined-label'
         args  '-v /tmp:/tmp'
     }
@@ -343,7 +362,7 @@ This option is valid for `docker` and `dockerfile`.
 [source, groovy]
 ----
 pipeline {
-    agent { docker 'maven:3.8.1-adoptopenjdk-11' } // <1>
+    agent { docker 'maven:3.9.0-eclipse-temurin-11' } // <1>
     stages {
         stage('Example Build') {
             steps {
@@ -354,7 +373,7 @@ pipeline {
 }
 ----
 <1> Execute all the steps defined in this Pipeline within a newly created container
-of the given name and tag (`3.8.1-adoptopenjdk-11`).
+of the given name and tag (`maven:3.9.0-eclipse-temurin-11`).
 =====
 
 .Stage-level Agent Section
@@ -365,7 +384,7 @@ pipeline {
     agent none // <1>
     stages {
         stage('Example Build') {
-            agent { docker 'maven:3.8.1-adoptopenjdk-11' } // <2>
+            agent { docker 'maven:3.9.0-eclipse-temurin-11' } // <2>
             steps {
                 echo 'Hello, Maven'
                 sh 'mvn --version'
@@ -485,7 +504,7 @@ Deploy.
 | _None_
 
 | Allowed
-| Only once, inside the `pipeline` block.
+| Inside the `pipeline` block, or within a `stage`.
 |===
 
 [[stages-example]]
@@ -582,7 +601,7 @@ additional environment variables will be automatically defined: `MYVARNAME_USR`
 and `MYVARNAME_PSW` respectively.
 SSH with Private Key:: 
 the environment variable specified will be set to the location of the SSH key 
-file that is temporarily created and two additional environment variables may
+file that is temporarily created and two additional environment variables will
 be automatically defined: `MYVARNAME_USR` and `MYVARNAME_PSW` (holding the 
 passphrase).
 
@@ -672,7 +691,7 @@ as `buildDiscarder`, but they may also be provided by plugins, such as
 | _None_
 
 | Allowed
-| Only once, inside the `pipeline` block.
+| Inside the `pipeline` block, or (with certain limitations) within `stage` directives.
 |===
 
 ===== Available Options
@@ -685,7 +704,7 @@ in a subdirectory of the workspace. For example: `options { checkoutToSubdirecto
 
 disableConcurrentBuilds:: Disallow concurrent executions of the Pipeline. Can
 be useful for preventing simultaneous accesses to shared resources, etc. For
-example: `options { disableConcurrentBuilds() }`
+example: `options { disableConcurrentBuilds() }` to queue a build when there's already an executing build of the Pipeline, or `options { disableConcurrentBuilds(abortPrevious: true) }` to abort the running one and start the new build.
 
 disableResume:: Do not allow the pipeline to resume if the controller restarts.
 For example: `options { disableResume() }`
@@ -747,6 +766,10 @@ time at which the line was emitted. For example: `options { timestamps() }`
 parallelsAlwaysFailFast:: Set failfast true for all subsequent parallel stages in the pipeline.
 For example: `options { parallelsAlwaysFailFast() }`
 
+disableRestartFromStage:: Completely disable option "Restart From Stage" visible in classic Jenkins UI and Blue Ocean as well.
+For example: `options { disableRestartFromStage() }`.
+This option can not be used inside of the stage.
+
 [NOTE]
 ====
 A comprehensive list of available options is pending the completion of
@@ -807,6 +830,10 @@ provide when triggering the Pipeline. The values for these user-specified
 parameters are made available to Pipeline steps via the `params` object,
 see the <<parameters-example>> for its specific usage.
 
+Each parameter has a _Name_ and _Value_, depending on the parameter type.
+This information is exported as environment variables when the build starts, allowing subsequent parts of the build configuration to access those values.
+For example, use the `+${PARAMETER_NAME}+` syntax with POSIX shells like `bash` and `ksh`, the `+${Env:PARAMETER_NAME}+` syntax with PowerShell, or the `%PARAMETER_NAME%` syntax with Windows `cmd.exe`.
+
 [cols="^10h,>90a",role=syntax]
 |===
 | Required
@@ -827,7 +854,7 @@ text:: A text parameter, which can contain multiple lines, for example: `paramet
 
 booleanParam:: A boolean parameter, for example: `parameters { booleanParam(name: 'DEBUG_BUILD', defaultValue: true, description: '') }`
 
-choice:: A choice parameter, for example: `parameters { choice(name: 'CHOICES', choices: ['one', 'two', 'three'], description: '') }`
+choice:: A choice parameter, for example: `parameters { choice(name: 'CHOICES', choices: ['one', 'two', 'three'], description: '') }`. The first value is the default.
 
 password:: A password parameter, for example: `parameters { password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'A secret password') }`
 
@@ -1095,7 +1122,7 @@ pipeline {
 }
 ----
 <1> The tool name must be pre-configured in Jenkins under *Manage Jenkins* ->
-*Global Tool Configuration*.
+*Tools*.
 =====
 
 ==== input
@@ -1113,7 +1140,7 @@ the `input` submission will be available in the environment for the rest of the
 message:: Required. This will be presented to the user when they go to submit
 the `input`.
 
-id:: An optional identifier for this `input`. Defaults to the `stage` name.
+id:: An optional identifier for this `input`. The default value is based on the `stage` name.
 
 ok:: Optional text for the "ok" button on the `input` form.
 
@@ -1839,7 +1866,7 @@ matrix {
 [[matrix-stages]]
 ==== stages   
 
-The `stages` section specifies one or more `stage`s to be executed sequentially in each cell. 
+The `stages` section specifies one or more ``stage``s to be executed sequentially in each cell.
 This section is identical to any other
 <<#sequential-stages, `stages` section>>.  
 
@@ -2234,6 +2261,9 @@ for more information.
 ////
 XXX: REWRITE
 ////
+
+video::GJBlskiaRrI[youtube,width=800,height=420]
+This video shares some differences between Scripted and Declarative Pipeline syntax.
 
 When Jenkins Pipeline was first created, Groovy was selected as the foundation.
 Jenkins has long shipped with an embedded Groovy engine to provide advanced
