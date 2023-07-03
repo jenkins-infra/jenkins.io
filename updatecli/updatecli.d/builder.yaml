@@ -1,0 +1,62 @@
+---
+name: Bumps the builder docker image
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  builderDockerImageLatestVersion:
+    kind: dockerimage
+    name: "Get the latest Builder version"
+    spec:
+      image: "jenkinsciinfra/builder"
+      versionfilter:
+        kind: semver
+          
+conditions:
+  testBuilderK8S:
+    name: "Does the Jenkinsfile_k8s reference the builder docker image?"
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: Jenkinsfile_k8s
+      matchpattern: >-
+        .*image:.*"jenkinsciinfra/builder:.*
+  testBuilderAlpineImagePublished:
+    name: "Test builder:<latest_version> docker image tag"
+    kind: dockerimage
+    disablesourceinput: true
+    spec:
+      image: "jenkinsciinfra/builder"
+      tag: '{{ source "builderDockerImageLatestVersion" }}'
+
+targets:
+  updateHelloWorldTutorialBuilderPipeline:
+    name: "Update the value of the builder docker image for pipelines in the 'Hello World!' tutorial"
+    kind: file
+    sourceid: builderDockerImageLatestVersion
+    spec:
+      file: Jenkinsfile_k8s
+      matchpattern: >-
+        ^(.*image:.*\"jenkinsciinfra\/builder:).*(\".*)$
+      replacepattern: >-
+        ${1}{{ source "builderDockerImageLatestVersion" }}${2}
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Bump Builder docker image version to {{ source "builderDockerImageLatestVersion" }}
+    spec:
+      labels:
+        - dependencies
