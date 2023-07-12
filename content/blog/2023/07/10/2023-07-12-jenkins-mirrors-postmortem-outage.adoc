@@ -61,7 +61,7 @@ The public IPs of these services changed (DNS records included) to:
 == Incident Timeline
 
 * **10:30am UTC:** After a successful upgrade of the public Kubernetes cluster in Azure to 1.25 (as part of https://github.com/jenkins-infra/helpdesk/issues/3582[help desk ticket 3582]), we realized that the LDAP service was not reachable by the services running inside the cluster (such as accounts.jenkins.io).
-We quickly realized that the IP restrictions were blocking these requests as the pod originating IP was in a different range than it was before.
+We quickly identified IP restrictions blocking these requests as the pod originating IP was in a different range than before.
 
 * **10:55am UTC:** The fix (https://github.com/jenkins-infra/azure/pull/431[Azure PR 431]) is deployed to specify a proper set of IP ranges for the pods.
 It removed all of the node pools (all the virtual machines where the container was running) and failed to re-create them, causing a full outage of all the services running in this cluster:
@@ -88,9 +88,9 @@ It removed all of the node pools (all the virtual machines where the container w
 
 == What Happened?
 
-* When the cluster was initially created, we selected the virtual network's IP range `10.**244**.0.0/**16**` (ref. https://github.com/jenkins-infra/azure-net/blob/fcb010a5d9f164203c9a896fcb974df4051c321d/vnets.tf#L66[Azure VNets]) with a sub-network `10.245.0.0/24` (ref. https://github.com/jenkins-infra/azure-net/blob/fcb010a5d9f164203c9a896fcb974df4051c321d/vnets.tf#L161)[Azure subnet]).
+* When the cluster was initially created, we selected the `10.**244**.0.0/**16**` virtual network IP range (ref. https://github.com/jenkins-infra/azure-net/blob/fcb010a5d9f164203c9a896fcb974df4051c321d/vnets.tf#L66[Azure VNets]) with a `10.245.0.0/24` sub-network (ref. https://github.com/jenkins-infra/azure-net/blob/fcb010a5d9f164203c9a896fcb974df4051c321d/vnets.tf#L161)[Azure subnet]).
 
-* But we ignored that the range `10.**244**.0.0/**24**` is the default CIDR for the Kubernetes Pods network in Azure when using the link:https://learn.microsoft.com/en-us/azure/aks/configure-kubenet["kubenet" network to support IPv6 instead of default CNI].
+* But we ignored that the `10.**244**.0.0/**24**` range is the default CIDR for the Kubernetes Pods network in Azure when using the link:https://learn.microsoft.com/en-us/azure/aks/configure-kubenet["kubenet" network to support IPv6 instead of the default CNI].
 
 * The node pool re-creation failed because we assumed both ranges were able to communicate and tried to deploy an invalid setup.
 
@@ -111,7 +111,7 @@ It removed all of the node pools (all the virtual machines where the container w
 
 == From 0 to production in less than 4 hours!
 
-One of the takeaways of this outage, is that we are able to recover from a full destruction in less than **4** hours.
+One of the takeaways of this outage, is that we are able to recover from a full destruction of the cluster hosting almost all public services in less than **4** hours.
 
 It's a huge collaborative work which allowed this: from defining the architecture, building the infrastructure, backing-up its data, etc.
 
