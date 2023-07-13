@@ -1,0 +1,120 @@
+---
+layout: post
+title: "Post Mortem of the 7th July 2023 Jenkins Infrastructure Outage"
+tags:
+- infrastructure
+- mirrors
+- jenkins
+- outage
+- postmortem
+authors:
+- dduportal
+opengraph:
+  image: /images/logos/fire/fire.svg
+links:
+discourse: true
+---
+
+On Friday 7th of July 2023, the Jenkins infrastructure suffered a major outage from 11:05am UTC until 15:25pm UTC with complete downtime of the following public services:
+
+* accounts.jenkins.io
+* fallback.get.jenkins.io
+* get.jenkins.io
+* incrementals.jenkins.io
+* javadoc.jenkins.io
+* plugin-health.jenkins.io
+* plugin-site-issues.jenkins.io
+* plugins.origin.jenkins.io
+* plugins.jenkins.io
+* rating.jenkins.io
+* repo.azure.jenkins.io
+* reports.jenkins.io
+* stories.jenkins.io
+* uplink.jenkins.io
+* weekly.ci.jenkins.io
+* www.origin.jenkins.io
+
+We also had complete downtime of the following non-public services:
+
+* ldap.jenkins.io
+* previews of *.jenkins.io pull requests (infra.ci.jenkins.io)
+
+In addition, there was disruption (partial or complete) of the following services:
+
+* ci.jenkins.io
+* infra.ci.jenkins.io
+* issues.jenkins.io
+* plugins.jenkins.io
+* repo.jenkins-ci.org
+* www.jenkins.io
+
+[IMPORTANT]
+--
+The public IPs of these services changed (DNS records included) to:
+
+* `20.7.178.24` (IPv4)
+* `2603:1030:408:5::15a` (IPv6)
+
+⚠️ Update your corporate networks (DNS, proxies, firewall) if you need to access these services.
+--
+
+== Incident Timeline
+
+* **10:30am UTC:** After a successful upgrade of the public Kubernetes cluster in Azure to 1.25 (as part of https://github.com/jenkins-infra/helpdesk/issues/3582[help desk ticket 3582]), we realized that the LDAP service was not reachable by the services running inside the cluster (such as accounts.jenkins.io).
+We quickly identified IP restrictions blocking these requests as the pod originating IP was in a different range than before.
+
+* **10:55am UTC:** The fix (https://github.com/jenkins-infra/azure/pull/431[Azure PR 431]) is deployed to specify a proper set of IP ranges for the pods.
+It removed all of the node pools (all the virtual machines where the container was running) and failed to re-create them, causing a full outage of all the services running in this cluster:
+** accounts.jenkins.io
+** get.jenkins.io
+** incrementals.jenkins.io
+** javadoc.jenkins.io
+** jenkins-wiki-exporter.jenkins.io
+** ldap.jenkins.io
+** plugins.jenkins.io
+** previews of *.jenkins.io pull requests (infra.ci.jenkins.io)
+** release.ci.jenkins.io
+** repo.azure.jenkins.io
+** reports.jenkins.io
+** stories.jenkins.io
+** uplink.jenkins.io
+** www.jenkins.io
+
+* **11:16am until 13:16pm UTC:** The failure to re-create resources led us to spend the 2 next hours creating the cluster from scratch with a fixed network setup.
+
+* **15:17pm UTC:** link:https://github.com/jenkins-infra/azure/pull/432[This pull request] is pushed to persist the manual work we did to recreate the cluster including the IP setup.
+
+* **15:25pm UTC:** All services are back to normal
+
+== What Happened?
+
+* When the cluster was initially created, we selected the `10.**244**.0.0/**16**` virtual network IP range (ref. https://github.com/jenkins-infra/azure-net/blob/fcb010a5d9f164203c9a896fcb974df4051c321d/vnets.tf#L66[Azure VNets]) with a `10.245.0.0/24` sub-network (ref. https://github.com/jenkins-infra/azure-net/blob/fcb010a5d9f164203c9a896fcb974df4051c321d/vnets.tf#L161)[Azure subnet]).
+
+* But we ignored that the `10.**244**.0.0/**24**` range is the default CIDR for the Kubernetes Pods network in Azure when using the link:https://learn.microsoft.com/en-us/azure/aks/configure-kubenet["kubenet" network to support IPv6 instead of the default CNI].
+
+* The node pool re-creation failed because we assumed both ranges were able to communicate and tried to deploy an invalid setup.
+
+* As soon as we specified a custom Pod CIDR in a distinct range, everything went fine.
+
+* When the original cluster was deleted it transitively removed the current Public IPs, as it removed the link:https://learn.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks[Nodes Resource Group] containing the Public IP.
+** These public IPs should change as little as possible to avoid problems with our users running behind a corporate firewall with an allow-list.
+
+== What can we do to improve?
+
+* As per link:https://github.com/jenkins-infra/helpdesk/issues/3582#issuecomment-1629210833[our initial assessment]: protect the Public IPs from deletion by adding a https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/lock-resources?tabs=json[Management Lock].
+
+* As link:https://github.com/jenkins-infra/helpdesk/issues/3582#issuecomment-1629752851[recommended by other contributors]: storing the Public IP in a distinct Resource Group and set up the Kubernetes-managed Load Balancers accordingly (annotation `service.beta.kubernetes.io/azure-load-balancer-resource-group`).
+
+* Improve our network diagrams and documentation to have better access to the representation and potential overlaps when preparing operations.
+
+* Avoid changing AKS node pools configurations all at once: we would have caught the issue after the first node pool and could have avoided a full outage (we are working on this topic for the `arm64` node pools in https://github.com/jenkins-infra/helpdesk/issues/3623[PR-3623]).
+
+== From 0 to production in less than 4 hours!
+
+One of the takeaways of this outage, is that we are able to recover from a full destruction of the cluster hosting almost all public services in less than **4** hours.
+
+It's a huge collaborative work which allowed this: from defining the architecture, building the infrastructure, backing-up its data, etc.
+
+This huge effort started years ago by link:/blog/authors/rtyler/[R. Tyler Croy], link:/blog/authors/olblak/[Olivier Vernin] and backed by a lot of contributors such as link:/blog/authors/daniel-beck/[Daniel Beck], link:/blog/authors/hlemeur/[Hervé Le Meur], link:/blog/authors/timja/[Tim Jacomb], link:/blog/authors/markewaite/[Mark E Waite], link:/blog/authors/smerle33/[Stéphane Merle] and many more.
+
+As current Infrastructure Officer, I want to thank them all so that our life is easier when catastrophic events happens!
