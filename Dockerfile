@@ -1,5 +1,4 @@
-ARG NODE_VERSION=18.16.1
-FROM node:"${NODE_VERSION}" as node
+FROM node:18.16.1 as node
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
