@@ -14,15 +14,6 @@ scms:
       branch: "{{ .github.branch }}"
 
 sources:
-  nodeLatestVersion:
-    kind: githubrelease
-    spec:
-      owner: "nodejs"
-      repository: "node"
-      token: "{{ requiredEnv .github.token }}"
-      username: "{{ .github.username }}"
-    transformers:
-      - trimprefix: "v"
   nodeLatestLTSVersionFromJson:
     name: Get value from json
     kind: json
@@ -32,6 +23,24 @@ sources:
     transformers:
       - trimprefix: "v"
 
+  # Using the githubrelease allows us to retrieve the changelog information
+  # It will fail if the version mentioned by appVersion does not have an equivalent published
+  # GitHub release
+  nodeLatestVersion:
+    kind: githubrelease
+    name: Get latest nodejs version
+    dependson:
+      - nodeLatestLTSVersionFromJson
+    spec:
+      owner: "nodejs"
+      repository: "node"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versionfilter:
+        kind: semver
+        pattern: '{{ source "nodeLatestLTSVersionFromJson" }}'
+    transformers:
+      - trimprefix: "v"
   alpineLatestVersion:
     kind: githubrelease
     name: "Get the latest Alpine Linux version"
@@ -104,7 +113,7 @@ conditions:
     disablesourceinput: true
     spec:
       image: "node"
-      tag: '{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}'
+      tag: '{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
 
 targets:
   updateHelloWorldTutorialNodePipeline:
@@ -116,7 +125,7 @@ targets:
       matchpattern: >-
         (.*agent.*docker.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateHelloWorldTutorialNodeScripted:
     name: "Update the value of the node docker image for scripts in the 'Hello World!' tutorial"
@@ -127,7 +136,7 @@ targets:
       matchpattern: >-
         (.*docker.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateAgentsDocumentation:
     name: "Update the value of the node docker image in the 'Defining execution environments' documentation"
@@ -138,7 +147,7 @@ targets:
       matchpattern: >-
         (.*docker.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateStyleGuideDocumentation:
     name: "Update the value of the node docker image in the 'Jenkins Documentation Style Guide' documentation"
@@ -149,7 +158,7 @@ targets:
       matchpattern: >-
         (.*docker.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updatePipelineProjectCreationTutorial:
     name: "Update the value of the node docker image in the 'End-to-End Multibranch Pipeline Project Creation' tutorial"
@@ -160,7 +169,7 @@ targets:
       matchpattern: >-
         (.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateBuildANodeJsAndReactAppWithNpmTutorial:
     name: "Update the value of the node docker image in the 'Build a Node.js and React app with npm' tutorial"
@@ -171,7 +180,7 @@ targets:
       matchpattern: >-
         (.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateBuildANodeJsAndReactAppWithNpmDockerHubLinkTutorial:
     name: "Update the value of the node docker image in the 'Build a Node.js and React app with npm' tutorial"
@@ -182,7 +191,7 @@ targets:
       matchpattern: >-
         (https.*\`)node:(.*)(\`.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateUsingDockerWithPipelineDocumentation:
     name: "Update the value of the node docker image in the 'Using Docker with Pipeline' documentation"
@@ -193,7 +202,7 @@ targets:
       matchpattern: >-
         (.*image.*\')node:(.*)(\'.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
   updateUsingDockerWithPipelineDocumentationDockerExample:
     name: "Update the value of the node docker image in the 'Using Docker with Pipeline' documentation"
@@ -204,13 +213,13 @@ targets:
       matchpattern: >-
         (FROM )node:(.*)(.*)
       replacepattern: >-
-        ${1}node:{{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}${3}
+        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
     scmid: default
 actions:
   default:
     kind: github/pullrequest
     scmid: default
-    title: '[Tutorials and Agents Docs] Bump node LTS alpine docker image version to {{ source "nodeLatestLTSVersionFromJson" }}-alpine{{ source "alpineLatestVersion" }}'
+    title: '[Tutorials and Agents Docs] Bump node LTS alpine docker image version to {{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
     spec:
       labels:
         - dependencies
