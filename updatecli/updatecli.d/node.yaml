@@ -14,13 +14,31 @@ scms:
       branch: "{{ .github.branch }}"
 
 sources:
+  nodeLatestLTSVersionFromJson:
+    name: Get value from json
+    kind: json
+    spec:
+      file: https://nodejs.org/dist/index.json
+      key: .(lts!=false).version
+    transformers:
+      - trimprefix: "v"
+
+  # Using the githubrelease allows us to retrieve the changelog information
+  # It will fail if the version mentioned by appVersion does not have an equivalent published
+  # GitHub release
   nodeLatestVersion:
     kind: githubrelease
+    name: Get latest nodejs version
+    dependson:
+      - nodeLatestLTSVersionFromJson
     spec:
       owner: "nodejs"
       repository: "node"
       token: "{{ requiredEnv .github.token }}"
       username: "{{ .github.username }}"
+      versionfilter:
+        kind: semver
+        pattern: '{{ source "nodeLatestLTSVersionFromJson" }}'
     transformers:
       - trimprefix: "v"
   alpineLatestVersion:
@@ -201,7 +219,7 @@ actions:
   default:
     kind: github/pullrequest
     scmid: default
-    title: '[Tutorials and Agents Docs] Bump node alpine docker image version to {{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+    title: '[Tutorials and Agents Docs] Bump node LTS alpine docker image version to {{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
     spec:
       labels:
         - dependencies
