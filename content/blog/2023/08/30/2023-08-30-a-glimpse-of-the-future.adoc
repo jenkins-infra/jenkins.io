@@ -8,7 +8,7 @@ tags:
 authors:
 - gounthar
 opengraph:
-  image: /images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/image2.png
+  image: /images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/a-glimpse-of-the-future.png
 discourse: true
 ---
 
@@ -344,7 +344,7 @@ OpenJDK 64-Bit Server VM Temurin-21+34-202308081713 (build 21-beta+34-2023080817
 ----
 
 Now it's clear as day: we've installed a JDK21 version that plays nice with the WAR file,
-but the scripts tied to systemd aren't up to speed with this JDK version yet. +
+but the scripts tied to `systemd` aren't up to speed with this JDK version yet. +
 They're still checking if we're using JDK11, 17 or 21, but they're not ready for prime time, hence the failure. +
 So, how do we fix this mess?
 
@@ -352,85 +352,109 @@ So, how do we fix this mess?
 
 The link:/doc/book/system-administration/systemd-services/#overriding-service-configurations[official documentation] tells us we can override systemd service configurations thanks to
 
+[source,shell]
+----
 sudo systemctl edit jenkins.
+----
 
 This gives us something like:
 
+[source,shell]
+----
 ### Editing /etc/systemd/system/jenkins.service.d/override.conf
-
 ### Anything between here and the comment below will become the new contents of the file
 
-{empty}[Service]
-
+[Service]
 Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx1024m"
-
 Environment="JENKINS_OPTS=--enable-future-java"
+----
 
 I have just added the last line in the hope of getting Jenkins to start.
 
-sudo systemctl daemon-reload and sudo systemctl start jenkins should now be enough to get Jenkins started.
+`sudo systemctl daemon-reload` and `sudo systemctl start jenkins` should now be enough to get Jenkins started.
 
 Yes, we’re almost good to go: +
+
+[source,shell]
+----
 sudo systemctl status jenkins
-
 ● jenkins.service - Jenkins Continuous Integration Server
-
 Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; preset: enabled)
-
 Drop-In: /etc/systemd/system/jenkins.service.d
-
 └─override.conf
-
 Active: activating (start) since Thu 2023-08-24 09:28:34 UTC; 1min 2s ago
-
 Main PID: 7138 (java)
-
 CPU: 2min 32.701s
-
 CGroup: /system.slice/jenkins.service
-
 └─7138 /usr/bin/java -Djava.awt.headless=true -Xmx1024m -jar /usr/share/java/jenkins.war --webroot=/var/cache/jenkins/war --httpPort=8>
 
-Why almost? We still have two problems. The first one is the timeout. These RISC-V machines don’t have an optimized kernel yet, so lots of things are still slow. Too slow. +
-We’d better give Jenkins some more time to start, just in case. +
-Let’s add then a bigger timeout. As earlier, let’s edit the configuration: thanks to sudo systemctl edit jenkins.
+----
 
+Why almost?
+We've still got a couple of hitches.
+The first one is the timeout.
+These RISC-V machines don't have an optimized kernel yet, so a lot of things are slower than molasses in January.
+Too slow. +
+We'd best give Jenkins a bit more time to get its act together, just to be on the safe side. +
+Let's bump up the timeout.
+Like before, we'll tweak the configuration: courtesy of `sudo systemctl edit jenkins`.
+
+[source,shell]
+----
 ### Editing /etc/systemd/system/jenkins.service.d/override.conf
-
 ### Anything between here and the comment below will become the new contents of the file
 
-{empty}[Service]
-
+[Service]
 Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx1024m"
-
-Environment="JENKINS_OPTS=--enable-future-java"
-
 TimeoutStartSec=390
 
 ### Lines below this comment will be discarded
 
-We have another problem: the existing jenkins script in /usr/bin/jenkins is doing its magic with sed, trying to find a valid release. Unfortunately, our Java binary gives us something like “21-beta”. The script then fails to validate, and in the end, does not want to start Jenkins. +
-Our workaround (waiting for link:https://github.com/jenkinsci/packaging/pull/428[this PR] to be merged) is to modify this file. Change line 40 so it becomes:
+----
 
+You may have spotted I removed `Environment="JENKINS_OPTS=--enable-future-java"` from the settings.
+We're running the last weekly release of Jenkins that can handle JDK21, so why should we keep that? +
+We've got another fly in the ointment:
+the existing jenkins script in `/usr/bin/jenkins` is pulling a rabbit out of its hat with `sed`,
+trying to pin down a valid release.
+Unfortunately, our Java binary spits out something like “`21-beta`”.
+The script then trips up on validation, and in the end, throws a tantrum and refuses to start Jenkins. +
+Our workaround (while we twiddle our thumbs
+waiting for link:https://github.com/jenkinsci/packaging/pull/429[this PR] to build the next package) is to tweak this file.
+Change line 40 so it reads:
+
+[source,shell]
+----
 awk -F '"' '/version/ \{print $2}' | awk -F '.' '\{match($1, /^[0-9]+/); print substr($1, RSTART, RLENGTH)}')
+----
 
-Once you’re done, issue sudo systemctl daemon-reload and sudo systemctl restart jenkins and then you will have a Jenkins instance running on top of JDK21 on a RISC-V machine.
+Once you've done that, fire off `sudo systemctl daemon-reload` and `sudo systemctl restart jenkins` and voilà,
+you've got a Jenkins instance running on JDK21 on a RISC-V machine. +
+For those of you still hanging in there, yes, there's a quicker workaround... +
+Just stick the `Environment="JENKINS_OPTS=--enable-future-java"` line back in the `override.conf` file,
+and you'll have a Jenkins instance up and running with JDK21 faster than you can say "compile".
 
-image:A glimpse of the future_media/media/image1.png[image,width=601,height=338]
+image:/images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/image1.png[image,width=839]
 
 == What’s next?
 
-We have now a recent Jenkins instance working thanks to a nightly build of the JDK21 by Temurin. +
-That’s fine, but how could we install more recent versions of the JDK when they are available? +
-One day, we will have regular JDK21 available directly from the package manager, but until this day, how are we supposed to update our installed version?
+We've now got a fresh-off-the-press Jenkins instance humming along thanks to a nightly build of the JDK21 by Temurin. +
+That's all well and good, but how do we install newer versions of the JDK when they roll off the assembly line? +
+One of these days, we'll have regular JDK21 releases available straight from the package manager,
+but until that day comes, how are we supposed to update our installed version?
 
-Well, I don’t see any perfect method to do so, but why not use Jenkins? +
-I have created a small link:https://github.com/gounthar/jenkins-temurin-riscv/blob/main/Jenkinsfile-21[Jenkinsfile] that checks every day at 2:30 AM UTC if Temurin has released a new nightly build for RISC-V. +
-If it finds one, it installs it into /home/jenkins/jdk-21. +
-It’s far from perfect, as the version we’re using is in /opt/jdk21, but we could modify it so we receive an email to let us know. +
-We would then have to shut down Jenkins, move the content of /home/jenkins/jdk-21 to /opt/jdk21, and finally restart Jenkins.
+Well, I don't have a silver bullet, but how about using Jenkins? +
+I've whipped up a nifty little link:https://github.com/gounthar/jenkins-temurin-riscv/blob/main/Jenkinsfile-21[Jenkinsfile] that checks every day at 2:30 AM UTC if Temurin has pushed out a new nightly build for RISC-V. +
+If it strikes gold, it installs it into `/home/jenkins/jdk-21`. +
+It's not exactly a masterpiece, since the version we're using is in `/opt/jdk21`,
+but we could tweak it to shoot us an email when it finds something. +
+We'd then have to put Jenkins on ice, shuffle the contents of `/home/jenkins/jdk-21` over to `/opt/jdk21`,
+and then wake Jenkins back up.
 
-If you’d like to try it out, just create a link:/doc/book/pipeline/getting-started/#defining-a-pipeline-in-scm[new pipeline from source control] and reference the link:https://github.com/gounthar/jenkins-temurin-riscv.git[repo cited earlier]. +
-I agree, even with an email, that this workflow is far from perfect, but this should be a very temporary solution, as Java 21 releases on September 19, 2023.
+If you're itching to give it a whirl,
+just whip up a link:/doc/book/pipeline/getting-started/#defining-a-pipeline-in-scm[new pipeline from source control]
+and point it at the link:https://github.com/gounthar/jenkins-temurin-riscv.git[repo I mentioned earlier]. +
+I'll be the first to admit, even with an email notification, this workflow isn't exactly a walk in the park,
+but it should be a stopgap solution, since Java 21 is set to launch on September 19, 2023.
 
-Stay tuned for more updates and exciting developments as we shape Jenkins' future together.
+Keep your ears to the ground for more updates and thrilling developments as we forge Jenkins' future together.
