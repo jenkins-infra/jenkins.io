@@ -20,10 +20,14 @@ may find it useful to run Jenkins (or the servlet container that Jenkins
 runs in) behind HAProxy.
 This section discusses some of the approaches for doing this.
 
+This 6 minute video tutorial from Darin Pope configures an HAProxy reverse proxy.
+
+.Configuring an HAProxy reverse proxy
+video::TuTdvYfM8T8[youtube, width=640, height=360]
+
 == Plain HTTP
 
-Using HAProxy 1.7.9, here is an example HAProxy.cfg to proxy over plain
-HTTP:
+Using HAProxy 2.6.7, here is an example HAProxy.cfg to proxy over plain HTTP:
 
 [source]
 ----
@@ -32,7 +36,7 @@ HTTP:
 # timeouts so that long-running CLI commands will work.
 global
     maxconn 4096
-    log 127.0.0.1 local0 debug
+    log stdout local0 debug
 
 defaults
    log global
@@ -45,27 +49,32 @@ defaults
    timeout server 60s
 
 frontend http-in
-   bind *:80
-   mode http
-   acl prefixed-with-jenkins  path_beg /jenkins/
-   acl host-is-jenkins-example   hdr(host) eq jenkins.example.com
-   use_backend jenkins if host-is-jenkins-example prefixed-with-jenkins
+  log stdout format raw local0 debug #for additional logging
+  bind *:80
+  mode http
+  acl prefixed-with-jenkins  path_beg /jenkins
+  # Use http-request redirect prefix to add /jenkins prefix to URL's location
+  # to ensure jenkins base url (context path) is working properly.
+  http-request redirect code 301 prefix /jenkins unless prefixed-with-jenkins
+  use_backend jenkins if prefixed-with-jenkins
 
 backend jenkins
-   server jenkins1 127.0.0.1:8080
-   mode http
-   reqrep ^([^\ :]*)\ /(.*) \1\ /\2
-   acl response-is-redirect res.hdr(Location) -m found
-   # Must combine following two lines into a SINGLE LINE for HAProxy
-   rspirep ^Location:\ (http|https)://127.0.0.1:8080/jenkins/(.*)
-           Location:\ \1://jenkins.example.com/jenkins/\2 if response-is-redirect
+  log stdout format raw local0 debug
+  mode http
+  server jenkins1 127.0.0.1:8080 check
+  http-request replace-path /jenkins(/)?(.*) /\2
+  http-request set-header X-Forwarded-Port %[dst_port]
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+
 ----
 
 This assumes Jenkins is running locally on port 8080.
 
-This assumes that you are using the /jenkins/ context path for both the
-site exposed from HAProxy, and Jenkins itself.
+This assumes that you are using the http://localhost/jenkins[/jenkins] context path for both the
+site exposed from HAProxy and Jenkins itself.
 If this is not the case, you will need to adjust the configuration.
+Refer to the HAProxy documentation on link:https://www.haproxy.com/documentation/hapee/latest/traffic-routing/[traffic routing] for more information.
 
 If you are experiencing the following error when attempting to run long
 CLI commands in Jenkins, and Jenkins is running behind HAProxy,
@@ -96,7 +105,7 @@ Caused by: java.io.IOException: Premature EOF
 
 == With SSL
 
-Using HAProxy 1.7.9, here is an example HAProxy.cfg to connect to the
+Using HAProxy 2.6.7, here is an example HAProxy.cfg to connect to the
 proxy using SSL, terminate the SSL connection, and then talk to Jenkins
 using plain HTTP:
 
@@ -105,9 +114,10 @@ using plain HTTP:
 # If you already have an haproxy.cfg file, you can probably leave the
 # global and defaults section as-is, but you might need to increase the
 # timeouts so that long-running CLI commands will work.
+
 global
     maxconn 4096
-    log 127.0.0.1 local0 debug
+    log stdout local0 debug
 
 defaults
    log global
@@ -116,24 +126,28 @@ defaults
    option forwardfor
    maxconn 20
    timeout connect 5s
-   timeout client 5min
-   timeout server 5min
+   timeout client 5m
+   timeout server 5m
 
 frontend http-in
-    bind *:80
-    bind *:443 ssl crt /usr/local/etc/haproxy/ssl/server.pem
-    mode http
-    redirect scheme https if !{ ssl_fc } # Redirect http requests to https
-    use_backend jenkins if { path_beg /jenkins/ }
+  log stdout format raw local0 debug
+  bind *:80
+  bind *:443 ssl crt /usr/local/etc/haproxy/ssl/server.pem
+  mode http
+  acl prefixed-with-jenkins  path_beg /jenkins
+  http-request redirect code 301 prefix /jenkins unless prefixed-with-jenkins
+  redirect scheme https if !{ ssl_fc } # Redirect http requests to https
+  use_backend jenkins if prefixed-with-jenkins
 
 backend jenkins
-    server jenkins1 127.0.0.1:8080
-    mode http
-    http-request set-header X-Forwarded-Port %[dst_port]
-    http-request add-header X-Forwarded-Proto https if { ssl_fc }
-    reqrep ^([^\ :]*)\ /(.*)     \1\ /\2
-    acl response-is-redirect res.hdr(Location) -m found
-    # Must combine following two lines into a SINGLE LINE for HAProxy
-    rspirep ^Location:\ (http)://127.0.0.1:8080/(.*)
-            Location:\ https://jenkins.example.com:443/\2 if response-is-redirect
+  log stdout format raw  local0 debug
+  mode http
+  server jenkins1 127.0.0.1:8080 check
+  http-request replace-path /jenkins(/)?(.*) /\2
+  http-request set-header X-Forwarded-Port %[dst_port]
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+
 ----
+
+include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
