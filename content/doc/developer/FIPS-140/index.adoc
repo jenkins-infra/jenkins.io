@@ -1,0 +1,41 @@
+---
+layout: developerchapter
+summary: FIPS-140 for developers
+wip: true
+title: FIPS-140 for developers
+references:
+- url: https://github.com/jenkinsci/jep/blob/master/jep/237/README.adoc
+  title: JEP-237 FIPS-140 support for Jenkins
+- url: hhttps://csrc.nist.gov/pubs/fips/140-2/upd2/final
+  title: FIPS-140-2 Security Requirements for Cryptographic Modules
+---
+
+In order for code in Jenkins and plugins to be compliant with FIPS-140 care needs to be taken that sensitive information is correctly handled.
+This document provides a non exhaustive cheat-sheet that can be used to guide developers to write code that is FIPS-140 compliant.
+This applies to all forms of cryptography regardless of it is is encryption/decryption,  hashing, or signing.
+[IMPORTANT]
+====
+FIPS-140 compliant code may result in less security as the approved standards can lag behind more secure modern standards.
+Therefore your plugin and Jenkins code should not blindly follow the tips here, but may additionally need to make decisions at runtime if to use a FIPS-140 compliant option or something else.
+====
+
+Any sensitive information for accessing an external system that is persisted should be stored either as a link:https://javadoc.jenkins.io/hudson/util/Secret.html[`hudson.util.Secret`] or a link:https://javadoc.jenkins.io/plugin/credentials/com/cloudbees/plugins/credentials/Credentials.html[`com.cloudbees.plugins.credentials.Credentials`]
+
+Rely on only on link:https://docs.oracle.com/en/java/javase/11/security/java-cryptography-architecture-jca-reference-guide.html#GUID-3E0744CE-6AC7-4A6D-A1F6-6C01199E6920[Java Cryptography Architecture (JCA)] or link:https://bouncycastle.org/java.html[BouncyCastle] via the link:https://plugins.jenkins.io/bouncycastle-api/[BouncyCastle API plugin] when perfoming crytography.
+Do not depend on any 3rd party libraries to perform encryption or specify any specific link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/Provider.html[`java.security.Provider`] when obtaining a concrete JCA implementation.
+Additionally the subset of algorithms used should be restricted to the subset this is link:https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/3514[supported] by the link:https://downloads.bouncycastle.org/fips-java/BC-FJA-UserGuide-1.0.2.pdf[BouncyCastle FIPS]implementaion.
+[NOTE]
+====
+FIPS-140 has no support for asymmetric encryption such as RSA.
+====
+
+If there is a tradeoff to be made between FIPS-140 support or a more secure option the tradeoff should be made at runtime by checking link:https://javadoc.jenkins.io/jenkins/security/FIPS140.html#useCompliantAlgorithms()[`jenkins.security.FIPS140.useCompliantAlgorithms`]
+
+If Using a link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/SecureRandom.html[`kava.security.SecureRandom`] it should be obtained via link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/SecureRandom.html#%3Cinit%3E()[]`new SecureRandom()`] or link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/SecureRandom.html#getInstanceStrong()[]`SecureRandom.getInstanceStrong()`].
+Do not use any of the methods pr constructor that take an optional `seed`.
+
+[NOTE]
+====
+This guidance is applicable to all libraries that your plugin bundles, or uses from Jenkins core. 
+Jenkins core may provide some libraries that are not FIPS-140 compliant for some API calls, but are when called by Jenkins core itself.
+====
