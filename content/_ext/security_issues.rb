@@ -22,7 +22,7 @@ class SecurityIssues
           issue_id = advisory_entry.gsub(/ .*/, '')
           numeric_id = issue_id.gsub(/SECURITY-/, '')
 
-          all_issues << { :id => numeric_id.to_i, :redirect_id => issue_id, :entry => issue_id }
+          all_issues << { :id => numeric_id.to_i, :redirect_id => issue_id }
 
           page = site.engine.load_page(template)
           page.output_path = "/security/issue/#{issue_id}/index.html"
