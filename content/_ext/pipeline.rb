@@ -41,6 +41,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Releases.new
 
   extension UpgradeGuide.new
+  extension SecurityIssues.new
 
   extension AuthorList.new(:posts,
                         '/node/index',
