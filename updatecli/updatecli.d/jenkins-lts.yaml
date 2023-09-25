@@ -1,0 +1,91 @@
+---
+name: Bump last three Jenkins' LTS versions in the documentation
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  JenkinsLatestLTS:
+    name: Get the latest Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 0 # source input value passed as argument
+  JenkinsPreviousLTS:
+    name: Get the previous Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 1 # source input value passed as argument
+  JenkinsThirdToLastLTS:
+    name: Get the previous Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 2 # source input value passed as argument
+
+conditions:
+  # Test that a specific Jenkins version exists
+  jenkinsLatestLTSVersion:
+    kind: jenkins
+    sourceid: JenkinsLatestLTS
+  # Test that a specific Jenkins version exists
+  jenkinsPreviousLTSVersion:
+    kind: jenkins
+    sourceid: JenkinsPreviousLTS
+  # Test that a specific Jenkins version exists
+  jenkinsThirdToLastVersion:
+    kind: jenkins
+    sourceid: JenkinsThirdToLastLTS
+
+targets:
+  setJenkinsLatestLTSVersionInRecommendedVersions:
+    kind: file
+    name: "Bump Jenkins latest LTS version in the recommended versions section"
+    sourceid: JenkinsLatestLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*You could also consider \*)(.*)(\* if there are specific reasons.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsLatestLTS" }}${3}
+    scmid: default
+  setJenkinsLTSVersionInMinimumRecommendedVersion:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the recommended versions section"
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*<jenkins.version>)(.*)(</jenkins.version>)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setJenkinsLTSVersionInGoodCoreDependencies:
+    kind: file
+    name: "Bump Jenkins good core dependencies LTS version in the recommended versions section"
+    sourceid: JenkinsThirdToLastLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*At the moment, the Jenkins releases \*)(.*)(\* make good core dependencies.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsThirdToLastLTS" }} and {{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+
+
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Bump JDK21 version to {{ source "JenkinsLatestLTS" }}
+    spec:
+      labels:
+        - dependencies
