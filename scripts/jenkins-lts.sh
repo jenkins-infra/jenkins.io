@@ -1,16 +1,28 @@
 #!/bin/bash
 
+# The script fetches the Jenkins release data, extracts the LTS version numbers, sorts them, and then outputs the last three versions.
+
+# -e  causes the script to exit immediately if any command fails.
+# -u  treats unset variables as an error and exits the script.
+# -x  prints each command before executing it, which helps with debugging.
 set -eux
 
-# Fetch the Jenkins release data
+# Uses the  wget  command to download the RSS feed of the Jenkins changelog and outputs it to the standard output ( -O - ).
 wget -q -O - https://www.jenkins.io/changelog-stable/rss.xml | \
-# Use awk to extract the LTS version numbers
+# Uses  awk  to extract the LTS (Long-Term Support) version numbers from the downloaded RSS feed.
+# It searches for lines containing  <title>Jenkins  , splits the third field based on spaces,
+# and prints the second element of the resulting array.
 awk -F'[<>]' '/<title>Jenkins /{split($3,a," "); print a[2]}' | \
-# Use sort to get the versions in order
+# Sorts the version numbers in ascending order.
+# It uses the  sort  command with the delimiter set to dot ( -t. ) and sorts numerically ( -n ) based on the first,
+# second, and third fields ( -k1,1n -k2,2n -k3,3n ).
 sort -t. -k1,1n -k2,2n -k3,3n | \
-# Use awk to get the last version of each unique base version
+# Uses  awk  to get the last version of each unique base version.
+# It creates an associative array  x  with the first and second fields
+# as the key and the whole version number as the value.
+# In the  END  block, it iterates over the array and prints the values.
 awk -F. '{x[$1"."$2]=$0} END {for (i in x) print x[i]}' | \
-# Use sort again to get the versions in order
+# Sorts the versions again in ascending order.
 sort -t. -k1,1n -k2,2n -k3,3n | \
-# Use tail to get the last three
+# Uses the  tail  command to get the last three versions from the sorted list.
 tail -3
