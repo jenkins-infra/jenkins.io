@@ -4,8 +4,7 @@
 
 # -e  causes the script to exit immediately if any command fails.
 # -u  treats unset variables as an error and exits the script.
-# -x  prints each command before executing it, which helps with debugging.
-set -eux
+set -eu -o pipefail
 
 # Get the "backward" argument, default to 0 if not provided.
 # This argument specifies which version to get, starting from 0 for the latest version.
