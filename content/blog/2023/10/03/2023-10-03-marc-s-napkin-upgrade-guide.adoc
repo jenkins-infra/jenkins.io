@@ -1,0 +1,97 @@
+---
+layout: post
+title: "Back of the Napkin Guide to Updating Jenkins, for the uninitiated"
+tags:
+- jenkins
+- upgrade
+- plugins
+authors:
+- mwp565733
+opengraph:
+  image: link:https://github.com/jenkins-infra/jenkins.io/blob/9940fda70482fd5d57406e53838bc63d1be725bb/content/images/post-images/2020/2020-09-09-new-jenkins-release-observations/upgrade-jenkins-from-manage-jenkins.png?raw=true
+discourse: true
+---
+
+image:link:https://github.com/jenkins-infra/jenkins.io/blob/9940fda70482fd5d57406e53838bc63d1be725bb/content/images/post-images/2020/2020-09-09-new-jenkins-release-observations/upgrade-jenkins-from-manage-jenkins.png?raw=true
+
+== Prologue
+
+A summary of my journey to update my Jenkins Servers follows.
+This is intended to be a “back of the napkin” _guide_ that I used to fully research and upgrade my Jenkins Servers which had largely been left unattended for a very long time.
+Many of you are seasoned experts, I wasn’t.
+I have cited references that I found useful in my research especially since my install base may be different than yours foundationally.
+Hope it helps others.
+
+Yours in Jenkins
+author::mwp565733[Marc]
+
+> “This is the way”
+
+=== Prework:
+
+Go through the Change log`, with your plugin list right next to you.
+Go through EVERY change log from the current version to the target version, and each iteration between.
+Look for references to your Plugins and Java versions (client and primary) in the Change Log to build a validation checklist (e.g. does SSH still work, Does plugin function properly).
+
+**ADDED ROI**: while you are looking at your Plug-ins, which ones are deprecated, do you still need them?
+Try deactivating them (before removing them) to see if anyone is complaining.
+
+`Backup Security roles and Users` If you use LDAP/AD, make copies offline of Security groups and access, User Lists and Security groups (_<jenkins_url>/manage/role-strategy/_ && _<jenkins_url>/manage/role-strategy/assign-roles_).
+As well as configurations to access the Active Directory (_<jenkins_url>/configureSecurity/_).
+
+=== Let the work begin:
+
+. Know your backups for rollbacks.
+I played a lot with plug-ins… making a tar/zip archive of /JENKINS_HOME/plugins was super useful.
+Some plugins like link:https://plugins.jenkins.io/active-directory/[Active Directory] threw me for a loop when I was updating the apps or settings therein.
+. `SNAPSHOTS` beginning, and after each benchmark, if you can afford to.
+. `Update Plugins` to the highest Compatible level (I found “highest level” sometimes made unnecessary errors, KISS). *SNAPSHOT:* Archive the <JENKINS_HOME>/plugins/ folder
+. `Update the Core application`: Use the same method that you used to install.
+We run on RHEL, and used yum…
+I initially tried downloading the war file (article linked below), and it kept throwing different errors…
+Go back to the same install method.
+Depending on the versioning used, versions pre-2.400 used a different security key than post-2.400 (link:/blog/2023/03/27/repository-signing-keys-changing/[Jenkins 2.397 and 2.387.2: New Linux Repository Signing Keys]); keep in mind.
+. `Update plugins _AGAIN_` to the highest “compatible” level again (hopefully the highest level)
+. `Plugin configuration`. My CVS plugin required files that are not in the hpi install file, as they are proprietary to the CVS… follow appropriate plugin documentation to satisfy dependencies. Establish connections to external databases and services (AD/CVS/etc.).
+**Special anecdote** I had trouble getting the “Require TLS” checkbox to work properly for the LDAPS connect… because a conflict needed to be redressed.  Specifically I had to modify the systemctl for Jenkins… confirm `-Dhudson.plugins.active_directory.ActiveDirectorySecurityRealm.forceLdaps=true`
+was removed before enabling that checkbox, else we were getting errors when authenticating against the LDAPS ~link:https://plugins.jenkins.io/active-directory/#plugin-content-encryption-support[Reference]~
+. `Validation` check with that list you made before… can you SSH out to client servers?
+Can you connect to your external services/databases?
+
+=== Cleanup:
+
+Depending on how big the upgrade was, `re-examine Plug-ins`.
+Some plugins may be deprecated as functionality is folded into Core, these plugins may be considered to be disabled and removed at a later date.
+This will help close security holes (make your CISO happy).
+After each disable/remove and Application recycle.
+
+== Epilogue
+
+This is a never-ending process...
+It's not a once-and-done.
+After I completed the upgrade cycle, I visited each server weekly to update plugins, disable plugins that appeared to be unused, remove plugins that _WERE_ unused, and address Warnings that came through the top of the Jenkins UI.
+It’s easier, the more you do it.
+I practiced on my sandbox server a few times before touching the production servers.
+And I still made snapshots as I went along.
+
+This is me recording my journey... now you record yours.
+
+== References:
+
+* Core app updated
+- link:/doc/book/installing/[Installation guide for Jenkins]
+- link:/doc/book/installing/linux/#red-hat-centos[Installation guide for Jenkins RHEL]
+
+* Change log
+- link:/doc/upgrade-guide/[Jenkins Change Log for upgrades]
+
+* Plug-in references
+- link:https://plugins.jenkins.io/[Jenkins Plugin Library]
+- link:https://plugins.jenkins.io/active-directory/[Jenkins Active Directory Plugin]
+** link:https://plugins.jenkins.io/active-directory/#plugin-content-encryption-support[Active Directory forceLdaps guidance]
+- link:https://plugins.jenkins.io/dimensionsscm/[Jenkins Dimensions Plugin]
+- link:https://plugins.jenkins.io/role-strategy/[Jenkins Role Strategy]
+
+* Supplementary reading
+- link:https://www.baeldung.com/ops/jenkins-war-update[Upgrading Jenkins with a WAR file] My initial drafts were based on this process
+- link:https://medium.com/geekculture/how-to-upgrade-jenkins-on-windows-linux-server-b7d4526abc31[How to Upgrade Jenkins on Windows/Linux Server] I used this for Troubleshooting guides tips and tricks
