@@ -1,0 +1,238 @@
+---
+name: Bump last three Jenkins' LTS versions in the documentation
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  JenkinsLatestLTS:
+    name: Get the latest Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 0 # source input value passed as argument
+  JenkinsPreviousLTS:
+    name: Get the previous Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 1 # source input value passed as argument
+  JenkinsThirdToLastLTS: &jenkinsThirdToLastLTS
+    name: Get the third to last Jenkins LTS version
+    kind: shell
+    spec: &jenkinsThirdToLastLTSSpec
+      command: bash ./updatecli/scripts/jenkins-lts.sh 2 # source input value passed as argument
+  JenkinsThirdToLastLTSTruncated: &jenkinsThirdToLastLTSTruncated
+    name: Get the previous Jenkins LTS version for the BOM root version
+    kind: shell
+    spec: &jenkinsThirdToLastLTSTruncatedSpec
+      command: bash ./updatecli/scripts/jenkins-lts.sh 2 | rev | cut -d. -f2- | rev # Fetches the third-to-last Jenkins LTS version and trims the last segment after the final dot.
+  JenkinsTooOldToSucceedLTS: &jenkinsThirdToLastLTS
+    name: Get a super old version
+    kind: shell
+    spec: &jenkinsThirdToLastLTSSpec
+      command: bash ./updatecli/scripts/jenkins-lts.sh 7 # 7 is more or less arbitrary. It corresponds to the 2.319.x version I found in the documentation.
+  JenkinsTooOldToSucceedLTSTruncated:
+    name: Get a super old version for the BOM root version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 7 | rev | cut -d. -f2- | rev
+  BOM:
+    name: Get the latest Jenkins BOM version
+    kind: maven
+    source: JenkinsThirdToLastLTSTruncated
+    dependson:
+      - JenkinsThirdToLastLTSTruncated
+    spec:
+      repository: "https://repo.jenkins-ci.org/releases"
+      groupid: "io.jenkins.tools.bom"
+      artifactid: bom-{{ source "JenkinsThirdToLastLTSTruncated" }}.x
+  SuperOldBOM:
+    name: Get the super old Jenkins BOM version
+    kind: maven
+    source: JenkinsTooOldToSucceedLTSTruncated
+    dependson:
+      - JenkinsTooOldToSucceedLTSTruncated
+    spec:
+      repository: "https://repo.jenkins-ci.org/releases"
+      groupid: "io.jenkins.tools.bom"
+      artifactid: bom-{{ source "JenkinsTooOldToSucceedLTSTruncated" }}.x
+
+conditions:
+  # Test that the latest LTS Jenkins version exists
+  jenkinsLatestLTSVersion:
+    kind: jenkins
+    sourceid: JenkinsLatestLTS
+  # Test that the previous LTS Jenkins version exists
+  jenkinsPreviousLTSVersion:
+    kind: jenkins
+    sourceid: JenkinsPreviousLTS
+  # Test that the third to last LTS Jenkins version exists
+  jenkinsThirdToLastVersion:
+    kind: jenkins
+    sourceid: JenkinsThirdToLastLTS
+  # Test that the seventh to last LTS Jenkins version exists
+  jenkinsSuperOldVersion:
+    kind: jenkins
+    sourceid: JenkinsTooOldToSucceedLTS
+
+targets:
+  setJenkinsLatestLTSVersionInRecommendedVersions:
+    kind: file
+    name: "Bump Jenkins latest LTS version in the recommended versions section"
+    sourceid: JenkinsLatestLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*You could also consider \*)(.*)(\* if there are specific reasons.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsLatestLTS" }}${3}
+    scmid: default
+  setJenkinsLTSVersionInMinimumRecommendedVersion:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the recommended versions section"
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*<jenkins.version>)(.*)(</jenkins.version>)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setJenkinsLTSVersionInGoodCoreDependencies:
+    kind: file
+    name: "Bump Jenkins good core dependencies LTS version in the recommended versions section"
+    sourceid: JenkinsThirdToLastLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*At the moment, the Jenkins releases \*)(.*)(\* make good core dependencies.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsThirdToLastLTS" }} and {{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setLTSVersionInUpdateMinimumRequiredJenkinsVersion:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the \"improve a plugin tutorial\""
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*<jenkins.version>)(.*)(</jenkins.version>.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setLTSVersionAsATask:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the \"improve a plugin tutorial task\""
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*:task-description: Require )(.*)( as minimum Jenkins version.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setBOMBaseVersionInUpdateMinimumRequiredJenkinsVersion:
+    kind: file
+    name: "Bump Jenkins minimum BOM artifact in the \"improve a plugin tutorial\""
+    sourceid: BOM
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*\+.*<artifactId>)(bom-.*)(</artifactId>)
+      replacepattern: >-
+        ${1}bom-{{ source "JenkinsThirdToLastLTSTruncated" }}.x${3}
+    scmid: default
+  setBOMVersionInUpdateMinimumRequiredJenkinsVersion:
+    kind: file
+    name: "Bump Jenkins minimum BOM artifact version in the \"improve a plugin tutorial\""
+    sourceid: BOM
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*\+.*<version>)(.*)(</version>.*)
+      replacepattern: >-
+        ${1}{{ source "BOM" }}${3}
+    scmid: default
+  setSuperOldBOMBaseVersionInUpdateMinimumRequiredJenkinsVersion:
+    kind: file
+    name: "Bump Jenkins super old BOM artifact in the \"improve a plugin tutorial\""
+    sourceid: SuperOldBOM
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*-.*<artifactId>)(bom-.*)(</artifactId>)
+      replacepattern: >-
+        ${1}bom-{{ source "JenkinsTooOldToSucceedLTSTruncated" }}.x${3}
+    scmid: default
+  setSuperOldBOMVersionInUpdateMinimumRequiredJenkinsVersion:
+    kind: file
+    name: "Bump Jenkins super old BOM artifact version in the \"improve a plugin tutorial\""
+    sourceid: SuperOldBOM
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*-.*<version>)(.*)(</version>.*)
+      replacepattern: >-
+        ${1}{{ source "SuperOldBOM" }}${3}
+    scmid: default
+  setBOMBaseVersionInUsePluginBOM:
+    kind: file
+    name: "Bump Jenkins minimum BOM artifact in the \"plugin-bill-of-materials\" page"
+    sourceid: BOM
+    spec:
+      file: content/doc/developer/tutorial-improve/use-plugin-bill-of-materials.adoc
+      matchpattern: >-
+        (.*.*<artifactId>)(bom-.*)(</artifactId>)
+      replacepattern: >-
+        ${1}bom-{{ source "JenkinsThirdToLastLTSTruncated" }}.x${3}
+    scmid: default
+  setBOMVersionInUsePluginBOM:
+    kind: file
+    name: "Bump Jenkins minimum BOM artifact version in the \"plugin-bill-of-materials\" page"
+    sourceid: BOM
+    spec:
+      file: content/doc/developer/tutorial-improve/use-plugin-bill-of-materials.adoc
+      matchpattern: >-
+        (.*.*<version>)(.*)(</version>.*)
+      replacepattern: >-
+        ${1}{{ source "BOM" }}${3}
+    scmid: default
+  setBOMBaseVersionInDependencyManagement:
+    kind: file
+    name: "Bump Jenkins minimum BOM artifact in the \"dependency management\" page"
+    sourceid: BOM
+    spec:
+      file: content/doc/developer/plugin-development/dependency-management.adoc
+      matchpattern: >-
+        (.*.*<artifactId>)(bom-.*)(</artifactId>)
+      replacepattern: >-
+        ${1}bom-{{ source "JenkinsThirdToLastLTSTruncated" }}.x${3}
+    scmid: default
+  setBOMVersionInDependencyManagement:
+    kind: file
+    name: "Bump Jenkins minimum BOM artifact version in the \"dependency management\" page"
+    sourceid: BOM
+    spec:
+      file: content/doc/developer/plugin-development/dependency-management.adoc
+      matchpattern: >-
+        (.*.*<version>)(.*)(</version>.*)
+      replacepattern: >-
+        ${1}{{ source "BOM" }}${3}
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Bump Jenkins LTS versions to {{ source "JenkinsLatestLTS" }} in various parts of the documentation
+    spec:
+      labels:
+        - dependencies
