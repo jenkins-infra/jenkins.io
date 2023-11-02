@@ -1,0 +1,96 @@
+---
+layout: subsection
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../../resources/managing]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+[[running-jenkins-behind-lighttpd]]
+= Reverse proxy - Lighttpd
+
+In situations where you have existing web sites on your server, you may find it useful to run Jenkins (or the servlet container that Jenkins runs in) behind https://www.lighttpd.net/[Lighttpd].
+This allows you to bind Jenkins to the part of a bigger website that you may have or centralize the TLS termination in a single place.
+This section discusses some of the approaches for doing this.
+
+The link:https://redmine.lighttpd.net/projects/lighttpd/wiki/Mod_proxy[mod_proxy] works
+by making Lighttpd perform as a "reverse proxy".
+This means when a request arrives for certain URLs, Lighttpd becomes a proxy and forwards that request to Jenkins, then forwards the response from Jenkins back to the client. 
+
+There are two alternatives to configure Jenkins with Lighttpd.
+Select the technique that best meets your needs:
+
+* <<By host>>
+* <<By path>>
+
+By link:https://www.lighttpd.net/2018/11/28/1.4.52/[default], Lighttpd will force the URL normalization, thus mismatching the headers used by an internal Jenkins reverse
+proxy test.
+This results in showing the message *It appears that your reverse proxy setup is broken* on the manage page.
+To avoid this, explicit disable the option `url-path-2f-decode`.
+
+== By host
+
+In the configuration below there is no context path for Jenkins URL.
+
+When a request for the domain `jenkins.example.com` arrives, Lighttpd proxies this request to Jenkins.
+
+[source]
+----
+server.http-parseopts = (
+  "url-path-2f-decode" => "disable"
+)
+
+server.modules += ( "mod_proxy" )
+
+$HTTP["host"] == "jenkins.example.com" {
+  proxy.balance = "hash"
+  proxy.server = ( 
+    "" => (
+      "jenkins" => (
+        "host" => "127.0.0.1",
+        "port" => "8080"
+      )
+    ) 
+  )
+}
+----
+
+This assumes that you run Jenkins on port 8080.
+
+== By path
+
+In the configuration below there is a specific path `/jenkins` for Jenkins.
+This path should be configured in Lighttpd with `$HTTP["url"]`.
+In Jenkins, set the context path by modifying the jenkins.xml configuration file and adding  `--prefix=/jenkins` (or similar) to the <arguments> entry.
+
+When a request is made to, for example `http://localhost/jenkins`, Lighttpd proxies this
+request to Jenkins.
+
+[source]
+----
+server.http-parseopts = (
+  "url-path-2f-decode" => "disable"
+)
+
+server.modules += ( "mod_proxy" )
+
+$HTTP["url"] =~ "^/jenkins(.*)$" {
+  proxy.balance = "hash" 
+  proxy.server = (
+    "" => (
+      "jenkins" => (
+        "host" => "127.0.0.1",
+        "port" => 8080
+      )
+    )
+  )
+}
+----
+
+This assumes that you run Jenkins on port 8080.
