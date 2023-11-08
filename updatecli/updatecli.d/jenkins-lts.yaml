@@ -44,6 +44,25 @@ sources:
     kind: shell
     spec:
       command: bash ./updatecli/scripts/jenkins-lts.sh 7 | rev | cut -d. -f2- | rev
+  JenkinsLastSplit:
+    name: Get the last version of Jenkins where we extracted a plugin from core
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-split.sh
+  JenkinsOldestSupportedWeekly:
+    name: Get the oldest supported Jenkins weekly version
+    kind: json
+    scmid: default
+    spec:
+      file: https://updates.jenkins.io/tiers.json
+      key: "weeklyCores.[0]"
+  JenkinsOldestSupportedStable:
+    name: Get the oldest supported Jenkins stable version
+    kind: json
+    scmid: default
+    spec:
+      file: https://updates.jenkins.io/tiers.json
+      key: "stableCores.[0]"
   BOM:
     name: Get the latest Jenkins BOM version
     kind: maven
@@ -82,7 +101,21 @@ conditions:
   jenkinsSuperOldVersion:
     kind: jenkins
     sourceid: JenkinsTooOldToSucceedLTS
-
+  # Test that the oldest Jenkins supported weekly version exists
+  jenkinsOldestSupportedWeeklyVersion:
+    kind: jenkins
+    spec:
+      release: weekly
+    sourceid: JenkinsOldestSupportedWeekly
+  # Test that the oldest Jenkins supported stable version exists
+  jenkinsOldestSupportedStableVersion:
+    kind: jenkins
+    sourceid: JenkinsOldestSupportedStable
+  jenkinsLastSplitVersion:
+    kind: jenkins
+    spec:
+      release: weekly
+    sourceid: JenkinsLastSplit
 targets:
   setJenkinsLatestLTSVersionInRecommendedVersions:
     kind: file
@@ -116,6 +149,50 @@ targets:
         (.*At the moment, the Jenkins releases \*)(.*)(\* make good core dependencies.*)
       replacepattern: >-
         ${1}{{ source "JenkinsThirdToLastLTS" }} and {{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setJenkinsOldestSupportedWeekly:
+    kind: file
+    name: "Bump Jenkins oldest weekly supported version in the \"Choosing a version\" page"
+    sourceid: JenkinsOldestSupportedWeekly
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*Do not use versions no longer supported by the update center.*older than )(.*)( for weekly releases.*for LTS releases.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsOldestSupportedWeekly" }}${3}
+    scmid: default
+  setJenkinsOldestSupportedStable:
+    kind: file
+    name: "Bump Jenkins oldest stable supported version in the \"Choosing a version\" page"
+    sourceid: JenkinsOldestSupportedStable
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*Do not use versions no longer supported by the update center.* weekly releases, and )(.*)( for LTS releases.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsOldestSupportedStable" }}${3}
+    scmid: default
+  setJenkinsOldestSupportedStableTwo:
+    kind: file
+    name: "Bump Jenkins oldest stable supported version in the \"Choosing a version\" page"
+    sourceid: JenkinsOldestSupportedStable
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*Something around 1 year old .* makes a good choice and )(.*)( would be a reasonable candidate.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsOldestSupportedStable" }}${3}
+    scmid: default
+  setJenkinsOldestSplit:
+    kind: file
+    name: "Bump last Jenkins split version in the \"Choosing a version\" page"
+    sourceid: JenkinsLastSplit
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*At this time, a dependency on Jenkins versions.*than )(.*)(\* will not result in such implied dependencies.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsLastSplit" }}${3}
     scmid: default
   setLTSVersionInUpdateMinimumRequiredJenkinsVersion:
     kind: file
@@ -232,7 +309,8 @@ actions:
   default:
     kind: github/pullrequest
     scmid: default
-    title: Bump Jenkins LTS versions to {{ source "JenkinsLatestLTS" }} in various parts of the documentation
+    title: Bump Jenkins LTS and weekly versions in various parts of the documentation
     spec:
       labels:
         - dependencies
+        - chore
