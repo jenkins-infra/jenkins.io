@@ -17,12 +17,23 @@ references:
 Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework], instead of a more common framework.
 As a result, generic static analysis tools are often unable to find common vulnerabilities in Jenkins core and plugins.
 
-The link:/security/team/[Jenkins security team] created a custom code scanner based on GitHub's https://github.com/github/codeql[CodeQL].
-It is capable of finding vulnerabilities common in Jenkins plugins.
+The link:/security/team/[Jenkins security team] created custom code scanning rules built with GitHub's https://github.com/github/codeql[CodeQL].
+They are capable of finding vulnerabilities common in Jenkins plugins.
 
-This page explains how to set up code scanning with this tool.
+This page explains how to set up code scanning with these rules.
+This can be accomplished in multiple ways:
 
-== Usage in a Jenkins project-hosted plugin
+* Use the reusable Jenkins Security Scan workflow.
+  This requires less configuration but is less flexible.
+* Use the CodeQL security scanning workflow and add the Jenkins-specific rules.
+  This requires more configuration, but is more flexible.
+* Use the 
+
+See the instructions below for further instructions.
+
+== Jenkins Security Scan workflow
+
+=== Usage in a Jenkins project-hosted plugin
 
 In your GitHub repository, select the "Actions" link on top.
 If you already have some workflows in your repository, click "New Workflow".
@@ -44,16 +55,25 @@ Within 24 hours, the first code scanning results should appear.
 Unlike the GitHub Action, feedback is not immediate, as scans are only running periodically.
 ////
 
-== Usage outside the Jenkins project
+=== Usage outside the Jenkins project
 
 You can use the same GitHub workflow in your Jenkins plugin project as long as it's hosted on GitHub.
 Copy the https://github.com/jenkinsci/.github/blob/master/workflow-templates/jenkins-security-scan.yaml[YAML workflow template] into your repository's `.github/workflows` directory.
 You need to replace the `$default-branch` placeholder as appropriate.
 
-NOTE: Your repository needs to be public or you need https://docs.github.com/en/get-started/learning-about-github/about-github-advanced-security[GitHub Advanced Security].
-Uploading the report will fail with an error otherwise.
+[NOTE]
+====
+Your repository needs to be public or you need https://docs.github.com/en/get-started/learning-about-github/about-github-advanced-security[GitHub Advanced Security].
+Uploading the report will fail with an error otherwise:
 
-== Common problems
+> `Error: Advanced Security must be enabled for this repository to use code scanning.`
+
+This happens for private repositories that do not have GitHub Advanced Security enabled.
+Review _Settings » Security » Code security and analysis » GitHub Advanced Security_ in your repository and ensure that it is enabled.
+This section of the configuration is only visible if you have an appropriate GitHub paid plan.
+====
+
+=== Common problems
 
 Rate limiting::
 The scan fails to execute with the following error message:
@@ -95,15 +115,109 @@ The _Jenkins Security Scan_ check is successful even though the pull request int
 Only some findings mark the check as failed.
 The behavior can be customized in the repository configuration.
 Go to _Settings » Security » Code security and analysis » Code scanning » Check Failure_ and select the behavior you want.
-Missing access to Code Scanning API::
-+
-The _Upload Scan Results_ step in the workflow fails with the error:
-+
-> `Error: Advanced Security must be enabled for this repository to use code scanning.`
-+
-This happens for private repositories that do not have GitHub Advanced Security enabled.
-Review _Settings » Security » Code security and analysis » GitHub Advanced Security_ in your repository and ensure that it is enabled.
-This section of the configuration is only visible if you have an appropriate GitHub paid plan.
+
+== Usage within CodeQL workflow
+
+In your GitHub repository, select the "Security" link on top and select "Code scanning" on the left.
+// TODO This UI might change some over time, so this is potentially awkward to describe in detail.
+If no tool has been set up so far, select "Configure scanning tool" and choose the advanced setup, otherwise select "Add tool".
+
+These instructions have been written for a base workflow that contains the steps `actions/checkout@v3`, `github/codeql-action/init@v2`, `github/codeql-action/autobuild@v2`, and `github/codeql-action/analyze@v2`.
+To add the Jenkins-specific rules, you need to change the configuration of `github/codeql-action/init@v2` as follows:
+
+
+[source,diff]
+----
+--- a/.github/workflows/codeql.yml
++++ b/.github/workflows/codeql.yml
+@@ -53,6 +52,12 @@ jobs:
+       uses: github/codeql-action/init@v2
+       with:
+         languages: ${{ matrix.language }}
++        config: |
++          disable-default-queries: true // <1>
++          packs:
++          - jenkins-infra/jenkins-codeql // <2>
++          - codeql/java-queries:AlertSuppression.ql // <3>
++          - codeql/java-queries:AlertSuppressionAnnotations.ql // <4>
+----
+<1> Optionally disable the generic Java CodeQL security scanning rules. Generally only recommended if there's another general-purpose security scanner set up.
+<2> This directive adds the Jenkins-specific queries.
+<3> Optionally add support for programmatic alert suppression using source code comments as an alternative to dismiss findings through the GitHub UI.
+<4> Optionally add support for programmatic alert suppression using source code annotations as an alternative to dismiss findings through the GitHub UI.
+
+The CodeQL UI on GitHub does not support alert suppression through source code comments or annotations, see https://github.com/github/codeql/issues/11427[github/codeql#11427].
+In addition to the official option https://github.com/advanced-security/dismiss-alerts/[advanced-security/dismiss-alert], it's also possible to suppress alerts by stripping them from the code scanning results before uploading.
+To do that, a change like the following is also needed:
+
+[source,diff]
+----
+--- a/.github/workflows/codeql.yml
++++ b/.github/workflows/codeql.yml
+@@ -80,3 +85,9 @@ jobs:
+       uses: github/codeql-action/analyze@v2
+       with:
+         category: "/language:${{matrix.language}}"
++        upload: failure-only // <1>
++    - name: Remove Suppressed Alerts // <2>
++      uses: daniel-beck-org/remove-suppressed-findings-action@main
++    - name: Upload CodeQL Result // <3>
++      uses: github/codeql-action/upload-sarif@v2
+----
+<1> Instruct `github/codeql-action/analyze@v2` to not upload the report unless an error occurred.
+<2> This action strips all suppressed findings from the code scanning result.
+<3> Upload the code scanning result.
+// TODO Publish daniel-beck-org/remove-suppressed-findings-action in jenkins-infra
+
+NOTE: As a side effect, the GitHub UI will never show alerts that have been suppressed in code (unlike those marked as ignored on GitHub).
+This may make it more cumbersome to review existing suppressions.
+
+=== Standalone use
+
+CodeQL with the Jenkins-specific rules can be run as part of a Jenkins pipeline and can upload the scan results to GitHub.
+
+The CodeQL CLI can be downloaded from https://github.com/github/codeql-cli-binaries[its GitHub repository].
+
+The following shell script creates a database by running the specified build command, analyzes the database with the specified queries only, and then uploads the results, excluding any suppressed findings, to GitHub.
+
+[source,bash]
+----
+#!/usr/bin/env bash
+set -e errexit
+set -e nounset
+set -e pipefail
+[[ -v "GITHUB_TOKEN" ]] || { echo "GITHUB_TOKEN is undefined. " ; exit 1 ; } // <1>
+[[ -v "GH_REPO" ]] || { echo "GH_REPO is undefined" ; exit 1 ; } // <2>
+[[ -v "GH_REF" ]] || { echo "GH_REF is undefined." ; exit 1 ; } // <3>
+[[ -v "GH_SHA" ]] || { echo "GH_SHA is undefined." ; exit 1 ; } // <4>
+for TOOL in codeql jq mvn ; do
+    which "$TOOL" >/dev/null || { echo "$TOOL not found on PATH" ; exit 1 ; }
+done
+codeql database create ./codeql-java-database \
+  --language=java \
+  --command='mvn clean verify -Pquick-build' // <5>
+codeql database analyze ./codeql-java-database \
+  --sarif-add-query-help \
+  --format=sarif-latest \
+  --output=./result.sarif \
+  --download \
+  jenkins-infra/jenkins-codeql \
+  codeql/java-queries:AlertSuppression.ql \
+  codeql/java-queries:AlertSuppressionAnnotations.ql \
+  || { echo "Failed to analyze database" ; exit 1 ; }
+jq 'del(.runs[].results[] | select( .suppressions | length != 0 ))' \
+  ./result.sarif > ./result-filtered.sarif // <6>
+codeql github upload-results \
+  --repository="$GH_REPO" \
+  --ref="$GH_REF" --commit="$GH_SHA" \
+  --sarif=./result-filtered.sarif
+----
+<1> `GITHUB_TOKEN` is used by `codeql github upload`. Alternatively, a token can be passed into standard input with `--github-auth-` argument.
+<2> `GH_REPO` must be in the format `owner/repo` (e.g., `jenkinsci/matrix-auth-plugin`).
+<3> `GH_REF` must be in the format `refs/heads/branchname` (e.g., `refs/heads/develop`, when analyzing a branch) or `refs/pull/1234/head` (when analyzing a pull request's HEAD commit).
+<4> `GH_SHA` is the SHA-1 of the analyzed commit.
+<5> Optionally, `--command` specifies how the Jenkins component is built. This is useful if a custom build command should be used.
+<6> Optionally, this invocation of `jq` removes all results from the report that have suppressions applied (through comments or annotations).
 
 == Feedback and Contributing
 
