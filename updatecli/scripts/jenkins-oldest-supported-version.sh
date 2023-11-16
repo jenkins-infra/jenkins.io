@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# This script fetches the Jenkins version data from the Jenkins update site and determines the latest patch version of the oldest LTS version.
+
 set -euxo pipefail
 
+# Fetch the JSON data from the Jenkins update site and store it in a variable.
 json_data=$(curl -s https://updates.jenkins.io/tiers.json)
 
 # Extract the oldest LTS version from the JSON data.
