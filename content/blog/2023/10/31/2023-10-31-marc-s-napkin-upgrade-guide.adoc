@@ -1,0 +1,100 @@
+---
+layout: post
+title: "Back of the Napkin Guide to Updating Jenkins, for the uninitiated"
+tags:
+- jenkins
+- upgrade
+- plugins
+authors:
+- mwp565733
+opengraph:
+  image: /images/post-images/2023/10/31/upgrade-guide-this-is-the-way.png
+discourse: true
+---
+
+image:/images/post-images/2023/10/31/upgrade-jenkins-from-manage-jenkins.png[Upgrade Jenkins].
+
+== Prologue
+
+Here's a brief account of my journey to update my Jenkins Servers.
+Think of this as a "back of the napkin" guide that I used to research and upgrade my Jenkins Servers, which had been left unattended for far too long.
+I know many of you are seasoned experts - I wasn't.
+I've included references that I found useful in my research, but keep in mind, your setup may be different from mine.
+I hope this helps others in their journey.
+
+Yours in Jenkins,
+author:mwp565733[Marc]
+
+> “This is the way”
+
+=== Pre-work:
+
+Grab your plugin list and dive into the `Change log`.
+You're going to want to pore over EVERY change log from your current version to your target version, and every single iteration in between.
+Keep an eye out for any mentions of your plugins and Java versions (both client and primary) in the Change Log. You're building a validation checklist here (e.g., does SSH still work? Is the plugin functioning properly?).
+
+**ADDED ROI**: While you're scrutinizing your plugins, take a moment to consider which ones are gathering dust. Are any of them deprecated? Do you still need them? Try deactivating them (before you outright remove them) and see if anyone kicks up a fuss.
+
+`Backup Security roles and Users`: If you're using LDAP/AD, make offline copies of your Security groups and access, User Lists and Security groups (_<jenkins_url>/manage/role-strategy/_ && _<jenkins_url>/manage/role-strategy/assign-roles_).
+Don't forget to backup configurations to access the Active Directory too (_<jenkins_url>/configureSecurity/_).
+
+=== Let the work begin:
+
+. Get cozy with your backups for those inevitable rollbacks.
+I had quite the love affair with plugins... making a tar/zip archive of /JENKINS_HOME/plugins was a lifesaver.
+Some plugins, like link:https://plugins.jenkins.io/active-directory/[Active Directory],
+really threw me for a loop during updates.
+. `SNAPSHOTS`: Take them at the beginning, and after each benchmark, if you can afford the luxury.
+. `Update Plugins`: Aim for the highest compatible level. I found that reaching for the "highest level" sometimes led to unnecessary headaches. Keep it simple, kid. *SNAPSHOT:* Archive the <JENKINS_HOME>/plugins/ folder.
+. `Update the Core application`: Stick with the method you used for the initial install.
+I'm running on RHEL and used yum...
+I tried getting fancy with downloading the war file, but it kept throwing tantrums...
+Stick with what you know.
+Keep in mind, versions pre-2.400 used a different security key than post-2.400 (link:/blog/2023/03/27/repository-signing-keys-changing/[Jenkins 2.397 and 2.387.2:
+New Linux Repository Signing Keys]).
+. `Update plugins _AGAIN_`: Aim for the highest "compatible" level (hopefully, it's the highest level now).
+. `Plugin configuration`: My CVS plugin was a bit needy, requiring files not in the hpi install file. Follow the appropriate plugin documentation to satisfy these dependencies.
+Establish connections to external databases and services (AD/CVS/etc.).
+**Special anecdote**: I had a bit of a tiff with the "Require TLS" checkbox for the LDAPS connect... a conflict needed to be resolved.
+Specifically, I had to tweak the systemctl for Jenkins... ensure `-Dhudson.plugins.active_directory.ActiveDirectorySecurityRealm.forceLdaps=true` was removed before enabling that checkbox, else you'll be dealing with authentication errors with LDAPS ~link:https://plugins.jenkins.io/active-directory/#plugin-content-encryption-support[Reference]~
+. `Validation`: Time to check that list you made earlier... can you SSH out to client servers?
+Can you connect to your external services/databases?
+
+=== Cleanup:
+
+Depending on the scale of your upgrade, you might want to `re-examine your plugins`.
+Some plugins might have been sent out to pasture as their functionality gets folded into the Core.
+Consider these plugins for deactivation, and maybe even removal down the line.
+This little cleanup could help plug some security holes (and put a smile on your CISO's face).
+Remember to do a little jig after each disable/remove and application recycle.
+
+== Epilogue
+
+This is a story without an end...
+It's not a one-and-done deal.
+After I finished the upgrade cycle, I made weekly pilgrimages to each server to update plugins, disable ones that seemed to be gathering dust, remove the ones that _WERE_ just collecting dust, and address any warnings that popped up in the Jenkins UI.
+The more you do it, the easier it gets.
+I had a few practice runs on my sandbox server before I dared to touch the production servers.
+And I kept taking snapshots as I went along, like a tourist in my own code.
+
+This is my tale... now it's time for you to write yours.
+
+== References:
+
+* Core app updated
+- link:/doc/book/installing/[Installation guide for Jenkins]
+- link:/doc/book/installing/linux/#red-hat-centos[Installation guide for Jenkins RHEL]
+
+* Change log
+- link:/doc/upgrade-guide/[Jenkins Change Log for upgrades]
+
+* Plug-in references
+- link:https://plugins.jenkins.io/[Jenkins Plugin Library]
+- link:https://plugins.jenkins.io/active-directory/[Jenkins Active Directory Plugin]
+** link:https://plugins.jenkins.io/active-directory/#plugin-content-encryption-support[Active Directory forceLdaps guidance]
+- link:https://plugins.jenkins.io/dimensionsscm/[Jenkins Dimensions Plugin]
+- link:https://plugins.jenkins.io/role-strategy/[Jenkins Role Strategy]
+
+* Supplementary reading
+- link:https://www.baeldung.com/ops/jenkins-war-update[Upgrading Jenkins with a WAR file] My initial drafts were based on this process
+- link:https://medium.com/geekculture/how-to-upgrade-jenkins-on-windows-linux-server-b7d4526abc31[How to Upgrade Jenkins on Windows/Linux Server] I used this for Troubleshooting guides tips and tricks
