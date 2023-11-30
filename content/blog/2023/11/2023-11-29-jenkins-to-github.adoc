@@ -10,12 +10,12 @@ note: "A guest post, originally posted at https://lmy.medium.com/log-from-jenkin
 ---
 
 You have a *GitHub repo* and a *Jenkins server*.
-The Jenkins has jobs for running unit tests, computing code coverages, and executing static analyses.
+The Jenkins server has jobs for running unit tests, computing code coverages, and executing static analyses.
 
-Every time someone opens a PR to your repo, you ask them to 1) run those jobs, 2) take screenshots of the results, and 3) paste to the PR description as a *proof of quality*.
+Every time someone opens a PR to your repo, you ask them to run those jobs, take screenshots of the results, and paste these screenshots to the PR description as a *proof of quality*.
 
-That's too much wait and too many keystrokes.
-*People want automation*: when they create a PR (or push a commit), those job should start to build.
+That's too much waiting and too many keystrokes.
+*People want automation*: when they create a PR (or push a commit), those jobs should start to build.
 When the builds are done, the results should be conveniently visible at the "Checks" section at the bottom of the PR, like this:
 
 image:/images/post-images/2023/11/29/20230902144232-Screenshot-of-a-typical-PR-Checks-list.png[Screenshot of a typical PR Checks list]
@@ -24,7 +24,7 @@ image:/images/post-images/2023/11/29/20230902144232-Screenshot-of-a-typical-PR-C
 
 You thought about your options.
 There are 3 types of entries that can be shown in this little box.
-In increasing order of complexity in setting up --
+In order of increasing complexity to configure:
 
 . *Statuses*, or as I'd like to call them, *Commit Checks*.
 They are associated with commits, not PRs.
@@ -35,7 +35,7 @@ image:/images/post-images/2023/11/29/20230902150825-Screenshot-of-a-list-of-comm
 . *Checks*, or more explicitly, *PR Checks*.
 These are run on commits but are stored with the PRs.
 With them, you can write long essays of messages to the "Checks" tab of a PR, but they do require authenticating as a GitHub App instead of a user, so it's more complicated to set up.
-SonarCloud, a code analyzer, makes use of PR Checks via https://github.com/apps/sonarcloud[their namesake GitHub App].
+SonarCloud, a code analyzer, makes use of PR Checks via link:https://github.com/apps/sonarcloud[their namesake GitHub App].
 If you look closer, their report is just Markdown:
 image:/images/post-images/2023/11/29/20230902151934-Screenshot-of-a-SonarCloud-Code-Analysis-as-a-GitHub-PR-Check.png[Screenshot of a SonarCloud Code Analysis as a GitHub PR Check]
 
@@ -46,20 +46,21 @@ image:/images/post-images/2023/11/29/20230902152320-Screenshot-of-a-GitHub-Actio
 
 == When the result is simple: Use commit statuses
 
-The Jenkins jobs you want to trigger only runs for a couple of seconds.
+The Jenkins jobs you want to trigger only run for a couple of seconds.
 Each only emits a simple result: pass or fail.
 You don't need fancy reports, so *commit statuses* seem to be a suitable choice.
 
-You installed https://plugins.jenkins.io/github/[the GitHub plugin] to your Jenkins server and followed https://stackoverflow.com/a/51003334/1147061[this guide] to set it up.
-You are able to emit simple one-liners as checks now, like this:
+You installed https://plugins.jenkins.io/github/[the GitHub plugin] to your Jenkins server and followed link:https://stackoverflow.com/a/51003334/1147061[this guide] to set it up.
+You are now able to emit simple one-liners as checks like this:
 
 image:https://raw.githubusercontent.com/jenkinsci/github-coverage-reporter/readme/assets/coverage-success.png[]
 _(https://github.com/jenkinsci/github-coverage-reporter-plugin[source] of screenshot; Apache 2.0 licensed)_
 
 It met your immediate need, but it stills falls short in a number of ways:
 
-* The plugin publishes to PR only thrice: upon getting queued, upon the start, and upon completion.
-Your job actually has *many time-consuming stages* (e.g., building a manifest, deploying to staging, and running tests), often packed in a single script, and you *want to be notified at each stage*.
+* The plugin publishes to the PR only thrice: upon getting queued, upon the start, and upon completion.
+Your job actually has *many* time-consuming stages, such as building a manifest, deploying to staging, and running tests. 
+These stages are often packed in a single script and you *want to be notified at each stage*.
 * The messages show up with *your GitHub profile image as the icon*, because Jenkins is using _your_ PAT!
 You want to shy away from the spotlight, maybe because you don't want to be mistaken by your less-GitHub-savvy collaborators as a ruthless robot critiquing (and blocking) everybody's PRs.
 
@@ -68,18 +69,18 @@ That's when you start to look further.
 == When the report is long: Use PR checks
 
 Your job generates a long report at the end, but the Checks section can only accommodate a couple of words.
-You have been rendering the reports as HTML and attaching them with the Jenkins Builds themselves (perhaps with a nice https://palletsprojects.com/p/jinja/[Jinja2 template] and https://plugins.jenkins.io/htmlpublisher/[the HTML Publisher plugin]).
-The commit statuses your job writes to PRs contained links to the Jenkins Builds themselves, so it's only two clicks away from an HTML report -- not bad.
+You have been rendering the reports as HTML and attaching them to the Jenkins builds themselves (perhaps with a nice link:https://palletsprojects.com/p/jinja/[Jinja2 template] and link:https://plugins.jenkins.io/htmlpublisher/[the HTML Publisher plugin]).
+The commit statuses your job writes to PRs contain links to the Jenkins builds themselves, so it's only two clicks away from an HTML report -- not bad.
 
-To prevent past HTML reports from saturating the disk, you configured the job to only keep the 20 most recent Builds.
-Then the team grew, and people started complaining that their reports getting purged before they could even take a look.
+To prevent past HTML reports from saturating the disk, you configured the job to only keep the 20 most recent builds.
+Then the team grew and people started complaining that their reports are getting purged before they could even take a look.
 You now have a *scalability* problem.
 
 Let's move those reports away from Jenkins, and what's a better place than *the PRs themselves*?
 
-Following https://docs.cloudbees.com/docs/cloudbees-ci/latest/traditional-admin-guide/github-app-auth[this guide from CloudBees], you created a GitHub App, installed it onto your repo, generated a SSH private key for the App, and uploaded it to Jenkins credentials storage with "GitHub App" as the _Kind_.
-(For the GitHub half of the journey, http://thecodebarbarian.com/building-a-github-app-with-node-js.html[this tutorial] has better screenshots.) Now your Jenkins job is _allowed_ to send PR Checks;
-how do we tell it _what_ to send?
+Following link:https://docs.cloudbees.com/docs/cloudbees-ci/latest/traditional-admin-guide/github-app-auth[this guide from CloudBees], you created a GitHub App, installed it onto your repo, generated a SSH private key for the app, and uploaded it to Jenkins credentials storage with "GitHub App" as the _Kind_.
+(For the GitHub half of the journey, link:http://thecodebarbarian.com/building-a-github-app-with-node-js.html[this tutorial] has better screenshots.)
+Now that your Jenkins job is _allowed_ to send PR Checks, how do we tell it _what_ to send?
 
 That's when these 3 plugins come into play:
 
