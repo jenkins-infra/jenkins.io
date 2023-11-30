@@ -5,17 +5,17 @@ tags:
 - jenkins
 - github
 author: tslmy
-description: "An overview about methods by which you can log stuff from a Jenkins Job to a GitHub PR as “Checks”."
+description: "An overview about methods by which you can log stuff from a Jenkins job to a GitHub PR as “Checks”."
 note: "A guest post, originally posted at https://lmy.medium.com/log-from-jenkins-jobs-to-github-pull-requests-as-checks-fd8b57b91a1d[lmy.medium.com]."
 ---
 
 You have a *GitHub repo* and a *Jenkins server*.
-The Jenkins has Jobs for running unit tests, computing code coverages, and executing static analyses.
+The Jenkins has jobs for running unit tests, computing code coverages, and executing static analyses.
 
-Every time someone opens a PR to your repo, you ask them to 1) run those Jobs, 2) take screenshots of the results, and 3) paste to the PR description as a *proof of quality*.
+Every time someone opens a PR to your repo, you ask them to 1) run those jobs, 2) take screenshots of the results, and 3) paste to the PR description as a *proof of quality*.
 
 That's too much wait and too many keystrokes.
-*People want automation*: when they create a PR (or push a commit), those Job should start to build.
+*People want automation*: when they create a PR (or push a commit), those job should start to build.
 When the builds are done, the results should be conveniently visible at the "Checks" section at the bottom of the PR, like this:
 
 image:/images/post-images/2023/11/29/20230902144232-Screenshot-of-a-typical-PR-Checks-list.png[Screenshot of a typical PR Checks list]
@@ -46,7 +46,7 @@ image:/images/post-images/2023/11/29/20230902152320-Screenshot-of-a-GitHub-Actio
 
 == When the result is simple: Use commit statuses
 
-The Jenkins Jobs you want to trigger only runs for a couple of seconds.
+The Jenkins jobs you want to trigger only runs for a couple of seconds.
 Each only emits a simple result: pass or fail.
 You don't need fancy reports, so *commit statuses* seem to be a suitable choice.
 
@@ -59,7 +59,7 @@ _(https://github.com/jenkinsci/github-coverage-reporter-plugin[source] of screen
 It met your immediate need, but it stills falls short in a number of ways:
 
 * The plugin publishes to PR only thrice: upon getting queued, upon the start, and upon completion.
-Your Job actually has *many time-consuming stages* (e.g., building a manifest, deploying to staging, and running tests), often packed in a single script, and you *want to be notified at each stage*.
+Your job actually has *many time-consuming stages* (e.g., building a manifest, deploying to staging, and running tests), often packed in a single script, and you *want to be notified at each stage*.
 * The messages show up with *your GitHub profile image as the icon*, because Jenkins is using _your_ PAT!
 You want to shy away from the spotlight, maybe because you don't want to be mistaken by your less-GitHub-savvy collaborators as a ruthless robot critiquing (and blocking) everybody's PRs.
 
@@ -67,18 +67,18 @@ That's when you start to look further.
 
 == When the report is long: Use PR checks
 
-Your Job generates a long report at the end, but the Checks section can only accommodate a couple of words.
+Your job generates a long report at the end, but the Checks section can only accommodate a couple of words.
 You have been rendering the reports as HTML and attaching them with the Jenkins Builds themselves (perhaps with a nice https://palletsprojects.com/p/jinja/[Jinja2 template] and https://plugins.jenkins.io/htmlpublisher/[the HTML Publisher plugin]).
 The commit statuses your job writes to PRs contained links to the Jenkins Builds themselves, so it's only two clicks away from an HTML report -- not bad.
 
-To prevent past HTML reports from saturating the disk, you configured the Job to only keep the 20 most recent Builds.
+To prevent past HTML reports from saturating the disk, you configured the job to only keep the 20 most recent Builds.
 Then the team grew, and people started complaining that their reports getting purged before they could even take a look.
 You now have a *scalability* problem.
 
 Let's move those reports away from Jenkins, and what's a better place than *the PRs themselves*?
 
 Following https://docs.cloudbees.com/docs/cloudbees-ci/latest/traditional-admin-guide/github-app-auth[this guide from CloudBees], you created a GitHub App, installed it onto your repo, generated a SSH private key for the App, and uploaded it to Jenkins credentials storage with "GitHub App" as the _Kind_.
-(For the GitHub half of the journey, http://thecodebarbarian.com/building-a-github-app-with-node-js.html[this tutorial] has better screenshots.) Now your Jenkins Job is _allowed_ to send PR Checks;
+(For the GitHub half of the journey, http://thecodebarbarian.com/building-a-github-app-with-node-js.html[this tutorial] has better screenshots.) Now your Jenkins job is _allowed_ to send PR Checks;
 how do we tell it _what_ to send?
 
 That's when these 3 plugins come into play:
@@ -124,14 +124,14 @@ export GTEST_OUTPUT="xml:/path/to/junit.xml"
 The JUnit format is described in this article, https://github.com/testmoapp/junitxml#common-junit-xml-format--examples[_Common JUnit XML Format & Examples_], along with some examples.
 See also the first 4 lines of the article https://docs.getxray.app/display/XRAY/Taking+advantage+of+JUnit+XML+reports[_Taking advantage of JUnit XML reports_] from Xray.
 
-In summary, if you can, have the Jenkins Job emit results in the JUnit XML schema, so that you can send the results as a PR Check via the https://github.com/jenkinsci/junit-plugin[JUnit Plugin].
+In summary, if you can, have the Jenkins job emit results in the JUnit XML schema, so that you can send the results as a PR Check via the https://github.com/jenkinsci/junit-plugin[JUnit Plugin].
 
 == To update the Check at each Step
 
 The https://github.com/jenkinsci/junit-plugin[JUnit Plugin] is meant for the conclusions, but you might want to publish messages before it concludes.
-Depending on whether your Jenkins Job can be naturally split into different https://www.jenkins.io/doc/pipeline/tour/running-multiple-steps/[Build Steps] and be written in a Jenkins Pipeline, there are different ways to achieve this.
+Depending on whether your Jenkins job can be naturally split into different https://www.jenkins.io/doc/pipeline/tour/running-multiple-steps/[Build Steps] and be written in a Jenkins Pipeline, there are different ways to achieve this.
 
-*Case 1: If you can split your Job into self-contained Steps*, you can update PR Checks by interacting with the https://github.com/jenkinsci/checks-api-plugin[Checks API Plugin] directly.
+*Case 1: If you can split your job into self-contained Steps*, you can update PR Checks by interacting with the https://github.com/jenkinsci/checks-api-plugin[Checks API Plugin] directly.
 By "directly", I mean you don't need to go through its "consumer plugins", such as the https://github.com/jenkinsci/junit-plugin[JUnit Plugin].
 In Jenkinsfile syntax:
 
@@ -147,8 +147,8 @@ publishChecks
     actions: []
 ----
 
-This is useful when each action your Job take can be written as a standalone call to executables.
-For example, I may have a Job that builds, tests, and publishes my Rust code by calling `cargo build`, `cargo test`, and `cargo publish`, respectively.
+This is useful when each action your job take can be written as a standalone call to executables.
+For example, I may have a job that builds, tests, and publishes my Rust code by calling `cargo build`, `cargo test`, and `cargo publish`, respectively.
 Since each step is a separate shell command, I can easily write them as:
 
 [,groovy]
@@ -172,7 +172,7 @@ script {
 
 == To update the Check within a Step
 
-*Case 2: If your Job is quite monolithic*, it can be awkward to split your self-contained script into multiple, just for the sake of separating them as Build Steps and inserting publishChecks in-between.
+*Case 2: If your job is quite monolithic*, it can be awkward to split your self-contained script into multiple, just for the sake of separating them as Build Steps and inserting publishChecks in-between.
 You'll have to directly interact with the GitHub API without the Jenkins layer in such cases.
 In terms of the fancy plugins, this means you even don't have to use the https://github.com/jenkinsci/checks-api-plugin[Checks API Plugin].
 
@@ -183,7 +183,7 @@ This is called *authorization*, and exactly what your App can do on your repo ca
 * When your script initializes, it needs to authenticate to GitHub as your App.
 To do so, the script needs a private key of the App.
 You can generate a private key from the App's settings page and use it forever.
-* FIf dealing with the raw GitHub API, the authentication is quite involved: You first generate a https://jwt.io/introduction[_JSON Web Token_ (JWT)] with the private key.
+* If dealing with the raw GitHub API, the authentication is quite involved: You first generate a https://jwt.io/introduction[_JSON Web Token_ (JWT)] with the private key.
 Then, you https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation[call a GitHub endpoint] with this JWT, saying "I'm this App, and I'm trying to access the repos we agreed upon earlier." This endpoint gives you an "installation access token" (IAT).
 Your script would use this IAT to call other endpoints, just like how you'd use a PAT when calling endpoints manually as yourself.
 
@@ -200,7 +200,7 @@ You can see that the handler requires quite some parameters to initialize.
 Where do you get them?
 
 * For locating the PR and the commit, the https://plugins.jenkins.io/github-pullrequest/[GitHub Integration Plugin] can help.
-It can trigger Jenkins Jobs upon PR events, injecting https://github.com/KostyaSha/github-integration-plugin/blob/master/docs/Configuration.adoc#available-environment-variables[these environment variables] to each Build.
+It can trigger Jenkins jobs upon PR events, injecting https://github.com/KostyaSha/github-integration-plugin/blob/master/docs/Configuration.adoc#available-environment-variables[these environment variables] to each Build.
 We'll use two: `GITHUB_PR_HEAD_SHA` and `GITHUB_REPO_SSH_URL`.
 * For referencing from the PR Check to the Jenkins Build, we'll also need an env.
 var.
