@@ -93,6 +93,9 @@ node('docker&&linux') {
                 sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5 --delete'
             }
         }
+        stage('Purge cached CSS') {
+            sh 'curl -X PURGE https://www.jenkins.io/css/jenkins.css'
+        }
     }
 }
 
