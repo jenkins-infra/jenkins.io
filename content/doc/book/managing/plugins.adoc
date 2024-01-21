@@ -5,7 +5,6 @@ ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
 ifdef::env-github[:imagesdir: ../resources]
@@ -62,7 +61,7 @@ successfully.
 === From the web UI
 
 The simplest and most common way of installing plugins is through the
-*Manage Jenkins* > *Manage Plugins* view, available to administrators of a
+*Manage Jenkins* > *Plugins* view, available to administrators of a
 Jenkins environment.
 
 Under the *Available* tab, plugins available for download from the configured
@@ -94,10 +93,11 @@ management code, may need to install plugins without direct user interaction in
 the web UI. The Jenkins CLI allows a command line user or automation tool to
 download a plugin and its dependencies.
 
-[source]
+[source,bash]
 ----
 java -jar jenkins-cli.jar -s http://localhost:8080/ install-plugin SOURCE ... [-deploy] [-name VAL] [-restart]
-
+----
+----
 Installs a plugin either from a file, an URL, or from update center.
 
  SOURCE    : If this points to a local file, that file will be installed. If
@@ -129,7 +129,7 @@ If an administrator manually copies a plugin archive into the `plugins` director
 Assuming a `.hpi` file has been downloaded, a logged-in Jenkins administrator
 may upload the file from within the web UI:
 
-. Navigate to the *Manage Jenkins* > *Manage Plugins* page in the web UI.
+. Navigate to the *Manage Jenkins* > *Plugins* page in the web UI.
 . Click on the *Advanced* tab.
 . Choose the `.hpi` file from your system or enter a URL to the archive file under the *Deploy Plugin* section.
 . *Deploy* the plugin file.
@@ -163,7 +163,7 @@ for the desired plugin will provide the appropriate link to the archive file.
 
 == Updating a plugin
 
-Updates are listed in the *Updates* tab of the *Manage Plugins* page and can be
+Updates are listed in the *Updates* tab of the *Plugins* page and can be
 installed by checking the checkboxes of the desired plugin updates and clicking
 the *Download now and install after restart* button.
 
@@ -171,6 +171,27 @@ image::managing/plugin-manager-update.png["Updates tab in the Plugin Manager", r
 By default, the Jenkins controller will check for updates from the Update Center
 once every 24 hours. To manually trigger a check for updates, simply click on
 the *Check now* button in the *Updates* tab.
+
+=== List installed plugins and their versions
+
+The simplest way to retrieve the list of installed plugins and their versions is by using the Jenkins Script Console.
+
+Follow these steps:
+
+1. Open the Jenkins link:/doc/book/managing/script-console/[Script Console]:
+
+   - Navigate to `Manage Jenkins` > `Script Console`.
+2. Run the following script to list installed plugins and their versions:
+
+
+[source,groovy]
+----
+   Jenkins.instance.pluginManager.plugins.each {
+      println("${it.getShortName()}: ${it.getVersion()}")
+   }
+----
+
+This script iterates through each installed plugin and prints its short name along with the version.
 
 == Removing a plugin
 
@@ -187,7 +208,7 @@ This video reviews the process of uninstalling a plugin from Jenkins.
 video::Keh6riX7574[youtube,width=800,height=420]
 
 The simplest way to uninstall a plugin is to navigate to the *Installed* tab on
-the *Manage Plugins* page. From there, Jenkins will automatically determine
+the *Plugins* page. From there, Jenkins will automatically determine
 which plugins are safe to uninstall, those which are not dependencies of other
 plugins, and present a button for doing so.
 
@@ -225,7 +246,7 @@ recognize that the plugin is installed, but it will not start the plugin, and
 no extensions contributed from this plugin will be visible.
 
 A Jenkins administrator may disable a plugin by unchecking the box on the
-*Installed* tab of the *Manage Plugins* page (see below).
+*Installed* tab of the *Plugins* page (see below).
 
 image::managing/plugin-manager-disable.png["Installed tab in the Plugin Manager", role=center]
 
@@ -251,10 +272,11 @@ The `disable-plugin` command was added to Jenkins in link:/changelog/#v2.151[v2.
 The `enable-plugin` command receives a list of plugins to be enabled.
 Any plugins which a selected plugin depends on will also be enabled by this command.
 
-[source]
+[source,bash]
 ----
 java -jar jenkins-cli.jar -s http://localhost:8080/ enable-plugin PLUGIN ... [-restart]
-
+----
+----
 Enables one or more installed plugins transitively.
 
  PLUGIN   : Enables the plugins with the given short names and their
@@ -268,11 +290,12 @@ only want to see error messages, the `-quiet` option can be specified.
 The `-strategy` option controls what action will be taken when one of the specified plugins
 is listed as an optional or mandatory dependency of another enabled plugin.
 
-[source]
+[source,bash]
 ----
 java -jar jenkins-cli.jar -s http://localhost:8080/ disable-plugin PLUGIN ... [-quiet (-q)]
 [-restart (-r)] [-strategy (-s) strategy]
-
+----
+----
 Disable one or more installed plugins.
 Disable the plugins with the given short names. You can define how to proceed with the
 dependant plugins and if a restart after should be done. You can also set the quiet mode
@@ -336,3 +359,31 @@ created/deleted to control the pinning behavior. If the `pinned` file is
 present, Jenkins will use whatever plugin version the user has specified.
 If the file is absent, Jenkins will restore the plugin to the default version
 on startup.
+
+== What is an implied dependency?
+
+Features are sometimes detached (or split off) from Jenkins core and moved into a plugin.
+
+Many plugins, like plugin:subversion[Subversion] and plugin:junit[JUnit], got their beginnings as Jenkins core functionalities.
+When a plugin was attached to Jenkins core prior to being detached, it may or may not have used its full functionality with other plugins that relied on the same version of Jenkins.
+To ensure that plugins do not fail when a functionality on which they rely is separated from Jenkins core, it is necessary to have a dependency in the detached plugin, if it specifies a dependency on a version of Jenkins core prior to the split.
+It is assumed that there is a dependency on the detached plugin, even when it isn't stated explicitly.
+
+Implied dependencies build up over time for plugins that don't frequently update which Jenkins core version they depend on.
+
+=== Why does the implied dependency exist?
+
+It is "implied" since it is not stated explicitly in the plugin, and it is a dependency because Jenkins core is uncertain if the APIs available in Jenkins core, prior to the separation of the plugin, are necessary or not.
+
+For example, because the Instance Identity plugin was separated from Jenkins core, Jenkins core is uninformed if the dependent plugin needs any functionality that was previously present in Jenkins core.
+This creates an implied dependency.
+
+As a Jenkins administrator, you can see the plugins that have an implied dependency from the plugin manager page. 
+Hover over the "uninstall" button and a list of plugins with an implied dependency is displayed.
+
+image::managing/hover-for-implied-dependencies.png["Hover over the uninstall button to see Implied Dependencies", role=center]
+
+=== How can the implied dependency be removed?
+
+The implied dependency can be removed by releasing a new version of the plugin that depends on a newer minimum Jenkins core. 
+The link:/doc/developer/tutorial-improve/[Improve a plugin tutorial] provides steps that can assist plugin developers as they update the plugin to link:/doc/developer/tutorial-improve/update-base-jenkins-version/[depend on a newer minimum Jenkins core].

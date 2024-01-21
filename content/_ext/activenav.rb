@@ -45,4 +45,9 @@ module ActiveNav
       '</a>',
         ].join('')
   end
+
+  def tooltip_href(url, title)
+    tooltip = {'data-bs-toggle' => 'tooltip', 'data-bs-placement' => 'top', 'title' => title}
+    url != null ? tooltip.merge({:href => url, :target => "_blank", :rel => "noreferrer noopener"}) : tooltip
+  end
 end
