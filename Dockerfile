@@ -1,4 +1,4 @@
-FROM node:18.15.0 as node
+FROM node:20.10.0 as node
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
@@ -33,7 +33,7 @@ RUN bundle exec ./scripts/fetch-external-resources
 RUN make real_generate
 
 
-FROM nginx:1.23
+FROM nginx:1.25
 
 COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 
