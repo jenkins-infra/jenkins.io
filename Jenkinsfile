@@ -94,7 +94,10 @@ node('docker&&linux') {
             }
         }
         stage('Purge cached CSS') {
-            sh 'curl -X PURGE https://www.jenkins.io/css/jenkins.css'
+            sh '''
+            curl -X PURGE https://www.jenkins.io/css/jenkins.css
+            curl -x PURGE https://www.jenkins.io/stylesheets/styles.css
+            '''
         }
     }
 }
