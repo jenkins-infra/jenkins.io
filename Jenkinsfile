@@ -108,7 +108,7 @@ node('docker&&linux') {
                         --skip-version-check \
                         --recursive=true\
                         --delete-destination=true \
-                        ./data/_site/ "${FILESHARE_SIGNED_URL}"
+                        ./build/_site/ "${FILESHARE_SIGNED_URL}"
                     '''
                 }
             }
