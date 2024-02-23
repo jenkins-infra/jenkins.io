@@ -103,7 +103,7 @@ node('docker&&linux') {
                         fileShareStorageAccount: 'jenkinsio'
                     ]) {
                         sh '''
-                        # Don't output sensitive informations
+                        # Don't output sensitive information
                         set +x
 
                         # Synchronize the File Share content
