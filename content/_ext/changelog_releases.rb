@@ -20,6 +20,7 @@ class ChangelogReleases
         page.output_path = "/#{@changelog_path}/#{changelog_entry.version}/index.html"
         page.release = changelog_entry
         page.title = page.title + " for " + changelog_entry.version
+        page.uneditable = true
         site.pages << page
       end
     end
