@@ -23,6 +23,10 @@ a CD release will have a version of the form `123.vabcdef456789`:
 an integer component determined by the Git history depth,
 and an informational component with the Git commit hash.
 
+NOTE: Push the work to prepare your plugin for CD to a dedicated branch, which you file a pull request from to your default branch.
+When enabling CD, the hosting team reviews this PR containing all necessary changes in your plugin, to prevent improper releases and mistakes.
+Don't push the changes directly to the default branch or merge the PR before the hosting team has reviewed it.
+
 == Checklist
 
 === Incrementals Enablement
@@ -31,6 +35,12 @@ Verify that the plugin has already been link:../../plugin-development/incrementa
 `pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` and the files `.mvn/extensions.xml` and `.mvn/maven.config` should exist *before proceeding with subsequent steps*.
 
 NOTE: A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
+
+Here are some PR examples for various plugins to enable CD:
+
+- link:https://github.com/jenkinsci/junit-plugin/pull/395/files[junit]
+- link:https://github.com/jenkinsci/kubernetes-plugin/pull/1139/files[kubernetes-plugin]
+- link:https://github.com/jenkinsci/plain-credentials-plugin/pull/31/files[plain-credentials-plugin]
 
 === Enable CD Permissions
 
@@ -41,6 +51,8 @@ Enable the continuous delivery flag in link:https://github.com/jenkins-infra/rep
 cd:
   enabled: true
 ----
+
+In your PR towards the repository permission updater, include a link to the PR in your plugin, which contains all the necessary changes, like described above.
 
 Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
 until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
@@ -72,7 +84,7 @@ Also link:https://github.com/apps/release-drafter/installations/775283[remove th
 
 IMPORTANT: These files may have been set up this way by the https://github.com/jenkinsci/archetypes/[plugin archetype] that you used to initialize the plugin.
 
-=== Configure Dependabot (optional)
+=== Configure Dependabot
 
 If you have a `.github/dependabot.yml`, add:
 
@@ -111,7 +123,7 @@ Merge this PR activating CD.
 Be sure to apply one of the link:https://github.com/jenkinsci/.github/blob/ce466227c534c42820a597cb8e9cac2f2334920a/.github/release-drafter.yml#L9-L50[predefined labels]
 to this and every subsequent PR before merging so that Release Drafter can properly categorize changes.
 
-Fully automated versioning::
+Fully automated versioning (recommended)::
 For a regular component whose version number is not that meaningful, let the version number be automatically determined by setting a top-level `<version>+++${changelist}+++</version>` and having an entry `<changelist>999999-SNAPSHOT</changelist>` in the `<properties>` section, removing `<revision>`:
 +
 [source,diff]
@@ -153,7 +165,7 @@ If you're not ready to commit to all future versions of your plugin being this l
 NOTE: It is worth communicating this to your users, as they will see a very different version number format than before.
 The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
 
-Manually controlled prefix::
+Manually controlled prefix (optional)::
 If you do not want to have large major version numbers, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
 +
 [source,diff]
@@ -187,7 +199,7 @@ because version numbers going forward must be mathematically larger than any cur
 IMPORTANT: It is _not recommended_ to implement actual semantic versioning with automated releases performed by CD, as that requires great care in always changing the `revision` as part of the changes that semantically would require a `revision` change for the next release.
 Otherwise, automated releases may have version numbers that semantically would not make sense.
 
-Versioning with wrapped components::
+Versioning with wrapped components (optional)::
 Similar to the previous option, for a component whose version number ought to reflect a release version of some wrapped component, use a hyphen (`-`) as the separator between the prefix corresponding to the wrapped component's version and the CD-generated suffix:
 +
 [source,diff]
@@ -274,9 +286,13 @@ To cut a release:
 
 [source,shell]
 ----
-git checkout master
+# Checkout the primary branch of the repository.
+# If your branch is not named 'main' or 'master', update it as needed.
+git checkout main || git checkout master
 git pull --ff-only
 mvn -Dset.changelist \
+  -Pquick-build \
+  -P-consume-incrementals \
   -DaltDeploymentRepository=maven.jenkins-ci.org::default::https://repo.jenkins-ci.org/releases/ \
   clean deploy
 ----

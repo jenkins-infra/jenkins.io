@@ -1,0 +1,39 @@
+---
+layout: developer
+title: Split plugin from core
+---
+
+== Introduction
+
+Jenkins has a plugin architecture.
+For historical reasons, some features were developed inside the Jenkins codebase itself (i.e., not as plugins).
+
+To keep that core codebase more manageable, there is an ongoing effort to extract some of the existing features into dedicated plugins.
+
+.Walkthrough video
+video::vGJtbgghYO8[youtube, width=852, height=480, start=480]
+
+== General process to extract classes
+
+* Locate everything that should be moved.
+** Do not forget to look in `core/src/main/resources/` for associated resources.
+*** (`Messages.properties` shared with other classes in the same package can be a headache: you need to create a new `Messages` in a novel package.)
+** Look for relevant functional tests in `test/src/test/`.
+** Check for icons.
+** Double-check that you have really found everything relevant:
+*** `git ls-files | grep -F SOMETHING` for filenames and
+*** `git ls-files | xargs grep -l SOMETHING` for contents.
+* Try temporarily deleting all the classes you propose to split, and do a clean build to verify that there are not unwanted usages from elsewhere in core.
+If there are, you have some refactoring ahead of you, and this is where it gets hairy.
+* Split the code into a new repository with history intact.
+`git-filter-branch` can work, though it is not easy to use.
+If possible, make sure translated commits mention the original commit hash.
+* Do a 1.0 release of the new plugin, with the baseline set to the last weekly prior to your split.
+Ideally you would actually use the `-SNAPSHOT` version from the current core but Maven release rules will forbid this.
+* Create a core patch to:
+** delete the split files
+** bundle in `war/pom.xml`
+** list in `ClassicPluginStrategy.DETACHED_LIST`
+* After a new weekly is produced using the above changes, update the baseline in the new plugin to that and cut a 1.1 (or 1.0.1).
+This ensures it is only offered to users who do not still have that functionality in core, assuming the Update Center is configured properly.
+* Pat yourself on the back: Jenkins sources are a little more manageable than they were yesterday.

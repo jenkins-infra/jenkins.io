@@ -1,0 +1,48 @@
+---
+layout: developerchapter
+summary: FIPS-140 for developers
+wip: true
+title: FIPS-140 for developers
+references:
+- url: https://github.com/jenkinsci/jep/blob/master/jep/237/README.adoc
+  title: JEP-237 FIPS-140 support for Jenkins
+- url: hhttps://csrc.nist.gov/pubs/fips/140-2/upd2/final
+  title: FIPS-140-2 Security Requirements for Cryptographic Modules
+---
+
+In order for the code in Jenkins and plugins to be compliant with FIPS-140, sensitive information needs to be handled correctly.
+This document provides a non-exhaustive cheat sheet that can guide developers to write code that is FIPS-140 compliant.
+This applies to all forms of cryptography, regardless if it is encryption/decryption, hashing, or signing.
+
+[IMPORTANT]
+====
+FIPS-140 compliant code may result in less security as the approved standards can lag behind more secure modern standards.
+Your plugin and Jenkins code should not automatically follow the tips here, but may also need to make decisions at runtime whether or not to use a FIPS-140 compliant option.
+====
+
+Any sensitive information for accessing an external system that is persisted should be stored either as a link:https://javadoc.jenkins.io/hudson/util/Secret.html[`hudson.util.Secret`] or a link:https://javadoc.jenkins.io/plugin/credentials/com/cloudbees/plugins/credentials/Credentials.html[`com.cloudbees.plugins.credentials.Credentials`]
+
+Rely only on link:https://docs.oracle.com/en/java/javase/11/security/java-cryptography-architecture-jca-reference-guide.html#GUID-3E0744CE-6AC7-4A6D-A1F6-6C01199E6920[Java Cryptography Architecture (JCA)] or link:https://bouncycastle.org/java.html[BouncyCastle] via the link:https://plugins.jenkins.io/bouncycastle-api/[BouncyCastle API plugin] when performing cryptography.
+Do not depend on any third-party libraries or write your own code to perform encryption or specify any specific link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/Provider.html[`java.security.Provider`] when obtaining a concrete JCA implementation.
+Additionally, the subset of algorithms that are used should be restricted to the subset that is link:https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/3514[supported] by the link:https://downloads.bouncycastle.org/fips-java/BC-FJA-UserGuide-1.0.2.pdf[BouncyCastle FIPS] implementation.
+[NOTE]
+====
+FIPS-140 has no support for asymmetric encryption such as RSA.
+====
+
+If there is a tradeoff made between FIPS-140 support or a more secure option, the tradeoff should be made at runtime by checking link:https://javadoc.jenkins.io/jenkins/security/FIPS140.html#useCompliantAlgorithms()[`jenkins.security.FIPS140.useCompliantAlgorithms`].
+An example of changing behaviour can be found in link:https://github.com/jenkinsci/jenkins/pull/8483[this pull request].
+
+If using a link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/SecureRandom.html[`java.security.SecureRandom`] it should be obtained via link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/SecureRandom.html#%3Cinit%3E()[`new SecureRandom()`] or link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/SecureRandom.html#getInstanceStrong()[`SecureRandom.getInstanceStrong()`].
+Do not use any of the methods or constructors that take an optional `seed`.
+
+[NOTE]
+====
+Jenkins core may provide some libraries that are not FIPS-140 compliant for some API calls, but the specific calls that Jenkins makes to these libraries are compliant.
+Therefore it is important that this guidance is applied to all libraries used by your your plugin, regardless of if it is bundled in the plugin or comes from a transitive dependency such as Jenkins core or another plugin.
+
+====
+
+Care must be taken when obtaining / creating a link:https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/security/KeyStore.html[`java.security.KeyStore`].
+The majority of ``Keystore``s provided by stock JDKs are not FIPS-140 compliant and the one that is can not be used to store keys only certificates.
+A FIPS-140 compliant `KeyStore` provider would need to be provided by the JVM, as the name of this can not be known at compile time, any code that requires to create a keystore should assume that this has been configured as the default type and use `KeyStore.getInstance(KeyStore.getDefaultType())` to obtain an new instance.
