@@ -1,0 +1,75 @@
+==== Linux installation packages use `systemd`
+
+Linux installation packages provided by the Jenkins project now use the Linux system and service manager (`systemd`) to manage the Jenkins service and its configuration.
+Existing installations that use the Debian/Ubuntu deb package format, the Red Hat rpm package format, and the SUSE rpm package format will use `systemd` when they upgrade to Jenkins 2.332.1.
+
+The upgrade process reads the existing settings from the operating system specific System V `init` configuration files and writes those settings into a `systemd` override file for the Jenkins service.
+
+After the upgrade process is complete, the system-level configuration settings are managed with the command:
+
+[source,bash]
+----
+# systemctl edit jenkins
+----
+
+See the link:/doc/book/system-administration/systemd-services/[Managing systemd services] page for more details of `systemd` administration.
+See the link:/blog/2022/03/25/systemd-migration/[blog post] for more details about the migration.
+
+If you find a regression, please file a bug report in link:https://issues.jenkins.io/[Jira].
+When reporting an issue, include the following information:
+
+. Use the `core` component.
+. Provide the name, version, and architecture of the Linux distribution you are using (e.g., Ubuntu 20.04.4 LTS x86_64).
+. Provide the contents of the old System V `init(8)` configuration in `/etc/{default,sysconfig}/jenkins`, sanitized as necessary.
+. Provide the contents of the `systemd(1)` drop-in unit in `/etc/systemd/system/jenkins.service.d/override.conf`, sanitized as necessary.
+. Provide steps to reproduce the issue _from scratch_ on a minimal Jenkins installation; the scenario should fail when the steps are followed on Jenkins 2.335 or later and pass when the steps are followed on Jenkins 2.334 or earlier.
+
+==== Guava upgraded
+
+The Guava library from Google is bundled in Jenkins core.
+Jenkins has upgraded the Guava library from 11.0.1 (released on January 9, 2012) to 31.0.1 (released on September 27, 2021).
+Plugins have already been prepared to support the new version of Guava in link:https://github.com/jenkinsci/jep/blob/master/jep/233/README.adoc[JEP-233].
+Use the Plugin Manager to upgrade all plugins before and after upgrading to Jenkins 2.332.1.
+See the link:/blog/2021/11/09/guava-upgrade/[Guava upgrade blog post] for more details.
+
+==== JRuby removed
+
+JRuby support has been removed from Jenkins core.
+A small number of JRuby-based plugins are affected.
+See the link:/blog/2021/12/22/deprecated-ruby-runtime/[JRuby removal blog post] for migration notes.
+
+==== ASM 5 removed
+
+A repackaged version of ObjectWebASM 5 and the upstream version of ASM were both included in Jenkins core.
+Jenkins core no longer provides the repackaged version of ASM 5.
+Users of SCM API must upgrade SCM API to the latest version prior to upgrading Jenkins.
+Plugins that use the repackaged version of ASM 5 must be updated to use the upstream version of ASM instead.
+
+==== JNDI setting of Jenkins home directory removed
+
+Support for setting the Jenkins home directory via Java Naming and Directory Interface (JNDI) has been removed.
+The Jenkins home directory may still be set using the `-DJENKINS_HOME` Java system property or the `JENKINS_HOME` environment variable.
+
+Users who load `jenkins.war` via a servlet container like Tomcat should refer to their servlet container's documentation
+for information on how to customize Java system properties or environment variables.
+
+For example, the Tomcat servlet container accepts custom Java system properties in the `CATALINA_OPTS` environment variable.
+
+==== Windows batch file and PowerShell script encoding
+
+In traditional job types, the scripts used in Windows batch file and PowerShell steps are encoded in the JVM's default encoding.
+In previous releases, characters in these scripts that could not be encoded in the JVM's default encoding were silently converted to ? (question mark) characters.
+In the current release, a script that contains characters that cannot be encoded in the JVM's default encoding will result in an explicit and intentional failure of the batch file or PowerShell step.
+
+Users who encounter such failures should either rewrite the script to be compatible with the JVM's default encoding,
+or they should change the JVM's default encoding to be compatible with the script.
+In most cases, the solution is to change the JVM's default encoding from Windows-1252 to UTF-8
+by setting the `-Dfile.encoding=UTF-8` Java system property on the JVM of the node that executes the script.
+
+==== Log messages discarded under memory pressure
+
+As of 2.332.1, log messages are discarded when the Java Virtual Machine (JVM) is under memory pressure.
+Such discarded log messages are not displayed in the Log Recorder page.
+To retain such log messages, alleviate memory pressure by increasing the Java heap size with e.g. the `-Xmx` Java flag.
+Alternatively, install https://plugins.jenkins.io/support-core/[Support Core] to write these log messages to disk,
+where they are not subject to eviction.

@@ -84,9 +84,7 @@ please feel free to contact us via the mailing list or the chat.
 
 #### Contents
 
-* Chat page URL: https://gitter.im/jenkinsci/gsoc-sig
-* Mailing list page URL: https://jenkins.io/projects/gsoc/#contacts 
-* General-purpose e-mail: jenkinsci-gsoc-all-public@googlegroups.com
+* Chat page URL: https://app.gitter.im/#/room/#jenkinsci_gsoc-sig:gitter.im
 
 ### Application
 
@@ -154,7 +152,7 @@ They should also provide a periodic feedback on the progress of the project and 
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course). 
   Public presentations will attract attention, and the students will be periodically contacted by users.
 * Students will be also advised to present their projects at local Jenkins Area Meetups (https://jenkins.io/projects/jam)
-* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/). 
+* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/blog/). 
   The students will be visible in the community even after GSoC
 
 #### Has your org been accepted as a mentoring org in Google Summer of Code before?

@@ -1,0 +1,76 @@
+---
+:layout: post
+:title: "JUC Speaker Blog Series: Denis Chernilevskiy, JUC Europe"
+:nodeid: 544
+:created: 1431038140
+:tags:
+  - general
+:author: hinman
+---
+image:https://jenkins-ci.org/sites/default/files/images/Jenkins_Butler_0.png[image,width=114] +
+
+
+Jenkins is a great tool for automation of all kinds of processes in the software development cycle. Falling back to the year 2008 I remember myself creating my first job and the feeling of enlightenment flowing through my veins :) Then it was just one script running on just one agent (node) and it was enough for that particular task. But years have passed, software systems have become more complicated and terms like «cloud», «distributed environment», «CI/CD» are not a discovery for anyone nowadays. But how can these things be connected and used by Jenkins? The detailed answer for this question will be revealed in my presentation of "compound-cloud" plugin at https://www.cloudbees.com/jenkins/juc-2015/europe[JUC Europe 2015].
+
+
+Before I got to Yandex, the QA's automation concept was the following:
+
+
+* The job takes 1 free agent
+* The job installs the system under test and tests themselves to this node
+* The job runs tests
+* The job cleans-up and returns the agent back to the pool
+
+
+When I started working for Yandex I understood that the concept of one single agent for a job is not a solution for our tasks because of one particular reason - the system under test was not able to work on a single node… This system is a Yandex MediaAd platform and it requires at least 4 separate nodes to be run on. Better - 8 nodes. Optimal - 40 nodes :)
+
+
+Thinking about the problem, we thought we would get closer to the solution by simply using a single Jenkins agent as a launchpad for tests and for some tools which will then get some more nodes from the cloud (we already had OpenStack ready) and deploy the system inside them. Thank God we haven’t implemented this solution :)
+
+
+We’ve been stopped by the following reasons:
+
+
+* We are lazy and want to write as little code as possible :)
+* There’s a JClouds plugin that can work with OpenStack. Why don’t we use it? 'Cause it provisions only 1 agent per job. But it has provisioning algorithms implemented already, and we don’t want to reimplement them…
+* If we create cloud instances with a separate tool, then we have to manage them separately and can’t get profit of using Jenkins’ agent management, which is also implemented already…
+* if we do so, we also lose Jenkins’ agent features like running a script on the agent, get some reports or statistics and so on
+* We would also lose visibility: how many agents we have, how many are busy, how many left til we get to the cloud quota limit? We could go to OpenStack panel then, but it’s totally inconvenient…
+
+
+As a result of this reasoning, the idea emerged! «We should provide an ability to either attach several agents to a job, or to allow a agent to consist of several nodes». The second way seemed to give more order in agents management and it was stated to be a final solution for our problem. We called this concept a «compound-agent». And then we coded...
+
+
+That’s how the compound-cloud plugin was born. It allows us to get such compound-agents from any cloud plugin installed to Jenkins. Of course there’s also a possibility to form a compound agent from single agents already attached to Jenkins, but it’s not the true way for hardcore IT guys ;)
+
+
+Of course there are lots of details on how we use this concept in a real life for our purposes (and I will surely describe the main parts of them in my speech), but here’s a short list of common use-cases:
+
+
+* We configure a set of labels via the JClouds plugin. Each label represents 1 agent template, like «small_ubuntu_server» or «large_win_server».
+* We then configure a compound-agent label via compound-сloud plugin. Each label is a set of single cloud labels. As a result we have a label like «Small test env» consisting of "1x large WinServer + 3x small Ubuntu».
+* We assign roles to each single node in a compound label, to be able to distinguish them, so the job can run a script on a particular node inside a compound-agent for example.
+* We assign a label to a job, like it’s done for a JClouds label, for example.
+* When the job starts, a compound-agent provisions from the cloud using the corresponding compound label.
+* We run a deployment tool on a ROOT role node of a compound-agent. It then deploys the system under test to other nodes inside this compound-agent.
+* We run tests.
+* We don’t bother with creating/cleaning/stopping/deleting agents. It’s done by Jenkins.
+* We get profit :)
+
+
+The core feature is that we've reused all the provisioning and management mechanisms already implemented in Jenkins and cloud plugins. We just run our jobs and don’t care about the distributed infrastructure!
+
+
+image:https://jenkins-ci.org/sites/default/files/images/Denis-Chernilevskiy_0.jpg[image,width=150] +
+
+
+This post is by Denis Chernilevskiy, the head of QA/DevOps Services at Yandex. If you have your ticket to https://www.cloudbees.com/jenkins/juc-2015/europe[JUC Europe], you can attend his talk https://www.cloudbees.com/jenkins/juc-2015/abstracts/europe/02-02-1600-chernilevskiy["Multi-Node Environment as a Jenkins Agent (Compound-Agent)"] on Day 2.
+
+
+_Still need your ticket to JUC? Early bird pricing ends May 15. Also, if you register with a friend you can get 2 tickets for the price of 1! https://www.cloudbees.com/jenkins/juc-2015/[Register here for a JUC near you.]_
+
+
+*Thank you to our https://www.cloudbees.com/jenkins/juc-2015/sponsors[sponsors] for the 2015 Jenkins User Conference World Tour:*
+
+
+image:https://jenkins-ci.org/sites/default/files/images/sponsors-06032015-02_0.png[image,width=598] +

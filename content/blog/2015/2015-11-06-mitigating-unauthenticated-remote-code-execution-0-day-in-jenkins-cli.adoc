@@ -1,0 +1,62 @@
+---
+:layout: post
+:title: Mitigating unauthenticated remote code execution 0-day in Jenkins CLI
+:nodeid: 647
+:created: 1446858787
+:tags:
+  - general
+  - core
+  - news
+:author: rtyler
+---
+*Updated 2015-11-11 15:00 UTC:* We have released Jenkins 1.638 and 1.625.2 which contain a fix for this vulnerability. link:/security/advisory/2015-11-11/[See the security advisory for more information about these releases].
+
+'''
+
+*Updated 2015-11-06 03:55 UTC:* Included a updated mitigation script which doesn't have a Jenkins boot race condition
+
+'''
+
+Earlier today we received numerous reports about a previously undisclosed "https://en.wikipedia.org/wiki/Zero-day_%28computing%29[zero day]" critical remote code execution vulnerability and exploit in Jenkins core. Unfortunately the vulnerability was not disclosed to us ahead of its publication so we're still working on more thorough fix. In the _meantime_ however, we wanted to inform you of the issue and provide a workaround which will help prevent this exploit from being used against public Jenkins installations, for future reference this issue is being tracked privately as `SECURITY-218` in our https://issues.jenkins.io[issue tracker].
+
+The attack is mounted through the https://wiki.jenkins.io/display/JENKINS/Jenkins+CLI[Jenkins CLI] subsystem, so the work-around is to remove/disable the CLI support inside of the running Jenkins server.
+
+Using the following Groovy script you can disable the attack vector in your Jenkins installations by navigating to "`Manage Jenkins`" and then to "`Script Console`", or just go to `++https://your-jenkins-installation/script++`. This only addresses the current running Jenkins process, in order to make the workaround persist between restarts of the Jenkins server, add the script below to `$JENKINS_HOME/init.groovy.d/cli-shutdown.groovy` (create the directory if necessary, and the file).
+
+'''
+
+....
+import jenkins.*;
+import jenkins.model.*;
+import hudson.model.*;
+
+// disabled CLI access over TCP listener (separate port)
+def p = AgentProtocol.all()
+p.each { x ->
+  if (x.name.contains("CLI")) p.remove(x)
+}
+
+// disable CLI access over /cli URL
+def removal = { lst ->
+  lst.each { x -> if (x.getClass().name.contains("CLIAction")) lst.remove(x) }
+}
+def j = Jenkins.instance;
+removal(j.getExtensionList(RootAction.class))
+removal(j.actions)
+....
+
+'''
+
+in order to make the workaround persist between restarts of the Jenkins server, add the script below to `$JENKINS_HOME/init.groovy.d/cli-shutdown.groovy` (create the directory if necessary, and the file).
+
+The latest version of this script can be found https://github.com/jenkinsci-cert/SECURITY-218[in this GitHub repository].
+
+As previously announced on the https://groups.google.com/d/forum/jenkinsci-advisories[jenkinsci-advisories] mailing list we're preparing a security release for this upcoming Wednesday which will include patches for both the latest and LTS lines of Jenkins core. The Jenkins Security team is working to include a fix for this previously undisclosed exploit in or before this planned security release.
+
+If you have questions about this exploit, join us in the https://webchat.freenode.net/?channels=%23jenkins&uio=d4[#jenkins channel on Freenode] or ask on the https://groups.google.com/d/forum/jenkinsci-users[jenkinsci-users@ mailing list].
+
+For security researchers and hobbyists, if you believe you have found a security vulnerability in Jenkins, we have some disclosure guidelines https://wiki.jenkins.io/display/JENKINS/Security+Advisories[on this wiki page] which will help us mitigate any discovered issues as quickly and safely as possible.
+
+'''
+
+Be sure to subscribe to the jenkinsci-advisories mailing list (https://groups.google.com/d/forum/jenkinsci-advisories[jenkinsci-advisories]), it's the fastest way to get updates by the Jenkins Security team.

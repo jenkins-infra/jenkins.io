@@ -1,0 +1,199 @@
+---
+layout: post
+title: "A near Feature-complete version of Jenkinsfile Runner Actions as GitHub Actions"
+tags:
+- gsoc
+- gsoc2022
+- jenkinsfile-runner
+- github-actions
+author: YimingGong
+opengraph:
+  image: /images/gsoc/opengraph.png
+---
+
+== Abstract
+
+Jenkinsfile Runner Action for GitHub Actions aims at providing customized environments and useful GitHub Actions for the users.
+Therefore, users can execute the Jenkins pipeline in the GitHub Actions runners.
+It enables running Jenkins pipelines in a Function-as-a-Service context.
+Users can customize their environment by setting up base images, configuring the Jenkins Configuration-as-Code plugin,
+extending vanilla images or providing initial hooks for the temporary Jenkins controller.
+Several examples about how to set up secrets, Jenkins plugins and integrate with other GitHub Actions can be seen below.
+This project is based on the link:https://github.com/jenkinsci/jenkinsfile-runner/[Jenkinsfile runner], which is a command line tool for the Jenkins pipeline execution engine.
+
+== Implementation
+
+Jenkinsfile Runner Action for GitHub Actions help users fetch necessary dependencies,
+and wrap the entrypoint for Jenkinsfile Runner in one GitHub Action.
+Users can use them in the workflow definitions just like other GitHub Actions.
+Based on this big idea, I developed five GitHub Actions.
+
+=== Runtime type actions
+
+These actions run the pipeline in the GitHub Actions runners host machines directly.
+
+* `jfr-setup-action` - It's used to set up the Jenkins environment, including but not limited to Jenkins core, plugin installation manager and Jenkinsfile Runner.
+
+* `jfr-plugin-installation-action` - Users can use it to install extra plugins. `jfr-setup-setup` needs to be run before.
+
+* `jfr-runtime-action` - It runs the Jenkins pipeline in the host machine. `jfr-setup-setup` needs to be run before.
+
+=== Container type actions
+
+These actions run the pipeline in the customized container.
+
+* `jfr-container-action` - It runs the Jenkins pipeline in the declared container.
+As the prebuilt container is declared in advance, it can integrate with other GitHub Actions theoretically.
+It's based on the idea of link:https://docs.github.com/en/actions/using-jobs/running-jobs-in-a-container[Running jobs in a container].
+
+* `jfr-static-image-action` - It runs the Jenkins pipeline in the runtime built container.
+It doesn't need to declare the container in advance so users cannot use other GitHub Actions except using `actions/checkout` to set up the workspace.
+But the users can override the base image by providing the docker image URL.
+For instance, if users want to combine the Jenkins environment with nodejs environment, they can use `node:18.3.0` as input.
+It's based on the idea of link:https://docs.github.com/en/actions/creating-actions/creating-a-docker-container-action#introduction/[GitHub Docker container action].
+
+== Phase 1
+
+When I started to write code based on my previous proposal, I found my implementation is different from the expectation of the maintainer and the mentors.
+What I wanted to do is make Jenkinsfile runner capable of generating necessary configurations for users.
+So they can use these configuration files to complete their Jenkinsfile runner actions.
+However, this method will couple the configuration generation step with Jenkinsfile runner which is a command line tool for Jenkins pipeline execution engine.
+The maintainer and the mentors proposed to make several useful GitHub Actions instead of coupling this unnecessary logic into Jenkinsfile runner.
+Therefore, I changed my project plan based on their advice and worked on developing the GitHub Actions for Jenkinsfile runner.
+
+In this stage, I developed `jfr-container-action` and `jfr-static-image-action`, which run in the customized containers.
+Its main advantage is that most dependencies are prepared in advance in the container.
+I also made several useful options in Jenkinsfile runner available in our GitHub actions such as the initial hook option.
+To make users get started in our actions quickly, I refactored the documentation several times,
+and created several useful examples.
+It is worth noting that my examples aim at applying Jenkins pipeline in GitHub Actions runner which is a FaaS context.
+
+== Phase 2
+
+In the second phase, I found current actions can only be supported by GitHub Actions Linux runner.
+Then I decided to develop the runtime type actions so they can run in all kinds of GitHub Actions runners.
+Its advantages are obvious.
+The runtime type actions are `jfr-setup-action`, `jfr-plugin-installation-action` and `jfr-runtime-action`.
+These actions will download all the dependencies at the runtime compared to container type actions' behavior.
+Its main disadvantage is the possibility of suffering from a download center outage.
+
+What's more, I kept developing examples for the actions and updated the documentation.
+As the project and documentation grow infinitely, I decided to split my project into several subprojects,
+and host the documentation including the user guide and developer guide on the GitHub Pages.
+
+== Deliverables
+
+I write a link:https://jenkinsci.github.io/jfr-action-doc[central documentation page] above the interface, basic usage, advanced usage, demos and developer guide for these Jenkinsfile-runner GitHub actions.
+If you feel confused about the definitions or examples, you can check the documentation page mentioned above.
+
+=== How to use jfr-container-action
+
+The user needs to declare the image usage of `ghcr.io/jenkinsci/jenkinsfile-runner:master` at the start of the job.
+Then the user can call this action by using `jenkinsci/jfr-container-action@master`.
+Because the runner declares the container environment at the start, 
+other GitHub Actions can also run with `jfr-container-action` theoretically.
+[source,yaml]
+----
+name: CI
+on: [push]
+jobs:
+  jfr-container-action-pipeline:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jenkinsci/jenkinsfile-runner:master
+    steps:
+      - uses: actions/checkout@v2
+      - name: Jenkins pipeline in the container
+        uses:
+          jenkinsci/jfr-container-action@master
+        with:
+          command: run
+          jenkinsfile: Jenkinsfile
+          pluginstxt: plugins.txt
+          jcasc: jcasc.yml 
+----
+
+=== How to use jfr-static-image-action
+
+`jfr-static-image-action` can also run the pipeline in the container.
+But the users don't need to declare the container by themselves like `jfr-container-action`.
+Instead, `jfr-static-image-action` wraps the preparation and invocation of a customized container.
+Therefore, the users cannot use other GitHub Actions except using `actions/checkout` to set up the workspace. 
+The users can call this action by using `jenkinsci/jfr-static-image-action@master`.
+[source,yaml]
+----
+name: CI
+on: [push]
+jobs:
+  jfr-static-image-action-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Jenkins pipeline in the container
+        uses:
+          jenkinsci/jfr-static-image-action@master
+        with:
+          command: run
+          jenkinsfile: Jenkinsfile
+          pluginstxt: plugins.txt
+          jcasc: jcasc.yml 
+----
+
+=== How to use jfr-runtime-action with other supporting runtime type actions
+
+`jfr-runtime-action` will run the pipeline in the host machine directly.
+The users need to use `jfr-setup-action` in advance.
+If the users want to install extra plugins, they can use `jfr-plugin-installation-action`.
+The advantage of `jfr-runtime-action` is that it can run in all kinds of runners provided by GitHub Actions.
+[source,yaml]
+----
+name: CI
+on: [push]
+jobs:
+  jfr-runtime-action-pipeline:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macOS-latest, windows-latest ]
+    runs-on: ${{matrix.os}}
+    name: jfr-runtime-action-pipeline
+    steps:
+      - uses: actions/checkout@v2
+      - name : Setup Jenkins
+        uses:
+          jenkinsci/jfr-runtime-action@master
+      - name: Jenkins plugins download
+        uses:
+          jenkinsci/jfr-plugin-installation-action@master
+        with:
+          pluginstxt: plugins.txt
+      - name: Run Jenkins pipeline
+        uses:
+          jenkinsci/jfr-runtime-action@master
+        with:
+          command: run
+          jenkinsfile: Jenkinsfile
+----
+
+== Reflection
+
+The most valuable lesson I learned in GSoC is not about how to write code.
+It's about the method of communicating with other people in the Jenkins community.
+When I was new in the Jenkins community, I kept making assumptions when I communicate with my mentors and project maintainers.
+Therefore, it's easy for them to misunderstand my idea.
+The best way of communication in Jenkins open source community is over-explanation.
+Sometimes, people who lack background information cannot understand your ideas about a specific topic.
+Therefore, providing some extra explanations or descriptions is necessary.
+
+The second lesson I learned is still about communication.
+When you feel confused about the words under a specific context, it's better to ask the contributors or your mentors directly instead of spending plenty of time by yourself.
+The people in Jenkins open source community are always willing to give you the answers.
+Furthermore, if you have obstacles or milestones when developing the tools or plugins, it's still necessary to ask the community developers first instead of making the decisions arbitrarily.
+
+== Project links
+
+* link:https://jenkinsci.github.io/jfr-action-doc[Central documentation page]
+* link:https://github.com/jenkinsci/jfr-setup-action[jfr-setup-action repository]
+* link:https://github.com/jenkinsci/jfr-plugin-installation-action[jfr-plugin-installation-action repository]
+* link:https://github.com/jenkinsci/jfr-runtime-action[jfr-runtime-action repository]
+* link:https://github.com/jenkinsci/jfr-container-action[jfr-container-action repository]
+* link:https://github.com/jenkinsci/jfr-static-image-action[jfr-static-image-action repository]

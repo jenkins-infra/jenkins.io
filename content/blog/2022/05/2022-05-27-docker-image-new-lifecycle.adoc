@@ -1,0 +1,70 @@
+---
+layout: post
+title: "Docker Image: new Exit and Restart Behavior for Controllers"
+tags:
+- platform
+- docker
+authors:
+- dduportal
+- basil
+:sig: platform
+description: >
+  The restart behavior of the Docker image for Jenkins controllers changed with the weekly 2.344 and the LTS 2.332.3. Container Engine should control this lifecycle (instead of the jenkins process in the container).
+opengraph:
+  image: /images/docker/dockerJenkins_social.png
+---
+
+// To be done:
+// - Add any other reviewer as co-authors
+// - Add Opengraph
+
+// image::/images/post-images/2022-05-TBD.png[Docker Image: new Exit and Restart Behavior for Controllers, role=center, link="https://hub.docker.com/r/jenkins/jenkins/tags"]
+
+The Jenkins project provides Docker images for controllers (and more).
+Beginning with link:/changelog/#v2.344[Jenkins 2.344] released April 18, 2022 and link:/changelog-stable/#v2.332.3[Jenkins 2.332.3] released May 04, 2022, the behavior of the "Exit" and "Restart" lifecycle of the controller image `jenkins/jenkins` changed.
+
+[NOTE]
+====
+TL;DR; Ensure that you have a Container Restart Policy
+
+For quick readers: check the <<How to Add a Container Restart Policy>> section for immediate actions to be taken.
+====
+
+== Application Lifecycle in a Container World
+
+Jenkins previously restarted itself after upgrading plugins or via the `/restart` or `/safeRestart` endpoints by calling `exec(2)`.
+This was fragile and exposed users to a variety of bugs.
+
+The `ExitLifecycle` implementation allows the main process to exit normally before starting it again from scratch,
+relying on the exit code to signal to the container orchestrator that the container ought to be restarted rather than to remain shut down.
+
+Avoiding `exec(2)` from Java code, with all the associated complexity of closing file handles and making low-level system calls via JNA, eliminates exposure to a category of bugs.
+
+You can read more about this on the following issues: https://github.com/jenkinsci/jenkins/pull/5899[jenkinsci/jenkins#5899] and https://github.com/jenkinsci/docker/pull/1268[jenkinsci/docker#1268].
+
+== Delegate Restarts to the Container Engine
+
+Since the link:/changelog/#v2.344[Jenkins Weekly 2.344] and the link:/changelog-stable/#v2.332.3[Jenkins LTS 2.332.3], the Docker image for Jenkins controller uses the new lifecycle `ExitLifecycle` by default.
+
+It means that when the Jenkins controller triggers any "restart" or "exit" event, then its container exits.
+
+If you are running Jenkins in a controller as a container, you should add a link:https://docs.docker.com/config/containers/start-containers-automatically/["container restart policy"] different than `none` to ensure that the container is restarted automatically.
+
+If you are running Jenkins in production in a container, chances are great that you already have a restart policy set and the change will be transparent.
+But we updated the https://github.com/jenkinsci/docker[jenkinsci/docker documentation] to mention that the flag `--restart=on-failure` is set when starting a Jenkins controller container.
+
+== How to Add a Container Restart Policy
+
+If you do not have a https://docs.docker.com/config/containers/start-containers-automatically/[container restart policy] defined, please find the different following methods depending on your container orchestrator:
+
+* Docker Engine, Docker Swarm: add the link:https://docs.docker.com/engine/reference/run/#restart-policies---restart[flag `--restart=on-failure`] to the `docker run <...> jenkins/jenkins` command.
++
+TIP: No need to create a new container: you can use the command `docker update` to link:https://docs.docker.com/engine/reference/commandline/update/#update-a-containers-restart-policy[update the restart policy of an existing container].
+
+* Docker Compose: update your `docker-compose.yml` file to specify the link:https://docs.docker.com/compose/compose-file/#restart[`restart: on-failure` keyword] (or the link:https://docs.docker.com/compose/compose-file/deploy/#restart_policy[`deploy.restart_policy`] if using `docker compose deploy` to a Docker Swarm cluster)
+
+* Kubernetes:
+** If you are using the official Jenkins helm-chart, make sure that you are using at least the version link:https://github.com/jenkinsci/helm-charts/releases/tag/jenkins-3.10.3[`3.10.3`] of the Helm chart and you're good to go, as per link:https://github.com/jenkinsci/helm-charts/issues/529[jenkinsci/helm-charts#529]
+** Otherwise, ensure that you configure the Deployment for Jenkins to specify the link:https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy[`OnFailure` restart policy for the pods]. Please note that it's the default policy if unspecified.
+
+* Hashicorp's Nomad: Ensure that you specify a non-empty link:https://www.nomadproject.io/docs/job-specification/restart[`restart` stanza]. Please note that the link:https://www.nomadproject.io/docs/job-specification/restart#restart-parameter-defaults[default stanza behavior] behaves as expected: Jenkins is restarted.

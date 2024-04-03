@@ -1,0 +1,123 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2021-11-04
+kind: core and plugin
+core:
+  lts:
+    previous: 2.303.2
+    fixed: 2.303.3
+  weekly:
+    previous: '2.318'
+    fixed: '2.319'
+issues:
+- id: SECURITY-2455
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Multiple vulnerabilities allow bypassing path filtering of agent-to-controller
+    access control
+  cve: CVE-2021-21685, CVE-2021-21686, CVE-2021-21687, CVE-2021-21688, CVE-2021-21689,
+    CVE-2021-21690, CVE-2021-21691, CVE-2021-21692, CVE-2021-21693, CVE-2021-21694,
+    CVE-2021-21695
+  cvss:
+    severity: Critical
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:H
+  description: |-
+    The agent-to-controller security subsystem limits which files on the Jenkins controller can be accessed by agent processes.
+
+    Multiple vulnerabilities in the file path filtering implementation of Jenkins 2.318 and earlier, LTS 2.303.2 and earlier allow agent processes to read and write arbitrary files on the Jenkins controller file system, and obtain some information about Jenkins controller file systems.
+
+    * SECURITY-2427 / CVE-2021-21685: `FilePath#mkdirs` does not check permission to create parent directories.
+    * SECURITY-2444 / CVE-2021-21686: File path filters do not canonicalize paths, allowing operations to follow symbolic links to outside allowed directories.
+    * SECURITY-2446 / CVE-2021-21687: `FilePath#untar` does not check permission to create symbolic links when unarchiving a symbolic link.
+    * SECURITY-2484 / CVE-2021-21688: `FilePath#reading(FileVisitor)` does not reject any operations, allowing users to have unrestricted read access using certain operations (creating archives, `#copyRecursiveTo`).
+    * SECURITY-2485 / CVE-2021-21689: `FilePath#unzip` and `FilePath#untar` were not subject to any access control.
+    * SECURITY-2486 / CVE-2021-21690: Agent processes are able to completely bypass file path filtering by wrapping the file operation in an agent file path.
+    * SECURITY-2531 / CVE-2021-21691: Creating symbolic links is possible without the `symlink` permission.
+    * SECURITY-2538 / CVE-2021-21692: The operations `FilePath#renameTo` and `FilePath#moveAllChildrenTo` only check read permission on the source path.
+    * SECURITY-2539 / CVE-2021-21693: When creating temporary files, permission to create files is only checked after they've been created.
+    * SECURITY-2541 / CVE-2021-21694: `FilePath#toURI`, `FilePath#hasSymlink`, `FilePath#absolutize`, `FilePath#isDescendant`, and `FilePath#get*DiskSpace` do not check any permissions.
+    * SECURITY-2542 / CVE-2021-21695: `FilePath#listFiles` lists files outside directories with agent read access when following symbolic links.
+
+    We expect that most of these vulnerabilities have been present since link:/security/advisory/2014-10-30/[SECURITY-144 was addressed in the 2014-10-30 security advisory].
+
+    Jenkins 2.319, LTS 2.303.3 addresses these security vulnerabilities.
+
+    * SECURITY-2427 / CVE-2021-21685: `FilePath#mkdirs` checks permission to create parent directories.
+    * SECURITY-2444 / CVE-2021-21686: File path filters canonicalize paths, preventing operations from following symbolic links to outside allowed directories.
+    * SECURITY-2446 / CVE-2021-21687: `FilePath#untar` checks permission to create symbolic links when unarchiving a symbolic link.
+    * SECURITY-2484 / CVE-2021-21688: `FilePath#reading(FileVisitor)` correctly rejects operations if they operate on files outside allowed directories.
+    * SECURITY-2485 / CVE-2021-21689: `FilePath#unzip` and `FilePath#untar` are now subject to access control.
+    * SECURITY-2486 / CVE-2021-21690: Agent processes are no longer able to completely bypass file path filtering by wrapping the file operation in an agent file path.
+    * SECURITY-2531 / CVE-2021-21691: Creating symbolic links now correctly checks the `symlink` permission.
+    * SECURITY-2538 / CVE-2021-21692: The operations `FilePath#renameTo` and `FilePath#moveAllChildrenTo` check both `read` and `delete` permissions on the source path.
+    * SECURITY-2539 / CVE-2021-21693: When creating temporary files, permission to create files is checked before they are created based on an artificial path.
+    * SECURITY-2541 / CVE-2021-21694: `FilePath#toURI`, `FilePath#hasSymlink`, `FilePath#absolutize`, `FilePath#isDescendant` check `stat` permission. `FilePath#get*DiskSpace` methods are no longer allowed to be executed by an agent.
+    * SECURITY-2542 / CVE-2021-21695: `FilePath#listFiles` checks `stat` permission on files it returns, preventing listing files outside allowed directories.
+
+    IMPORTANT: As some common operations are now newly subject to access control, it is expected that plugins sending commands from agents to the controller may start failing.
+    Additionally, the newly introduced path canonicalization means that instances using a custom builds directory (link:/doc/book/managing/system-properties/#jenkins-model-jenkins-buildsdir[Java system property `jenkins.model.Jenkins.buildsDir`]) or partitioning `JENKINS_HOME` using symbolic links may fail access control checks.
+    See link:/doc/book/security/controller-isolation/agent-to-controller/#file-access-rules[the documentation] for how to customize the configuration in case of problems.
+
+    NOTE: If you are unable to immediately upgrade to Jenkins 2.319, LTS 2.303.3, you can install the link:/redirect/remoting-security-workaround/[Remoting Security Workaround Plugin].
+    It will prevent all agent-to-controller file access using `FilePath` APIs.
+    Because it is more restrictive than Jenkins 2.319, LTS 2.303.3, more plugins are incompatible with it.
+    Make sure to read the plugin documentation before installing it.
+- id: SECURITY-2423
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: 'Agent-to-controller access control allowed writing to sensitive directory
+    used by Pipeline: Shared Groovy Libraries Plugin'
+  cve: CVE-2021-21696
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins 2.318 and earlier, LTS 2.303.2 and earlier does not limit agent read/write access to the `libs/` directory inside build directories when using the `FilePath` APIs.
+    This directory is used by the Pipeline: Shared Groovy Libraries Plugin to store copies of shared libraries.
+
+    This allows attackers in control of agent processes to replace the code of a trusted library with a modified variant, resulting in unsandboxed code execution in the Jenkins controller process.
+
+    Jenkins 2.319, LTS 2.303.3 prohibits agent read/write access to the `libs/` directory inside build directories.
+
+    NOTE: If you are unable to immediately upgrade to Jenkins 2.319, LTS 2.303.3, you can install the link:/redirect/remoting-security-workaround/[Remoting Security Workaround Plugin].
+    It will prevent all agent-to-controller file access using `FilePath` APIs.
+    Because it is more restrictive than Jenkins 2.319, LTS 2.303.3, more plugins are incompatible with it.
+    Make sure to read the plugin documentation before installing it.
+
+    IMPORTANT: It is not easily possible to link:/doc/book/security/controller-isolation/agent-to-controller/#file-access-rules[customize the file access rules] to prohibit access to the `libs/` directory specifically, as built-in rules (granting access to `<BUILDDIR>` contents) would take precedence over a custom rule prohibiting access.
+- id: SECURITY-2428
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Agent-to-controller access control allows reading/writing most content of
+    build directories
+  cve: CVE-2021-21697
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:L
+  description: |-
+    Agents are allowed some limited access to files on the Jenkins controller file system.
+    The directories agents are allowed to access in Jenkins 2.318 and earlier, LTS 2.303.2 and earlier include the directories storing build-related information, intended to allow agents to store build-related metadata during build execution.
+    As a consequence, this allows any agent to read and write the contents of any build directory stored in Jenkins with very few restrictions (`build.xml` and some Pipeline-related metadata).
+
+    Jenkins 2.319, LTS 2.303.3 prevents agents from accessing contents of build directories unless it's for builds currently running on the agent attempting to access the directory.
+
+    NOTE: Update https://plugins.jenkins.io/workflow-durable-task-step/[Pipeline: Nodes and Processes] to version 2.40 or newer for Jenkins to associate Pipeline `node` blocks with the agent they're running on for this fix.
+
+    NOTE: If you are unable to immediately upgrade to Jenkins 2.319, LTS 2.303.3, you can install the link:/redirect/remoting-security-workaround/[Remoting Security Workaround Plugin].
+    It will prevent all agent-to-controller file access using `FilePath` APIs.
+    Because it is more restrictive than Jenkins 2.319, LTS 2.303.3, more plugins are incompatible with it.
+    Make sure to read the plugin documentation before installing it.
+- id: SECURITY-2506
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Path traversal vulnerability in PLUGIN_NAME allows reading arbitrary files
+  cve: CVE-2021-21698
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: |-
+    PLUGIN_NAME 2.15.0 and earlier does not restrict the name of a file when looking up a subversion key file on the controller from an agent.
+
+    This allows attackers able to control agent processes to read arbitrary files on the Jenkins controller file system.
+
+    PLUGIN_NAME 2.15.1 checks for the presence of and prohibits directory separator characters as part of the file name, restricting it to the intended directory.
+  plugins:
+  - name: subversion
+    previous: 2.15.0
+    fixed: 2.15.1

@@ -1,0 +1,68 @@
+---
+:layout: post
+:title: Hosting your Hudson plugin at Github
+:nodeid: 232
+:created: 1280325600
+:tags:
+  - development
+  - meta
+  - plugins
+  - tutorial
+  - jenkinsci
+:author: abayer
+---
+For as long as Hudson's had a plugin model and development community, we've provided https://wiki.jenkins.io/display/JENKINS/Hosting+Plugins[source code and binary hosting] through our Subversion repo at https://java.net[java.net]. But what if you're a plugin developer and you don't want to use Subversion? Well, we have an alternative for your source code: host it with https://github.com/hudson[Hudson on GitHub].
+
+image:/sites/default/files/octocat.png[Octocat!,width=180]
+
+To get this in place, send an email to https://wiki.jenkins.io/display/JENKINS/Mailing+List[dev@hudson.dev.java.net] (or ask in https://wiki.jenkins.io/display/JENKINS/IRC+Channel[the IRC channel]) asking to get a repository created for your plugin at Github. Make sure to include the name of the plugin and your Github username (and the Github usernames of any other developers who'll be pushing to your plugin's repo). If your plugin is already in Github, include the URL for the existing repo so that we can fork it. One of the Hudson admins will create the repository (forking if appropriate) and add the user(s) to the list of users with push access to the Hudson-hosted repositories at Github. Once you hear back from them, you'll be able to push code to the new repository.
+
+You will need to make a few changes to your plugin's POM, as compared to what works for a plugin POM in the java.net Subversion tree.
+
+*First*, add the following to the `++` section:
+
+```
+<plugin>
+  <groupid>org.apache.maven.plugins</groupid>
+  <artifactid>maven-release-plugin</artifactid>
+  <version>2.0</version>
+  <dependencies>
+    <dependency>
+      <groupid>org.apache.maven.scm</groupid>
+      <artifactid>maven-scm-provider-gitexe</artifactid>
+      <version>1.3</version>
+    </dependency>
+  </dependencies>
+</plugin>
+```
+
+This is needed to make sure we're overriding the parent POM's SCM provider settings. Next, add the following to the `++` section:
+
+```
+<extensions>
+  <extension>
+    <groupid>org.jvnet.wagon-svn</groupid>
+    <artifactid>wagon-svn</artifactid>
+    <version>1.9</version>
+  </extension>
+</extensions>
+```
+
+This is needed because we're still going to be using wagon-svn to deploy the artifacts in the release process. Lastly, add an `++` section, within the `++` section of the POM, like the following:
+
+```
+<scm>
+  <connection>scm:git:git://github.com/hudson/your-plugin-repo.git</connection>
+  <developerconnection>scm:git:git@github.com:hudson/your-plugin-repo.git</developerconnection>
+  <url>https://github.com/hudson/your-plugin-repo</url>
+</scm>
+```
+
+As with the first section, this is needed to override the default SCM settings in the parent POM. Make sure to change "your-plugin-repo" to your actual plugin repository name, of course! It'd also be a good idea to put a link to your Github repo on your plugin's wiki page at https://wiki.jenkins.io[the Hudson wiki], since the default source link will go to Subversion.
+
+Now, with these changes in place, committed and pushed to the master branch in your plugin's repository, you should be able to run "mvn release:prepare release:perform" just as you would if the plugin were hosted in Subversion, with your plugin showing up in the Update Center within a few hours. Be sure that you've configured the login information for the java.net Maven repository, as detailed https://javanettasks.dev.java.net/nonav/maven/config.html[here] - this is still needed for plugins hosted at and released from Github, since Hudson's Maven repository still lives at java.net. If you run into any issues releasing your plugin from Github, first be sure to review the https://wiki.jenkins.io/display/JENKINS/Hosting+Plugins[wiki page on plugin hosting], which addresses many of the issues you may encounter when running the Maven release plugin.
+
+
+If you're still stumped, feel free to email https://wiki.jenkins.io/display/JENKINS/Mailing+List[the Hudson developer list] or ask in https://wiki.jenkins.io/display/JENKINS/IRC+Channel[the IRC channel] for help.
+
+

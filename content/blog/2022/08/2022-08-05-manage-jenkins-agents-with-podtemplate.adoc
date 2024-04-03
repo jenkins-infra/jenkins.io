@@ -1,0 +1,89 @@
+---
+:layout: post
+:title: "Manage Jenkins agents with Kubernetes native PodTemplate"
+:tags:
+- casc
+:author: linuxsuren
+---
+
+Jenkins has great integration with Kubernetes. No matter the controller or agents, they all work well in Kubernetes Pods. 
+link:https://github.com/jenkinsci/configuration-as-code-plugin[Configuration as Code] is an awesome idea.
+People don’t need to open the UI page of Jenkins again and again. 
+We can put all the 
+system configuration into a git repository. You might already feel tired to edit a super huge Kubernetes YAML file if there are
+many many Jenkins agents that need to be maintained. It’s pretty likely to make a mistake in a big YAML file.
+
+I’m going to provide a solution to make our life easier maintaining Jenkins . 
+You only need to update a ConfigMap if you want to make
+any changes to the Jenkins system configuration. And you only need to create a Kubernetes native PodTemplate resource if you want 
+to add a new Jenkins agent. To achieve this goal, you only need to install an extra Kubernetes deployment.
+
+Please allow me to show you how to do it. Before going forward, let’s assume you already have a Kubernetes cluster, and you have 
+enough permission to access the relevant resources.
+
+Firstly, put all the Jenkins system config into a ConfigMap, such as:
+```yaml
+apiVersion: v1
+data:
+  jenkins_user.yaml: |
+    jenkins:
+      mode: EXCLUSIVE
+      numExecutors: 0
+      scmCheckoutRetryCount: 2
+      disableRememberMe: true
+      clouds:
+        - kubernetes:
+            name: "kubernetes"
+            serverUrl: "https://kubernetes.default"
+            skipTlsVerify: true
+kind: ConfigMap
+metadata:
+  name: jenkins-casc-config
+  namespace: kubesphere-devops-system
+```
+
+Secondly, let your Jenkins load its configuration from a ConfigMap. Please see also the following important parts:
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+      - image: ghcr.io/linuxsuren/jenkins:lts
+        env:
+        - name: CASC_JENKINS_CONFIG
+          value: "/var/jenkins_home/casc_configs/"          # loading config file from a directory that was mount from a ConfigMap
+        volumeMounts:
+        - mountPath: /var/jenkins_home/casc_configs
+          name: casc-config                                 # mount from a volume
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: jenkins-casc-config                         # clamin a ConfigMap volume, all the CasC YAML content will be here
+        name: casc-config
+```
+
+then, the core part is the Kubernetes controller. Please see the following code snippet:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-agent
+  namespace: kubesphere-devops-system
+spec:
+  template:
+    spec:
+      containers:
+      - image: kubespheredev/devops-controller:dev-v3.2.1-rc.3-6726130
+        name: controller
+        args:
+        - --enabled-controllers
+        - all=false,jenkinsagent=true,jenkinsconfig=true        # only enable the necessary features of this controller
+```
+
+This controller will watch all the PodTemplates (containing the label `jenkins.agent.pod`), then convert it to Jenkins-style PodTemplate, merge it into 
+the CasC YAML file finally.
+
+When everything is setup, you can try to add a Kubernetes native PodTemplate. A few seconds later, you can use it in your Pipeline. 
+Considering there are many potential technical details, I already put all the necessary files to link:https://github.com/devops-ws/learn-kustomization/tree/main/jenkins[this git repository]. 
+Please feel free to mainain link:https://github.com/kubesphere/ks-devops/tree/master/controllers/jenkins/config[this project] if it 
+is helpful in your work.

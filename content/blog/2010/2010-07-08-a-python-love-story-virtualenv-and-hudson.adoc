@@ -1,0 +1,55 @@
+---
+:layout: post
+:title: "A Python Love Story: Virtualenv and Hudson"
+:nodeid: 225
+:created: 1278604217
+:tags:
+  - general
+  - guest post
+  - tutorial
+:author: rtyler
+---
+Over the past year Hudson has grown tremendously, both within the Java community and outside of it. Partially thanks to (https://twitter.com/ctitusbrown[Titus Brown])'s PyCon 2010 Atlanta coverage of continuous integration for Python (which we've link:/content/hudson-pycon[covered before]), Hudson has made great strides within the Python community as well. In my experience, the majority of Python developers are not using Hudson to **build** anything, unless they have C extensions, but rather to *test* their packages, which presents its own set of specific requirements for jobs. Jobs for testing Python code need to be able to reliaby reproduce an environment with the same set of dependencies from one run to the next in order to provide consistent testing. Unlike their Java counterparts, Python developers cannot rely on a powerful system like https://maven.apache.org/[Maven2] for enumerating build/test targets or defining their project's dependencies in their jobs; fortunately, w e can have something close: https://pypi.python.org/pypi/virtualenv[virtualenv] and https://pypi.python.org/pypi/pip[pip]. Virtualenv does exactly what you might expect it to, it creates a "virtual environment" with custom `site-packages` directory, and modified `python` executable. Using virtualenv you can create a staged environment to use for running unit and integration tests. Adding pip alongside that and you have a **fantastic** Python package manager/installer to use with the virtual environment. Below, I've outlined the steps required to use virtualenv and pip to *automatically* manage a custom environment for your Python jobs.
+
+### The Recipe
+
+For this recipe to work, you should make sure that your agent machines all have `virtualenv` and `pip` installed and accessible from your agent agent's `$PATH`. For Mac OS X users, `sudo easy_install virtualenv` should do the trick, Linux users should be able to run `sudo [aptitude/yum/zypper] install python-virtualenv` with your respective package manager. You will also need the plugin:setenv[SetEnv Plugin] installed in Hudson. 
+
+#### Step 1
+
+Inside of the job's configuration page (https://hudson/job/configure[http;//hudson/job/configure]), we need to define an environment variable for the job. Using the SetEnv plugin, define a new `$PATH`: `PATH=.env/bin:$PATH
+
+What this will do is modify the `$PATH` environment variable for all of the "Execute shell" build steps in your job. As you might have guessed, we're going to install the virtualenv in `.env` in the workspace root directory. 
+
+#### Step 2
+
+To set up the virtualenv, you want to add a build step of type "Execute shell" and paste the following commands into the text area: 
+
+```
+if [ -d ".env" ]; then
+  echo "**> virtualenv exists"
+else
+  echo "**> creating virtualenv"
+  virtualenv .env
+fi
+```
+
+This will create a virtualenv the first time the job runs on a particular agent, a virtualenv that will persist until the workspace is cleared. Since we're going to install dependencies in the virtualenv, we want to keep it around between jobs to reduce the amount of network hits to download packages. 
+
+#### Step 3
+
+With our virtualenv and our `$PATH` properly set up, the job can now properly install dependencies into its virtualenv, this is where `pip` shines. A little known feature of `pip` allows you to define a "requirements file" which enumerates the packages to install. In my example project, I defined the following requirements in a file called `pip-requires.txt` 
+
+```
+eventlet>=0.9.9
+nose>=0.11.3
+MySQL-python>=1.2.3c1
+```
+
+In my hypothetical example, I'll need `nose` to run my tests, while `eventlet` and `MySQL-python` are required for my project to properly run. With the `pip-requires.txt` file in the root of my source repository, I can add an additional "Execute shell" build step that does the following:
+
+```
+pip install -r pip-requires.txt
+```
+
+Assuming the `$PATH` environment variable was properly defined, this will use the virtualenv's version of `pip` and it will install the packages defined in `pip-requires.txt` **into** the virtualenv! With the dependencies all properly installed in the virtualenv, I can now configure the remainder of my job to build my project and execute the tests. Pretty snazzy if you ask me!

@@ -5,14 +5,19 @@ module ActiveNav
   end
 
   def absolute_link(relative_url)
-    link =  [site.base_url, relative_url.sub(/^\//, '')].join('/')
-    link.gsub(/\/index.html$/, '/').gsub(/\/(\/)+/, '/')
+    # if it is a full url with a schema, then can't do anything with it
+    return relative_url if relative_url.start_with?('https://', 'http://')
+
+    [site.base_url, relative_url.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/').sub(%r{^/}, '')].join('/')
   end
 
   def expand_link(relative_url)
-    link = [URI(site.base_url).path, relative_url.sub(/^\//, '')].join('/')
-    # if it has a file extension its a file and shouldn't get a / added
-    link = link + '/' if File.extname(link).empty?
+    # if it is a full url with a schema, then can't do anything with it
+    return relative_url if relative_url.start_with?('https://', 'http://')
+
+    link = [URI(site.base_url).path, relative_url.sub(%r{^/}, '')].join('/')
+    # if it has a file extension its a file and shouldn't get a / added, same for anchor links with '#'
+    link = link + '/' if File.extname(link).empty? and not link.include? '#'
     # strip double slashes on the end
     link.gsub(/\/(\/)+/, '/')
   end
@@ -39,5 +44,10 @@ module ActiveNav
       text,
       '</a>',
         ].join('')
+  end
+
+  def tooltip_href(url, title)
+    tooltip = {'data-bs-toggle' => 'tooltip', 'data-bs-placement' => 'top', 'title' => title}
+    url != null ? tooltip.merge({:href => url, :target => "_blank", :rel => "noreferrer noopener"}) : tooltip
   end
 end
