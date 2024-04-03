@@ -267,19 +267,44 @@ report.copyFrom(getClass().getResourceAsStream("lint-results_r20.xml"));
 TODO: Write this section.
 
 ==== Using `@LocalData`
-TODO: Properly write this section.
+Runs a test case with a data set local to test method or the test class. This recipe allows your test case to start with the preset `JENKINS_HOME` data loaded either from your test method or from the test class.
 
-Runs a test case with a data set local to test method or the test class.
+So let's check a test class with a case where some `test.xml`-file is needed, and we want to do something with it.
 
-This recipe allows your test case to start with the preset HUDSON_HOME data loaded either from your test method or from the test class.
-For example, if the test method is org.acme.FooTest.bar(), then you can have your test data in one of the following places in resources folder (typically src/test/resources):
+[source,java]
+----
+package org.my.plugin;
 
-* Under org/acme/FooTest/bar directory (that is, you'll have org/acme/FooTest/bar/config.xml), in the same layout as in the real JENKINS_HOME directory.
-* In org/acme/FooTest/bar.zip as a zip file.
-* Under org/acme/FooTest directory (that is, you'll have org/acme/FooTest/config.xml), in the same layout as in the real JENKINS_HOME directory.
-* In org/acme/FooTest.zip as a zip file.
+public class TestJenkinsWithConfigFile {
 
-Search is performed in this specific order. The fall back mechanism allows you to write one test class that interacts with different aspects of the same data set, by associating the dataset with a test class, or have a data set local to a specific test method.
+    @Rule
+    public JenkinsRule r = new JenkinsRule();
+
+    @LocalData
+    @Test
+    public void testConfig() {
+        final File rootDir = r.jenkins.getRootDir();
+        final String[] list = rootDir.list();
+        // check that data is really there
+        assertThat(list, hasItemInArray("test.xml"));
+
+        // do something with that data or verify that jenkins did something during startup with that data
+    }
+}
+----
+
+The `@LocalData` now takes care that the files under a specific folder are copied in the `JENKINS_HOME`. For the example above to work, the file `test.xml` needs to be placed either in:
+
+* (1) `org/my/plugin/TestJenkinsWithConfigFile/foo/test.xml` to be available **only** for the `testConfig()` method.
+* (3) `org/my/plugin/TestJenkinsWithConfigFile/test.xml` to be available for **all** methods in the test class.
+
+If you need more than just one file, you can use zipped files, which will be expanded for you in `JENKINS_HOME`
+So, if you have several files, e.g.(`test.xml`, `test2.xml`) in a `test.zip`, you can put this in the directory:
+
+* (2) `org/my/plugin/TestJenkinsWithConfigFile/foo/test.zip` to be available **only** for the `testConfig()` method.
+* (4) `org/my/plugin/TestJenkinsWithConfigFile/test.zip` to be available for **all** methods in the test class.
+
+Search is performed in the order of the brackets at the line start. The fallback mechanism allows you to write one test class that interacts with different aspects of the same data set, by associating the dataset with a test class, or have a data set local to a specific test method.
 The choice of zip and directory depends on the nature of the test data, as well as the size of it.
 
 === Configuring an SCM
