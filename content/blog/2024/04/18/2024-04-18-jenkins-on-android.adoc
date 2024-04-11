@@ -42,6 +42,8 @@ Now, keep in mind, this device got benched because it couldn't keep up with my d
 Sure, I could've slapped Linux on it instead, but where's the fun in taking the easy route, right?
 Let's see if we can kickstart a Jenkins controller on this bad boy!
 
+=== Launching the controller via Java command.
+
 Now, I've dabbled with memory-constrained devices before, and I know a Jenkins controller can work with a measly 1GB of RAM.
 No clue how much of that sweet memory pie the Android system will serve up to Termux, or how much Termux will pass along to the JVM, but hey, let's roll the dice!
 When I SSH in from my PC, here's what I see:
@@ -139,14 +141,72 @@ The journey nears its end, punctuated by the customary security warning about th
 image:/images/post-images/2024/04/18/security-issue.png[standard security warning,860]
 Nothing to do with Termux, but we'll iron out the kinks later.
 
-Quite the milestone, huh?
-We've proven that we can kickstart a Jenkins controller using Termux on an Android device.
+Quite the milestone, huh? +
+We've proven that we can kickstart a Jenkins controller using Termux on an Android device. +
 But hold onto your hats, folks!
-We're not done just yet.
+We're not done just yet. +
 Next up, we'll ensure this Jenkins controller can strut its stuff as a service, and then, we'll tweak it to kick off automatically at boot time.
 
-=== Launching the controller via Java command.
 === Transforming it into a service for seamless operation.
+
+Now, we could just leave Jenkins running in the background, but that's not the most elegant solution.
+What if Android decides to kill termux, or the device reboots?
+We'd have to manually restart Jenkins every time, and that's just not cricket.
+So, let's turn Jenkins into a service, shall we?
+
+The standard Jenkins installation link:/blog/2022/03/25/systemd-migration/[migrated] from `init` to `systemd` a while back.
+Unfortunately, Termux doesn't support `systemd`, so we'll have to make do with what replacement link:https://wiki.termux.com/wiki/Termux-services[Termux offers].
+link:https://github.com/termux/termux-services[termux-services] contains a set of scripts for controlling services.
+Instead of putting commands in `~/.bashrc` or `~/.bash_profile`, they can be started and stopped with termux-services.
+There are already quite a few existing services available for Termux, and as with systemd, nothing prevents us to create a specific service for Jenkins.
+To install termux-services, run
+[source,bash]
+----
+pkg install termux-services
+----
+and then restart termux so that the `service-daemon` is started.
+
+To then enable and run a service, run
+[source,bash]
+----
+sv-enable <service>
+----
+If you only want to run it once, run
+[source,bash]
+----
+sv up <service>
+----
+To later stop a service, run:
+[source,bash]
+----
+sv down <service>
+----
+Or to disable it
+[source,bash]
+----
+sv-disable <service>
+----
+A service is disabled if `$PREFIX/var/service/<service>/down` exists, so the `sv-enable` and `sv-disable` scripts touches, or removes, this file.
+
+termux-services uses the programs from link:http://smarden.org/runit/[runit] to control the services.
+A bunch of example scripts are available from the link:http://smarden.org/runit/runscripts.html[same site]. +
+If you find a script you want to use, or if you write your own, you can use set it up by running:
+[source,bash]
+----
+mkdir -p $PREFIX/var/service/<PKG>/log
+ln -sf $PREFIX/share/termux-services/svlogger $PREFIX/var/service/<PKG>/log/run
+----
+and then put your run script for the package at `$PREFIX/var/service/<PKG>/run` and make sure that it is runnable.
+
+You can then run
+[source,bash]
+----
+sv up <PKG>
+----
+to start it.
+
+Log files for services are situated in `$PREFIX/var/log/sv/<PKG>/` with the active log file named "current".
+
 === Ensuring availability from boot for uninterrupted service.
 == Adding Jenkins Agent on Android
 === Establishing SSH connection for agent integration.
