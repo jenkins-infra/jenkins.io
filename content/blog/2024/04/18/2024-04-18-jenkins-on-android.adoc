@@ -1,0 +1,157 @@
+---
+layout: post
+title: "Android and Jenkins: what is the limit? Part two."
+tags:
+- jenkins
+- android
+- aarch64
+- termux
+authors:
+- gounthar
+opengraph:
+  image: /images/post-images/2023/03/29/2023-03-22-android-and-jenkins/love.png
+discourse: true
+---
+
+image:/images/post-images/2023/03/29/2023-03-22-android-and-jenkins/love.png[jenkins hugging bugdroid,500]
+
+I know it's been over a year since the first article of this series, but hey, life happens!
+I've been juggling quite a few things that are more important for the Jenkins project.
+Let's face it, nobody's losing sleep over running Jenkins on Android.
+But hey, sometimes you just gotta indulge in a bit of tech whimsy, am I right?
+
+So, here we are, diving back into this almost frivolous experiment to see just how far we can push the Jenkins-Android interaction.
+There are essentially two ways to stretch the boundaries with Jenkins and Android:
+
+. Building Android apps with Jenkins
+. Running Jenkins on an Android device
+
+Now, the first option has already had its moment in the spotlight in another series of articles, so we're turning our attention to the latter.
+Why, you might ask?
+Well, because why not? Because we're tech enthusiasts, and if there's a crazy idea floating around, we're going to give it a shot!
+
+== Setting up Jenkins Controller on Android
+
+In the previous article, we had already layed the groundwork for running a Jenkins agent on Android.
+We had installed Termux, OpenSSH, and Java on the Android device, and checked that the agent could be reached from an adult-sized Jenkins controller.
+We even managed to get it to run a FreeStyle pipeline that outputed the result of the `uname -a` command.
+Quite an achievement, heh?
+For this experiment, we're still using my old Redmi Note 7, which is running Android 10.
+Keep in mind this device was put aside because it was too slow for my daily use, so it's not the best hardware to run Jenkins on.
+I also know I could get Linux to run on it instead of Android, but that would be too easy, wouldn't it?
+Let's try to launch a Jenkins controller on this device, shall we?
+
+I have already made attempts on memory-constrained devices, and I know that a Jenkins controller can work with 1GB of RAM.
+I don't know how much memory the Android system will give to termux, and how much termux will give to the JVM, but let's give it a shot!
+When logged in through ssh from my PC, I get:
+[source,bash]
+----
+~ $ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           3.6Gi       2.1Gi        80Mi       3.0Mi       1.5Gi       1.3Gi
+Swap:          2.2Gi       1.6Gi       623Mi
+----
+
+It looks like the device has 3.6GB of RAM, which should be enough to run a Jenkins controller.
+Let's run a Jenkins controller thanks to the `jenkins.war` file, which is the easiest way to run Jenkins.
+First thing first, let's download the `jenkins.war` file.
+The latest LTS version of Jenkins can be found at https://get.jenkins.io/war-stable/latest/jenkins.war.
+At the time of the writing, the latest LTS version referenced by the link:/download/#downloading-jenkins[official documentation] is `2.440.3`.
+But... We have to install `curl` first.
+
+[source,bash]
+----
+pkg install curl
+----
+
+Now we can download the `jenkins.war` file.
+[source,bash]
+----
+curl -L -O https://get.jenkins.io/war-stable/latest/jenkins.war
+----
+
+Now that we have the `jenkins.war` file, we can run it.
+[source,bash]
+----
+java -jar jenkins.war
+----
+
+The first lines look like the ones we are used to:
+
+[source,bash]
+----
+~ $ java -jar jenkins.war
+Running from: /data/data/com.termux/files/home/jenkins.war
+webroot: /data/data/com.termux/files/home/.jenkins/war
+2024-04-11 11:37:23.764+0000 [id=1]     INFO    winstone.Logger#logInternal: Beginning extraction from war file
+2024-04-11 11:37:24.486+0000 [id=1]     WARNING o.e.j.s.handler.ContextHandler#setContextPath: Empty contextPath
+2024-04-11 11:37:24.546+0000 [id=1]     INFO    org.eclipse.jetty.server.Server#doStart: jetty-10.0.20; built: 2024-01-29T20:46:45.278Z; git: 3a745c71c23682146f262b99f4ddc4c1bc41630c; jvm 17-internal+0-adhoc..src
+2024-04-11 11:37:24.804+0000 [id=1]     INFO    o.e.j.w.StandardDescriptorProcessor#visitServlet: NO JSP Support for /, did not find org.eclipse.jetty.jsp.JettyJspServlet
+2024-04-11 11:37:24.848+0000 [id=1]     INFO    o.e.j.s.s.DefaultSessionIdManager#doStart: Session workerName=node0
+2024-04-11 11:37:25.418+0000 [id=1]     INFO    hudson.WebAppMain#contextInitialized: Jenkins home directory: /data/data/com.termux/files/home/.jenkins found at: $user.home/.jenkins
+2024-04-11 11:37:25.844+0000 [id=1]     INFO    o.e.j.s.handler.ContextHandler#doStart: Started w.@7d199c68{Jenkins v2.440.2,/,file:///data/data/com.termux/files/home/.jenkins/war/,AVAILABLE}{/data/data/com.termux/files/home/.jenkins/war}
+2024-04-11 11:37:25.855+0000 [id=1]     INFO    o.e.j.server.AbstractConnector#doStart: Started ServerConnector@2f4205be{HTTP/1.1, (http/1.1)}{0.0.0.0:8080}
+2024-04-11 11:37:25.872+0000 [id=1]     INFO    org.eclipse.jetty.server.Server#doStart: Started Server@32811494{STARTING}[10.0.20,sto=0] @2832ms
+2024-04-11 11:37:25.874+0000 [id=26]    INFO    winstone.Logger#logInternal: Winstone Servlet Engine running: controlPort=disabled
+2024-04-11 11:37:26.135+0000 [id=34]    INFO    jenkins.InitReactorRunner$1#onAttained: Started initialization
+2024-04-11 11:37:26.150+0000 [id=43]    INFO    jenkins.InitReactorRunner$1#onAttained: Listed all plugins
+2024-04-11 11:37:26.965+0000 [id=32]    INFO    jenkins.InitReactorRunner$1#onAttained: Prepared all plugins
+2024-04-11 11:37:26.970+0000 [id=33]    INFO    jenkins.InitReactorRunner$1#onAttained: Started all plugins
+2024-04-11 11:37:26.976+0000 [id=39]    INFO    jenkins.InitReactorRunner$1#onAttained: Augmented all extensions
+2024-04-11 11:37:27.218+0000 [id=44]    INFO    jenkins.InitReactorRunner$1#onAttained: System config loaded
+2024-04-11 11:37:27.219+0000 [id=44]    INFO    jenkins.InitReactorRunner$1#onAttained: System config adapted
+2024-04-11 11:37:27.219+0000 [id=44]    INFO    jenkins.InitReactorRunner$1#onAttained: Loaded all jobs
+2024-04-11 11:37:27.221+0000 [id=44]    INFO    jenkins.InitReactorRunner$1#onAttained: Configuration for all jobs updated
+2024-04-11 11:37:27.261+0000 [id=58]    INFO    hudson.util.Retrier#start: Attempt #1 to do the action check updates server
+2024-04-11 11:37:27.567+0000 [id=42]    INFO    jenkins.install.SetupWizard#init:
+
+*************************************************************
+*************************************************************
+*************************************************************
+
+Jenkins initial setup is required. An admin user has been created and a password generated.
+Please use the following password to proceed to installation:
+
+12023083cbcf4c33a8ddba2801332526
+
+This may also be found at: /data/data/com.termux/files/home/.jenkins/secrets/initialAdminPassword
+
+*************************************************************
+----
+
+The web page is also looking familiar, except for the path where the password is stored:
+
+image:/images/post-images/2024/04/18/unlock-jenkins.png[standard first Jenkins screen,860]
+
+In the logs, we can see Jenkins complaining about the lack of a `/tmp` dir:
+
+[source,bash]
+----
+/tmp does not exist.
+----
+
+Apart from that, the install goes smoothly, and the default plugins get installed.
+
+image:/images/post-images/2024/04/18/plugins-install.png[standard plugins install,860]
+
+The installation goes to its end, and we get as always a security warning about the use of the built-in node.
+image:/images/post-images/2024/04/18/security-issue.png[standard security warning,860]
+This has nothing to do with the fact we're using termux, and we'll remediate this later.
+
+This is quite a milestone, isn't it? We proved we can launch a Jenkins controller thanks to termux on an Android device.
+But we're not done yet, we have to make sure this Jenkins controller can be launched as a service, and later on transform it so it can be started at boot time.
+
+=== Launching the controller via Java command.
+=== Transforming it into a service for seamless operation.
+=== Ensuring availability from boot for uninterrupted service.
+== Adding Jenkins Agent on Android
+=== Establishing SSH connection for agent integration.
+=== Configuring the agent to communicate with the controller.
+== Creating a Pipeline from GitHub Repo
+=== Setting up a pipeline to automate tasks.
+=== Linking the pipeline to a GitHub repository for version control.
+== Conclusion
+=== Reflecting on the process and achievements.
+=== Teasing a funny opening for the next adventure.
+=== Bonus: Funny Opening
+
