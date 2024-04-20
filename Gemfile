@@ -12,12 +12,12 @@ gem 'rouge'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.2.0'
-gem 'liquid', '~> 5.4.0'
+gem 'liquid', '~> 5.5.0'
 gem 'kramdown', '~> 2.4.0'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
-  gem 'faraday', '~> 2.8.0'
+  gem 'faraday', '~> 2.9.0'
   gem 'faraday-follow_redirects', '~> 0.3.0'
   gem 'rubyzip', '~> 2.3.2'
 end
