@@ -381,15 +381,82 @@ The key's randomart image is:
 |   . =BO.        |
 +----[SHA256]-----+
 ~ $ cat ~/.ssh/id_rsa.pub
-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCb+j8eUrnWLh4DWSY8C9t5iNa9AtcIn2oShDUi4ATLKcyPINAmCcDVw19uzhFd+J836iKEFScx9Qw7zuv9iNWEjxEERXyFHXt8A9lMf78aeK4dvDei60JEN5+28YO7ctlQ39+wzHXIMtrFiBTeIFpIjPqM1EskKqTq8ySty+TrozCySXnFgbceP9NN+AcaqdQL2skw0Hc7NyER9qG7voZ7UwSbD2g7w1LFr+TX2i8ew8BX8D9tiE86BOYC4HyRiVN50GAUtdRhUPCY+DvCPwSY+3bjUk2VTY+ibo9vIToshCNPbR0AwIAZqVSas2qe9Tn9QFW/Q+cA8PQKJ9AAFWgz3RMzWPxFG7H+CFsvvJSxagF0zk4UtidYa02fLlOpsGNNvxHAQTWjbWBLhb2Sh1RnOIEefC7cheNvwtS81OXqLuhKJqzDkW3d4jVl1ukVjKeT+UVOXw/gmNlFr3sho83nLdtxKnatfwRKaAkH2p6mtZzwMgPtA3wHM3iUo26i/RhVjliu+OZVdHIWCteBKhgylBVjGT2YPT4nHvsczSjM607xKke6+KZSzqyoYpjgMgYVtUTMSbnggFuWxfQms9a7tBLqv2GJzLoYJnWajXtrRokctQ/JyRFCZND7zhCF4cjyoI505tRgBUp7E3KV7CYiETV+7gQ92dV7K9Lf0u0OVQ== jenkins-agent
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCb+j8eUrnWLh4DWSY8C9t5iNa9AtcIn2oShDUi4ATLKcyPINAmCcDVw19uzhFd+J836iKEFScx9Qw7zuv9iNWEjxEERXyFHXt8A9lMf78aeK4dvDei60JEN5+28YO7ctlQ39+wzHXIMtrFiBTeIFpIjPqM1EskKqTq8ySty+TrozCySXnFgbceP9NN+KZSzqyoYpjgMgYVtUTMSbnggFuWxfQms9a7tBLqv2GJzLoYJnWajXtrRokctQ/JyRFCZND7zhCF4cjyoI505tRgBUp7E3KV7CYiETV+7gQ92dV7K9Lf0u0OVQ== jenkins-agent
 ----
+To add the generated public key to the authorized keys file, we can use the cat command to append the public key to the ~/.ssh/authorized_keys file.
+Here's how we can do it:
+[source,bash]
+----
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+----
+This command will append the content of the `id_rsa.pub` file (which is our public key) to the `authorized_keys` file.
+If the `authorized_keys` file does not exist, it will be created. +
+After running this command, the SSH server should allow any client that can prove it has the corresponding private key to connect.
+In our case, we should be able to connect without a password using the private key `~/.ssh/id_rsa`.
+Please ensure that the permissions of the `~/.ssh` directory and the `authorized_keys` file are correct. +
+The `~/.ssh` directory should have `700 (drwx------)` permissions and the `authorized_keys` file should have `600 (-rw-------)` permissions. +
+You can set these permissions using the chmod command:
+[source,bash]
+----
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+----
+If you're still being asked for a password when trying to connect, it's possible that the SSH server is not configured to use public key authentication.
+You can check the `$PREFIX/etc/ssh/sshd_config` file and ensure that the following line is present and uncommented:
+[source,bash]
+----
+PubkeyAuthentication yes
+----
+If you had to modify the `sshd_config` file, remember to restart the SSH service to apply the changes.
 
+Now that we have the key, let's create a new credential in Jenkins.
+Head over to the Jenkins controller, and navigate to "Manage Jenkins" > "Credentials" > "System".
+Hover "Global credentials (unrestricted)", click on the down arrow, and choose "Add Credentials".
+Then choose "SSH Username with private key" as the kind of credential, and fill in the details:
+
+. Username: <your termux user name>
+. Private Key: Enter directly, and paste the content of the private key file `~/.ssh/id_rsa`.
+. Passphrase: Leave it empty.
+. ID: jenkins-agent
+. Description: Jenkins Agent SSH Key
+
+Then hit create. +
+You should now have a new credential named "jenkins-agent" that Jenkins can use to connect to the Android device (that happens to be itself).
 
 === Configuring the agent to communicate with the controller.
 
-Let's click on the blue button "Set up agent" and follow the instructions.
+Once back in "Manage Jenkins", let's click on the blue button "Set up agent" and follow the instructions.
 image:/images/post-images/2024/04/18/set-up-agent.png[Jenkins asking to set up an agent,860]
 Add a node name (I chose "Myself" because the agent will be on the Android machine too), and select "Permanent Agent" as the mode.
+As for the description, I went with "The smartphone itself".
+Then, click "Save".
+For the number of executors, I chose 1, but you can adjust this based on your needs and your machine's capabilities.
+As for the remote root directory, I went with `/data/data/com.termux/files/home`.
+This is where the agent will run, and it's the home directory of the Termux user.
+For the labels, I chose "aarch64,android" because, well, it's an Android device.
+And for the usage, I went with "Use this node as much as possible".
+Finally, for the launch method, I chose "Launch agent via SSH".
+For the host, I used localhost of course, and for the credentials, I selected the "jenkins-agent" credential we created earlier.
+We'll have to click on "Advanced", because the port is not the standard 22 but 8022.
+We'll also have to change the JavaPath to `/data/data/com.termux/files/usr/bin/java`.
+Just to be sure, I entered "60" in "Connection Timeout in Seconds", "10" in "Maximum Number of Retries", and "10" in "Seconds To Wait Between Retries".
+Then, I clicked "Save".
+After some time, you should be able to click on "Log", and see something like:
+[source,bash]
+----
+Remoting version: 3206.vb_15dcf73f6a_9
+Launcher: SSHLauncher
+Communication Protocol: Standard in/out
+This is a Unix agent
+Agent successfully connected and online
+----
+
+image:/images/post-images/2024/04/18/agent-connected.png[Jenkins agent connected,860]
+As you can see, the agent is connected, despite being on the same machine as the controller and running on top of Android.
+Now, you can use this agent to run your builds, and even run them on the Android device itself.
+But... there is still a problem with our configuration and some ameliorations to make.
+On the top right, you can still see a red warning. "Building on the built-in node can be a security issue. You should set the number of executors on the built-in node to 0.".
+We'll have to address this issue. And just for showing off, we'll also add a plugin that should detect we're running on Android, and add specific labels to the agent.
 
 == Creating a Pipeline from GitHub Repo
 === Setting up a pipeline to automate tasks.
