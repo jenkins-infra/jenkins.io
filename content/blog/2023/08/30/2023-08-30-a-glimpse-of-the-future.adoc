@@ -1,0 +1,431 @@
+---
+layout: post
+title: "A glimpse of the future"
+tags:
+- jenkins
+- jdk21
+- risc-v
+authors:
+- gounthar
+opengraph:
+  image: /images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/a-glimpse-of-the-future.png
+discourse: true
+---
+
+image:/images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/image2.png[image,width=839]
+
+You've all seen it before: the bitter sting of botched predictions.
+Flying cars, nuclear ovens in the kitchen, killer robot dogs, and lunar living - all expected to be part of our daily lives by now.
+Well, some of these wild dreams did come to pass, but I'm not about to roll the dice and predict what our world will look like 50 years hence.
+Instead, let me paint a picture of Jenkins' future up until October 2024.
+
+Why am I being so specific about this end date, you ask?
+It's because I want to highlight two major projects that Jenkins might tackle before the leaves start to fall next year.
+
+One of these projects is the potential leap to JDK21, and we've got a proposed roadmap for that.
+Jenkins will stop supporting JDK 11 in October 2024 when many Java providers (Eclipse Temurin, OpenJDK, ...) stop supporting Java 11.
+This transition is one of the more significant moves Jenkins might be considering in the coming months.
+
+The next project doesn't have a roadmap within Jenkins yet, but the progress is promising, and it's intertwined with the first project like two vines on a trellis.
+As some of you may know, I've got a fondness for CPU architectures that were once seen as outlandish or still raise a few eyebrows.
+I'm referring to ARM and RISC-V, of course.
+
+ARM is making strides, finding its way into everything from laptops to servers.
+So, my personal campaign to see ARM recognized as a first-class citizen has been successful.
+
+Now, I'm turning my attention to RISC-V - my next personal endeavor and hobby.
+While it's not a fresh face in the CPU crowd, it's currently experiencing a notable uptick in popularity.
+The emergence of numerous single-board computers, workstations, and servers reminds me of the early days of ARM, but amplified.
+I've touched on this before in one of my link:/blog/2023/03/10/miniJen-and-RISC-V/#the-risc-v-quest[blog posts].
+
+Let’s explore how JDK21, Jenkins, and RISC-V might be connected, at least in the maze of my musings.
+
+== Java Version Planning for Jenkins
+
+The ink's barely dry on the plans for which versions of the JDK the Jenkins project will support this year and the next.
+What I'm about to spill is just a snippet from a proposal whipped up by author:markewaite[Mark Waite].
+For now, it's about as definitive as a weather forecast.
+
+There'll be more detailed blog posts down the line when the final decision is made and the roadmap is as clear as a bell.
+
+=== Java 11:
+
+* Java 11 OpenJDK's public support ends in late 2024.
+* Eclipse Temurin, Red Hat, and Microsoft will support Java 11 through October 2024.
+* Oracle extends support until October 2026.
+* Amazon Corretto supports Java 11 until September 2027.
+* Proposal: End-of-life for Java 11 in Jenkins is suggested for October 31, 2024.
+* Jenkins LTS support for Java 11 will end with the August 7, 2024 release.
+* Java 21 will become the required baseline starting with the September 4, 2024 LTS release.
+* Admin monitors announcing Java 11's end of life will be enabled in Jenkins weekly releases by October 3, 2023 and in the December 13, 2023 LTS release.
+
+=== Java 17:
+
+* Java 17 adoption is increasing in Jenkins.
+The Jenkins documentation now recommends Java 17 in the installation guides and in the tutorials.
+
+image:/images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/image3.png[Java adoption rates based on Java version.,width=839]
+
+=== Java 21:
+
+* Java 21 releases on September 19, 2023.
+* Oracle, Eclipse Temurin, Red Hat, and others plan to support Java 21 as a long term support release.
+* Proposal: Jenkins aims to support Java 21 in weekly releases by the end of October 2023.
+
+Are we confident Jenkins will be running on top of JDK 21 next October? +
+I guess so. Thanks to the work of Stéphane Merle, JDK21 is already available at link:https://ci.jenkins.io[https://ci.jenkins.io] to build plugins.
+You just have to add one line to your Jenkinsfile, and your plugin will be tested on JDK21.
+
+[source,groovy]
+----
+configurations: [
+[platform: 'linux', jdk: '17'],
+[platform: 'linux', jdk: '21'],
+[platform: 'windows', jdk: '11']
+]
+----
+
+Furthermore, thanks to the work of the community (and particularly author:basil[Basil Crow]), Jenkins `2.419` and `2.420` no longer require the `--enable-future-java` flag for JDK 21 beta.
+Jenkins `2.418` and prior require the flag for Java 21 beta.
+
+[source,shell]
+------
+$ java -version
+openjdk version "21-beta" 2023-09-19
+OpenJDK Runtime Environment Temurin-21+34-202308082331 (build 21-beta+34-202308082331)
+OpenJDK 64-Bit Server VM Temurin-21+34-202308082331 (build 21-beta+34-202308082331, mixed mode, sharing)
+
+$ java -jar jenkins-2.417.war
+Running with Java 21 from /opt/jdk-21, which is not yet fully supported.
+Run the command again with the --enable-future-java flag to enable preview support for future Java versions.
+Supported Java versions are: [11, 17]
+See link:https://jenkins.io/redirect/java-support/ for more information.
+
+$ java -jar jenkins-2.419.war
+Running from: /home/mwaite/bugs/jenkins-2.419.war
+webroot: /home/mwaite/.jenkins/war
+2023-08-24 15:42:32.857+0000 [id=1]     INFO    winstone.Logger#logInternal: Beginning extraction from war file`
+------
+
+I also heard from Basil Crow during the link:https://community.jenkins.io/t/governance-meeting-august-21-2023/9142[latest Governance board meeting] that the link:/doc/developer/plugin-development/dependency-management/#jenkins-core-bom[Jenkins BOM] had already run with JDK21; that’s good news.
+We will have to stay alert because of things that won’t migrate easily (think of Groovy for example), but if it’s too easy, it’s no fun, right?
+
+== Jenkins and RISC-V
+
+The Jenkins project is already churning out `aarch64` (64-bit ARM) Docker images for both the controller and agents.
+On top of that, we're putting `aarch64` through its paces with regular testing, and some parts of the Jenkins infrastructure are already humming along on `aarch64` hardware. +
+We can't say the same for `RISC-V`, and for good reason.
+`RISC-V` isn't a supported CPU architecture for Jenkins, it hasn't been put to the test, Docker isn't officially on board with this architecture yet (even if Kubernetes is link:https://twitter.com/hipeac/status/1687344636795252737?s=20[already on the bandwagon]), and the Jenkins project doesn't own a single RISC-V machine.
+
+A few months back, I whipped up a link:/blog/2023/03/10/miniJen-and-RISC-V/#the-risc-v-quest[Jenkins agent for RISC-V].
+Sadly, the machine I had at my disposal wasn't up to the task of hosting a Jenkins controller.
+At that time, I was using a nightly build of JDK19 by Temurin.
+
+These days, I've got another RISC-V machine that's got more cores and more memory than the last one, and it meets the Jenkins recommendations, which are:
+
+* 4 GB+ of RAM
+* 50 GB+ of drive space
+
+Here I'm wielding the StarFive VisionFive2, which boasts 8GB of RAM, 4 RISCV64 cores clocking up to 1.5GHz, and for now, a 128GB SDCard.
+I'll swap it out for an NVMe disk when I get around to it.
+It's built on the link:https://www.starfivetech.com/en/site/soc[JH7110] from StarFive.
+We're seeing this SoC pop up on SBCs more and more these days (Star64, and so on).
+
+Since the machine is (on paper) up to the task of running Jenkins, we should give it a whirl, right? +
+I loaded a snapshot version of Debian onto the board after giving the firmware a tune-up, and away we went.
+
+=== RISC-V and JDK
+
+==== JDK17
+
+The logical first step would be to install a version of the JDK, then follow the official documentation to get Jenkins up and running on Debian, right?
+
+I've already been burned by the default JDK on RISC-V with Debian, which turns out to be a link:/blog/2023/03/10/miniJen-and-RISC-V/#zero-vm[Zero VM]. +
+If I were to kick things off with the default JDK, I reckon its performance would leave me so frustrated, I wouldn't bother going any further. +
+You're not buying it?
+Alright, I see how it is.
+Let's not install Jenkins the old-fashioned way then, let's give it a whirl on the command line after installing the default JDK.
+
+[source,shell]
+----
+sudo apt install openjdk-17-jdk-headless
+
+java -version
+openjdk version "17.0.5" 2022-10-18
+OpenJDK Runtime Environment (build 17.0.5+8-Debian-2)
+OpenJDK 64-Bit Zero VM (build 17.0.5+8-Debian-2, interpreted mode)
+----
+
+Yes, we’re using a Zero VM.
+Now onto the Jenkins war download.
+
+[source,shell]
+----
+curl -L -o /tmp/jenkins.war link:https://updates.jenkins.io/latest/jenkins.war
+----
+
+Let’s launch Jenkins on the command line:
+
+[source,shell]
+----
+java -jar /tmp/jenkins.war
+
+Running from: /tmp/jenkins.war
+
+webroot: /home/user/.jenkins/war
+
+2023-08-06 12:31:15.432+0000 [id=1] INFO winstone.Logger#logInternal: Beginning extraction from war file
+----
+
+Let's say I let it run for a good while, and nothing else happened. +
+A Zero VM is about as useful for running a server as a chocolate teapot. +
+Let's switch gears and go with something that's got a bit more pep in its step.
+
+==== JDK21
+
+As I'm penning this article, there's no official JDK21 release we can snag from the link:https://adoptium.net/temurin/releases/[Eclipse Temurin Latest Releases] page. +
+We'll have to scrounge up a nightly build from the Adoptium link:https://github.com/adoptium/temurin21-binaries/releases[Temurin 21 binaries repo.] +
+RISC-V binaries aren't exactly churned out daily, so you might have to do a bit of digging to find a release with RISC-V binaries. +
+At the time of writing this blog post, the latest available is release link:https://github.com/adoptium/temurin21-binaries/releases/tag/jdk21-2023-08-08-20-16-beta[jdk21-2023-08-08-20-16-beta]. +
+In this release, there are several RISC-V binaries up for grabs, but we don't need static libs or a debug image, so we'll opt for link:https://github.com/adoptium/temurin21-binaries/releases/download/jdk21-2023-08-08-20-16-beta/OpenJDK21U-jdk_riscv64_linux_hotspot_2023-08-08-20-16.tar.gz[OpenJDK21U-jdk_riscv64_linux_hotspot_2023-08-08-20-16.tar.gz].
+
+Let's reel in the JDK21 binaries:
+
+[source,shell]
+----
+curl -L -O link:https://github.com/adoptium/temurin21-binaries/releases/download/jdk21-2023-08-08-20-16-beta/OpenJDK21U-jdk_riscv64_linux_hotspot_2023-08-08-20-16.tar.gz
+----
+
+Now that we have them, let’s install them on the machine.
+
+[source,shell]
+----
+sudo mkdir /opt/jdk21
+sudo tar -xzf OpenJDK21U-jdk_riscv64_linux_hotspot_*.tar.gz -C /opt/jdk21 --strip-components=1
+----
+
+Once it’s installed, let’s inform the system about this new set of java binaries:
+
+[source,shell]
+----
+sudo update-alternatives --install /usr/bin/java java /opt/jdk21/bin/java 1
+sudo update-alternatives --install /usr/bin/javac javac /opt/jdk21/bin/javac 1
+sudo update-alternatives --install /usr/bin/javadoc javadoc /opt/jdk21/bin/javadoc 1
+----
+
+These commands create alternatives for the java, javac, and javadoc commands and associate them with the respective binaries in the JDK 21 installation.
+
+After installing the alternatives, you need to select the default one.
+Run the following command and choose the number corresponding to the JDK 21 alternative in the presented menu:
+
+[source,shell]
+----
+sudo update-alternatives --config java
+----
+
+Repeat this for javac and javadoc:
+
+[source,shell]
+----
+sudo update-alternatives --config javac
+sudo update-alternatives --config javadoc
+----
+
+Verify the Default Java Version: After configuring the alternatives, you can verify that JDK 21 is the default Java version by running:
+
+[source,shell]
+----
+java -version
+----
+
+=== Jenkins and JDK21
+
+==== On the command line
+
+Let’s try to launch Jenkins with JDK21 now, and see if it gets any better than with JDK17:
+
+[source,shell]
+----
+java -jar /tmp/jenkins.war +
+Running from: /tmp/jenkins.war
+webroot: /home/user/.jenkins/war
+2023-08-24 08:35:11.202+0000 [id=1] INFO winstone.Logger#logInternal: Beginning extraction from war file
+2023-08-24 08:35:17.635+0000 [id=1] WARNING o.e.j.s.handler.ContextHandler#setContextPath: Empty contextPath
+2023-08-24 08:35:17.947+0000 [id=1] INFO org.eclipse.jetty.server.Server#doStart: jetty-10.0.15; built: 2023-04-11T17:25:14.480Z; git: 68017dbd00236bb7e187330d7585a059610f661d; jvm 21-beta+34-202308081713
+2023-08-24 08:35:19.288+0000 [id=1] INFO o.e.j.w.StandardDescriptorProcessor#visitServlet: NO JSP Support for /, did not find org.eclipse.jetty.jsp.JettyJspServlet
+2023-08-24 08:35:19.521+0000 [id=1] INFO o.e.j.s.s.DefaultSessionIdManager#doStart: Session workerName=node0
+2023-08-24 08:35:22.058+0000 [id=1] INFO hudson.WebAppMain#contextInitialized: Jenkins home directory: /home/user/.jenkins found at: $user.home/.jenkins
+2023-08-24 08:35:22.647+0000 [id=1] INFO o.e.j.s.handler.ContextHandler#doStart: Started w.@2a9bc08f\{Jenkins v2.420,/,file:///home/user/.jenkins/war/,AVAILABLE}\{/home/user/.jenkins/war}
+2023-08-24 08:35:22.698+0000 [id=1] INFO o.e.j.server.AbstractConnector#doStart: Started ServerConnector@43599640\{HTTP/1.1, (http/1.1)}\{0.0.0.0:8080}
+2023-08-24 08:35:22.743+0000 [id=1] INFO org.eclipse.jetty.server.Server#doStart: Started Server@b83a9be\{STARTING}[10.0.15,sto=0] @14031ms
+2023-08-24 08:35:22.746+0000 [id=35] INFO winstone.Logger#logInternal: Winstone Servlet Engine running: controlPort=disabled
+2023-08-24 08:35:23.763+0000 [id=42] INFO jenkins.InitReactorRunner$1#onAttained: Started initialization
+2023-08-24 08:35:23.820+0000 [id=40] INFO jenkins.InitReactorRunner$1#onAttained: Listed all plugins
+2023-08-24 08:35:28.157+0000 [id=40] INFO jenkins.InitReactorRunner$1#onAttained: Prepared all plugins
+2023-08-24 08:35:28.180+0000 [id=40] INFO jenkins.InitReactorRunner$1#onAttained: Started all plugins
+2023-08-24 08:35:28.204+0000 [id=40] INFO jenkins.InitReactorRunner$1#onAttained: Augmented all extensions
+2023-08-24 08:35:29.182+0000 [id=46] INFO jenkins.InitReactorRunner$1#onAttained: System config loaded
+2023-08-24 08:35:29.185+0000 [id=40] INFO jenkins.InitReactorRunner$1#onAttained: System config adapted
+2023-08-24 08:35:29.187+0000 [id=43] INFO jenkins.InitReactorRunner$1#onAttained: Loaded all jobs
+2023-08-24 08:35:29.194+0000 [id=43] INFO jenkins.InitReactorRunner$1#onAttained: Configuration for all jobs updated
+2023-08-24 08:35:29.366+0000 [id=60] INFO hudson.util.Retrier#start: Attempt #1 to do the action check updates server
+2023-08-24 08:35:31.242+0000 [id=45] INFO jenkins.install.SetupWizard#init:
+*************************************************************
+*************************************************************
+*************************************************************
+Jenkins initial setup is required. An admin user has been created and a password generated.
+Please use the following password to proceed to installation:
+2c4d91ba22d24f639a59ad50e6d82686
+This may also be found at: /home/user/.jenkins/secrets/initialAdminPassword
+*************************************************************
+*************************************************************
+*************************************************************
+----
+
+Jenkins coughed up this log a few seconds after I fired off the command, so it looks like we're in business. +
+Notice anything odd?
+Shouldn't Jenkins give us a heads-up that it's not meant to run with JDK21?
+Aren't JDK17 and JDK11 the only ones getting the official nod? +
+Up until a few weeks ago, that was the score...
+And it'll stay that way for the LTS versions until next October.
+At the start of August 2023, this link:https://github.com/jenkinsci/jenkins/pull/8365[PR] got the green light, and since then, there's no need to add the `--enable-future-java` flag to give JDK21 versions the go-ahead.
+
+Let's take the current LTS for a spin:
+
+[source,shell]
+----
+curl -L -o /tmp/jenkins.war link:https://get.jenkins.io/war-stable/latest/jenkins.war
+java -jar /tmp/jenkins.war
+Running with Java 21 from /opt/jdk21, which is not yet fully supported.
+Run the command again with the --enable-future-java flag to enable preview support for future Java versions.
+Supported Java versions are: [11, 17]
+See link:https://jenkins.io/redirect/java-support/ for more information.
+----
+
+As you can see, the current LTS does not support JDK 21 yet.
+
+==== Jenkins standard package installation
+
+As we’re using Debian, let’s go with the link:/doc/book/installing/linux/#weekly-release[standard installation of the weekly release] now. +
+Unfortunately, we get an error when installing the Jenkins package the official way.
+
+[source,shell]
+----
+Job for jenkins.service failed because the control process exited with error code.
+See "systemctl status jenkins.service" and "journalctl -xeu jenkins.service" for details.
+----
+
+These commands don’t say much to help with understanding what the problem is. +
+Let’s try another way:
+
+[source,shell]
+----
+/usr/bin/jenkins
+jenkins: invalid Java version: openjdk version "21-beta" 2023-09-19
+OpenJDK Runtime Environment Temurin-21+34-202308081713 (build 21-beta+34-202308081713)
+OpenJDK 64-Bit Server VM Temurin-21+34-202308081713 (build 21-beta+34-202308081713, mixed mode, sharing)
+----
+
+Now it's clear as day: we've installed a JDK21 version that plays nice with the WAR file, but the scripts tied to `systemd` aren't up to speed with this JDK version yet. +
+They're still checking if we're using JDK11, 17 or 21, but they're not ready for prime time, hence the failure. +
+So, how do we fix this mess?
+
+==== Tweaking the package installation
+
+The link:/doc/book/system-administration/systemd-services/#overriding-service-configurations[official documentation] tells us we can override systemd service configurations thanks to
+
+[source,shell]
+----
+sudo systemctl edit jenkins.
+----
+
+This gives us something like:
+
+[source,shell]
+----
+### Editing /etc/systemd/system/jenkins.service.d/override.conf
+### Anything between here and the comment below will become the new contents of the file
+
+[Service]
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx1024m"
+Environment="JENKINS_OPTS=--enable-future-java"
+----
+
+I have just added the last line in the hope of getting Jenkins to start.
+
+`sudo systemctl daemon-reload` and `sudo systemctl start jenkins` should now be enough to get Jenkins started.
+
+Yes, we’re almost good to go: +
+
+[source,shell]
+----
+sudo systemctl status jenkins
+● jenkins.service - Jenkins Continuous Integration Server
+Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; preset: enabled)
+Drop-In: /etc/systemd/system/jenkins.service.d
+└─override.conf
+Active: activating (start) since Thu 2023-08-24 09:28:34 UTC; 1min 2s ago
+Main PID: 7138 (java)
+CPU: 2min 32.701s
+CGroup: /system.slice/jenkins.service
+└─7138 /usr/bin/java -Djava.awt.headless=true -Xmx1024m -jar /usr/share/java/jenkins.war --webroot=/var/cache/jenkins/war --httpPort=8>
+
+----
+
+Why almost?
+We've still got a couple of hitches.
+The first one is the timeout.
+These RISC-V machines don't have an optimized kernel yet, so a lot of things are slower than molasses in January.
+Too slow. +
+We'd best give Jenkins a bit more time to get its act together, just to be on the safe side. +
+Let's bump up the timeout.
+Like before, we'll tweak the configuration: courtesy of `sudo systemctl edit jenkins`.
+
+[source,shell]
+----
+### Editing /etc/systemd/system/jenkins.service.d/override.conf
+### Anything between here and the comment below will become the new contents of the file
+
+[Service]
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Xmx1024m"
+TimeoutStartSec=390
+
+### Lines below this comment will be discarded
+
+----
+
+You may have spotted I removed `Environment="JENKINS_OPTS=--enable-future-java"` from the settings.
+We're running the last weekly release of Jenkins that can handle JDK21, so why should we keep that? +
+We've got another fly in the ointment: the existing jenkins script in `/usr/bin/jenkins` is pulling a rabbit out of its hat with `sed`, trying to pin down a valid release.
+Unfortunately, our Java binary spits out something like “`21-beta`”.
+The script then trips up on validation, and in the end, throws a tantrum and refuses to start Jenkins. +
+Our workaround (while we twiddle our thumbs waiting for link:https://github.com/jenkinsci/packaging/pull/429[this PR] to build the next package) is to tweak this file.
+Change line 40 so it reads:
+
+[source,shell]
+----
+awk -F '"' '/version/ \{print $2}' | awk -F '.' '\{match($1, /^[0-9]+/); print substr($1, RSTART, RLENGTH)}')
+----
+
+Once you've done that, fire off `sudo systemctl daemon-reload` and `sudo systemctl restart jenkins` and voilà, you've got a Jenkins instance running on JDK21 on a RISC-V machine. +
+For those of you still hanging in there, yes, there's a quicker workaround... +
+Just stick the `Environment="JENKINS_OPTS=--enable-future-java"` line back in the `override.conf` file, and you'll have a Jenkins instance up and running with JDK21 faster than you can say "compile".
+
+image:/images/post-images/2023/08/30/2023-08-30-a-glimpse-of-the-future/image1.png[image,width=839]
+
+== What’s next?
+
+We've now got a fresh-off-the-press Jenkins instance humming along thanks to a nightly build of the JDK21 by Temurin. +
+That's all well and good, but how do we install newer versions of the JDK when they roll off the assembly line? +
+One of these days, we'll have regular JDK21 releases available straight from the package manager, but until that day comes, how are we supposed to update our installed version?
+
+Well, I don't have a silver bullet, but how about using Jenkins? +
+I've whipped up a nifty little link:https://github.com/gounthar/jenkins-temurin-riscv/blob/main/Jenkinsfile-21[Jenkinsfile] that checks every day at 2:30 AM UTC if Temurin has pushed out a new nightly build for RISC-V. +
+If it strikes gold, it installs it into `/home/jenkins/jdk-21`. +
+It's not exactly a masterpiece, since the version we're using is in `/opt/jdk21`, but we could tweak it to shoot us an email when it finds something. +
+We'd then have to put Jenkins on ice, shuffle the contents of `/home/jenkins/jdk-21` over to `/opt/jdk21`, and then wake Jenkins back up.
+
+If you're itching to give it a whirl, just whip up a link:/doc/book/pipeline/getting-started/#defining-a-pipeline-in-scm[new pipeline from source control] and point it at the link:https://github.com/gounthar/jenkins-temurin-riscv.git[repo I mentioned earlier]. +
+I'll be the first to admit, even with an email notification, this workflow isn't exactly a walk in the park, but it should be a stopgap solution, since Java 21 is set to launch on September 19, 2023.
+
+Keep your ears to the ground for more updates and thrilling developments as we forge Jenkins' future together.

@@ -97,7 +97,7 @@ TODO: Adjust according to project ideas
 
 * Chat page URL: https://app.gitter.im/#/room/#jenkinsci_gsoc-sig:gitter.im
 * Twitter: https://twitter.com/jenkinsci
-* Blog: https://jenkins.io/node/
+* Blog: https://jenkins.io/blog/
 
 ### Application
 
@@ -162,7 +162,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course).
   Public presentations will attract attention, and the students will be periodically contacted by users.
 * Students will be also advised to present their projects at local meetups
-* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/).
+* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/blog/).
 * We recommend mentors to have monthly sync-ups with the students to follow-up on projects and other events in Jenkins
 * We will invite students to participate in other community outreach activities like GSoC or Hacktoberfest
 
