@@ -1,0 +1,135 @@
+==== Jenkins requires Java 11 or newer
+
+Beginning with Jenkins 2.361.1, Jenkins requires Java 11 or newer on both the controller JVM and agent JVMs.
+
+Prior to Jenkins 2.361.1, running the controller on Java 11 and agents on Java 8, though not recommended, did not result in errors.
+Beginning with Jenkins 2.361.1, running the controller on Java 11 and agents on Java 8 will result in the following error:
+
+[source]
+----
+Error: A JNI error has occurred, please check your installation and try again
+Exception in thread "main" java.lang.UnsupportedClassVersionError:
+hudson/remoting/Launcher has been compiled by a more recent version of
+the Java Runtime (class file version 55.0), this version of the Java
+Runtime only recognizes class file versions up to 52.0
+	at java.lang.ClassLoader.defineClass1(Native Method)
+	at java.lang.ClassLoader.defineClass(ClassLoader.java:756)
+	at java.security.SecureClassLoader.defineClass(SecureClassLoader.java:142)
+	at java.net.URLClassLoader.defineClass(URLClassLoader.java:473)
+	at java.net.URLClassLoader.access$100(URLClassLoader.java:74)
+	at java.net.URLClassLoader$1.run(URLClassLoader.java:369)
+	at java.net.URLClassLoader$1.run(URLClassLoader.java:363)
+	at java.security.AccessController.doPrivileged(Native Method)
+	at java.net.URLClassLoader.findClass(URLClassLoader.java:362)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:418)
+	at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:352)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:351)
+	at sun.launcher.LauncherHelper.checkAndLoadMain(LauncherHelper.java:601)
+----
+
+Therefore, it is critical to upgrade both the controller _and_ agents to Java 11 or newer prior to upgrading Jenkins to 2.361.1.
+Use the link:https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin to verify that agents are running a compatible version of Java.
+
+The official Jenkins Docker images for link:https://hub.docker.com/r/jenkins/jenkins/[the controller] and link:https://hub.docker.com/r/jenkins/inbound-agent/[agents] have been based on Java 11 for many months, with Java 8 available as a fallback, and Java 17 available in preview mode.
+With the release of Jenkins 2.361.1, the Java 8 images have been retired and the Java 17 images have transitioned from preview to general availability.
+Users of the official Docker images do not need to install or configure Java on their own, as it comes preinstalled in the Docker images.
+
+If your application build still requires Java 8, and you are using a Docker image to run the agent Java process `remoting.jar` simultaneously, you will need to provide a Java 11 or newer runtime for the Jenkins agent process and a Java 8 environment for your application build.
+
+Users of the official Jenkins OS packages for Debian, Red Hat, and SUSE Linux distributions should note that these packages are agnostic to the Java vendor.
+This means you must bring your own Java package.
+One straightforward way to do this is installing Java 11 from your Linux distribution, as described on the package download site:
+
+* link:https://pkg.jenkins.io/debian-stable/[Debian]
+* link:https://pkg.jenkins.io/redhat-stable/[Red Hat]
+* link:https://pkg.jenkins.io/opensuse-stable/[SUSE]
+
+This does not require any custom repositories, so this is the simplest method and was used by the Jenkins project's packaging tests.
+However, it does not give the user a high degree of control over the Java runtime environment.
+The official Jenkins Docker images and the Jenkins infrastructure project use Adoptium/Eclipse Temurin.
+Enthusiastic users can install Java from Adoptium or another vendor.
+Adoptium recently began providing Linux installation packages, as described in link:https://blog.adoptium.net/2021/12/eclipse-temurin-linux-installers-available/[a piece by George Adams].
+The choice of Java vendor is up to you, as long as that vendor provides Java 11 or Java 17.
+Refer to your chosen Java vendor for installation instructions.
+
+Once you have installed a suitable version of Java, configuring Jenkins to use that Java runtime is easy.
+The most straightforward way is to configure that version of Java as the default version, is at the operating system (OS) level:
+
+Debian:: `update-alternatives --config java`
+Red Hat:: `alternatives --config java`
+SUSE:: `update-alternatives --config java`
+
+Alternatively, users who do not wish to change the default version of Java can customize the `JAVA_HOME` or `JENKINS_JAVA_CMD` environment variable as part of the Jenkins `systemd(1)` service unit.
+Refer to the link:/doc/book/system-administration/systemd-services/[Managing systemd services] section of the Jenkins documentation for more information.
+
+==== OpenJDK upgraded to 11.0.16.1
+
+The version of OpenJDK in the official Docker image has been upgraded from 11.0.15 to 11.0.16.1.
+After upgrading Jenkins to 2.361.1, you must upgrade Pipeline: Groovy to 2705.v0449852ee36f or later.
+As always, make sure you use the *Plugin Manager* to upgrade all plugins before and after upgrading Jenkins core.
+This also applies if you are upgrading from a version prior to 2.346.3 directly to 2.361.1.
+
+==== OpenJDK 11.0.16/17.0.4 and the C2 JIT compiler
+
+OpenJDK 11.0.16 and 17.0.4 are susceptible to link:https://bugs.openjdk.org/browse/JDK-8292260[JDK-8292260], a regression in the C2 JIT compiler which link:https://mail.openjdk.org/pipermail/jdk-updates-dev/2022-August/016460.html[may cause the JVM to crash unpredictably].
+The OpenJDK project has released fixes for this in 11.0.16.1 and 17.0.4.1.
+As of August 26, 2022, the official Jenkins Docker images have been updated with OpenJDK 11.0.16.1 and 17.0.4.1.
+
+==== OpenJDK 11.0.16.1/17.0.4.1 and the metaspace
+
+The version of OpenJDK in the official Docker image has been upgraded from 11.0.15 to 11.0.16.1 and from 17.0.3 to 17.0.4.1.
+This exposes a metaspace memory leak in Pipeline: Groovy 2692.v76b_089ccd026 and earlier, and in Script Security 1172.v35f6a_0b_8207e and earlier.
+After upgrading Jenkins to 2.361.1, upgrade Pipeline: Groovy to 2705.v0449852ee36f or later and upgrade Script Security to 1175.v4b_d517d6db_f0 or later.
+Make sure you upgrade all plugins through the *Plugin Manager* after upgrading Jenkins core.
+
+For more information about recent JVM metaspace changes, see link:https://www.youtube.com/watch?v=XqaQ-z70sQs[Taming Metaspace: a look at the machinery, and a proposal for a better one | FOSDEM 2020] and the following blog posts:
+
+* link:https://stuefe.de/posts/metaspace/what-is-metaspace/[What is Metaspace?]
+* link:https://stuefe.de/posts/metaspace/metaspace-architecture/[Metaspace Architecture]
+* link:https://stuefe.de/posts/metaspace/what-is-compressed-class-space/[What is Compressed Class Space?]
+* link:https://stuefe.de/posts/metaspace/sizing-metaspace/[Sizing Metaspace]
+* link:https://stuefe.de/posts/metaspace/analyze-metaspace-with-jcmd/[Analyze Metaspace with `jcmd VM.metaspace`]
+
+==== OpenJDK 11.0.16.1 and container awareness for cgroups v2
+
+OpenJDK 11.0.16.1 contains a fix for link:https://bugs.openjdk.org/browse/JDK-8230305[JDK-8230305], which is container awareness for link:https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html[cgroups v2].
+
+Previously, there would be no container detection when running OpenJDK 11.0.15 on cgroups v2, and the limits from the container host would be used.
+As of OpenJDK 11.0.16.1, OpenJDK detects container limits through cgroups v2.
+For example, these limits affect the garbage collection (GC) algorithm selected by the JVM, the default size of the heap, the sizes of thread pools, and how default parallelism is determined for `ForkJoinPool`.
+
+For more information, refer to link:https://developers.redhat.com/articles/2022/04/19/java-17-whats-new-openjdks-container-awareness#tuning_defaults_for_containers[Java 17: What's new in OpenJDK's container awareness] and link:https://www.youtube.com/watch?v=ZmTUBKvSWzs[OpenJDK 17 | Container Detection Demo].
+
+==== Updated Jetty version
+
+The Jetty version has been updated from 9.4.46.v20220331 to 10.0.11.
+Support for OpenSSL-style PEM-encoded RSA private keys has been removed when running Jenkins with the embedded Jetty (Winstone) container and TLS.
+Specifically, the `--httpsPrivateKey` and `--httpsCertificate` flags have been removed in favor of the `--httpsKeyStore` flag.
+The removed flags had printed deprecation warnings since 2016, and were implemented with non-standard APIs that have since been removed from Java 17.
+The recommendation is migrating to the `--httpsKeyStore` flag, which takes a keystore as described in link:/doc/book/installing/initial-settings/#https-with-an-existing-certificate[the documentation].
+As of link:https://openjdk.org/jeps/229[JEP 229], link:https://en.wikipedia.org/wiki/PKCS_12[PKCS12] is the recommended keystore type.
+
+==== Updated minimum supported remoting version
+
+The minimum required Remoting version has been increased to 4.2.1.
+Ensure that all agents are running a recent version of Remoting prior to upgrading.
+
+==== Converted `instance-identity` to a separate plugin
+
+As `instance-identity` is normally a basic part of Jenkins core, this new plugin will be automatically installed.
+If using an “as-code” installation mechanism, for example a text file with a list of plugins, you need to add `instance-identity` version 3.1 or later to restore this functionality.
+In particular, inbound agents using TCP (but not WebSocket) transport require this plugin to be installed.
+Other cases may be identified by use of APIs in the `jenkins.model.identity` package, rather than directly accessing `org.jenkinsci.main.modules.instance_identity`.
+Make sure you use the *Plugin Manager* to upgrade all plugins before and after upgrading Jenkins core.
+
+==== Removed Java Web Start support
+
+Jenkins no longer supports attaching a static inbound agent by selecting the *Launch* button from an agent machine's web browser when running the controller on Java 8.
+Java Web Start has been removed from newer versions of most distributions.
+Instead, download the agent JAR file from the provided link and run the supplied command (`java -jar agent.jar -jnlpUrl …`) on the agent machine.
+The *JVM options* field was removed from the inbound launcher configuration, as it would not have any effect beyond adjusting the suggested command.
+
+The control window displayed when using a Java Web Start agent is also removed.
+Its main function was to be closed, which is now done by simply terminating the shell process.
+It also displayed a menu with platform-specific agent installers that offered to create system services to make the agent permanent.
+It is possible to accomplish a similar configuration in many ways without this GUI, according to your operating system.

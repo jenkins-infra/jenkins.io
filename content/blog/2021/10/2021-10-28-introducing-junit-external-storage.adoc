@@ -1,0 +1,144 @@
+---
+:layout: post
+:title: "Introducing external storage for JUnit test results"
+:tags:
+- cloud-native
+- pluggable-storage
+- junit
+:author: timja
+:sig: gsoc
+links:
+
+---
+
+In common CI/CD use-cases a lot of the space is consumed by test reports.
+This data is stored within `JENKINS_HOME`,
+and the current storage format requires huge overheads when retrieving statistics and, especially, trends.
+In order to display trends, each report has to be loaded and then processed in-memory.
+
+The main purpose of externalising Test Results is to optimize Jenkins performance and storage
+by querying the desired data from external storages.
+
+I'm please to announce that the plugin:junit[JUnit Plugin] external storage is now available for use.
+
+== Getting started
+
+Install your database vendor specific plugin, you can use the Jenkins plugin site to search for it:
+
+https://plugins.jenkins.io/ui/search/?labels=database
+
+e.g. you could install the plugin:database-postgresql[PostgreSQL Database] plugin.
+
+We currently support plugin:database-postgresql[PostgreSQL] or plugin:database-mysql[MySQL], but can support others, just create an issue or send a pull request.
+
+=== From Jenkins UI
+
+Navigate to: Manage Jenkins → Configure System → Junit
+
+In the dropdown select 'SQL Database'
+
+image:/images/post-images/2021/junit-external-storage/junit-sql-config-screen.png[JUnit SQL plugin configuration]
+
+Now configure your Database connection details.
+
+Search for 'Global Database' on the same 'Configure System' page.
+
+Select the database implementation you want to use and click 'Test Connection' to verify Jenkins can connect
+
+image:/images/post-images/2021/junit-external-storage/junit-sql-config-screen.png[JUnit SQL plugin database configuration]
+
+Click 'Save'
+
+=== Configuration as code
+
+If you want to configure the plugin via plugin:configuration-as-code[Configuration as Code] then see the below sample:
+
+[source,yaml]
+----
+unclassified:
+  globalDatabaseConfiguration:
+    database:
+      postgreSQL:
+        database: "jenkins"
+        hostname: "${DB_HOST_NAME}"
+        password: "${DB_PASSWORD}"
+        username: "${DB_USERNAME}"
+        validationQuery: "SELECT 1"
+  junitTestResultStorage:
+    storage: "database"
+----
+
+=== Using the plugin
+
+Now run some builds, here's an example pipeline configuration to get you started if you're just trying out the plugin:
+
+[source,groovy]
+----
+node {
+  writeFile file: 'x.xml', text: '''
+  <testsuite name='sweet' time='200.0'>
+    <testcase classname='Klazz' name='test1' time='198.0'>
+      <error message='failure'/>
+    </testcase>
+    <testcase classname='Klazz' name='test2' time='2.0'/>
+    <testcase classname='other.Klazz' name='test3'>
+    <skipped message='Not actually run.'/>
+    </testcase>
+  </testsuite>
+  '''
+  junit 'x.xml'
+}
+----
+
+You will see a test result trend appear like below on the builds project page:
+
+image:/images/post-images/2021/junit-external-storage/junit-trend.png[JUnit Trend]
+
+If you check on the controller's file system you will see no `junitResult.xml` for new builds.
+
+If you connect to your database and run:
+
+`SELECT * FROM caseresults;`
+
+You will see a number of test results in the database.
+
+== What happens to existing test results?
+
+Existing test results will stay on disk but will not be loaded.
+
+Currently there is no migration scripts or plugin functionality to do this, if you need it then please raise an issue.
+
+
+== How are test results cleaned up
+
+When a job or build is deleted the related test results are removed.
+
+This is expected to be done as part of a 'Build Discarder'.
+
+If you wish to keep your results longer than this you can disable this feature by enabling:
+
+`Skip cleanup of test result on build deletion` on the system configuration page.
+
+If you need more complex cleanup strategies built into the plugin then please raise an issue.
+
+== API
+
+The API is defined at:
+
+* jenkinsdoc:junit:io.jenkins.plugins.junit.storage.JunitTestResultStorage[]
+* jenkinsdoc:junit:io.jenkins.plugins.junit.storage.JunitTestResultStorageDescriptor[]
+* jenkinsdoc:junit:io.jenkins.plugins.junit.storage.TestResultImpl[]
+
+`JunitTestResultStorage#load` is passed a job name and build which can be used to construct an instance of the external storage implementation.
+
+This implementation will then act on that job and build except for the optimised calls that act across all builds.
+
+The API contains the basic methods like `getFailCount`, `getSkipCount`, but also APIs that are optimised for retrieving data for the trend graphs on the job page and the test result history page.
+
+These allow single API calls to be made for what used to be a lot of work for Jenkins to look up before.
+
+=== Feedback
+
+I would love to hear your feedback & suggestions for this feature.
+
+Please create an issue at https://github.com/jenkinsci/junit-plugin or provide feedback on https://community.jenkins.io

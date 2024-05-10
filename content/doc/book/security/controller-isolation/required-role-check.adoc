@@ -1,0 +1,104 @@
+---
+title: Required Role Check Security Improvement
+layout: documentation
+---
+ifdef::backend-html5[]
+:toc:
+:toclevels: 4
+ifdef::env-github[:imagesdir: ../../resources]
+ifndef::env-github[:imagesdir: ../../../resources]
+:hide-uri-scheme:
+endif::[]
+
+Jenkins agents communicate with the controller using the https://github.com/jenkinsci/remoting/[remoting library].
+Individual messages (implementations of the `Callable` interface) instruct the other side of the bidirectional communication channel to perform operations and/or provide information.
+
+== Introduction
+
+Implementations are expected to restrict where they can be executed by their implementation of a _role check_.
+This role check is run after receiving the object through a communication channel and is expected to reject the execution of the `Callable` when it is determined to run on an unexpected side of that channel.
+For example, the `Callable` implementing the functionality for Jenkins to run OS commands (usually build tools and build scripts) on another system is only allowed to be sent from a controller to an agent, but not in the other direction.
+
+From Jenkins 2.319 and Jenkins LTS 2.303.3, Jenkins requires that role checks are performed by `Callable` implementations.
+This change aims to prevent the execution on the controller of callables with an incomplete implementation.
+Any plugin that fails to work in the Jenkins releases mentioned above will need to be updated.
+
+
+== Identifying Broken Plugins
+
+The security improvement detects when a plugin implementing an inadequate role check attempts to send a `Callable` through the remoting channel from the agent to the controller and throws a `SecurityException` causing a log message like the following:
+
+----
+Security hardening prohibits the Callable implementation io.jenkins.demo.MyCallable ↵
+  from ignoring RoleChecker, see https://www.jenkins.io/redirect/required-role-check
+----
+
+
+[NOTE]
+====
+This change will not prevent implementations from deliberately declaring themselves to be safe to execute on the controller.
+Instead, this aims to prevent the impact of simple programming mistakes.
+====
+
+== Known Affected Plugins
+
+As of 2021-11-04, no plugins are known to be affected by this security hardening.
+
+// This is where we would keep track of affected plugins and their fixes.
+
+
+[NOTE]
+====
+Not all plugins that implement an empty role check are negatively impacted by this security hardening.
+They may not require these callables to be sent from an agent to the controller for execution as part of their regular functionality.
+In those cases, it is still recommended to update the plugin as described link:/doc/developer/security/remoting-callables[in the developer documentation].
+====
+
+
+== Workarounds
+
+While fixes for affected plugins are not yet available, administrators can allow the execution of specific callables on the controller, or disable this security hardening altogether.
+
+[IMPORTANT]
+====
+Doing either will potentially allow attackers able to control an agent process to execute unsafe code on the Jenkins controller.
+It is recommended that individual callables are only allowed after careful review of their code to ensure they're not unsafe to execute.
+link:/doc/developer/security/remoting-callables[See the developer documentation] for considerations what constitutes unsafe `Callable` behavior.
+====
+
+=== Allow specific callables
+
+To allow specific, known safe callables to execute on any end of any remoting communication channel despite their empty role check, do either of the following:
+
+Set the link:/doc/book/managing/system-properties/#hudson-remoting-channelbuilder-specificcallablescanignoreroleche[Java system property `hudson.remoting.ChannelBuilder.specificCallablesCanIgnoreRoleChecker`] to a comma-separated list of class names.
+The class names are the same as in the error message.
+
+Alternatively, you can use the link:/doc/book/managing/script-console/[Jenkins script console].
+This approach is immediately effective and does not require Jenkins to be restarted first, but is only effective until Jenkins is restarted.
+Run this script, replacing the callable class name as needed:
+
+[source,groovy]
+----
+import hudson.remoting.ChannelBuilder
+ChannelBuilder.SPECIFIC_CALLABLES_CAN_IGNORE_ROLECHECKER.add('io.jenkins.demo.MyCallable')
+----
+
+Run this script once for every callable you want to allow.
+
+
+=== Disable security hardening 
+
+To disable the security hardening altogether, set the link:/doc/book/managing/system-properties/#hudson-remoting-channelbuilder-allcallablescanignorerolechecker[Java system property `hudson.remoting.ChannelBuilder.allCallablesCanIgnoreRoleChecker`] to `true`.
+
+Alternatively, you can use the link:/doc/book/managing/script-console/[Jenkins script console].
+This approach is immediately effective and does not require Jenkins to be restarted first, but is only effective until Jenkins is restarted.
+Run this script:
+
+[source,groovy]
+----
+hudson.remoting.ChannelBuilder.CALLABLES_CAN_IGNORE_ROLECHECKER = true
+----
+
+== Fixing Plugins
+
+link:/doc/developer/security/remoting-callables[See the developer documentation] for advice how to change plugins to be compatible with this change while not creating a security vulnerability.

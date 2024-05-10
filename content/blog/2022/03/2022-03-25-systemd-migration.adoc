@@ -1,0 +1,245 @@
+---
+layout: post
+title: Linux installation packages migrated from System V init to systemd
+tags:
+- announcement
+- community
+- core
+- platform-sig
+author: basil
+description: >
+  Starting with Jenkins 2.335, the Jenkins project is migrating from System V init to systemd.
+---
+
+Beginning with Jenkins 2.335 and Jenkins 2.332.1, the Jenkins project is migrating from link:https://en.wikipedia.org/wiki/Init[System V `init(8)`] to link:https://www.freedesktop.org/wiki/Software/systemd/[`systemd(1)`] in its official Debian, Red Hat, and openSUSE packages.
+The link:https://hub.docker.com/r/jenkins/jenkins[official Docker image] and link:https://charts.jenkins.io/[Helm chart] remain unchanged.
+For up-to-date information, refer to the link:/doc/book/system-administration/systemd-services/[Managing `systemd` services] page in the documentation.
+
+=== Background
+
+Beginning in 2008, the Jenkins (then Hudson) project has delivered Linux OS installation packages for Debian (and derivatives), Red Hat (and derivatives), and openSUSE.
+These packages were all based on the link:https://en.wikipedia.org/wiki/Init[System V `init(8)`] system in common use at that time.
+A remnant of the venerable link:https://en.wikipedia.org/wiki/UNIX_System_V[Unix System V] from 1983, `init(8)` had remained unchanged for decades.
+
+The mid-2000s saw the emergence of a new generation of service management frameworks, starting with the release of link:https://en.wikipedia.org/wiki/Service_Management_Facility[Service Management Facility (SMF)] in link:https://en.wikipedia.org/wiki/Oracle_Solaris#Version_history[Solaris 10], the release of link:https://en.wikipedia.org/wiki/Launchd[`launchd`] in link:https://en.wikipedia.org/wiki/Mac_OS_X_Tiger[Mac OS X Tiger], and the release of link:https://upstart.ubuntu.com/[Upstart] in link:https://en.wikipedia.org/wiki/Ubuntu_version_history[Ubuntu 6.10 (Edgy Eft)].
+In contrast to the serial service startup of `init(8)`, these frameworks modeled services as a dependency graph and started services in parallel.
+
+The mid-2010s saw the rise of `systemd(1)` as the dominant service management framework on Linux,
+and it became the default service management framework in link:https://en.wikipedia.org/wiki/Red_Hat_Enterprise_Linux#RHEL_7[Red Hat Enterprise Linux (RHEL) 7], link:https://en.wikipedia.org/wiki/OpenSUSE#Version_history[openSUSE 12.2 (Mantis)], link:https://en.wikipedia.org/wiki/Debian_version_history#Debian_8_(Jessie)[Debian 8 (Jessie)], and link:++https://en.wikipedia.org/wiki/Ubuntu_version_history#Ubuntu_15.04_(Vivid_Vervet)++[Ubuntu 15.04 (Vivid Vervet)].
+A decade after the release of Solaris 10, the ideas behind its service management framework had spread to the majority of Unix-like systems.
+
+`systemd(1)` provides compatibility with the behavior exposed by System V `init(8)`,
+and the System V `init(8)` scripts delivered in the Jenkins project's official Linux OS packages continued to work in this compatibility mode.
+Beginning with Jenkins 2.335 and Jenkins 2.332.1, the Jenkins project's official Linux OS packages deliver a native `systemd(1)` link:https://www.freedesktop.org/software/systemd/man/systemd.service.html[service unit],
+which supersedes the older System V `init(8)` scripts.
+Seven years after `systemd(1)` became the default service management framework in the majority of Linux distributions, the Jenkins project provides full support for `systemd(1)`.
+
+=== Motivation
+
+As defined in W. Richard Stevens' book link:http://www.kohala.com/start/unp.html[_UNIX Network Programming_] (Addison-Wesley, 1990),
+a daemon is "a process that executes 'in the background' (i.e., without an associated terminal or login shell) either waiting for some event to occur, or waiting to perform some specified task on a periodic basis."
+Upon startup, a typical daemon program will:
+
+* Close all open link:https://en.wikipedia.org/wiki/File_descriptor[file descriptors], including standard input, standard output, and standard error
+* Change its link:https://en.wikipedia.org/wiki/Working_directory[working directory] to the root filesystem, to ensure that it does not tie up another filesystem and prevent it from being unmounted
+* Reset its file mode creation mask (i.e., link:https://en.wikipedia.org/wiki/Umask[`umask(2)`]) value
+* Run in the background (i.e., call link:https://illumos.org/man/2/fork[`fork(2)`])
+* Disassociate from its link:https://en.wikipedia.org/wiki/Process_group[process group] (usually a shell), to insulate itself from signals (such as `SIGHUP`) sent to the process group
+* Ignore all terminal I/O signals
+* Disassociate from the link:https://en.wikipedia.org/wiki/Controlling_terminal[controlling terminal] (and take steps not to reacquire one)
+* Handle any `SIGCLD` signals
+
+Most programs that are designed to be run as daemons do this work for themselves at startup,
+and Jenkins has traditionally done this using the link:https://akuma.kohsuke.org/[Akuma] daemonization library and link:https://github.com/java-native-access/jna[Java Native Access (JNA)].
+The Akuma library is no longer actively maintained,
+and recent versions of Java have placed increasingly greater restrictions on the ability of Java programs to access internal system state via reflection and other mechanisms.
+Furthermore, third-party daemonization software like link:https://software.clapper.org/daemonize/[`daemonize(1)`] is not consistently packaged for all Linux distributions,
+and the packages that exist are frequently unmaintained or have bugs that cause regressions for Jenkins users.
+In other words, the status quo was increasingly unsustainable.
+
+Users have also been requesting `systemd(1)` support in link:https://issues.jenkins.io/browse/JENKINS-41218[JENKINS-41218] since January 2017.
+
+The migration to `systemd(1)` eliminates this long-standing pain point
+by relying on `systemd(1)` to daemonize the Jenkins Java process.
+This avoids the need for JNA-based tricks in Java,
+and it also unifies our implementation of service management across all Linux distributions.
+Furthermore, it allows for tighter integration between Jenkins core and the service management framework with regard to service startup notification.
+
+=== Changes
+
+Although `systemd(1)` has been the default service management framework in the majority of Linux distributions for seven years, some members of our community may not be familiar with its use in the context of managing Jenkins.
+The following section describes some of the changes in more detail and explains how to perform common system administration tasks.
+For up-to-date information, refer to the link:/doc/book/system-administration/systemd-services/[Managing `systemd` services] page in the documentation.
+See also the link:https://www.digitalocean.com/community/tutorials/how-to-use-systemctl-to-manage-systemd-services-and-units[DigitalOcean community `systemd(1)` tutorial] to better understand the benefits of `systemd(1)` and the `systemctl(1)` command.
+
+==== Package configuration
+
+Users who run Jenkins 2.335 or later and 2.332.1 LTS or later through the official Debian, Red Hat, or openSUSE packages are affected by this migration.
+
+NOTE: The link:https://hub.docker.com/r/jenkins/jenkins[official Docker image] and link:https://charts.jenkins.io/[Helm chart] remain unchanged.
+
+The System V `init(8)` packages delivered the following configuration files:
+
+Debian:: `/etc/default/jenkins`
+Red Hat:: `/etc/sysconfig/jenkins`
+openSUSE:: `/etc/sysconfig/jenkins`
+
+Each configuration file used a unique format, with the Debian version being radically different from the Red Hat and openSUSE versions.
+Furthermore, manual edits to these files would frequently conflict with updated upstream versions, triggering the package manager to flag the conflict and requiring manual intervention on upgrade.
+
+New versions of Jenkins still ship these files and support Linux distributions that do not use `systemd(1)`.
+At the time, no actively-supported distributions based on Red Hat or openSUSE are known to use System V `init(8)`.
+On such systems, the `/etc/sysconfig/jenkins` file is left in place but unused at runtime.
+However, the Debian package can still be installed on distributions such as link:https://www.devuan.org/[Devuan GNU+Linux], which is a fork of Debian without `systemd(1)`.
+On such systems, the `/etc/default/jenkins` file will still be used at runtime.
+
+When installed on a modern Linux distribution running `systemd(1)`, the `systemd(1)` link:https://www.freedesktop.org/software/systemd/man/systemd.service.html[service unit] is delivered to:
+
+Debian:: `/lib/systemd/system/jenkins.service`
+Red Hat:: `/usr/lib/systemd/system/jenkins.service`
+openSUSE:: `/usr/lib/systemd/system/jenkins.service`
+
+The main service unit is read-only and not intended to be edited manually.
+It contains a large notice at the top of the file stating as much.
+The canonical way to customize the `systemd(1)` service is to run `systemctl edit jenkins`,
+which creates a _new_ drop-in unit at `/etc/systemd/system/jenkins.service.d/override.conf`.
+On a clean install, this drop-in unit does not exist.
+When a user first customizes a clean install with `systemctl edit jenkins`, `systemd(1)` creates the drop-in unit and allows the user to customize it.
+Note that such customizations must be done in a `[Service]` section in order to take effect.
+
+WARNING: `systemctl edit jenkins` creates the drop-in unit as `root` with 0644 (`-rw-r--r--`) permissions.
+The migration logic, on the other hand, creates the drop-in unit as `root` with 0600 (`-rw-------`) permissions.
+This might be of consequence if you store an HTTPS keystore location and/or password in the drop-in unit
+and also run jobs directly on the controller,
+a practice which the Jenkins project link:/doc/book/security/controller-isolation/[explicitly discourages].
+When in doubt, secure the drop-in unit by setting its permissions to 0600 with `chmod(1)`.
+
+One benefit of the drop-in unit is that it unifies configuration across all three distributions: Debian, Red Hat, and openSUSE.
+Gone are the days of maintaining distribution-specific configuration logic.
+
+Also note that the drop-in unit is not overwritten on upgrades.
+Gone are the days of getting conflicts in `/etc/{default,sysconfig}/jenkins` on upgrades,
+at least _after_ the upgrade to a `systemd(1)`-based package is completed.
+
+NOTE: Unlike the System V `init(8)` configuration, the `override.conf` file only contains customizations, not the original defaults.
+Users who are accustomed to editing an existing set of defaults must refer to the (read-only) service unit side-by-side when editing the drop-in unit
+or use a command like `systemctl edit jenkins --full`, which copies the original service unit instead of creating a drop-in unit.
+
+Editing the drop-in unit with `systemctl edit jenkins` will automatically reload the `systemd(1)` configuration.
+The settings will take effect the next time Jenkins is restarted.
+If you edit the drop-in unit without `systemctl(1)`, you need to run `systemctl daemon-reload` for the changes to take effect.
+
+A final point to mention about the service unit is its use of specifiers,
+which may be unfamiliar to some users.
+The drop-in unit does not perform shell expansion.
+Specifiers can insert contextual information (like system hostname, unit name, and operating system kernel release) into the drop-in unit.
+The `systemd(1)` documentation contains link:https://www.freedesktop.org/software/systemd/man/systemd.unit.html#id-1.13.3[a table of specifiers available in unit files].
+
+==== Migration
+
+The Jenkins project ships logic to automatically migrate the System V `init(8)` configuration file to the new `systemd(1)` `override.conf` format.
+This migration logic does nothing if an `override.conf` file already exists,
+which would be an indication that the migration script already ran
+or that the user has made their own customizations that should be preserved.
+If `override.conf` does not exist, package installation migrates the old System V `init(8)` configuration file to `override.conf`.
+
+==== Logging
+
+The `systemd(1)` package also uses `systemd-journald(8)` for logging by default.
+Rather than creating a log file in `/var/log/jenkins/jenkins.log`,
+Jenkins now logs to the system's journal.
+Log entries may be viewed with `journalctl -u jenkins`.
+This is perhaps the most noticeable user-visible change in this migration.
+
+See the link:https://www.digitalocean.com/community/tutorials/how-to-use-journalctl-to-view-and-manipulate-systemd-logs[DigitalOcean log management tutorial] for more detailed information.
+
+==== Startup notifications
+
+The System V `init(8)` logic was asynchronous; i.e., running `/etc/init.d/jenkins start` would return prior to the completion of Jenkins startup.
+The `systemd(1)` logic is synchronous; i.e., running `systemctl start jenkins` will block until Jenkins signals successful startup.
+This allows system administrators to write automation to programmatically deploy Jenkins using modern tools like Ansible.
+
+Jenkins previously restarted itself after upgrading plugins or via the `/restart` or `/safeRestart` endpoints by calling `exec(2)`.
+This was fragile and exposed users to a variety of bugs.
+The `systemd(1)` implementation allows the main process to exit normally before starting it again from scratch.
+In addition to eliminating a category of bugs, this also provides more visibility into service startup progress.
+Some examples are shown below.
+
+From `systemctl status jenkins` after upgrading plugins:
+
+[source,bash]
+----
+systemctl status jenkins
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: active (running) […]
+   Main PID: […] (java)
+     Status: "Restart in 10 seconds"
+----
+
+As Jenkins is being brought down:
+
+[source,bash]
+----
+systemctl status jenkins
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: deactivating (stop-sigterm) since […]
+   Main PID: […] (java)
+     Status: "Stopping Jenkins"
+----
+
+As Jenkins is starting up:
+
+[source,bash]
+----
+systemctl status jenkins
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: activating (start) since […]
+   Main PID: […] (java)
+----
+
+After successful startup:
+
+[source,bash]
+----
+systemctl status jenkins
+● jenkins.service - Jenkins Continuous Integration Server
+     Loaded: loaded (/lib/systemd/system/jenkins.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/jenkins.service.d
+             └─override.conf
+     Active: active (running) since […]
+   Main PID: […] (java)
+----
+
+If Jenkins does not signal startup completion within a configured time,
+the service will be considered failed and will be shut down again.
+As each initialization milestone (i.e., "Started initialization", "Listed all plugins",
+"Prepared all plugins", "Started all plugins", "Augmented all extensions",
+"System config loaded", "System config adapted", "Loaded all jobs",
+"Configuration for all jobs updated", and "Completed initialization") is attained,
+the timeout is extended by the value of the `jenkins.model.Jenkins.extendTimeoutSeconds` system property (by default, 15 seconds).
+The timeout can be configured with the `TimeoutStartSec` directive in the service unit.
+
+=== Reporting issues
+
+If you find a regression, please file a bug report in link:https://issues.jenkins.io/[Jira].
+When reporting an issue, include the following information:
+
+. Use the `core` component.
+. Provide the name, version, and architecture of the Linux distribution you are using (e.g., Ubuntu 20.04.4 LTS x86_64).
+. Provide the contents of the old System V `init(8)` configuration in `/etc/{default,sysconfig}/jenkins`, sanitized as necessary.
+. Provide the contents of the `systemd(1)` drop-in unit in `/etc/systemd/system/jenkins.service.d/override.conf`, sanitized as necessary.
+. Provide steps to reproduce the issue _from scratch_ on a minimal Jenkins installation; the scenario should fail when the steps are followed on Jenkins 2.335 or later and pass when the steps are followed on Jenkins 2.334 or earlier.
+
+=== Conclusion
+
+We expect to see a bit of disruption from these changes but hope that in the long run they will save time for core and plugin developers and lead to a more secure and stable tool.
+Please reach out on the link:https://groups.google.com/g/jenkinsci-dev[developers' mailing list] with any questions or suggestions.

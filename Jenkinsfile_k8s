@@ -1,18 +1,67 @@
-#!/usr/bin/env groovy
 
-/* Only keep the 10 most recent builds. */
-def projectProperties = [
-    [$class: 'BuildDiscarderProperty',strategy: [$class: 'LogRotator', numToKeepStr: '5']],
-]
+pipeline {
+  agent {
+    label 'linux-arm64-docker'
+  }
 
-def principalBranch = 'master'
+  environment {
+    TZ = "UTC"
+    USE_LOCAL_NODE = "true"
+    USE_LOCAL_RUBY = "true"
+  }
 
-/* Start by building the image, and eventually pushing it if the execution is on the master branch */
-buildDockerAndPublishImage('jenkinsio', [mainBranch: principalBranch])
+  triggers {
+    cron("${env.BRANCH_NAME == 'master' ? 'H/30 * * * *' : ''}")
+  }
 
-if (env.BRANCH_NAME == principalBranch) {
-  withCredentials([string(credentialsId: 'updatecli-github-token', variable: 'UPDATECLI_GITHUB_TOKEN')]) {
+  options {
+    timeout(time: 60, unit: 'MINUTES')
+    ansiColor('xterm')
+    disableConcurrentBuilds(abortPrevious: true)
+    buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '5')
+  }
 
-    updatecli(action: 'apply')
+  stages {
+    stage('NPM Install') {
+      steps {
+        sh 'npm install'
+      }
+    }
+
+    stage('Bundle Install') {
+      steps {
+        // throw errors if Gemfile has been modified since Gemfile.lock
+        sh '''
+          bundle config --global frozen 1
+          bundle install
+          '''
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'make'
+      }
+    }
+
+    stage('Deploy to preview site') {
+      when {
+        changeRequest target: 'master'
+      }
+      environment {
+        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
+      }
+      post {
+        success {
+          recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'success', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
+        }
+        failure {
+          recordDeployment('jenkins-infra', 'jenkins.io', pullRequest.head, 'failure', "https://deploy-preview-${CHANGE_ID}--jenkins-io-site-pr.netlify.app")
+        }
+      }
+      steps {
+        sh('/usr/local/bin/netlify-deploy --siteName "jenkins-io-site-pr" --title "Preview deploy for ${CHANGE_ID}" --alias "deploy-preview-${CHANGE_ID}" -d ./build/_site')
+      }
+    }
   }
 }

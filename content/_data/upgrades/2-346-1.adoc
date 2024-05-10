@@ -1,0 +1,64 @@
+==== PNG and GIF icons replaced with SVG icons
+
+Scalable vector graphics images are used in Jenkins instead of the GIF and PNG images that were used previously.
+SVG images provide a better user experience and improve the Jenkins user experience.
+
+The GIF and PNG images have been removed from Jenkins core.
+
+Ensure all your plugins are the most recent release before updating core, otherwise images may be missing.
+Check for new plugin versions immediately after the core update and install available updates.
+
+==== Java Native Runtime library removed
+
+The Java Native Runtime (JNR) library has been removed from Jenkins core.
+Users of https://plugins.jenkins.io/pam-auth/[PAM Authentication] must upgrade to at least version 1.7.
+Users of https://plugins.jenkins.io/file-leak-detector/[CloudBees File Leak Detector] must upgrade to at least version 1.7.
+
+Users of https://plugins.jenkins.io/maven-repo-cleaner/[Maven Repository Scheduled Cleanup] do not have a compatible upgrade.
+They should remove the plugin.
+
+==== Self-signed certificate not provided automatically
+
+In previous versions of Jenkins, a self-signed certificate was used if no HTTPS keystore was specified when processing HTTPS inside the Jenkins java process.
+This feature has been removed.
+
+If HTTPS or HTTP/2 is being processed directly by the Jenkins java process, an HTTPS keystore must be configured by adding the `--httpsKeyStore=path/to/keystore` and `--httpsKeyStorePassword=keystorePassword` arguments.
+This change does not affect HTTPS processing that is performed in link:/doc/book/system-administration/reverse-proxy-configuration-with-jenkins/[reverse proxies] like Nginx and Apache HTTP Server.
+
+See link:/doc/book/installing/initial-settings/#https-with-an-existing-certificate[HTTPS with an existing certificate] and link:/doc/book/installing/initial-settings/#https-certificates-with-windows[HTTPS certificates with Windows] for more information on creating a key store.
+
+==== Reject connections from unsupported agent versions
+
+Jenkins now rejects connections from agents with unsupported Remoting versions.
+When an agent with a Remoting version older than 3.14 connects to the Jenkins controller, the agent connection is rejected.
+The agent status page will show the message:
+
+[source]
+----
+This agent is offline because Jenkins failed to launch the agent process on it.
+----
+
+Agents with unsupported Remoting versions can be allowed to connect to the controller by setting the `hudson.slaves.SlaveComputer.allowUnsupportedRemotingVersions` system property to true.
+
+Administrators that want more information about agent versions can install the link:https://plugins.jenkins.io/versioncolumn/[Version Node Monitors] plugin.
+It displays the remoting version of the connected agent in the "Nodes" page and can be configured to require matching Remoting versions, matching Java versions, and more.
+
+==== GNU C Library removed from Alpine Docker images
+
+Alpine Linux is not a GNU/Linux distribution; unlike GNU/Linux distributions, Alpine uses link:https://musl.libc.org/[musl] and link:https://busybox.net/[BusyBox] instead of the more commonly used link:https://www.gnu.org/software/libc/[GNU C Library] and link:https://www.gnu.org/software/coreutils/[GNU Core Utilities].
+Previous versions of Java required the GNU C Library; therefore, the Jenkins project previously delivered Alpine images with the GNU C Library.
+Recent versions of Eclipse Temurin for Alpine do not require the GNU C Library; therefore, the Jenkins project has removed the now-unused GNU C Library from its Alpine images.
+
+Users who run jobs on the controller, which is link:/doc/book/security/controller-isolation/[not recommended], may experience issues if they were running binaries linked against the GNU C Library.
+In particular, the use of a Global Tool Configuration (e.g., Node.js or Java) downloading binaries linked against the GNU C Library will result in errors like the following on the controller:
+
+[source]
+----
+env: 'node': No such file or directory
+----
+
+The recommended solutions are, in order of preference:
+
+* Do not run jobs on the controller's built-in node (recommended); instead, run them on an agent.
+* If you must run jobs on the controller and want to use generic third-party binaries that require the GNU C Library, use the Debian or Debian Slim Docker images rather than the Alpine image.
+* If you must run jobs on the controller and want to keep using the Alpine Docker image, build a custom Docker image that extends from the official Alpine Docker image, then either (a) install the packages you want from Alpine's repositories with `apk(1)` or (b) install the GNU C Library and use Global Tool Configuration to download and run binaries linked against the GNU C Library.

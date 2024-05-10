@@ -9,8 +9,6 @@
     pages_by_path = site.pages.map { |p| [p.source_path, p] }.to_h
     adocs = Dir.glob(File.join(advisories_dir, '*.{ad,adoc}'))
 
-    Plugin = Struct.new(:name, :title)
-
   %channel
     %title
       Jenkins Security Advisories
@@ -28,25 +26,27 @@
       %item
         %title
           = page.title
-        %date
+        %pubDate
           #{(DateTime.strptime(page.title,"Jenkins Security Advisory %Y-%m-%d") + 0.5).rfc822}
         %link
           = "https://www.jenkins.io#{ expand_link(page.url) }"
+        %guid(isPermaLink='false')
+          jenkins-advisory-#{Date.strptime(page.title,"Jenkins Security Advisory %Y-%m-%d").iso8601}
         %description
           - if page.issues or page.index_details
             - if page.index_details
-              = Asciidoctor.convert(page.index_details, safe: :safe).encode( { :xml => :text } )
+              = Asciidoctor.convert(page.index_details, safe: :safe).encode(xml: :text)
             - else
-              = "<ul>".encode( { :xml => :text } )
+              = "<ul>".encode(xml: :text)
               - if page.core
-                = "<li>Affects Jenkins Core</li>".encode( { :xml => :text } )
-              - plugins = page.issues.collect { |issue| issue.plugins }.flatten.keep_if { |p| p }.collect { |p| Plugin.new(p.name, p.title) }.uniq.sort { |x,y| (site._generated[:update_center].plugins[x.name]&.title&.downcase || x.name&.downcase) <=> (site._generated[:update_center].plugins[y.name]&.title&.downcase || y.name&.downcase) }
+                = "<li>Affects Jenkins Core</li>".encode(xml: :text)
+              - plugins = get_plugins(page.issues).uniq.sort { |x,y| (site._generated[:update_center].plugins[x.name]&.title&.downcase || x.name&.downcase) <=> (site._generated[:update_center].plugins[y.name]&.title&.downcase || y.name&.downcase) }
               - plugins.each do | plugin |
                 - if site._generated[:update_center].plugins[plugin.name]
-                  = "<li>Affects plugin: <a href='https://plugins.jenkins.io/#{plugin.name}'>#{site._generated[:update_center].plugins[plugin.name].title}</a></li>".encode( { :xml => :text } )
+                  = "<li>Affects plugin: <a href='https://plugins.jenkins.io/#{plugin.name}'>#{site._generated[:update_center].plugins[plugin.name].title}</a></li>".encode(xml: :text)
                 - else
-                  = "<li>Affects plugin: #{plugin.title || plugin.name}".encode( { :xml => :text } )
+                  = "<li>Affects plugin: #{plugin.title || plugin.name}</li>".encode(xml: :text)
               - components = page.issues.collect { |issue| issue.components }.flatten.keep_if { |c| c }
               - components.each do | component |
-                = "<li>Affects #{component.title || component.name}</li>"
-              = "</ul>".encode( { :xml => :text } )
+                = "<li>Affects #{component.title || component.name}</li>".encode(xml: :text)
+              = "</ul>".encode(xml: :text)

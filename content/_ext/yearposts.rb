@@ -1,7 +1,7 @@
 require 'awestruct/extensions/posts'
 
 # YearPosts is a modification of the `Posts` extension with support for the
-# path/year/filename directory structure which accomodates larger sets of content
+# path/year/filename directory structure which accommodates larger sets of content
 class YearPosts < Awestruct::Extensions::Posts
   def execute(site)
     posts   = []

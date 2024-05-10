@@ -1,0 +1,46 @@
+---
+title: Telemetry
+layout: developerchapter
+references:
+- url: https://github.com/jenkinsci/jep/blob/master/jep/214/README.adoc
+  title: 'JEP-214: Jenkins Telemetry'
+- url: https://javadoc.jenkins.io/jenkins/telemetry/Telemetry.html
+  title: '`jenkins.telemetry.Telemetry` extension point Javadoc'
+---
+
+== Overview
+
+Jenkins is exclusively distributed to users for installation on their own infrastructure.
+This presents challenges when evolving Jenkins, as we typically only learn about problems after a change has been delivered.
+https://github.com/jenkinsci/jep/blob/master/jep/214/README.adoc[JEP-214] defines infrastructure for gathering usage telemetry.
+
+IMPORTANT: Telemetry needs to be suitable for a given information need.
+We do not want to collect just everything we can think of, instead, data collection is limited both in duration (typically a few months) and scope (collecting very specific, limited, bits of data).
+See JEP-214 for more details about these considerations.
+
+== Telemetry Development
+
+=== Implementation
+
+In Jenkins core or a plugin, implement the `jenkins.telemetry.Telemetry` extension point and annotate your implementation `@Extension`.
+
+Make sure to add a `description.jelly` view that documents the information need.
+
+https://github.com/jenkinsci/jenkins/tree/master/core/src/main/java/jenkins/telemetry/impl[Existing implementations in Jenkins core] (https://github.com/jenkinsci/jenkins/tree/master/core/src/main/resources/jenkins/telemetry/impl[and their resources]) can be used as a guideline.
+
+=== Local Testing
+
+You can inspect telemetry data locally by calling `ExtensionList.lookupSingleton(package.to.YourTelemetry.class).createContent()` in the script console (careful, as this typically will modify state).
+
+Alternatively, you can set the link:/doc/book/managing/system-properties/#jenkins-telemetry-telemetry-endpoint[`jenkins.telemetry.Telemetry.endpoint`] Java system property on startup (or set `jenkins.telemetry.Telemetry.ENDPOINT` in the link:/doc/book/managing/script-console/[script console]) to a test HTTP server that lets you inspect HTTP requests and their POST bodies.
+To trigger telemetry submission, you can call `ExtensionList.lookupSingleton(jenkins.telemetry.Telemetry.TelemetryReporter.class).run()` in the script console.
+
+=== Uplink Access
+
+Request access to https://uplink.jenkins.io/[Uplink] in the INFRA Jira project.
+This should best be done before the telemetry change is released or even merged, as the collected data and other parameters will be reviewed (if the telemetry collection is in a plugin).
+
+=== Backporting (Jenkins core)
+
+As telemetry is time-sensitive, and the majority of users use LTS releases, telemetry implementations in core should generally be backported freely into LTS releases to ensure data is collected from as many up-to-date Jenkins instances as possible.
+The link:/download/lts/#backporting-process[general LTS backporting rules] are relaxed for telemetry-related changes.

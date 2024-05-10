@@ -1,0 +1,49 @@
+---
+title: Registering a Custom Converter
+summary: How to register a custom XStream converter to serialize complex data structures.
+layout: developersection
+---
+
+Normally, you would register converter to the class you are writing,
+and in that case the easiest thing to do is to write a nested type `ConverterImpl` that gets picked up automatically.
+If you search by that class name, you will see a number of implementations.
+
+== Registering a custom converter without modifying the original class
+
+If you want to register a custom XStream converter that will convert items that have already been persisted to disk,
+and you do not want to modify the source code for the class you want to convert,
+then you need to hook it up to Jenkins before it reads in those items.
+Here is one way:
+
+[source,java]
+----
+public class MyPlugin extends Plugin {
+  public void start() throws Exception {
+    Items.XSTREAM.registerConverter(new MyCoolConverter());
+  }
+}
+----
+
+The `Items#XSTREAM` portion should be adjusted to point to the right XStream instance (such as `Jenkins#XSTREAM`),
+depending on the persistence context in which your object participates.
+The converter would look something like this:
+
+[source,java]
+----
+import com.thoughtworks.xstream.converters.Converter;
+
+public class MyCoolConverter implements Converter {
+  public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
+    throw new UnsupportedOperationException("Sorry, no example for marshalling yet!");
+  }
+
+  public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
+    // Traverse the reader to get structure and attributes of the thing you are converting from
+    return new MyThing(some, attrs, etc);
+  }
+
+  public boolean canConvert(Class type) {
+    return my.plugin.special.MyThing.class == type;
+  }
+}
+----

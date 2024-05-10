@@ -75,7 +75,7 @@ Participating in Google Summer of Code is a major time commitment requiring an a
 If it may overlap with your study, internship, work or other commitments, we recommend to think twice before applying.
 
 If you have any questions about the application process,
-please feel free to contact us via the [mailing list](https://groups.google.com/forum/#!forum/jenkinsci-gsoc-all-public) or in the [jenkinsci/gsoc-sig Gitter chat](https://gitter.im/jenkinsci/gsoc-sig).
+please feel free to contact us via the [jenkinsci/gsoc-sig Gitter chat](https://app.gitter.im/#/room/#jenkinsci_gsoc-sig:gitter.im).
 We also have [weekly meetings](https://jenkins.io/projects/gsoc/#office-hours) which are open to everyone.
 
 #### Proposal tags (max - 10)
@@ -95,11 +95,9 @@ TODO: Adjust according to project ideas
 
 #### Contacts
 
-* Chat page URL: https://gitter.im/jenkinsci/gsoc-sig
-* Mailing list page URL: https://jenkins.io/projects/gsoc/#contacts 
-* General-purpose e-mail: jenkinsci-gsoc-all-public@googlegroups.com
+* Chat page URL: https://app.gitter.im/#/room/#jenkinsci_gsoc-sig:gitter.im
 * Twitter: https://twitter.com/jenkinsci
-* Blog: https://jenkins.io/node/
+* Blog: https://jenkins.io/blog/
 
 ### Application
 
@@ -164,7 +162,7 @@ We hope this will help us to improve student/mentor experience and overall resul
 * Students will be developing their own modules for Jenkins and effectively they will retain ownership of these modules after GSoC (they can opt-out, of course).
   Public presentations will attract attention, and the students will be periodically contacted by users.
 * Students will be also advised to present their projects at local meetups
-* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/node/).
+* Each project will have a strict Definition Of Done: public availability, Q&A chats, [blog posts on the project website](https://jenkins.io/blog/).
 * We recommend mentors to have monthly sync-ups with the students to follow-up on projects and other events in Jenkins
 * We will invite students to participate in other community outreach activities like GSoC or Hacktoberfest
 

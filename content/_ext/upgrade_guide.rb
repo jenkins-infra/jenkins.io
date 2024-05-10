@@ -11,7 +11,6 @@ class UpgradeGuide
       minor_versions.sort!.reverse!
       page = site.engine.find_and_load_site_page( "#{prefix}" )
       page.output_path = File.join( prefix, "#{major}/index.html" )
-      puts page.output_path
       page.version = major.to_s
       site.pages << page
     end

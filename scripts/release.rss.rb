@@ -6,11 +6,11 @@
 #
 require 'rss'
 require 'faraday'
-require 'faraday_middleware'
+require 'faraday/follow_redirects'
 
 def get_url(url)
   conn = Faraday.new url do |f|
-    f.use FaradayMiddleware::FollowRedirects, limit: 5
+    f.use Faraday::FollowRedirects::Middleware, limit: 5
     f.response :json, content_type: /\bjson$/
     f.adapter Faraday.default_adapter
   end
@@ -26,9 +26,9 @@ rss = RSS::Maker.make("atom") do |maker|
   maker.channel.updated = Time.now.to_s
   maker.channel.author = "Jenkins History Bot"
   maker.channel.title = "Jenkins plugin releases"
-  maker.channel.links.new_link { |link| link.href = "https://jenkins.io/" }
+  maker.channel.links.new_link { |link| link.href = "https://www.jenkins.io/" }
   maker.channel.links.new_link do |link|
-    link.href = "https://kohsuke.org/test.atom"
+    link.href = "https://www.jenkins.io/releases.rss"
     link.rel = "self"
     link.type = "application/atom+xml"
   end

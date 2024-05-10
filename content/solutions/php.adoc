@@ -10,112 +10,195 @@ Especially in a web environment it is important to monitor and continuously
 improve the internal quality not only when developing, but also when
 maintaining the software.
 
-Many of the plugins referenced (right) can be used to integrate with PHP
-projects, but may first need to be configured the create appropriately
-formatted files when working with PHP projects.
+This guide provides a basic configuration for testing and reporting for PHP
+projects with Jenkins.
+
+In addition to running and reporting tests, you'll get reports on test run
+times, test coverage (including visualizations), and static analysis checks,
+including trend graphs, and new and fixed issues compared to the master /
+reference branch.
+
+Use the *pipeline step reference* link on the plugin pages for full
+documentation and options for Jenkinsfile.
 
 
 == Configuring PHP Tools
 
-The configurations below assume the use of link:https://ant.apache.org[Apache
-Ant] as the build tool for executing PHP tools. Originally described on
-link:https://jenkins-php.org/automation.html[jenkins-php.org].
+This guide uses Jenkinsfile based pipelines and assumes you already have a
+basic Jenkinsfile.
 
-=== PHPUnit
+This guide assumes that you already have each of the tools mentioned
+configured for use outside of Jenkins. Only the necessary configuration
+options for working with Jenkins are mentioned.
 
-The `phpunit` task in the `build.xml` assumes that an XML configuration file
-for PHPUnit is used to configure the following logging targets:
+This guide uses the `build/` directory for storing generated logs and reports.
 
-[source,xml]
-----
-<logging>
- <log type="coverage-html" target="build/coverage"/>
- <log type="coverage-clover" target="build/logs/clover.xml"/>
- <log type="coverage-crap4j" target="build/logs/crap4j.xml"/>
- <log type="junit" target="build/logs/junit.xml" logIncompleteSkipped="false"/>
-</logging>
-----
+It's assumed that all tools configuration files are in the repository root and
+PHP code is in the `src` subdirectory.
 
-You can download a sample `phpunit.xml.dist` and place it in your project root to get started.
+=== PHPUnit Test & Coverage Reports
 
-More information can be found in the documentation for PHPUnit.
+The following configuration will set up 3 reports for PHPUnit tests:
 
-=== phpDox
+* Pass/fail monitoring via the plugin:xunit[xUnit plugin]
+* Coverage stats via the plugin:coverage[Coverage plugin] (using the cobertura parser)
+* HTML coverage report via the plugin:htmlpublisher[HTML Publisher plugin]
 
-The `phpdox` task in the `build.xml` assumes that an XML
-configuration file for phpDox is used to configure the API documentation
-generation:
-
+In the PHPUnit config file (`phpunit.xml` or `phpunit.xml.dist`):
 
 [source,xml]
 ----
-<phpdox xmlns="http://xml.phpdox.net/config">
- <project name="name-of-project" source="src" workdir="build/phpdox">
-  <collector publiconly="false">
-   <include mask="*.php" />
-  </collector>
-
-  <generator output="build">
-   <build engine="html" enabled="true" output="api">
-    <file extension="html" />
-   </build>
-  </generator>
- </project>
-</phpdox>
+<phpunit>
+    <coverage>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+        <report>
+            <html outputDirectory="build/coverage" />
+            <cobertura outputFile="build/logs/cobertura.xml"/>
+        </report>
+    </coverage>
+    <logging>
+        <junit outputFile="build/logs/junit.xml" />
+    </logging>
+</phpunit>
 ----
 
-More information can be found in the documentation for phpDox.
+In the Jenkinsfile:
 
-=== PHP_CodeSniffer
+[source,groovy]
+----
+stage('Unit Tests') {
+    steps {
+        sh 'vendor/bin/phpunit'
+        xunit([
+            thresholds: [
+                failed ( failureThreshold: "0" ),
+                skipped ( unstableThreshold: "0" )
+            ],
+            tools: [
+                PHPUnit(pattern: 'build/logs/junit.xml', stopProcessingIfError: true, failIfNotNew: true)
+            ]
+        ])
+        publishHTML([
+            allowMissing: false,
+            alwaysLinkToLastBuild: false,
+            keepAll: false,
+            reportDir: 'build/coverage',
+            reportFiles: 'index.html',
+            reportName: 'Coverage Report (HTML)',
+            reportTitles: ''
+        ])
+        discoverGitReferenceBuild()
+        recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'build/logs/cobertura.xml']])
+    }
+}
+----
 
-The `phpcs` and `phpcs-ci` tasks in the `build.xml` assume that an
-XML configuration file for PHP_CodeSniffer is used to configure the coding
-standard:
+=== PHPStan and CodeSniffer Static Analysis Reports
 
+In this example, PHPCS is shown running with 2 different configurations (mainly
+to show this can be done).
+
+Reports are processed using the CheckStyle format report and the
+plugin:warnings-ng[Warnings Next Generation plugin]
+
+This is done because PHPCompatibility checks are run across the `vendor/`
+directory to aid in monitoring potential problems for version updates.
+
+This example setup shows running the static analysis tools in parallel, which
+may result in faster build times.
+
+In Jenkinsfile:
+[source,groovy]
+----
+stages {
+    stage('Static Analysis') {
+        parallel {
+          stage('CodeSniffer') {
+              steps {
+                  sh 'vendor/bin/phpcs --standard=phpcs.xml .'
+              }
+          }
+          stage('PHP Compatibility Checks') {
+              steps {
+                  sh 'vendor/bin/phpcs --standard=phpcs-compatibility.xml .'
+              }
+          }
+          stage('PHPStan') {
+              steps {
+                  sh 'vendor/bin/phpstan analyse --error-format=checkstyle --no-progress -n . > build/logs/phpstan.checkstyle.xml'
+              }
+          }
+        }
+    }
+    post {
+        always {
+            recordIssues([
+                sourceCodeEncoding: 'UTF-8',
+                enabledForFailure: true,
+                aggregatingResults: true,
+                blameDisabled: true,
+                referenceJobName: "repo-name/master",
+                tools: [
+                    phpCodeSniffer(id: 'phpcs', name: 'CodeSniffer', pattern: 'build/logs/phpcs.checkstyle.xml', reportEncoding: 'UTF-8'),
+                    phpStan(id: 'phpstan', name: 'PHPStan', pattern: 'build/logs/phpstan.checkstyle.xml', reportEncoding: 'UTF-8'),
+                    phpCodeSniffer(id: 'phpcompat', name: 'PHP Compatibility', pattern: 'build/logs/phpcs-compat.checkstyle.xml', reportEncoding: 'UTF-8')
+                ]
+            ])
+        }
+    }
+}
+----
+
+You'll want to change the `repo-name` in the `referenceJobName` directive to
+match your repository. This tells Jenkins which job to compare the results
+against for branches and PR jobs.
+
+Set the report location in CodeSniffers configuration file (`phpcs.xml`):
 [source,xml]
 ----
-<ruleset name="name-of-your-coding-standard">
- <description>Description of your coding standard</description>
-
- <rule ref="Generic.PHP.DisallowShortOpenTag"/>
- <!-- ... -->
+<ruleset name="Default">
+    <arg name="report-checkstyle" value="build/logs/phpcs.checkstyle.xml" />
 </ruleset>
 ----
 
-The build script assumes that the rule sets for PHP_CodeSniffer is located at
-`build/phpcs.xml`.
+==== Ignoring tool run failures / tuning failure conditions
+If you want the build to pass regardless of the results of tools (ie. ignore
+the exit code), you can append `|| exit 0` to the end of the `sh` command.
 
-More information can be found in the documentation for PHP_CodeSniffer.
-
-=== PHPMD
-
-The `phpmd` and `phpmd-ci` tasks in the `build.xml` assume that an XML
-configuration file for PHPMD is used to configure the coding standard:
-
+Alternatively, for CodeSniffer you can add the following into the configuration
+file (`phpcs.xml`):
 [source,xml]
 ----
-<ruleset name="name-of-your-coding-standard"
-  xmlns="https://pmd.sf.net/ruleset/1.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="https://pmd.sf.net/ruleset/1.0.0
-                      https://pmd.sf.net/ruleset_xml_schema.xsd"
-  xsi:noNamespaceSchemaLocation="https://pmd.sf.net/ruleset_xml_schema.xsd">
-  <description>Description of your coding standard</description>
-
-  <rule ref="rulesets/codesize.xml/CyclomaticComplexity" />
-  <!-- ... -->
+<ruleset name="default">
+    <config name="ignore_errors_on_exit" value="1" />
+    <config name="ignore_warnings_on_exit" value="1" />
 </ruleset>
 ----
 
-The build script assumes that the rule sets for PHPMD is located at
-`build/phpmd.xml`.
+You can then fine-tune the failure conditions using the
+link:/doc/pipeline/steps/warnings-ng/[Warnings-NG pipeline configuration]
 
-More information can be found in the documentation for PHPMD.
+==== Results Caching
 
+You can improve build times (for each run after the first) using caching
+features available in both CodeSniffer and PHPStan.
 
-[NOTE]
-====
-Much of this content was originally created by
-link:https://sebastian-bergmann.de/[Sebastian Bergmann] and hosted on
-link:https://jenkins-php.org[Jenkins PHP].
-====
+In CodeSniffers configuration file (`phpcs.xml`):
+[source,xml]
+----
+<ruleset name="default">
+    <arg name="cache" value="build/cache/codesniffer.phpcs" />
+</ruleset>
+----
+
+If you have multiple CodeSniffer configurations as in the example Jenkinsfile
+above, be sure to set different cache paths.
+
+In PHPStan's configuration file (`phpstan.neon`):
+[source]
+----
+parameters:
+    tmpDir: build/cache/phpstan
+----
