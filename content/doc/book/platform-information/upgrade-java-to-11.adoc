@@ -1,0 +1,82 @@
+---
+layout: subsection
+title: Upgrading to Java 11
+---
+
+When upgrading the JVM used to run Jenkins from Java 8 to Java 11, there are some details you should know and precautions you should take.
+
+video::L2Uomz8RWUM[youtube,width=800,height=420]
+
+== Backing up Jenkins
+
+As with any upgrade, we recommend:
+ 
+. link:https:/doc/book/system-administration/backing-up/#jenkins_home[Backing up `JENKINS_HOME`].
+. Testing the upgrade with your backup.
+. Only after all required tests pass, performing the upgrade on your production instance.
+
+If you need to upgrade Jenkins, as well as the JVM, we recommend you:
+
+. link:/doc/book/system-administration/backing-up/#jenkins_home[Back up `JENKINS_HOME`].
+. Stop the Jenkins instance.
+. Upgrade the JVM on which Jenkins is running.
+** Use a package manager to install the new JVM.
+** Ensure the default JVM is the newly installed version.
+*** If it is not, run `systemctl edit jenkins`, and set either the `JAVA_HOME` environment variable or the `JENKINS_JAVA_CMD` environment variable.
+. Upgrade Jenkins to the most recent version.
+** How you upgrade Jenkins is dependent upon your original Jenkins installation method.
++
+TIP: We recommend that you use the package manager of your system (such as `apt` or `yum`).
+. Validate the upgrade to confirm that all plugins and jobs are loaded.
+. Upgrade the required plugins.
+Refer to <<Upgrading Plugins>> for further information.
+
+Starting with Jenkins releases 2.357 and LTS 2.361.1, Java 11 or Java 17 is required.
+
+== Upgrading Plugins
+
+When upgrading the Java version for Jenkins and the JVM, it is important to upgrade all plugins that support Java 11.
+Plugin upgrades assure compatibility with the most recent Jenkins releases.
+
+NOTE: If you discover a previously unreported issue, please let us know. Refer to link:/participate/report-issue/#issue-reporting[how to report an issue] for guidance.
+
+// Commented because pipeline support plugin 3.0 is over 3 years old and has 8+ later releases
+//
+// One of the most important plugin upgrades is the plugin:workflow-support[Pipeline: Support plugin]: make sure that the version of the plugin is at least `3.0`.
+//
+// NOTE: Stop all Pipeline jobs before upgrading this plugin because this upgrade changes the serialization of Pipeline builds. As a general rule, even though Pipeline jobs are supposed to survive a Jenkins restart, it's always a better option to make sure that no Pipeline builds are in progress before any scheduled Jenkins maintenance.
+
+== Jakarta XML Binding
+
+Some plugins use JAXB libraries provided by the JDK.
+However, the `java.xml.bind` and `javax.activation` modules are no longer included in OpenJDK 11, and plugins might fail if no replacement is offered.
+
+To fix this problem, we've bundled those libraries into a new detached plugin: plugin:jaxb[JAXB plugin].
+When any Jenkins core more recent than `2.163` is running on Java 11, this plugin is automatically installed.
+However, if you manage your plugins outside Jenkins, for example using a `plugins.txt` in your Docker images, you might need to install the plugin explicitly.
+
+== JVM version on agents
+
+All agents must be running on the same JVM version as the controller due to how controllers and agents communicate.
+If you're upgrading your Jenkins controller to run on Java 11, you must upgrade the JVM on your agents.
+
+You can validate the version of each agent with the plugin:versioncolumn[Versions Node Monitors] plugin.
+This plugin provides information about the JVM version of each agent on the node management screen of your Jenkins instance.
+You can also configure this plugin to automatically disconnect any agent with an incorrect JVM version.
+
+== Java Web Start
+
+Java Web Start has been removed in Java 11.
+When a Jenkins controller runs on Java 11, the Java Web Start button will no longer appear in the Web UI.
+You can't launch agents for a Java 11 Jenkins controller from a `*.jnlp` file downloaded to a web browser.
+
+There are no plans to replace this functionality.
+Connect agents to Jenkins on Java 11 with plugins like plugin:ssh-slaves[SSH Build Agents Plugin], with operating system command line calls to `java -jar agent.jar`, or using containers.
+
+== JDK Tool Installer
+
+Oracle JDK 11 licensing prevents the Jenkins community from listing the Oracle JDKs.
+Because of this licensing restriction, Oracle JDK 11 can't be automatically installed by Jenkins. 
+This problem is tracked in the issue link:https://issues.jenkins.io/browse/JENKINS-54305[JENKINS-54305].
+
+As an alternative, we encourage you to use containers based on images that contain all the tooling needed for your builds.

@@ -1,0 +1,239 @@
+---
+layout: section
+title: "Pluggable Storage"
+summary: Storage alternatives for artifacts, build logs, credentials, test results, and fingerprints
+tags:
+- pluggable-storage
+- cloud-native
+- cloud-native-sig
+- external-logging
+- external-artifacts
+---
+
+The current default approach of storing everything into the filesystem is the main reason why Jenkins does not fit the "Cloud Native" model, with features like high availability, zero downtime, or pay per use.
+While there are plenty of plugins that implement parts of this vision, this becomes cumbersome to configure and a usability nightmare for users, as jep:300[] has pointed out.
+Going towards a model where cloud services are consumed where it makes sense, the overall complexity on operating Jenkins in a cloud or containerized environment is greatly reduced.
+Other related projects would greatly benefit from cloud native storage for Jenkins.
+
+There are several clear areas open for improvement.
+A major pain point is the usage of local disk as all-purpose storage, which causes issues running on containerized or distributed environments, requiring highly performant filesystems, and all the configuration pain like initial sizing and resizing with downtime.
+We believe that by using cloud provided services the overall usability, performance and scalability can be improved while enabling new demanded functionality.
+
+You can find more information about Pluggable Storage and priorities
+in link:/blog/2018/07/30/introducing-cloud-native-sig/[this blogpost].
+
+=== Status summary
+
+Below you can find a summary of ongoing activities and their current status:
+
+[frame="topbot",grid="all",options="header", cols="20%,50%,30%"]
+|=========================================================
+|Type / Status | Comment | Implementation(s)
+
+| **Artifacts** +
+  **(Available)**
+| Fully delivered, with support for uploading artifacts directly from agents.
+  Related JEPs: jep:202[].
+
+  link:/doc/developer/extensions/jenkins-core/#artifactmanagerfactory[Extension point]
+
+| plugin:artifact-manager-s3[Artifact Manager on S3],
+  plugin:azure-artifact-manager[Azure Artifact Manager],
+  link:/doc/developer/extensions/jenkins-core/#artifactmanagerfactory[<More implementations>]
+
+| **Credentials** +
+  **(Available)**
+| Completed before the JEP process was introduced.
+
+link:/doc/developer/extensions/credentials/#credentialsprovider[Extension point]
+| plugin:kubernetes-credentials-provider[Kubernetes Credentials Provider],
+  plugin:aws-secrets-manager-credentials-provider[AWS Secrets Manager Credentials Provider],
+  link:/doc/developer/extensions/credentials/#credentialsprovider[<More implementations>]
+
+| Build logs +
+  (Preview / Paused)
+| Pipeline Log Storage API and reference implementations are available for preview, only Jenkins Pipeline job types are supported.
+  Related JEP: jep:210[].
+
+  Jenkins core APIs and reference implementations have not been merged/released yet,
+  but prototypes are available for evaluation.
+  Related JEPs: jep:207[], jep:212[]
+a| Pipeline logging:
+
+* https://github.com/jenkinsci/pipeline-cloudwatch-logs-plugin[AWS CloudWatch]
+* https://github.com/SAP/elasticsearch-logs-plugin[Elasticsearch]
+
+Jenkins core:
+
+* https://github.com/jenkinsci/external-logging-api-plugin[External Logging API]
+* https://github.com/jenkinsci/external-logging-elasticsearch-plugin[Elasticsearch]
+
+| **System logs** +
+  **(Available)**
+| Jenkins supports custom log appenders using standard `java.util.logging`
+  link:https://jenkov.com/tutorials/java-logging/configuration.html[configuration options].
+| plugin:syslog-logger[Syslog logger],
+  non-Jenkins implementation
+
+| Task logs +
+  (Not started)
+| Storage of system logs and various tasks (e.g. agent connection or SCM polling)
+| N/A
+
+| Configurations +
+  (Paused)
+| Largely replaced by the plugin:configuration-as-code[Configuration as Code] plugin
+  which allows storing Jenkins configurations in SCM or other locations without a database.
+
+  Related JEPs: jep:213[]
+| N/A
+
+| **Test Results** +
+  **(Available)**
+| API is available in plugin:junit[JUnit Plugin].
+| plugin:junit-sql-storage[Junit SQL Storage]
+
+| Code Coverage results +
+  (Not started)
+| Planned only for plugins based on plugin:code-coverage-api[Code Coverage API] which unifies the storage implementation.
+  See _Runs_ for other coverage report types.
+| N/A
+
+| Builds/Runs +
+  (Not started)
+| Storage of full build records in an external database.
+  Includes storing build data which is not otherwise listed (such as logs or test results).
+| N/A
+
+| Jobs +
+  (Not started)
+| Storage of Job configurations and job-specific metadata in an external database.
+  Existing plugins like Jenkins Pipeline and JobDSL partially address this case
+  by keeping configurations in SCM.
+| N/A
+
+| **Fingerprints** +
+  **(Preview)**
+| Jenkins 2.252+ include the external fingerprint storage API which can be consumed by plugins.
+  More info: link:/projects/gsoc/2020/projects/external-fingerprint-storage/[GSoC Project Page]
+
+  Related JEPs: jep:226[]
+| plugin:redis-fingerprint-storage[Redis],
+  link:https://github.com/jenkinsci/postgresql-fingerprint-storage-plugin[PostgreSQL (unreleased)]
+
+| Workspaces +
+  (Not started)
+| Proposed as a GSoC 2019 project:
+  link:/projects/gsoc/2019/project-ideas/ext-workspace-manager-cloud-features/[Cloud Features for External Workspace Manager Plugin]
+| N/A
+
+|=========================================================
+
+The list above is not complete.
+Other storage types may be considered according to the feedback.
+You can find more information about Pluggable Storage and priorities
+in link:/blog/2018/07/30/introducing-cloud-native-sig/[this blogpost].
+
+=== Artifact Storage
+
+There are many existing plugins allowing to upload and download artifacts from external storage
+(e.g. S3, Artifactory, Publish over SFTP, etc., etc.),
+but there are no plugins which can do it transparently without using
+new steps.
+In many cases the artifacts also get uploaded through the Jenkins controller,
+and it increases load on the system.
+It would be great if there was a layer which would allow storing artifacts externally
+when using common steps like _Archive Artifacts_.
+
+Jenkins 2.118+ offers an extended jenkinsdoc:jenkins.util.VirtualFile[] API
+which allows implementing external artifact managers using the
+link:/doc/developer/extensions/jenkins-core/#artifactmanagerfactory[ArtifactManagerFactory]
+extension point.
+
+Implementation example(s):
+
+* plugin:artifact-manager-s3[Artifact Manager for S3]
+
+Related JEPs:
+
+* jep:202[External Artifact Storage]
+
+=== Build Log Storage
+
+Logs disk usage causes the same issues previously mentioned for artifacts.
+Plus an external focused log storage such as https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html[AWS CloudWatch Logs] allows demanded features as centralized log management, log retention policies, advanced querying, etc.
+There are already options to externally ship the logs to a backend, or plugins that would do that like the  https://github.com/jenkinsci/aws-cloudwatch-logs-publisher-plugin[aws-cloudwatch-logs-publisher-plugin], but there is no integrated way to both send and display logs from external log storage.
+The External log storage work is tracked as jira:JENKINS-38313[].
+
+Reference implementation(s):
+
+* link:https://github.com/jenkinsci/pipeline-log-fluentd-cloudwatch-plugin[Pipeline Logging over fluentd + CloudWatch Plugin]
+* link:https://github.com/jenkinsci/external-logging-elasticsearch-plugin[External Logging for Elasticsearch]
+
+Related JEPs:
+
+* jep:207[External Build Logging support in the Jenkins Core]
+* jep:210[External log storage for Pipeline]
+* jep:212[External Logging API Plugin]
+* jep:206[Use UTF-8 for Pipeline build logs]
+
+=== Configuration Storage
+
+Although configurations are not big, externalizing them is a critical task
+for getting highly-available or disposable Jenkins controllers.
+There are many ways to store configurations in Jenkins,
+but 95% of cases are covered by the `XmlFile` layer which
+serializes objects to disk and reads them using the XStream library.
+Externalizing these ``XmlFile``s would be a great step forward.
+
+There are several prototypes for externalizing configurations, e.g. in DotCI.
+There are also other implementations which could be upstreamed to the Jenkins core.
+
+Related JEPs:
+
+* jep:213[Configuration Storage API in the Jenkins Core]
+
+=== Credentials
+
+In plugin:credentials[Credentials Plugin] 1.15+ there
+is a link:/doc/developer/extensions/credentials/#credentialsprovider[CredentialsProvider]
+extension point which allows referencing and resolving external credentials.
+This engine allows implementing external credentials for plugins implementing Credentials API..
+
+Implementation example(s):
+
+* plugin:kubernetes-credentials-provider[Kubernetes Credentials Provider]
+
+Other credentials API in Jenkins (like jenkinsdoc:hudson.util.Secret) are not supported.
+
+=== Test results
+
+In common CI/CD use-cases a lot of the space is being consumed by test reports.
+This data is stored within `JENKINS_HOME`,
+and the current storage format requires huge overheads when retrieving statistics and, especially, trends.
+In order to display trends, each report has to be loaded and then processed in-memory.
+
+The main purpose of externalising Test Results is to optimize Jenkins logic
+by querying the desired data from specialized external storages,
+e.g. from Document-based databases like Elasticsearch.
+According to the current plan, plugin:junit[JUnit Plugin] will be extended
+in order to support such external storage in its APIs being widely used by test reporting plugins.
+
+Status:
+
+* A SQL implementation is available https://plugins.jenkins.io/junit-sql-storage/[Junit SQL Storage] plugin.
+
+Please try it out, report issues to link:https://github.com/jenkinsci/junit-plugin/issues[GitHub] and general feedback to link:https://github.com/jenkinsci/junit-plugin/issues/142[GitHub#142].
+
+=== Fingerprints
+
+The fingerprints are stored within `JENKINS_HOME` inside a local XML-based database.
+Externalizing fingerprints decreases the dependence of Jenkins on the physical disk storage of the controller, and allows configuring of cloud storages which can be cheaper, and more reliable.
+Another advantage is that it would allow tracing fingerprints across Jenkins instances and the entire CI/CD flow.
+
+Status:
+
+* In progress
+* Related JEP: jep:226[External Fingerprint Storage]
+* link:https://github.com/jenkinsci/jenkins/pull/4731[Prototype API]
+* Reference Implementation: link:https://github.com/jenkinsci/redis-fingerprint-storage-plugin[Redis Fingerprint Storage Plugin]

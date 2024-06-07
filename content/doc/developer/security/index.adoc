@@ -36,6 +36,21 @@ See
 link:/doc/developer/security/secrets/[Storing Secrets]
 for background information, instructions, and code examples.
 
+[source,java]
+----
+    public void doExit( StaplerRequest req, StaplerResponse rsp ) throws IOException {
+        checkPermission(ADMINISTER); // <1>
+        LOGGER.severe(String.format("Shutting down VM as requested by %s from %s",
+                getAuthentication().getName(), req!=null?req.getRemoteAddr():"???"));
+        if (rsp!=null) {
+            rsp.setStatus(HttpServletResponse.SC_OK);
+            rsp.setContentType("text/plain");
+            try (PrintWriter w = rsp.getWriter()) {
+                w.println("Shutting down");
+            }
+        }
+----
+
 Implement appropriate script security::
 
 Be sure that your plugin implements appropriate security
@@ -61,16 +76,118 @@ for more information.
 Protect form validation methods from unauthorized accesss::
 
 Form validation code can be used to compromise private information.
-To protect against this:
+To protect against this use a call to `Jenkins#checkPermission` to form validation code:
 
-* Use a call to `Jenkins#checkPermission` to form validation code.
+[source]
+----
+AccessControlled ac = ... do the step 2 above ...
+Permission p = ... do the step 3 above ...
+ac.checkPermission(p)
+----
 
 * Only accept `POST` requests for form validation code with side effects for plugins that run on current Jenkins releases.
 This protects your plugin from cross-site request forgery (CSRF) attacks.
 
 * Forms in plugins that run on older Jenkins releases may be sent using `GET` and need to use the `checkMethod` attribute.
 
-See link:http://localhost:4242/doc/developer/security/form-validation/#returning-private-information[Securely implementing form validation] for details.
+See link:/doc/developer/security/form-validation/#returning-private-information[Securely implementing form validation] for details.
+
+If your entire HTML page rendered by Jelly needs to be protected, you can use the attributes of the `<l:layout>` tag, like this:
+
+[source,xml]
+----
+<l:layout permission="${app.ADMINISTER}">
+----
+
+The permission is always checked against the "it" object, so that needs to be an `AccessControlled` object.
+
+NOTE: This only prevents access to the view (e.g. configuration form), and does not prevent submissions to the form submission endpoints.
+This will still need to be done as described in the previous section.
+
+==== Disabling a part of page rendering if the user doesn't have a permission
+
+Sometimes you'd like to change the page rendering, based on the user's permissions.
+For example, if the user cannot delete a project, it doesn't make sense to show a link to do that.
+To do this, write Jelly like this:
+[source,xml]
+----
+<j:if test="${h.hasPermission(app.ADMINISTER)}">
+  ...
+</j:if>
+----
+
+NOTE: This is not to be confused with the `checkPermission` invocation in your operation.
+Users can still hit the URL directly, so you still need to protect the operation itself, in addition to disabling the UI rendering
+
+=== Authentication ways
+
+In Jenkins the security engine that is used is Spring Security.
+Without any special plugins to manage authentication, an instance of Jenkins is packaged
+with the following authentication ways:
+
+* Web UI
+** When you use the form on the login page, using the fields `j_username` and `j_password`
+* REST API
+** Using Basic with login / *password*
+** Using Basic with login / *apiToken*
+* Jenkins CLI jar
+** (deprecated) using remoting transport with login / logout command
+** (deprecated) username / password as parameters on each command
+** `-auth` argument with username:password or username:apiToken that will do something like HTTP calls
+** using SSH transport mode with your local keys
+* CLI over SSH
+** directly using the native SSH command, without Jenkins CLI
+
+=== Authentication flow
+
+Depending on the authentication method you use, the processing flow will differ drastically.
+By flow we mean the involved classes that will check your credentials for validity.
+
+==== Web UI and REST API
+
+image:web_rest_flow.svg["Web UI and REST API flow", role=center]
+
+In the diagram above, each arrow indicates a way to authenticate.
+
+Both the Web UI and the REST API using login / password will flow in the same `AbstractPasswordBasedSecurityRealm`
+that delegates the real check to the configured `SecurityRealm`.
+The credentials are retrieved for the first method by retrieving information in the POST and for the second by using the Basic Authentication (in header).
+A point that is important to mention here, the Web UI is the only way (not deprecated) that use the Session to save the credentials.
+
+For the login / apiToken calls, the `BasicHeaderApiTokenAuthenticator` manages to check if the apiToken corresponds to the user with the given login.
+
+==== CLI (SSH and native)
+
+For the CLI part, the things become a bit more complicated, not by the complexity but more by the multiplicity of way to connect.
+
+image:cli_flow.svg["CLI flow", role=center]
+
+The first case (remoting) is deprecated but explained as potentially it's still used.
+The principle is to create a sort of session between the login command and the logout one.
+The authentication is checked using the same classes that we use for the Web UI or the REST API with password.
+Once the authentication is verified, the credentials are stored in a local cache that will enable future calls to be authenticated automatically.
+
+The second way put the username and the password as additional parameters of the command (`--username` and `--password`).
+
+For the third and fourth ways, we pass the parameters to connect like in an HTTP call in the header.
+The authentication is checked exactly the same way as for the REST API depending on the provided password or token.
+
+Last possibility for the Jenkins CLI is using the SSH transport mode offered by SSHD module (also available for plugins).
+It uses normal SSH configuration using your local keys to authenticate.
+It shares the same verifier with the Native CLI way.
+
+==== Other ways
+The plugin have the possibility to propose a new `SecurityRealm` or implements some ``ExtensionPoint``s
+(like https://github.com/jenkinsci/jenkins/blob/master/core/src/main/java/jenkins/security/QueueItemAuthenticator.java[QueueItemAuthenticator])
+in order to provide new ways for a user to authenticate.
+
+=== Support for Locked/Disabled/Expired Accounts
+
+Some authentication providers support additional account validity attributes such as whether or not the account is locked, disabled, or expired.
+Normally, these sorts of account validity checks are performed by the underlying authentication provider itself when authenticating a user with their password.
+However, _until a user attempts to log in with their password, Jenkins is never notified of account status changes!_
+This means that without explicit support from its corresponding Jenkins authentication provider plugin, Jenkins will otherwise continue to allow the account to authenticate through the above-mentioned authentication methods (SSH keys, API tokens) until the account is also deleted or disabled in Jenkins by an administrator.
+Authentication providers that can implement account validity checks through means other than attempting to log the user in should throw a subtype of `org.springframework.security.authentication.AccountStatusException` in `SecurityRealm.loadUserByUsername2`.
 
 ////
 https://wiki.jenkins.io/display/JENKINS/Making+your+plugin+behave+in+secured+Jenkins

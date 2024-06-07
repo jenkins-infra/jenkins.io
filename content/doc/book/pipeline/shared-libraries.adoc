@@ -6,7 +6,6 @@ ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 ifdef::env-github[:imagesdir: ../resources]
 ifndef::env-github[:imagesdir: ../../resources]
@@ -92,7 +91,7 @@ Other directories under the root are reserved for future enhancements.
 === Global Shared Libraries
 
 There are several places where Shared Libraries can be defined, depending on
-the use-case. _Manage Jenkins » Configure System » Global Pipeline Libraries_
+the use-case. _Manage Jenkins » System » Global Pipeline Libraries_
 as many libraries as necessary can be configured.
 
 image::pipeline/add-global-pipeline-libraries.png["Add a Global Pipeline Library", role=center]
@@ -120,9 +119,9 @@ sandbox just like typical Pipelines.
 ===  Automatic Shared Libraries
 
 Other plugins may add ways of defining libraries on the fly.  For example, the
-plugin:github-branch-source[GitHub Branch Source] plugin provides a "GitHub
-Organization Folder" item which allows a script to use an untrusted library
-such as `github.com/someorg/somerepo` without any additional configuration.  In
+plugin:pipeline-github-lib[Pipeline: GitHub Groovy Libraries] plugin
+allows a script to use an untrusted library
+named like `github.com/someorg/somerepo` without any additional configuration.  In
 this case, the specified GitHub repository would be loaded, from the `master`
 branch, using an anonymous checkout.
 
@@ -448,15 +447,6 @@ log.info 'Starting'
 log.warning 'Nothing to do!'
 ----
 
-Note that if you wish to use a field in your global for some state, annotate it as such:
-[source,groovy]
-----
-@groovy.transform.Field
-def yourField = [:]
-
-def yourFunction....
-----
-
 Declarative Pipeline does not allow method calls on objects outside "script" blocks.
 (link:https://issues.jenkins.io/browse/JENKINS-42360[JENKINS-42360]).
 The method calls above would need to be put inside a `script` directive:
@@ -494,9 +484,20 @@ as part of a successful Pipeline run.
 .Avoid preserving state in global variables
 [WARNING]
 ====
-Avoid defining global variables with methods that interact or preserve state.
+All global variables defined in a Shared Library should be stateless, i.e. they should act as collections of functions.
+If your pipeline tried to store some state in global variables, this state would be lost in case of Jenkins controller restart.
 Use a static class or instantiate a local variable of a class instead.
 ====
+
+Though using fields for global variables is discouraged as per above, it is possible to define fields and use them as read-only.
+To define a field you need to use an annotation:
+[source,groovy]
+----
+@groovy.transform.Field
+def yourField = "YourConstantValue"
+
+def yourFunction....
+----
 
 === Defining custom steps
 
@@ -699,3 +700,29 @@ Only entire ``pipeline``s can be defined in shared libraries as of this time.
 This can only be done in `vars/*.groovy`, and only in a `call` method. Only one
 Declarative Pipeline can be executed in a single build, and if you attempt to
 execute a second one, your build will fail as a result.
+
+=== Testing library pull request changes
+
+By adding `@Library('my-shared-library@pull/<your-pr-number>/head') _` at the top of a library consumer Jenkinsfile, you can test your pipeline library pull request changes __in situ__ if your pipeline library is hosted on GitHub and the SCM configuration for the pipeline library uses GitHub. +
+Refer to the pull request or merge request branch naming convention for other providers like Assembla, Bitbucket, Gitea, GitLab, and Tuleap.
+
+Take, for example, a change to the global ci.jenkins.io shared pipeline, which has its source code stored at https://github.com/jenkins-infra/pipeline-library/.
+
+Let's say you're writing a new feature and opened a pull request on the pipeline library, number `123`.
+
+By opening a pull request on https://github.com/jenkinsci/jenkins-infra-test-plugin/[the dedicated `jenkins-infra-test-plugin` test repository] with the following content, you'll be able to check your changes on ci.jenkins.io:
+
+[source,diff]
+----
+--- jenkins-infra-test-plugin/Jenkinsfile
++++ jenkins-infra-test-plugin/Jenkinsfile
+@@ -1,3 +1,4 @@
++ @Library('pipeline-library@pull/123/head') _
+  buildPlugin(
+    useContainerAgent: true,
+    configurations: [
+      [platform: 'linux', jdk: 17],
+      [platform: 'windows', jdk: 11],
+  ])
+----
+

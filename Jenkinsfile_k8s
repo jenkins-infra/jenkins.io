@@ -1,66 +1,7 @@
-def recordDeployment(owner, repo, ref, status, environmentURL, environment = "preview", description = "Deploy to preview environment") {
-  withCredentials([usernamePassword(credentialsId: 'github-app-infra', usernameVariable: 'GITHUB_APP', passwordVariable: 'GH_TOKEN')]) {
-    def json = writeJSON(returnText: true, json: [
-        "ref": ref,
-        "environment": environment,
-        "description": description,
-        "required_contexts": [],
-        "auto_merge": false,
-        "auto_inactive": false,
-        "transient_environment": environment != "production",
-    ])
-    def id = readJSON(text: sh(script: "gh api repos/${owner}/${repo}/deployments  -X POST --input - << EOF\n${json}\nEOF", returnStdout: true).trim()).id
-    if (id == ''){
-      error('Unable to create deployment')
-    }
-    json = writeJSON(returnText: true, json: [
-        "state": status,
-        "environment": environment,
-        "description": description,
-        "log_url": "${BUILD_URL}console",
-        "environment_url": environmentURL,
-    ])
-    sh("gh api repos/${owner}/${repo}/deployments/${id}/statuses  -X POST --input - << EOF\n${json}\nEOF")
-  }
-}
 
 pipeline {
   agent {
-    kubernetes {
-      yaml '''
-apiVersion: "v1"
-kind: "Pod"
-metadata:
-  labels:
-    jenkins: "agent"
-    job: "jenkins-io"
-spec:
-  tolerations:
-    - key: "os"
-      operator: "Equal"
-      value: "linux"
-      effect: "NoSchedule"
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: kubernetes.io/os
-                operator: In
-                values:
-                  - linux
-  restartPolicy: "Never"
-  automountServiceAccountToken: false
-  containers:
-    - name: "jnlp"
-      image: "jenkinsciinfra/builder:2.0.7@sha256:8fd127b2abeb94acb34f528cf54007f1718fad9bee40257bad1e3b3ccacc16c6"
-      resources:
-        limits: {}
-        requests:
-          memory: "4Gi"
-          cpu: "2"
-      '''
-    }
+    label 'linux-arm64-docker'
   }
 
   environment {

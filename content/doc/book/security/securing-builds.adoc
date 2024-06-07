@@ -1,0 +1,59 @@
+---
+title: Securing Builds
+layout: section
+---
+ifdef::backend-html5[]
+:toc:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:hide-uri-scheme:
+endif::[]
+
+Building software is the primary use case for Jenkins.
+To accomplish that, Jenkins invokes build scripts containing user-specified code, and ensuring this is done in a safe manner must be a major concern for Jenkins administrators.
+The following sections discuss potential issues and strategies to deal with them.
+
+
+== Isolating Distributed Builds
+
+As discussed in link:../controller-isolation[Controller Isolation], Jenkins should be set up for _distributed builds_ to ensure build scripts are not executing on the controller, where they could access the Jenkins home directory or otherwise interfere with the operation of Jenkins.
+
+An additional concern is that builds need to be isolated from each other:
+While simple Jenkins instances building a single project may be able to operate securely with a single static agent, administrators of more complex instances need to consider whether builds need to be isolated from each other.
+Some examples:
+
+- Jenkins hosts multiple teams, which are not allowed to access each others' projects or source code.
+- Jenkins builds pull requests/merge requests submitted to public repositories, e.g., on GitHub.
+
+In these scenarios, build scripts running on the same agents may be able to access data related to other, unrelated, projects, and potentially even manipulate their build results.
+Even not assuming malicious intent, badly set up build scripts can accidentally delete unrelated data or cause resource exhaustion on the static agent, delaying builds.
+
+Solutions to this issue include the following:
+
+- Use https://plugins.jenkins.io/ui/search/?labels=cloud[cloud providers] that create a new agent for every build.
+- Plugins such as plugin:job-restrictions[Job Restrictions Plugin] limit which jobs can be run on certain nodes.
+
+
+== Pull Request Abuse
+
+When using organization folders or https://plugins.jenkins.io/workflow-multibranch/[multibranch Pipelines], Jenkins automatically builds new pull requests by default.
+Especially when a Jenkins instance builds projects from public repositories, this can open the door for abuse, such as:
+// General issue is tracked in https://issues.jenkins.io/browse/JENKINS-53752
+
+- Spam pull requests that trigger many new builds.
+- Malicious pull requests that modify build scripts, e.g., to mine cryptocurrency.
+
+Strategies for dealing with this include:
+
+- Use cloud providers and limit how many agents can be launched in parallel. This is easy to implement, but can delay legitimate builds due to resource constraints.
+- Define https://plugins.jenkins.io/build-timeout[timeouts] in the Pipeline definition (typically `Jenkinsfile`), as it cannot be modified by users without commit access given appropriate Pipeline trust settings.
+- Do not automatically build new pull requests and instead require committers to opt into them, e.g., using plugins like https://plugins.jenkins.io/github-label-filter/[GitHub Label Filter]
+// TODO: github-label-filter does not look like a plugin we should recommend here, are there better alternatives?
+
+
+== Safe Environment Variable Handling
+
+Build scripts and tools invoked during the build may change behavior depending on environment variables defined for the build.
+These variables can come from various sources, such as build parameters, predefined agent environment variables, files read from the workspace and injected into the environment, etc.
+
+link:../environment-variables[Handling Environment Variables] discusses this topic in detail, including solutions.

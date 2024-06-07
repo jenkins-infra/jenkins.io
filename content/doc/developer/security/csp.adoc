@@ -1,6 +1,6 @@
 ---
 title: Content-Security-Policy Compatibility
-layout: developerguide
+layout: developer
 ---
 
 == Introduction
@@ -12,13 +12,68 @@ From https://content-security-policy.com/[content-security-policy.com]:
 Using Content-Security-Policy (CSP), injection attacks like cross-site scripting can be prevented.
 
 // TODO Keep up to date with versions
-Unfortunately, as of Jenkins 2.360, the Jenkins classic UI is not yet compatible with the CSP directives that would allow preventing such injection attacks.
+Unfortunately, as of Jenkins 2.372, the Jenkins classic UI is not yet compatible with the CSP directives that would allow preventing such injection attacks.
 
-This guide documents how to write UI code in a manner that is expected to be compatible with future use of CSP directives on the Jenkins UI.
+This guide documents how to identify components that will be incompatible with CSP rules and how to write and adapt UI code in a manner that is expected to be compatible with future use of CSP directives on the Jenkins UI.
+
+NOTE: Most of this page focuses on problems caused by the `script-src` CSP directive as that is the most common issue across Jenkins plugins and non-compliant code is most likely to result in link:/blog/2020/07/15/xss-severity/[severe vulnerabilities].
 
 
+== Statically Identifying Affected Code and Plugins
 
-== Guidelines
+To check plugins for CSP compatibility, look for the following code patterns:
+
+Inline `<script>` blocks::
+Referencing a file to load JavaScript from is fine, but inline block contents are not.
+All `<script>` tags without `src` are a problem.
+They will break without `'unsafe-inline'` in the `script-src` CSP directive.
+Inline event handler definitions::
+Any occurrence of `onclick`, `onload`, etc. in HTML files (e.g. Jelly and Groovy views) is a problem.
+Legacy `checkUrl` definitions::
+Check the `checkUrl` attribute for values that are not simple URLs, but JavaScript expressions.
+While the underlying support is implemented in Jenkins core rather than in plugins, this will break without `'unsafe-eval'` in the `script-src` CSP directive.
+You can easily identify them through their use of single quotes inside the double-quoted attribute value (or, rarely, vice versa).
+Use of `eval`::
+Check for the use of `eval` inside any JS resource files (potentially after applying fixes for the previously listed issues).
+This will break without `'unsafe-eval'` in the `script-src` CSP directive.
+
+
+== Dynamically Identifying Plugins
+
+When running Jenkins, you can use the following techniques to identify broken features and the component that defines them:
+
+=== Content Security Policy Plugin
+
+link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
+It can operate both as enforcing and to only gather reports.
+Both modes can be useful with identifying broken functionality.
+
+==== Report Only
+When set to only report issues but not enforce, the UI can be used as usual while letting the browser report violations, allowing to quickly gather a number of findings while not being blocked by broken functionality.
+Afterwards, the reported violations can be reviewed and affected functionality identified this way.
+Navigate to _Manage Jenkins » Content-Security-Policy Report_ and review the violations there.
+
+NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins, so the list should very rarely be empty.
+If the list of violations remains empty after navigating several pages of the Jenkins UI, review your browser's console for errors related to reporting CSP violations.
+For example, some browser extensions will disable CSP reporting.
+
+==== Enforcing
+
+When set to enforce the rules, the UI will more readily break if functionality being accessed is impacted by the rules.
+
+NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins; so enforcing rules like `script-src` that do not allow `'unsafe-inline' 'unsafe-eval'` is expected to result in problems.
+
+=== Enabling Jelly tracing
+
+Run the following script in the script console:
+
+[source]
+org.kohsuke.stapler.jelly.JellyFacet.TRACE = true
+
+This property is documented on link:/doc/developer/views/[Views] and emits comments in the rendered HTML of Jelly views that allow you to better understand how the views are composed, and potentially more easily identify which component is responsible for contributing code that violates the CSP rules.
+
+
+== Development Guidelines
 
 
 === Inline JavaScript blocks
@@ -55,6 +110,8 @@ Use `Behaviour#specify` to add event handlers to elements that may be dynamicall
 One common instance of this is in configuration forms: `renderOnDemand` is used by common form elements like `hetero-list` to load parts of the page only as the form is being changed.
 The code that adds content from AJAX responses dynamically to the page needs to call `Behaviour#applySubtree` on the newly added content.
 
+For event handlers like `onclick` that used to call `return false` to prevent the usual action (e.g. link navigation) from happening, add a call to `Event.preventDefault()` in a separate event handler on the provided `Event` argument.
+
 Examples of this are: https://github.com/jenkinsci/jenkins/pull/5514[jenkinsci/jenkins#5514]
 
 === Legacy JavaScript `checkUrl` validation
@@ -68,7 +125,7 @@ It looks like the following:
 This combines inline JS and building parts of the string using JEXL expressions in Jelly, with different ways to escape different parts of the content to prevent injection vulnerabilities.
 
 Instead, use the _modern_ `checkUrl` mode, which as of Jenkins 2.360 requires the `checkDependsOn` attribute to be set (but it can be an empty string).
-This mode will automatically add the current form elements value as the query parameter called `value`, so the above examples can be simplified to the following:
+This mode will automatically add the current form element's value as the query parameter called `value`, so the above example can be simplified to the following:
 
 [source, html]
 <f:textbox checkUrl="${rootURL}/${it.url}checkText" checkDependsOn="" … />
@@ -106,5 +163,8 @@ window[callbackName](args);
 
 == Testing
 
-To test your code, you can use https://plugins.jenkins.io/csp/[Content Security Policy Plugin].
-It implements CSP directives for the classic Jenkins UI.
+link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
+It can operate both as enforcing and to only gather reports.
+Both modes can be useful with identifying broken functionality.
+
+NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins; so enforcing rules like `script-src` that do not allow `'unsafe-inline' 'unsafe-eval'` is expected to result in problems with basic Jenkins UI use.

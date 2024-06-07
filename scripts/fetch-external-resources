@@ -5,7 +5,7 @@
 
 
 require 'faraday'
-require 'faraday_middleware'
+require 'faraday/follow_redirects'
 require 'fileutils'
 require 'json'
 require 'uri'
@@ -33,7 +33,7 @@ RESOURCES = [
     'content/_tmp/examples'
   ],
   [
-    'https://ci.jenkins.io/job/Infra/job/pipeline-steps-doc-generator/job/master/lastSuccessfulBuild/artifact/allAscii.zip',
+    'https://reports.jenkins.io/allAscii.zip',
     'content/_tmp/allAscii.zip',
     nil,
     'content/doc/pipeline/steps'
@@ -63,7 +63,7 @@ RESOURCES = [
     nil
   ],
   [
-    'https://ci.jenkins.io/job/Infra/job/backend-extension-indexer/job/master/lastSuccessfulBuild/artifact/*.adoc/*zip*/extension-indexer.zip',
+    'https://reports.jenkins.io/extension-indexer.zip',
     'content/_tmp/extension-indexer.zip',
     nil,
     'content/doc/developer/extensions'
@@ -78,7 +78,7 @@ class Fetcher
   # into the fetching of specific resources themeslves
   def fetch_resource(origin)
     conn = Faraday.new(:ssl => {:verify => false}) do |f|
-      f.use FaradayMiddleware::FollowRedirects, limit: 5
+      f.use Faraday::FollowRedirects::Middleware, limit: 5
       f.adapter Faraday.default_adapter
     end
     return conn.get(origin)
@@ -124,6 +124,7 @@ class Fetcher
         Zip::File.open(destination) do |zip_file|
           zip_file.each do |f|
             fpath = File.join(zip_dest, f.name)
+            FileUtils.mkdir_p(File.dirname(fpath))
             zip_file.extract(f, fpath)
           end
         end
