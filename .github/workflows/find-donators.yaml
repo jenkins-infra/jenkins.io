@@ -28,22 +28,44 @@ jobs:
     # Runs the retrieve-donators.sh script
     - name: Run retrieve-donators.sh
       run: |
+        # Makes the script executable
         chmod +x scripts/retrieve-donators.sh
+        # Executes the script
         ./scripts/retrieve-donators.sh
 
-    # Checks for changes and creates a pull request if there are any
-    - name: Check for changes and create a pull request if there are any
+    # Check if there are any changes to the files.
+    - name: Check for changes
+      id: check_changes
+      run: |
+            # If there are changes, set the output variable 'changed' to 'true'.
+            git diff --exit-code || echo "::set-output name=changed::true"
+
+    # If there are changes, commit and push the changes to a new branch.
+    - name: Commit and push if changed
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+            # Set the Git user name and email for the commit.
+            git config --global user.name 'GitHub Actions'
+            git config --global user.email 'actions@github.com'
+            # Add the files to the Git staging area.
+            git add actions_ips.txt hooks_ips.txt
+            # Commit the changes with a message.
+            git commit -m "chore(ufw): Update GitHub IP addresses"
+
+    # Create a pull request with the changes.
+    - name: Create Pull Request
+      if: steps.check_changes.outputs.changed == 'true'
       uses: peter-evans/create-pull-request@v6
       with:
-        # The GitHub token used for authentication
-        token: ${{ secrets.UPDATECLI_GITHUB_TOKEN }}
-        # The commit message for the changes
-        commit-message: "Update donators.json"
-        # The title of the pull request
+        # The GitHub token is used to authenticate the action.
+        token: ${{ secrets.GITHUB_TOKEN }}
+        # The commit message for the pull request.
+        commit-message: "chore(sponsors): Update donators.json"
+        # The title of the pull request.
         title: "chore(sponsors): Update donators.json"
-        # The body of the pull request
+        # The body of the pull request.
         body: "This PR updates the donators.json file containing the list of people and companies that gave to Jenkins through  lfx.linuxfoundation.org."
-        # The name of the branch where the changes will be committed
+        # The pull request branch name.
         branch: "update-donators"
         # Specifies that the branch should be deleted after the pull request is merged
         delete-branch: true
