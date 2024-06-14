@@ -1,0 +1,58 @@
+# This is a GitHub Actions workflow file named 'Update Donators'.
+# The workflow is designed to update a list of donators and create a pull request if changes are detected.
+# This workflow can be manually triggered and is also scheduled to run automatically on the first day of every month.
+
+name: Update Donators
+
+on:
+  # Allows the workflow to be manually triggered
+  workflow_dispatch:
+  # Schedules the workflow to run on the first day of every month
+  schedule:
+    - cron: '0 0 1 * *'
+
+jobs:
+  update-donators:
+    # Specifies that the job runs on the latest version of Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checks out a copy of your repository
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # Sets up the necessary shell environment to run the script
+    - name: Set up shell environment
+      run: sudo apt-get install -y jq curl
+
+    # Runs the retrieve-donators.sh script
+    - name: Run retrieve-donators.sh
+      run: |
+        chmod +x scripts/retrieve-donators.sh
+        ./scripts/retrieve-donators.sh
+
+    # Checks if the donators.json file has changed
+    - name: Check for changes
+      id: git-diff
+      run: |
+        git diff --quiet && echo 'No changes to commit' || echo '::set-output name=changesDetected::true'
+
+    # If changes are detected, commits and pushes the changes to a new branch
+    - name: Commit and push if changed
+      if: steps.git-diff.outputs.changesDetected == 'true'
+      run: |
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
+        git checkout -b update-donators
+        git commit -am "Update donators.json"
+        git push origin update-donators
+
+    # If changes are detected, creates a pull request from the new branch to the current branch
+    - name: Create Pull Request
+      if: steps.git-diff.outputs.changesDetected == 'true'
+      uses: peter-evans/create-pull-request@v3
+      with:
+        title: "Update donators.json"
+        branch: "update-donators"
+        delete-branch: true
+        body: "This PR updates the donators.json file."
