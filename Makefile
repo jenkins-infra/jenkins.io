@@ -15,7 +15,7 @@ prepare: scripts-permission fetch depends assets
 
 ## Runs a live-reloading development server on 127.0.0.1 at port 4242.
 run: prepare scripts/awestruct
-	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
+	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0 $(AWESTRUCT_CONFIG)
 
 ## Explicitly generate static website files.
 generate: prepare scripts/awestruct real_generate

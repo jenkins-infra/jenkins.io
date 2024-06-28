@@ -13,7 +13,7 @@ Awestruct::Extensions::Pipeline.new do
   extension Awestruct::Extensions::Indexifier.new
 
   extension Awestruct::Extensions::Paginator.new(:posts,
-                                                  '/node/index',
+                                                  '/blog/index',
                                                   :per_page => 9)
 
   extension Awestruct::Extensions::Atomizer.new(:posts,
@@ -29,8 +29,8 @@ Awestruct::Extensions::Pipeline.new do
                                                 :num_entries => 4096)
 
   extension Awestruct::Extensions::Tagger.new(:posts,
-                                              '/node/index',
-                                              '/node/tags',
+                                              '/blog/index',
+                                              '/blog/tags',
                                               :per_page => 9)
 
   extension JenkinsSitemap.new
@@ -44,7 +44,7 @@ Awestruct::Extensions::Pipeline.new do
   extension SecurityIssues.new
 
   extension AuthorList.new(:posts,
-                        '/node/index',
+                        '/blog/index',
                         :per_page => 9)
 
   extension Awestruct::IBeams::HandbookExtension.new(:handbook,
@@ -52,6 +52,9 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::IBeams::HandbookExtension.new(:devbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/developer'))
+
+  extension ChangelogReleases.new(:lts, 'changelog-stable', 'stable')
+  extension ChangelogReleases.new(:weekly, 'changelog', 'latest')
 
   transformer VersionSwitcher.new
 

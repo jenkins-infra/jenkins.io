@@ -28,7 +28,6 @@ node('docker&&linux') {
         sh 'ls -lah'
     }
 
-
     stage('Checkout source') {
         /*
         * For a standalone workflow script, we would use the `git` step
@@ -86,15 +85,37 @@ node('docker&&linux') {
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
     if (infra.isTrusted() && env.BRANCH_NAME == null) {
-        stage('Publish on Azure') {
-            /* -> https://github.com/Azure/blobxfer
-            Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
-            withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
-                sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5 --delete'
+        stage('Publish site') {
+            infra.withFileShareServicePrincipal([
+                servicePrincipalCredentialsId: 'trustedci_jenkinsio_fileshare_serviceprincipal_writer',
+                fileShare: 'jenkins-io',
+                fileShareStorageAccount: 'jenkinsio'
+            ]) {
+                sh '''
+                # Don't output sensitive information
+                set +x
+
+                # Synchronize the File Share content
+                azcopy sync \
+                    --skip-version-check \
+                    --recursive=true\
+                    --delete-destination=true \
+                    --compare-hash=MD5 \
+                    --put-md5 \
+                    --local-hash-storage-mode=HiddenFiles \
+                    ./build/_site/ "${FILESHARE_SIGNED_URL}"
+
+                # Retrieve azcopy logs to archive them
+                cat /home/jenkins/.azcopy/*.log > azcopy.log
+                '''
+                archiveArtifacts 'azcopy.log'
             }
         }
         stage('Purge cached CSS') {
-            sh 'curl -X PURGE https://www.jenkins.io/css/jenkins.css'
+            sh '''
+            curl --request PURGE https://www.jenkins.io/css/jenkins.css
+            curl --request PURGE https://www.jenkins.io/stylesheets/styles.css
+            '''
         }
     }
 }
