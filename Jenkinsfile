@@ -64,24 +64,21 @@ node('docker&&linux') {
         * something is very wrong
         */
         timeout(60) {
-            // Need to authenticate on DockerHub with a read-only account to avoid rate limit
-            infra.withDockerCredentials {
-                sh '''#!/usr/bin/env bash
-                    set -o errexit
-                    set -o nounset
-                    set -o pipefail
-                    set -o xtrace
-    
-                    make all
-    
-                    illegal_filename="$( find . -name '*[<>]*' )"
-                    if [[ -n "$illegal_filename" ]] ; then
-                        echo "Failing build due to illegal filename:" >&2
-                        echo "$illegal_filename" >&2
-                        exit 1
-                    fi
-                    '''
-            }
+            sh '''#!/usr/bin/env bash
+                set -o errexit
+                set -o nounset
+                set -o pipefail
+                set -o xtrace
+
+                make all
+
+                illegal_filename="$( find . -name '*[<>]*' )"
+                if [[ -n "$illegal_filename" ]] ; then
+                    echo "Failing build due to illegal filename:" >&2
+                    echo "$illegal_filename" >&2
+                    exit 1
+                fi
+                '''
         }
     }
 
