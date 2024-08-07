@@ -1,0 +1,60 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2024-08-07
+kind: core
+core:
+  lts:
+    previous: 2.452.3
+    fixed: 2.452.4 or 2.462.1
+  weekly:
+    previous: '2.470'
+    fixed: '2.471'
+issues:
+- id: SECURITY-3430
+  reporter: jiangchenwei (Nebulalab) and yangyue (Nebulalab)
+  title: Arbitrary file read vulnerability through agent connections can lead to RCE
+  cve: CVE-2024-43044
+  cvss:
+    severity: Critical
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:H
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/remoting[Remoting library] (typically `agent.jar` or `remoting.jar`) for the communication between controller and agents.
+    This library allows agents to load classes and classloader resources from the controller, so that Java objects sent from the controller (build steps, etc.) can be executed on agents.
+
+    In addition to individual class and resource files, Remoting also allows Jenkins plugins to transmit entire jar files to agents using the `Channel#preloadJar` API.
+    As of publication of this advisory, this feature is used by the following plugins distributed by the Jenkins project:
+    https://plugins.jenkins.io/bouncycastle-api/[bouncycastle API], https://plugins.jenkins.io/groovy/[Groovy], https://plugins.jenkins.io/ivy/[Ivy], https://plugins.jenkins.io/teamconcert/[TeamConcert]
+
+    In Remoting 3256.v88a_f6e922152 and earlier, except 3206.3208.v409508a_675ff and 3248.3250.v3277a_8e88c9b_, included in Jenkins 2.470 and earlier, LTS 2.452.3 and earlier, calls to `Channel#preloadJar` result in the retrieval of files from the controller by the agent using `ClassLoaderProxy#fetchJar`.
+    Additionally, the implementation of `ClassLoaderProxy#fetchJar` invoked on the controller does not restrict paths that agents could request to read from the controller file system.
+
+    This allows agent processes, code running on agents, and attackers with Agent/Connect permission to read arbitrary files from the Jenkins controller file system.
+
+    NOTE: This is a critical vulnerability as the information obtained can be used to increase access up to and including remote code execution (RCE).
+    See link:/security/advisory/2024-01-24/#SECURITY-3314[SECURITY-3314] for known impacts of exploiting arbitrary file read vulnerabilities in Jenkins.
+    Be aware that the limitation of unreadable binary data with some character encodings discussed in SECURITY-3314 does not apply to SECURITY-3430.
+
+    The Remoting library in Jenkins 2.471, LTS 2.452.4, LTS 2.462.1 now sends jar file contents with `Channel#preloadJar` requests, the only use case of `ClassLoaderProxy#fetchJar` in agents, so that agents do not need to request jar file contents from controllers anymore.
+
+    To retain compatibility with older versions of Remoting in combination with the plugins listed above, `ClassLoaderProxy#fetchJar` is retained and otherwise unused, just deprecated.
+    Its implementation in Jenkins 2.471, LTS 2.452.4, LTS 2.462.1 was changed so that it is now limited to retrieving jar files referenced in the core classloader or any plugin classloader.
+
+    NOTE: In case of problems with `Channel#preloadJar` on older Remoting clients, administrators can disable this protection by setting the link:/doc/book/managing/system-properties/#hudson-remoting-channel-disable_jar_url_validator[Java system property `hudson.remoting.Channel.DISABLE_JAR_URL_VALIDATOR`] on the controller to `true`.
+    This is only advisable if code running on agents, including build scripts and test code from SCM, is as trusted as Jenkins administrators.
+
+    NOTE: Administrators who want to prohibit jar requests by agents through `ClassLoaderProxy#fetchJar` entirely can set the link:/doc/book/managing/system-properties/#jenkins-security-s2m-jarurlvalidatorimpl-reject_all[Java system property `jenkins.security.s2m.JarURLValidatorImpl.REJECT_ALL`] on the controller to `true`.
+    This may break some features of the plugins listed above on agents running older versions of Remoting.
+- id: SECURITY-3349
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Missing permission check allows accessing other users' "My Views"
+  cve: CVE-2024-43045
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: |-
+    Jenkins 2.470 and earlier, LTS 2.452.3 and earlier does not perform a permission check in an HTTP endpoint.
+
+    This allows attackers with Overall/Read permission to access other users' "My Views".
+    Attackers with global View/Configure and View/Delete permissions are also able to change other users' "My Views".
+
+    Jenkins 2.471, LTS 2.452.4, LTS 2.462.1 restricts access to a user's "My Views" to the owning user and administrators.
