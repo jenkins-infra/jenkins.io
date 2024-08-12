@@ -18,6 +18,8 @@ issues:
     severity: Critical
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:H
   description: |-
+    NOTE: This entry was updated on 2024-08-10 to add a reference to a https://github.com/jenkinsci-cert/SECURITY-3430[workaround].
+
     Jenkins uses the https://github.com/jenkinsci/remoting[Remoting library] (typically `agent.jar` or `remoting.jar`) for the communication between controller and agents.
     This library allows agents to load classes and classloader resources from the controller, so that Java objects sent from the controller (build steps, etc.) can be executed on agents.
 
@@ -34,16 +36,28 @@ issues:
     See link:/security/advisory/2024-01-24/#SECURITY-3314[SECURITY-3314] for known impacts of exploiting arbitrary file read vulnerabilities in Jenkins.
     Be aware that the limitation of unreadable binary data with some character encodings discussed in SECURITY-3314 does not apply to SECURITY-3430.
 
+    **Fix Description:**  +
     The Remoting library in Jenkins 2.471, LTS 2.452.4, LTS 2.462.1 now sends jar file contents with `Channel#preloadJar` requests, the only use case of `ClassLoaderProxy#fetchJar` in agents, so that agents do not need to request jar file contents from controllers anymore.
 
     To retain compatibility with older versions of Remoting in combination with the plugins listed above, `ClassLoaderProxy#fetchJar` is retained and otherwise unused, just deprecated.
     Its implementation in Jenkins 2.471, LTS 2.452.4, LTS 2.462.1 was changed so that it is now limited to retrieving jar files referenced in the core classloader or any plugin classloader.
+
+    NOTE: To protect from exploitation, the presence of the fix is only required to be installed on the controller.
+    Agents with older versions of remoting can still be used safely.
 
     NOTE: In case of problems with `Channel#preloadJar` on older Remoting clients, administrators can disable this protection by setting the link:/doc/book/managing/system-properties/#hudson-remoting-channel-disable_jar_url_validator[Java system property `hudson.remoting.Channel.DISABLE_JAR_URL_VALIDATOR`] on the controller to `true`.
     This is only advisable if code running on agents, including build scripts and test code from SCM, is as trusted as Jenkins administrators.
 
     NOTE: Administrators who want to prohibit jar requests by agents through `ClassLoaderProxy#fetchJar` entirely can set the link:/doc/book/managing/system-properties/#jenkins-security-s2m-jarurlvalidatorimpl-reject_all[Java system property `jenkins.security.s2m.JarURLValidatorImpl.REJECT_ALL`] on the controller to `true`.
     This may break some features of the plugins listed above on agents running older versions of Remoting.
+    If you use affected functionality of the plugins identified above, agents should be updated to a version of remoting matching the version on the controller.
+
+    **Workaround:**  +
+    A workaround for this issue is available https://github.com/jenkinsci-cert/SECURITY-3430[on GitHub] for administrators unable to immediately update.
+    It will disable the affected `Channel#preloadJar` functionality, and is therefore incompatible with the affected functionality of the plugins mentioned above.
+
+    NOTE: We recommend that you https://docs.github.com/en/account-and-profile/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications#configuring-your-watch-settings-for-an-individual-repository[watch] at least new releases in https://github.com/jenkinsci-cert/SECURITY-3430[this repository] to be informed of updates to the workaround.
+
 - id: SECURITY-3349
   reporter: Daniel Beck, CloudBees, Inc.
   title: Missing permission check allows accessing other users' "My Views"
