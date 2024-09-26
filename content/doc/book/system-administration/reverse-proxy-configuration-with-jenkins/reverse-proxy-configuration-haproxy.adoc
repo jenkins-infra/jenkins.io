@@ -1,0 +1,153 @@
+---
+layout: subsection
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../../resources/managing]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+= Reverse proxy - HAProxy
+
+In situations where you want a user friendly URL, different public
+ports, or to terminate SSL connections before they reach Jenkins, you
+may find it useful to run Jenkins (or the servlet container that Jenkins
+runs in) behind HAProxy.
+This section discusses some of the approaches for doing this.
+
+This 6 minute video tutorial from Darin Pope configures an HAProxy reverse proxy.
+
+.Configuring an HAProxy reverse proxy
+video::TuTdvYfM8T8[youtube, width=640, height=360]
+
+== Plain HTTP
+
+Using HAProxy 2.6.7, here is an example HAProxy.cfg to proxy over plain HTTP:
+
+[source]
+----
+# If you already have an haproxy.cfg file, you can probably leave the
+# global and defaults section as-is, but you might need to increase the
+# timeouts so that long-running CLI commands will work.
+global
+    maxconn 4096
+    log stdout local0 debug
+
+defaults
+   log global
+   option httplog
+   option dontlognull
+   option forwardfor
+   maxconn 20
+   timeout connect 5s
+   timeout client 60s
+   timeout server 60s
+
+frontend http-in
+  log stdout format raw local0 debug #for additional logging
+  bind *:80
+  mode http
+  acl prefixed-with-jenkins  path_beg /jenkins
+  # Use http-request redirect prefix to add /jenkins prefix to URL's location
+  # to ensure jenkins base url (context path) is working properly.
+  http-request redirect code 301 prefix /jenkins unless prefixed-with-jenkins
+  use_backend jenkins if prefixed-with-jenkins
+
+backend jenkins
+  log stdout format raw local0 debug
+  mode http
+  server jenkins1 127.0.0.1:8080 check
+  http-request replace-path /jenkins(/)?(.*) /\2
+  http-request set-header X-Forwarded-Port %[dst_port]
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+
+----
+
+This assumes Jenkins is running locally on port 8080.
+
+This assumes that you are using the http://localhost/jenkins[/jenkins] context path for both the
+site exposed from HAProxy and Jenkins itself.
+If this is not the case, you will need to adjust the configuration.
+Refer to the HAProxy documentation on link:https://www.haproxy.com/documentation/hapee/latest/traffic-routing/[traffic routing] for more information.
+
+If you are experiencing the following error when attempting to run long
+CLI commands in Jenkins, and Jenkins is running behind HAProxy,
+it is probably due to HAProxy timing out the CLI connection.
+You can increase the `+timeout client+` and `+timeout server+` settings as
+necessary so the command will complete successfully.
+
+[source]
+----
+WARNING: null
+hudson.cli.DiagnosedStreamCorruptionException
+Read back: 0x00 0x00 0x00 0x1e 0x07
+           'Started reverse-proxy-test #68'
+           0x00 0x00 0x00 0x01 0x07 0x0a
+Read ahead:
+Diagnosis problem:
+    java.io.IOException: Premature EOF
+        at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+        ...
+    at hudson.cli.FlightRecorderInputStream.analyzeCrash(FlightRecorderInputStream.java:82)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:153)
+Caused by: java.io.IOException: Premature EOF
+    at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+    ...
+    at java.io.DataInputStream.readInt(DataInputStream.java:387)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:111)
+----
+
+== With SSL
+
+Using HAProxy 2.6.7, here is an example HAProxy.cfg to connect to the
+proxy using SSL, terminate the SSL connection, and then talk to Jenkins
+using plain HTTP:
+
+[source]
+----
+# If you already have an haproxy.cfg file, you can probably leave the
+# global and defaults section as-is, but you might need to increase the
+# timeouts so that long-running CLI commands will work.
+
+global
+    maxconn 4096
+    log stdout local0 debug
+
+defaults
+   log global
+   option httplog
+   option dontlognull
+   option forwardfor
+   maxconn 20
+   timeout connect 5s
+   timeout client 5m
+   timeout server 5m
+
+frontend http-in
+  log stdout format raw local0 debug
+  bind *:80
+  bind *:443 ssl crt /usr/local/etc/haproxy/ssl/server.pem
+  mode http
+  acl prefixed-with-jenkins  path_beg /jenkins
+  http-request redirect code 301 prefix /jenkins unless prefixed-with-jenkins
+  redirect scheme https if !{ ssl_fc } # Redirect http requests to https
+  use_backend jenkins if prefixed-with-jenkins
+
+backend jenkins
+  log stdout format raw  local0 debug
+  mode http
+  server jenkins1 127.0.0.1:8080 check
+  http-request replace-path /jenkins(/)?(.*) /\2
+  http-request set-header X-Forwarded-Port %[dst_port]
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+
+----
+
+include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]

@@ -97,8 +97,49 @@ try using one of the official link:https://github.com/jenkinsci/archetypes#usage
 
 == Running Tests
 === From the Command Line
-`mvn test` will run all test cases, report progress and results on the command line, and write those results to JUnit XML files following the pattern `target/surefire-reports/TEST-<class name>.xml`.
-// TODO: Running an individual test class.
+`mvn test` will run *all* test cases, report progress and results on the command line, and write those results to JUnit XML files following the pattern `target/surefire-reports/TEST-<class name>.xml`.
+
+Assume we have a test class with tests we are interested in:
+
+[source,java]
+----
+public class CoolFeatureTest {
+  @Test void someTest() {
+    // …
+  }
+
+  @Test void someOtherTest() {
+    // …
+  }
+}
+----
+
+If you want to run only the tests of this class you can run `mvn test -Dtest=CoolFeatureTest`, which will run all tests of this class.
+But in cases where there are several test methods you may even want to run only method `someTest()`.
+In this case you can also specify it with running `mvn test -Dtest=CoolFeatureTest#someTest`.
+
+A list of commands and their use cases:
+
+[cols="2m,3"]
+|===
+|
+`mvn test`
+|Run all the unit test classes
+
+|`mvn test -Dtest=CoolFeatureTest`
+|Run a single test class
+
+|`mvn test -Dtest=CoolFeatureTest,Test2`
+|Run multiple test classes
+
+|`mvn test -Dtest=CoolFeatureTest#someTest`
+|Run only method `someTest()` of class `CoolFeatureTest`
+
+|`mvn test -Dtest=CoolFeatureTest#some*`
+|Run all test methods that match pattern 'some*' from a test class.
+
+|===
+
 
 === From an IDE
 Most Java IDEs should be able to run JUnit tests and report on the results.
@@ -107,10 +148,66 @@ Most Java IDEs should be able to run JUnit tests and report on the results.
 //==== From the Command Line
 //==== From an IDE
 
+=== Performance considerations
+
+The test runner (Surefire) supports running tests in parallel to speed them up.
+A possibility to configure this machine-wide is to adjust the `forkCount` within Maven.
+The default setting is `forkCount=1`, which means no parallel testing.
+An often-used setting is `1C`, which spawns as many testing processes in parallel as CPU cores are present.
+If you have a machine with many cores, it might be faster to set it to a smaller number, like `0.45C`.
+For example, with 16 cores the runner will be spawning up to 7 processes.
+More details can be found in the link:https://maven.apache.org/surefire/maven-surefire-plugin/examples/fork-options-and-parallel-execution.html[Maven Surefire documentation].
+
+You can also adjust this globally within a Maven profile setting, independently of the Plugin configuration.
+The Maven profile can be typically found at: `~/.m2/settings.xml` (Linux) or `%userprofile%/.m2` (Windows).
+A profile setting with the name "faster", which is enabled by default can look like this:
+
+[source,xml]
+----
+<profile>
+  <id>faster</id>
+  <activation>
+    <activeByDefault>true</activeByDefault>
+  </activation>
+  <properties>
+    <forkCount>0.45C</forkCount>
+  </properties>
+</profile>
+----
+
+In the IDE this setting will be able to enable or disable depending on the test suite you are working on.
+In case of problems it can also be deactivated on the command-line with `-P=-faster`.
+
 == What to Test
 Now that we can write a basic test, we should discuss what you should be testing…
 
-TODO: Unit testing of your code, as much as possible. JenkinsRule testing: creating jobs that use your build steps, running them, asserting on the output
+The test pyramid is a concept used in software development to describe the ideal distribution of different types of automated tests that make up a test suite.
+The idea was introduced by Mike Cohn and is visualized as a pyramid to help illustrate the optimal proportion of each type of test.
+Here's a breakdown of the three main layers from the bottom to the top of the pyramid:
+
+1. *Unit Tests*: At the base of the pyramid, unit tests are the most numerous.
+These tests are focused on checking the smallest parts of an application, such as individual functions or methods.
+Unit tests are quick to execute and help ensure that each component of the software works as expected in isolation.
+
+2. *Integration Tests*: The middle layer of the pyramid consists of integration tests.
+These are fewer in number compared to unit tests.
+Integration tests verify that different parts of the system work together as intended.
+For Jenkins, this makes use of the link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html[`JenkinsRule`] to test the integration of the plugin into Jenkins.
+For Jenkins, integration tests including the UI make use of the link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html[`JenkinsRule`], link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsSessionRule.html[`JenkinsSessionRule`] or link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/RealJenkinsRule.html[`RealJenkinsRule`] in combination with the link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/JenkinsRule.html#createWebClient()[`createWebClient()`]-call, which is used to create a call to an HTML-Unit endpoint to then assert something on the result.
+The different Rule types get more and more realistic towards a real Jenkins controller, but are still for integration tests.
+This can be a test for a new build step and testing the results in the UI with a test pipeline.
+
+3. *End-to-End Tests (E2E) and UI Tests*: At the top of the pyramid, end-to-end tests are the fewest in number but typically the most complex.
+These tests simulate real user scenarios from start to finish.
+They interact with the application as a user would, testing the complete flow of the system.
+The End-To-End Tests are done with a real browser in combination with the link:https://github.com/jenkinsci/acceptance-test-harness[`acceptance-test-harness`], as can be seen in the link:https://github.com/jenkinsci/warnings-ng-plugin/tree/main/ui-tests[warnings-ng ui-tests].
+
+These tests are typically not used in Jenkins plugins because they are too complex to create and maintain.
+
+Purpose of the Test Pyramid: The pyramid aims to encourage developers to write a larger number of lower-level tests (unit tests) and fewer high-level tests (E2E tests).
+This distribution is recommended because lower-level tests tend to be faster, cheaper to automate, and more reliable, whereas higher-level tests are slower, more expensive, and can be flakier.
+
+By adhering to the test pyramid model, developers can ensure they have a balanced test suite that optimizes resources and maximizes the efficiency and effectiveness of the testing process.
 
 == Common Patterns
 This section covers patterns that you will commonly use in your test cases, plus scenarios that you should consider testing.
@@ -128,7 +225,7 @@ This can be done easily with the link:https://javadoc.jenkins.io/component/jenki
 Use link:https://github.com/jenkinsci/archetypes#usage[archetypes] to see examples.
 
 === Providing Environment Variables
-In Jenkins, you can set environment variables on the Configure System page, which then become available during builds.
+In Jenkins, you can set environment variables on the System page, which then become available during builds.
 To recreate the same configuration from a test method, you can do the following:
 
 [source,java]
@@ -216,18 +313,19 @@ At its most simple, you can use the link:/doc/pipeline/steps/workflow-basic-step
 
 Alternatively, you can use the link:/doc/pipeline/steps/pipeline-utility-steps/#unzip-extract-zip-file[`unzip`] step from the plugin:pipeline-utility-steps[Pipeline Utility Steps plugin] to copy multiple files and folders into the workspace.
 
-First, add the plugin to your POM as a test dependency — you can find the `groupId` and `artifactId` values in the link:https://github.com/jenkinsci/pipeline-utility-steps-plugin/blob/master/pom.xml[plugin POM]:
+First, add the plugin to your POM as a test dependency — you can find the `groupId` and `artifactId` values in the link:https://plugins.jenkins.io/pipeline-utility-steps/dependencies[plugin dependency tab]:
 [source,xml]
 ----
 <dependency>
   <groupId>org.jenkins-ci.plugins</groupId>
   <artifactId>pipeline-utility-steps</artifactId>
-  <version>1.5.1</version>
   <scope>test</scope>
 </dependency>
 ----
+In general, we recommend to use the managed version from the plugin bom, so there is no need to specify the version.
+But if you need a specific version you can also add a specific version with: `<version>2.16.2</version>`
 
-You can then write a test which starts by extracting that zip file.
+Afterwards, you can write a test that begins with extracting the zip file.
 For example:
 [source,java]
 ----
@@ -267,19 +365,44 @@ report.copyFrom(getClass().getResourceAsStream("lint-results_r20.xml"));
 TODO: Write this section.
 
 ==== Using `@LocalData`
-TODO: Properly write this section.
+Runs a test case with a data set local to test method or the test class. This recipe allows your test case to start with the preset `JENKINS_HOME` data loaded either from your test method or from the test class.
 
-Runs a test case with a data set local to test method or the test class.
+So let's check a test class with a case where some `test.xml`-file is needed, and we want to do something with it.
 
-This recipe allows your test case to start with the preset HUDSON_HOME data loaded either from your test method or from the test class.
-For example, if the test method is org.acme.FooTest.bar(), then you can have your test data in one of the following places in resources folder (typically src/test/resources):
+[source,java]
+----
+package org.my.plugin;
 
-* Under org/acme/FooTest/bar directory (that is, you'll have org/acme/FooTest/bar/config.xml), in the same layout as in the real JENKINS_HOME directory.
-* In org/acme/FooTest/bar.zip as a zip file.
-* Under org/acme/FooTest directory (that is, you'll have org/acme/FooTest/config.xml), in the same layout as in the real JENKINS_HOME directory.
-* In org/acme/FooTest.zip as a zip file.
+public class TestJenkinsWithConfigFile {
 
-Search is performed in this specific order. The fall back mechanism allows you to write one test class that interacts with different aspects of the same data set, by associating the dataset with a test class, or have a data set local to a specific test method.
+    @Rule
+    public JenkinsRule r = new JenkinsRule();
+
+    @LocalData
+    @Test
+    public void testConfig() {
+        final File rootDir = r.jenkins.getRootDir();
+        final String[] list = rootDir.list();
+        // check that data is really there
+        assertThat(list, hasItemInArray("test.xml"));
+
+        // do something with that data or verify that jenkins did something during startup with that data
+    }
+}
+----
+
+The `@LocalData` now takes care that the files under a specific folder are copied in the `JENKINS_HOME`. For the example above to work, the file `test.xml` needs to be placed either in:
+
+* (1) `org/my/plugin/TestJenkinsWithConfigFile/foo/test.xml` to be available **only** for the `testConfig()` method.
+* (3) `org/my/plugin/TestJenkinsWithConfigFile/test.xml` to be available for **all** methods in the test class.
+
+If you need more than just one file, you can use zipped files, which will be expanded for you in `JENKINS_HOME`
+So, if you have several files, e.g.(`test.xml`, `test2.xml`) in a `test.zip`, you can put this in the directory:
+
+* (2) `org/my/plugin/TestJenkinsWithConfigFile/foo/test.zip` to be available **only** for the `testConfig()` method.
+* (4) `org/my/plugin/TestJenkinsWithConfigFile/test.zip` to be available for **all** methods in the test class.
+
+Search is performed in the order of the brackets at the line start. The fallback mechanism allows you to write one test class that interacts with different aspects of the same data set, by associating the dataset with a test class, or have a data set local to a specific test method.
 The choice of zip and directory depends on the nature of the test data, as well as the size of it.
 
 === Configuring an SCM
@@ -287,10 +410,128 @@ TODO: Write this section.
 You can create a Git repository during a test using `@GitSampleRepoRule`.
 
 === Using Agents
-TODO: Creating fake agents.
+Agents can be used in tests creating a `DumbSlave` object to be used later in a Pipeline or in a Freestyle job.
+After that, the agent can be connected to the Controller using the `JenkinsRule` methods or retrieving the `Computer` object from the agent.
+
+[source,java]
+----
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.junit.Test;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.recipes.LocalData;
+
+import hudson.model.Computer;
+import hudson.model.FreeStyleProject;
+import hudson.model.labels.LabelAtom;
+import hudson.slaves.DumbSlave;
+import hudson.slaves.JNLPLauncher;
+
+public class WithAgentTest {
+
+  @Rule
+  public JenkinsRule jenkinsRule = new JenkinsRule();
+
+  @Test
+  @LocalData // Suppose you have already created a Freestyle and a WorkflowJob
+  public void test_agent() throws Exception {
+    // Creating the agent with a specific label
+    LabelAtom testingLabel = new LabelAtom("testing");
+    DumbSlave agent = jenkinsRule.createSlave(testingLabel);
+    /* If you need to change the Launcher
+    agent.setLauncher(new JNLPLauncher(true));
+    agent.save();
+    */
+    // Connecting the agent
+    jenkinsRule.waitOnline(agent);
+    /*
+    Alternative to waitOnline would be to use the Computer object, but you must check the agent becomes
+    online. Better use waitOnline
+
+    Computer computer = agent.toComputer();
+    while (!computer.isOnline()) {
+      computer.connect(true);
+    }
+    */
+
+    FreeStyleProject freeStyleProject = jenkinsRule.jenkins.getItemByFullName("my-freestyle", FreeStyleProject.class);
+    freeStyleProject.setAssignedLabel(testingLabel);
+    // Testing the job
+
+    WorkflowJob workflowJob = jenkinsRule.jenkins.getItemByFullName("my-workflow", WorkflowJob.class);
+    // Testing the job
+  }
+}
+----
+
+For the pipeline, just make sure the definition uses the label set in the test.
+For the example above, the pipeline might be:
+
+[source,groovy]
+----
+pipeline {
+  agent {
+    label 'testing'
+  }
+
+  stages {
+    stage('Hello') {
+      steps {
+        sh 'echo Hello world'
+      }
+    }
+  }
+}
+----
+
+The agent can be disconnected as follows using the `OfflineCause` that fits the test.
+[source,java]
+----
+computer.disconnect(new OfflineCause.IdleOfflineCause());
+----
 
 === Enabling security
-TODO: Creating fake security realms. Using LocalData presets.
+If you need a security realm for testing you can use a `MockAuthorizationStrategy()` where you can grant rights as needed for your test. In the following example everyone gets `READ` on the Jenkins controller and users *alice* and *bob* get individual rights. Using `LocalData` presets can be used if you need to setup a lot for your test.
+
+[source,java]
+----
+import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
+
+import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.Test;
+
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
+
+public class MyTest {
+
+  @Rule
+  public JenkinsRule j = new JenkinsRule();
+
+  @Test
+  public void testAccess() throws Exception {
+    // create a dummy security realm
+    j.jenkins.setSecurityRealm(j.createDummySecurityRealm());
+    // setup a MockAuthorizationStrategy
+    MockAuthorizationStrategy authorizationStrategy = new MockAuthorizationStrategy();
+    authorizationStrategy.grant(Jenkins.READ).onRoot().toEveryone();
+    authorizationStrategy.grant(Item.DISCOVER).everywhere().to("alice");
+    authorizationStrategy.grant(Item.READ).everywhere().to("bob");
+    j.jenkins.setAuthorizationStrategy(authorizationStrategy);
+
+    // create a freestyle project for test
+    j.createFreeStyleProject("myproject");
+
+    // alice can discover project
+    JenkinsRule.WebClient alice = j.createWebClient().login("alice");
+    FailingHttpStatusCodeException e = assertThrows(FailingHttpStatusCodeException.class, () -> alice.goTo("bypass/myproject"));
+    Assert.assertEquals("alice can discover", 403, e.getStatusCode());
+
+    // bob can read project
+    JenkinsRule.WebClient bob = j.createWebClient().login("bob");
+    bob.goTo("bypass/myproject"); // success    
+  }
+----
 
 === Verifying Logs
 You can verify log messages using `@LoggerRule`.
@@ -320,6 +561,15 @@ public class MyTest {
   }
 }
 ----
+
+== Increasing Tests Timeout
+
+The default timeout for Jenkins integration tests is 180 seconds.
+
+The tests that require more resources may fail on a slower computer. 
+
+To increase the timeout of the tests you can use the following commands: 
+`mvn -Djenkins.test.timeout=250 verify` 
 
 == Performance Testing
 Starting from link:https://github.com/jenkinsci/jenkins-test-harness/releases/tag/jenkins-test-harness-2.50[Jenkins Test Harness 2.50], the framework provides ways to run microbenchmarks using

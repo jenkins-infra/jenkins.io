@@ -1,0 +1,209 @@
+---
+layout: subsection
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../../resources/managing]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+= Reverse proxy - iptables
+
+The default Jenkins installation runs on ports 8080 and 8443.
+Typically, HTTP/HTTPS servers run on ports 80 and 443, respectively.
+But these ports are considered privileged on Unix/Linux systems,
+and the process using them must be owned by root.
+Running Jenkins as root is not recommended - it should be run as its own user.
+One solution is to front Jenkins with a web server such as Apache, and let
+it proxy requests to Jenkins, but this requires maintaining the Apache installation as well.
+In situations where you are wanting to run Jenkins on port 80 or 443
+(i.e. HTTP/HTTPS), but you do not want to setup a proxy server you can
+use _iptables_ on Linux to forward traffic.
+
+== Ubuntu Installations
+
+Follow the link:/doc/book/installing/#debianubuntu[Ubuntu installation instructions] to install and configure the initial Jenkins installation on a supported version of Ubuntu.
+These instructions are known to not work on Ubuntu versions that are no longer supported by the Ubuntu project.
+
+== Prerequisites
+
+In order to forward traffic from 80/443 to 8080/8443, first you must
+ensure that iptables has allowed traffic on all 4 of these ports.
+Use the following command to list the current iptables configuration:
+
+[source]
+----
+ iptables -L -n
+----
+
+You should see in the output entries for 80, 443, 8080, and 8443.
+Here is an example output for comparison.
+
+[source]
+----
+ain INPUT (policy ACCEPT)target     prot opt source               destination
+target     prot opt source               destination
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:443
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:80
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:8080
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           tcp dpt:8443
+ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0           state RELATED,ESTABLISHED
+ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0
+ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0
+ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0           state NEW tcp dpt:22
+REJECT     all  --  0.0.0.0/0            0.0.0.0/0           reject-with icmp-host-prohibited
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+REJECT     all  --  0.0.0.0/0            0.0.0.0/0           reject-with icmp-host-prohibited
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+target     prot opt source
+----
+
+If you dont see entries for these ports, then you need to run commands
+(as root or with sudo) to add those ports.
+For example, if you see none of these and need to add them all,
+you would need to issue the following commands:
+
+[source]
+----
+sudo iptables -I INPUT 1 -p tcp --dport 8443 -j ACCEPT
+sudo iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT
+sudo iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
+sudo iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+----
+
+NOTE:: I used -I INPUT 1. In a lot of iptables
+documentation/examples, you will see -A INPUT.
+The difference is that -A appends to the list of rules,
+while -I INPUT 1 inserts before the first entry.
+Usually when adding new accept ports to iptables configuration,
+you want to put them at the beginning of the ruleset, not the end.
+Run iptables -L -n again and you should now see entries for these 4 ports.
+
+== Forwarding
+
+Once traffic on the required ports are allowed, you can run the command
+to forward port 80 traffic to 8080, and port 443 traffic to 8443.
+The commands look like this:
+
+[source]
+----
+sudo iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
+sudo iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 8443
+----
+
+You can verify the forwarding rules using below command.
+
+[source]
+----
+[root@xyz~]# iptables -L -t nat
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination
+REDIRECT   tcp  --  anywhere             anywhere             tcp dpt:http redir ports 8080
+REDIRECT   tcp  --  anywhere             anywhere             tcp dpt:https redir ports 8443
+
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain POSTROUTING (policy ACCEPT)
+target     prot opt source               destination
+----
+
+ +
+
+Once these rules are set and confirmed with iptables -L -n, and once
+your Jenkins controller is up and running on port 8080, attempt to access
+your Jenkins controller on port 80 instead of 8080.
+It should work and your URL should stay on port 80 - in other words,
+it should not get redirected to 8080.
+The fact that forwarding from 80 to 8080 (or 443 to 8443) should remain
+hidden from the client.
+
+=== Saving iptables Configuration
+
+Using the iptables command to change port configuration and routing
+rules only changes the current, in-memory configuration.
+It does not persist between restarts of the iptables service.
+So, you need to make sure you save the configuration to make the changes permanent.
+
+Saving the configuration is slightly different between Red Hat rpm based and
+Debian-based systems.
+On Red Hat-based systems (Red Hat Enterprise Linux, Fedora, Alma Linux, Rocky Linux, Oracle Linux, CentOS, etc), issue the following command:
+
+[source]
+----
+sudo iptables-save > /etc/sysconfig/iptables
+----
+
+On a Debian-based system (Debian, Ubuntu, Mint, etc), issue the
+following command:
+
+[source]
+----
+sudo sh -c "iptables-save > /etc/iptables.rules"
+----
+
+The iptables-restore command will need to be executed manually, or your
+system configured to automatically run it on boot, against the
+/etc/iptables.rules file you have created, in order for your iptables
+configuration to be retained across reboots.
+On Ubuntu, the fastest way is to install `iptables-persistent` after configuring iptables.
+It will automatically create the required files from the current configuration and load them on boot.
+
+[source]
+----
+sudo apt-get install iptables-persistent
+----
+
+See https://help.ubuntu.com/community/IptablesHowTo for other Ubuntu
+options.
+There are many other resources describing this; please consult
+your system's documentation or search on the internet for information
+specific to your flavor of Linux.
+
+If you are unsure at all about what kind of system you have, consult
+that system's documentation on how to update iptables configuration.
+
+== Using firewalld
+
+Some Linux distributions (Red Hat Enterprise Linux, Rocky Linux, Alma Linux, Oracle Linux, CentOS, etc.)
+ship with firewalld which serves as a front-end for iptables.
+Configuration thru firewalld is done via the *firewall-cmd* command.
+Instead of using any of the iptables commands mentioned above,
+all you should need to do is something like:
+
+[source]
+----
+# allow incoming connections on port 80.
+# You can also use --add-service=http instead of adding a port number
+sudo firewall-cmd --add-port=80/tcp --permanent
+sudo firewall-cmd --permanent \
+                  --add-forward-port=port=80:proto=tcp:toaddr=127.0.0.1:toport=8080
+
+# allow incoming connections on port 443.
+# You can also use --add-service=https instead of adding a port number
+sudo firewall-cmd --add-port=443/tcp --permanen
+t
+sudo firewall-cmd --permanent \
+                  --add-forward-port=port=443:proto=tcp:toaddr=127.0.0.1:toport=8443
+sudo firewall-cmd --reload
+----
+
+With the above commands, jenkins can be configured to run on
+localhost:8080 and/or localhost:8443 (depending if you need or want to
+do SSL or not)
+
+firewalld will then create the required iptables rules so that incoming
+connections on port 80 are forwarded to jenkins on 8080 (and 443 is
+forwarded to 8443).
