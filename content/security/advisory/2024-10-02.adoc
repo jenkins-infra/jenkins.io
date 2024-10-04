@@ -1,0 +1,109 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2024-10-02
+kind: core and plugins
+core:
+  lts:
+    previous: 2.462.2
+    fixed: 2.462.3
+  weekly:
+    previous: '2.478'
+    fixed: '2.479'
+issues:
+- id: SECURITY-3451
+  reporter: Olivier Lamy, CloudBees, Inc.
+  title: Exposure of multi-line secrets through error messages in Jenkins
+  cve: CVE-2024-47803
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    Jenkins provides the `secretTextarea` form field for multi-line secrets.
+
+    Jenkins 2.478 and earlier, LTS 2.462.2 and earlier does not redact multi-line secret values in error messages generated for form submissions involving the `secretTextarea` form field.
+
+    This can result in exposure of multi-line secrets through those error messages, e.g., in the system log.
+
+    NOTE: This issue is similar to link:/security/advisory/2018-10-10/#SECURITY-765[SECURITY-765 in the 2018-10-10 security advisory].
+
+    Jenkins 2.479, LTS 2.462.3 redacts multi-line secret values in error messages generated for form submissions involving the `secretTextarea` form field.
+- id: SECURITY-3448
+  reporter: Antonio Muñiz, CloudBees, Inc.
+  title: Item creation restriction bypass vulnerability in Jenkins
+  cve: CVE-2024-47804
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins provides APIs for fine-grained control of item creation:
+
+    * Authorization strategies can prohibit the creation of items of a given type in a given item group (`ACL#hasCreatePermission2`).
+    * Item types can prohibit creation of new instances in a given item group (`TopLevelItemDescriptor#isApplicableIn(ItemGroup)`).
+
+    If an attempt is made to create an item of a prohibited type through the Jenkins CLI or the REST API and either of the above checks fail, Jenkins 2.478 and earlier, LTS 2.462.2 and earlier creates the item in memory, only deleting it from disk.
+
+    This allows attackers with Item/Create permission to bypass these restrictions, creating a temporary item.
+    With Item/Configure permission, they can also save the item to persist it.
+
+    If an attempt is made to create an item of a prohibited type through the Jenkins CLI or the REST API and either of the above checks fail, Jenkins 2.479, LTS 2.462.3 does not retain the item in memory.
+- id: SECURITY-3373
+  reporter: Kevin Guerroudj, CloudBees, Inc.
+  title: Encrypted values of credentials revealed to users with Extended Read permission
+    in PLUGIN_NAME
+  cve: CVE-2024-47805
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME 1380.va_435002fa_924 and earlier, except 1371.1373.v4eb_fa_b_7161e9, does not redact encrypted values of credentials using the `SecretBytes` type (e.g., Certificate credentials, or Secret file credentials from plugin:plain-credentials[Plain Credentials Plugin]) when accessing item `config.xml` via REST API or CLI.
+
+    This allows attackers with Item/Extended Read permission to view encrypted `SecretBytes` values in credentials.
+
+    NOTE: This issue is similar to link:/security/advisory/2016-05-11/#encrypted-secrets-e-g-passwords-were-leaked-to-users-with-permission-to-read-configuration[SECURITY-266 in the 2016-05-11 security advisory], which applied to the `Secret` type used for inline secrets and some credentials types.
+
+    PLUGIN_NAME 1381.v2c3a_12074da_b_ redacts the encrypted values of credentials using the `SecretBytes` type in item `config.xml` files.
+
+    [#SECURITY-3373-compatibility]
+    WARNING: This fix is only effective on Jenkins 2.479 and newer, LTS 2.462.3 and newer.
+    While PLUGIN_NAME 1381.v2c3a_12074da_b_ can be installed on Jenkins 2.463 through 2.478 (both inclusive), encrypted values of credentials using the `SecretBytes` type will not be redacted when accessing item `config.xml` via REST API or CLI.
+  plugins:
+  - name: credentials
+    previous: 1380.va_435002fa_924
+    fixed: 1381.v2c3a_12074da_b_
+- id: SECURITY-3441 (1)
+  reporter: James Nord, CloudBees, Inc.
+  title: Lack of audience claim validation in PLUGIN_NAME
+  cve: CVE-2024-47806
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME 4.354.v321ce67a_1de8 and earlier does not check the `aud` (Audience) claim of an ID Token during its authentication flow, a value to verify the token is issued for the correct client.
+
+    This vulnerability may allow attackers to subvert the authentication flow, potentially gaining administrator access to Jenkins.
+
+    PLUGIN_NAME 4.355.v3a_fb_fca_b_96d4 checks the `aud` (Audience) claim of an ID Token during its authentication flow.
+  plugins:
+  - name: oic-auth
+    previous: 4.354.v321ce67a_1de8
+    fixed: 4.355.v3a_fb_fca_b_96d4
+- id: SECURITY-3441 (2)
+  reporter: James Nord, CloudBees, Inc.
+  title: Lack of issuer claim validation in PLUGIN_NAME
+  cve: CVE-2024-47807
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME 4.354.v321ce67a_1de8 and earlier does not check the `iss` (Issuer) claim of an ID Token during its authentication flow, a value that identifies the Originating Party (IdP).
+
+    This vulnerability may allow attackers to subvert the authentication flow, potentially gaining administrator access to Jenkins.
+
+    PLUGIN_NAME 4.355.v3a_fb_fca_b_96d4 checks the `iss` (Issuer) claim of an ID Token during its authentication flow when the Issuer is known.
+
+    IMPORTANT: When using the "Manual entry" configuration mode, the new "Issuer" field must be populated after updating to protect from this issue.
+    When using "Discovery via well-known endpoint", the Issuer will be set automatically.
+  plugins:
+  - name: oic-auth
+    previous: 4.354.v321ce67a_1de8
+    fixed: 4.355.v3a_fb_fca_b_96d4
