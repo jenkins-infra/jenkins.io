@@ -26,19 +26,19 @@ public FormValidation doCheckFoo(@QueryParameter String value) {
 }
 ----
 
-Stapler routing and Jenkins behavior will result in this method being routed at a URL like `/descriptorByName/f.q.ClassName/checkFoo`.
-This URL will contain a minimal HTML snippet with a form validation message (if present) based on the presence and value of the `value` query parameter.
+Stapler routing and Jenkins behavior result in this method being routed at a URL like `/descriptorByName/f.q.ClassName/checkFoo`.
+This URL contains a minimal HTML snippet with a form validation message (if present) based on the presence and value of the `value` query parameter.
 
-=== Potential Security Issues
+== Potential Security Issues
 
-==== Returning Private Information
+=== Returning Private Information
 
 By default, any user with Overall/Read access can access form validation methods like the example method above.
 Some form validation methods could be used to infer private information, and as such may need to be protected from unauthorized access.
 
 If a form validation method is supposed to only be accessible to users with specific permissions, a permission check should be added.
 
-==== Side Effects
+=== Side Effects
 
 Form validation can become quite complex and have side effects.
 For example, Jenkins might evaluate a Groovy script passed as parameter, or access a URL passed as parameter.
@@ -48,9 +48,9 @@ Ensuring that form validation code such as this is protected with appropriate pe
 link:https://en.wikipedia.org/wiki/Cross-site_request_forgery[Cross-site request forgery] is an attack on users with the necessary privileges and exploits the trust Jenkins has in these legitimate users' web browsers.
 Protecting from these attacks requires that form validation methods with side effects only accept `POST` requests.
 
-=== Implementing Form Validation
+== Implementing Form Validation
 
-==== Checking permissions
+=== Checking permissions
 
 To check for global permissions like `Administer`, add a call to `Jenkins#checkPermission`. Note that Overall/Read permission is always implied (unless you specifically implement jenkinsdoc:UnprotectedRootAction[]).
 
@@ -82,18 +82,20 @@ public FormValidation doCheckFoo(@QueryParameter String value, @AncestorInPath I
 }
 ----
 
-==== Protecting from CSRF
+=== Protecting from CSRF
 
 Stapler web methods, like form validation, can be invoked using any HTTP verb by default.
 This can be used by malicious users to attack an application by way of its legitimate users:
-Cross-site request forgery is the result of a web application (Jenkins) trusting legitimate users' browser.
+Cross-site request forgery is the result of a web application (Jenkins) trusting a legitimate user's browser.
 
-To prevent this, Jenkins includes CSRF protection that requires actions with side effects (POST requests) to submit a user-specific secret, called a _crumb_.
-To ensure this protection is relevant, web methods with side effects need to reject requests not sent via POST.
+To prevent this, Jenkins includes CSRF protection that requires actions with side effects (`POST` requests) to submit a user-specific secret, called a _crumb_.
+To ensure that this protection is relevant, web methods with side effects need to reject requests not sent via `POST`.
 There are two options to achieve this in general:
 
-* staplerdoc:org.kohsuke.stapler.verb.POST[`POST`] limits processing to just the POST verb, and all other verbs will receive a 404 response. This is recommended approach for form validation methods.
-* staplerdoc:org.kohsuke.stapler.interceptor.RequirePOST[`RequirePOST`] is the older (and more common) approach. It will show a form allowing users to resubmit the request using POST if they used a different verb. This is mostly useful for simple API actions.
+* staplerdoc:org.kohsuke.stapler.verb.POST[`POST`] limits processing to just the POST verb, and all other verbs receive a 404 response. This is the recommended approach for form validation methods.
+* staplerdoc:org.kohsuke.stapler.interceptor.RequirePOST[`RequirePOST`] is the older (and more common) approach.
+It shows a form that allows users to resubmit the request using `POST` if they used a different verb.
+This is mostly useful for simple API actions.
 
 Applying this protection is as simple as adding the annotation to the method:
 
@@ -108,8 +110,8 @@ public FormValidation doCheckFoo(@QueryParameter String value) {
 }
 ----
 
-Depending on the versions of Jenkins supported by your plugin, these form validation methods may be invoked using HTTP GET, however, so the form may need to be adapted as well.
-The Jenkins form Jelly controls support the `checkMethod` attribute, which, if set to `post`, will result in form validation being invoked via HTTP POST.
+Depending on the versions of Jenkins supported by your plugin, however, these form validation methods may be invoked using `HTTP GET`, so the form may need to be adapted as well.
+The Jenkins form Jelly controls support the `checkMethod` attribute, which, if set to `post`, results in form validation being invoked via `HTTP POST`:
 
 [source, xml]
 ----
@@ -118,11 +120,12 @@ The Jenkins form Jelly controls support the `checkMethod` attribute, which, if s
 </f:entry>
 ----
 
-The default behavior of form controls has changed over time, so you may not need to add the `checkMethod` attribute depending on the versions of Jenkins supported by your plugin and the types of form controls that have validation:
+The default behavior of form controls has changed over time, so you may not need to add the `checkMethod` attribute, depending on the versions of Jenkins supported by your plugin and the types of form controls that have validation:
 
-* Historically, form validation requests were sent using GET by default (with the exception of `f:validateButton`, which always used POST).
+* Historically, form validation requests were sent using `GET` by default (with the exception of `f:validateButton`, which always used `POST`).
 * Since Jenkins 2.84 and 2.73.3, `f:password` always sends form validation as `POST`.
-* Since Jenkins 2.285, most other form controls send form validation requests as `POST` by default, and `checkMethod` would only opt out.
-* As of Jenkins 2.300 `f:checkbox` does not support the `checkMethod` attribute at all and requests are always sent using GET.
+* Since Jenkins 2.285, most other form controls send form validation requests as `POST` by default, and `checkMethod` only opts out.
+* As of Jenkins 2.300 `f:checkbox` does not support the `checkMethod` attribute at all and requests are always sent using `GET`.
 
-NOTE: Some basic form controls may not declare the `checkMethod` attribute in older versions of Jenkins. Depending on the control it could still work, despite an error shown in your IDE.
+NOTE: Some basic form controls may not declare the `checkMethod` attribute in older versions of Jenkins. Depending on the control, it may still work, despite an error shown in your IDE.
+
