@@ -51,6 +51,9 @@ The following Apache modules must be installed :
 a2enmod proxy
 a2enmod proxy_http
 a2enmod headers
+# Required for websocket
+a2enmod proxy_wstunnel
+a2enmod rewrite
 ----
 
 A typical set up for mod_proxy would look like this:
@@ -61,6 +64,12 @@ ProxyPass         /jenkins  http://localhost:8081/jenkins nocanon
 ProxyPassReverse  /jenkins  http://localhost:8081/jenkins
 ProxyRequests     Off
 AllowEncodedSlashes NoDecode
+
+# Required for Jenkins websocket agents
+RewriteEngine on
+RewriteCond %{HTTP:Upgrade} websocket [NC]
+RewriteCond %{HTTP:Connection} upgrade [NC]
+RewriteRule ^/jenkins/?(.*) "ws://localhost:8081/jenkins/$1" [P,L]
 
 # Local reverse proxy authorization override
 # Most unix distribution deny proxy by default
@@ -242,6 +251,12 @@ NameVirtualHost *:443
     ProxyPassReverse  /  http://www.example.com/
     RequestHeader set X-Forwarded-Proto "https"
     RequestHeader set X-Forwarded-Port "443"
+
+    # Required for Jenkins websocket agents
+    RewriteEngine on
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/?(.*) "ws://localhost:8080/$1" [P,L]
 </VirtualHost>
 ----
 
@@ -256,17 +271,25 @@ The following Apache modules must be installed :
 a2enmod rewrite
 a2enmod proxy
 a2enmod proxy_http
+# Required for Jenkins websocket agents
+a2enmod proxy_wstunnel
 ----
 
 A typical mod_rewrite configuration would look like this:
 
 [source]
 ----
+# Required for Jenkins websocket agents
+RewriteCond %{HTTP:Upgrade} websocket [NC]
+RewriteCond %{HTTP:Connection} upgrade [NC]
+RewriteRule ^/jenkins/?(.*) "ws://localhost:8081/jenkins/$1" [P,L]
+
 # Use last flag because no more rewrite can be applied after proxy pass
 # NE makes sure slashes are not re-encoded.
 # Apache does not re-encode spaces though, we ask Apache to encode it again with the B flag
 # BNP tells apache to use %20 instead of + to re-encode the space
 RewriteRule       ^/jenkins(.*)$  http://localhost:8081/jenkins$1 [P,L,NE,B=\,BNP]
+
 ProxyPassReverse  /jenkins        http://localhost:8081/jenkins
 ProxyRequests     Off
 
