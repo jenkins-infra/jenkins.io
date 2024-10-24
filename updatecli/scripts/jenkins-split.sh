@@ -21,4 +21,4 @@ url="https://raw.githubusercontent.com/jenkinsci/jenkins/master/core/src/main/re
 # In other words, it operates on the last line of the input.
 # '{print $2}' tells awk to print the second field of the line. By default, awk splits the line into fields based on whitespace,
 # so this will print the part of the line between the first and second space.
-curl -s $url | awk 'END{print $2}'
+curl --silent --location $url | awk 'END{print $2}'
