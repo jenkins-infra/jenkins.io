@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Fetch the JSON data from the Jenkins update site and store it in a variable.
-json_data=$(curl -s https://updates.jenkins.io/tiers.json)
+json_data=$(curl -sL https://updates.jenkins.io/tiers.json)
 
 # Extract the oldest LTS version from the JSON data.
 # The jq command is used to parse the JSON data and extract the oldest LTS version, which is stored in the oldest_lts variable.
