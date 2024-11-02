@@ -1,0 +1,187 @@
+---
+layout: post
+title: "Running Containerized Jenkins Pipelines with Full Host Isolation via Docker-in-Docker (DinD)"
+tags:
+- jenkins
+- community
+- docker
+- dind
+- security
+- tutorials
+authors:
+- pexers
+opengraph:
+  image: /images/post-images/2024/11/02/2024-11-02-containerized-pipelines-with-full-host-isolation-via-dind/opengraph.png
+links:
+discourse: true
+---
+
+Incorporating containerization in CI/CD pipelines has become essential, as using Docker to build and test applications helps prevent unexpected behaviors while allowing full customization over the execution environment.
+
+However, as of today, many articles promoting the use of containerized Jenkins pipelines suggest solutions that pose significant security risks by granting unrestricted _root_ access to the host system through Docker socket mounts.
+This is particularly concerning for organizations where system administrators may not have complete control over _who runs what_ during builds.
+
+In this post, you'll learn how to execute Docker CLI commands through the Docker-in-Docker (DinD) daemon within your Jenkins pipelines.
+This approach serves as an alternative to the traditional method of creating containers on the top-level Docker host.
+
+[[why-dind]]
+== Why Docker-in-Docker?
+
+1. *Host isolation* 🔒
+* A secure TCP connection is established to grant access to the Docker daemon running within the DinD service.
+Running DinD as a link:https://learn.microsoft.com/en-us/azure/architecture/patterns/sidecar[sidecar] ensures complete isolation between the host system and the Jenkins container by avoiding the common, yet very dangerous, practice of exposing the Docker socket (`docker.sock`) via a bind mount.
+The socket is owned by _root_, so granting access to it effectively provides unrestricted _root_ privileges over any operations the Docker service can perform.
+2. *No custom builds required* ✅
+* To eliminate the need for custom builds, Docker CLI binaries and plugins are mounted into the Jenkins container as read-only shared volumes.
+The official link:https://hub.docker.com/r/jenkins/jenkins[jenkins/jenkins] image does not include these binaries by default.
+3. *Automated Jenkins updates* 🔄
+* By not relying on custom builds of Jenkins, we can easily automate updates based on official releases, using services designed for this purpose, such as link:https://hub.docker.com/r/containrrr/watchtower[containrrr/watchtower].
+Maintaining a custom image of Jenkins consistently up-to-date requires frequent builds, as updates get often released.
+
+[[setting-up-jenkins-with-dind]]
+== Setting up Jenkins with a DinD sidecar
+
+Enough rambling, let's jump right into the solution!
+Here's the complete `docker-compose.yml` file:
+
+[source, yaml]
+----
+# docker compose up -d
+services:
+  jenkins:
+    image: jenkins/jenkins:jdk21
+    environment:
+      - DOCKER_HOST=tcp://docker:2376 <1>
+      - DOCKER_CERT_PATH=/certs/client
+      - DOCKER_TLS_VERIFY=1
+    depends_on: [ dind ]
+    ports: [ 8080:8080, 50000:50000 ]
+    networks: [ dind-network ]
+    restart: unless-stopped
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      # Read-only shared volumes <2>
+      - dind-bin:/usr/local/bin/dind:ro
+      - dind-plugins-bin:/usr/local/libexec/docker/cli-plugins:ro
+      - dind-certs-client:/certs/client:ro
+    entrypoint: /bin/sh -c 'PATH="/usr/local/bin/dind:$${PATH}" exec tini -- jenkins.sh' <3>
+  dind:
+    image: docker:dind
+    networks:
+      dind-network:
+        aliases: [ docker ]
+    restart: unless-stopped
+    privileged: true <4>
+    volumes:
+      - dind-bin:/usr/local/bin
+      - dind-plugins-bin:/usr/local/libexec/docker/cli-plugins
+      - dind-certs-client:/certs/client
+      - dind-data:/var/lib/docker
+      - jenkins-data:/var/jenkins_home
+
+volumes:
+  jenkins-data:
+  dind-bin:
+  dind-plugins-bin:
+  dind-certs-client:
+  dind-data:
+
+networks:
+  dind-network:
+    driver: bridge
+----
+<1> Uses `docker` as the DinD network alias for encrypted communications with the daemon.
+<2> Mounts shared volumes as read-only (`ro`) to restrict the ability to rewrite binaries in the source container.
+<3> I know what you're thinking, this does look a bit hacky, but all it does is add the DinD binaries directory to the `PATH` variable before starting Jenkins.
+<4> Enabling the `privileged` footnote:[link:https://docs.docker.com/reference/cli/docker/container/run/#privileged[Escalate container privileges (`--privileged`)]] property is necessary to allow the inner Docker daemon to function properly.
+
+Docker Compose allows us to organize complex multi-container setups within a single, easy-to-read file.
+This way, users can start Jenkins with DinD by simply running the command: `docker compose up -d`.
+
+[[using-dind-containers]]
+=== Running build steps inside a DinD container
+
+Starting a DinD container as the execution environment for your pipeline builds couldn't be simpler!
+
+You can use DinD in the same way as you would with the top-level Docker, but first, make sure to have the link:https://plugins.jenkins.io/docker-workflow/[Docker Pipeline] plugin installed.
+Jenkins will automatically start the specified container and execute the defined steps within.
+
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+
+    stages {
+        stage('Run DinD') {
+            agent {
+                docker {
+                    image 'python:3'
+                    args '--network host' // <1>
+                    reuseNode true // <2>
+                }
+            }
+            steps {
+                sh '''python -c "import os; os.system('curl https://example.com')"''' // <3>
+            }
+        }
+    }
+}
+// Script //
+----
+<1> Helps prevent networking issues by enabling data transmission over the host network of the DinD daemon.
+<2> Starts the container on the same node workspace, rather than on a new node entirely.
+<3> Runs a small Python script that uses `curl` to fetch and display the content from the link:https://example.com[example.com] website.
+
+Note the `--network host` argument.
+Without it, you may run into some network issues due to the container inception going on.
+Bear in mind, we're starting a new container inside the existing DinD service container.
+
+image::blueocean/run-dind.png[Configuring the Pipeline Docker Label]
+
+[[building-and-running-dind-containers]]
+=== Building and running a DinD container from a Dockerfile
+
+For a more customized execution environment, Jenkins pipelines also support building and running a container from a Dockerfile located in the source repository.
+With this approach, a new image is built instead of retrieving one from a Docker registry.
+ 
+[pipeline]
+----
+// Declarative //
+pipeline {
+    agent any
+
+    stages {
+        stage('Build & Run DinD') {
+            agent {
+                dockerfile {
+                    dir './path/to/dockerfile/dir'
+                    additionalBuildArgs '--network host' // <1>
+                    args '--network host'
+                    reuseNode true
+                }
+            }
+            steps { ... }
+        }
+    }
+}
+// Script //
+----
+<1> Helps prevent networking issues by enabling data transmission over the DinD daemon's host network for `RUN` instructions during build.
+
+[[conclusion-and-future-work]]
+== Conclusion and future work
+
+In this post, we discussed how to make the most of Docker-in-Docker as a sidecar container to keep Jenkins execution environments fully isolated from the host system, while eliminating the need for custom builds to include Docker binaries.
+
+In case you're considering transitioning your existing Jenkins setup to the one described, it's worth checking what problems you may run into when adopting Docker-in-Docker.
+I highly recommend reading Jérôme Petazzoni's article footnote:[link:https://jpetazzo.github.io/2015/09/03/do-not-use-docker-in-docker-for-ci/[Using Docker-in-Docker for your CI or testing environment? Think twice]], as it goes through the pros and cons of the various options available for running Docker from your Jenkins CI system.
+
+Furthermore, the proposed DinD sidecar solution relies on a single host machine with limited resources available, as we opted for local agents to handle job scheduling.
+For larger workloads, please consider link:https://hub.docker.com/r/jenkins/ssh-agent/[remote SSH agents] or Kubernetes to achieve optimal scalability.
+
+Future developments or improvements to this solution may involve:
+
+* Integrating the DinD sidecar solution in remote SSH Jenkins agents to avoid Docker socket mounts.
+* Find a way to run the DinD sidecar in _rootless_ mode footnote:[link:https://docs.docker.com/engine/security/rootless/#rootless-docker-in-docker[Rootless Docker in Docker]], despite the `--privileged` flag being required.
+** An attempt was made to use _rootless_ mode, but a few _runc_/_cgroups_ related link:https://github.com/moby/moby/issues/42675[issues] were encountered. 
