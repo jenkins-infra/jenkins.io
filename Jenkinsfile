@@ -105,11 +105,6 @@ node('docker&&linux') {
                         --put-md5 \
                         --local-hash-storage-mode=HiddenFiles \
                         ./build/_site/ "${FILESHARE_SIGNED_URL}"
-    
-                    # Retrieve azcopy logs to archive them
-                    cat /home/jenkins/.azcopy/*.log > azcopy.log
-                    '''
-                    archiveArtifacts 'azcopy.log'
                 }
             } catch (err) {
                 currentBuild.result = 'FAILURE'
@@ -118,7 +113,7 @@ node('docker&&linux') {
                 # Retrieve azcopy logs to archive them
                 cat /home/jenkins/.azcopy/*.log > azcopy.log
                 '''
-                archiveArtifacts 'azcopy.log' 
+                archiveArtifacts 'azcopy.log'
             }
         }
         stage('Purge cached CSS') {
