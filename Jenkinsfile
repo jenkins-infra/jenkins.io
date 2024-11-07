@@ -105,7 +105,7 @@ node('docker&&linux') {
                         --put-md5 \
                         --local-hash-storage-mode=HiddenFiles \
                         ./build/_site/ "${FILESHARE_SIGNED_URL}"
-                      '''
+                    '''
                 }
             } catch (err) {
                 currentBuild.result = 'FAILURE'
