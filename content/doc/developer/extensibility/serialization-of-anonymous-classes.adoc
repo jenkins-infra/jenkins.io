@@ -34,7 +34,7 @@ To fix code like this:
 int stuff(FilePath workspace, final String arg) throws IOException, InterruptedException {
     return workspace.act(new MasterToSlaveFileCallable<Integer>() {
         @Override
-        Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+        public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
             return countThings(f, arg);
         }
     });
@@ -45,13 +45,28 @@ just use a "convert anonymous to member" refactoring in your IDE, or manually:
 
 [source,java]
 ----
+private record ThingCounter(String arg) implements ControllerToAgentFileCallable<Integer> {
+    @Override
+    public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+        return countThings(f, arg);
+    }
+}
+int stuff(FilePath workspace, String arg) throws IOException, InterruptedException {
+    return workspace.act(new ThingCounter(arg));
+}
+----
+
+or prior to Jenkins 2.485:
+
+[source,java]
+----
 private static final class ThingCounter extends MasterToSlaveFileCallable<Integer> {
     private final String arg;
     ThingCounter(String arg) {
         this.arg = arg;
     }
     @Override
-    Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+    public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
         return countThings(f, arg);
     }
 }
