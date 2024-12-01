@@ -27,6 +27,8 @@ Inline `<script>` blocks::
 Referencing a file to load JavaScript from is fine, but inline block contents are not.
 All `<script>` tags without `src` are a problem.
 They will break without `'unsafe-inline'` in the `script-src` CSP directive.
+Standalone `st:bind` tags with disallowed `var` attribute::
+Only simple JavaScript identifiers are allowed for CSP-compliant `<st:bind>` tags.
 Inline event handler definitions::
 Any occurrence of `onclick`, `onload`, etc. in HTML files (e.g. Jelly and Groovy views) is a problem.
 Legacy `checkUrl` definitions::
@@ -36,6 +38,8 @@ You can easily identify them through their use of single quotes inside the doubl
 Use of `eval`::
 Check for the use of `eval` inside any JS resource files (potentially after applying fixes for the previously listed issues).
 This will break without `'unsafe-eval'` in the `script-src` CSP directive.
+Use of `FormApply#applyResponse`::
+This method expects as the argument a JavaScript snippet to be executed.
 
 
 == Dynamically Identifying Plugins
@@ -78,6 +82,8 @@ This property is documented on link:/doc/developer/views/[Views] and emits comme
 
 === Inline JavaScript blocks
 
+==== General advice
+
 Do not use inline JavaScript (JS) in the Jenkins GUI, i.e., JS embedded in HTML output.
 
 This is typically done with `<script>` tags, like so:
@@ -93,6 +99,24 @@ You can generally use https://github.com/jenkinsci/stapler/blob/master/docs/jell
 
 An example of this is https://github.com/jenkinsci/jenkins/pull/6849[jenkinsci/jenkins#6849].
 
+==== Inline `st:bind` tags
+
+If you're using `<st:bind>` tags inside inline JavaScript, add the `var` attribute to set the variable with the specified name, and reference that variable in your own scripts.
+Use a simple JavaScript identifier (complying with https://github.com/jenkinsci/stapler/blob/92458dd7afca3061956ccf92fedf1782a6e76e39/core/src/main/java/org/kohsuke/stapler/bind/BoundObjectTable.java#L59-L63[this regular expression]) as `var` value, rather than a more complex expression.
+
+Make sure to not reuse the same `var` value when extracting multiple or repeatedly executed `<st:bind/>` tags from inline JS.
+You can use `${h.generateId()}` to generate a unique value.
+
+An example of this is https://github.com/jenkinsci/warnings-ng-plugin/pull/1862[warnings-ng-plugin#1862].
+
+=== Standalone `st:bind` tags with disallowed `var` attribute
+
+`<st:bind>` generates different output depending on how it is invoked.
+See the previous section for advice on adding the `var` attribute for standalone use, rather than inside inline JS.
+
+In addition to adding the `var` attribute, its value must comply with https://github.com/jenkinsci/stapler/blob/92458dd7afca3061956ccf92fedf1782a6e76e39/core/src/main/java/org/kohsuke/stapler/bind/BoundObjectTable.java#L59-L63[this regular expression] to generate a CSP-compatible `<script>` tag.
+
+See https://github.com/jenkinsci/build-monitor-plugin/pull/830[build-monitor-plugin#830] for an example.
 
 === Inline event handlers
 
@@ -160,6 +184,10 @@ Then your code can invoke the callback like this:
 let callbackName = 'foo';
 /* invoke it with arguments */
 window[callbackName](args);
+
+=== `FormApply#applyResponse` calls
+
+Use `FormApply#showNotification`, which was added in Jenkins 2.482.
 
 == Testing
 
