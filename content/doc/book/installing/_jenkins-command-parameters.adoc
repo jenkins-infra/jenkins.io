@@ -50,7 +50,7 @@ to 60 minutes
 
 === Miscellaneous parameters
 
-Other Jenkins initialization configuration is also controlled by command line arguments.
+Other Jenkins initialization options are also controlled by command line arguments.
 The miscellaneous configuration arguments are:
 
 .Jenkins Miscellaneous Command Line Parameters
@@ -66,10 +66,19 @@ If Jenkins security is enabled, you must log in as a user who has an _admin_ rol
 |`--argumentsRealm.roles.$USER=admin`
 |Assigns user $USER the admin  role.
 The user can configure Jenkins even if security is enabled in Jenkins.
-See link:/doc/book/system-administration/security/[Securing Jenkins] for more information.
+Refer to link:/doc/book/system-administration/security/[Securing Jenkins] for more information.
+
+|`--paramsFromStdIn`
+|Reads parameters from standard input (stdin).
+When parameters are passed via the command line, they can be viewed using `ps(1)` in Unix or Process Explorer in Windows as long as the process keeps running.
+This is undesirable when passing sensitive parameters like `--httpsKeyStorePassword`.
+With the `--paramsFromStdIn` parameter you can replace e.g. +
+`java -jar jenkins.war --httpPort=-1 --httpsPort=443 --httpsKeyStore=path/to/keystore --httpsKeyStorePassword=keystorePassword` +
+with +
+`echo '--httpPort=-1 --httpsPort=443 --httpsKeyStore=path/to/keystore --httpsKeyStorePassword=keystorePassword' \| java -jar jenkins.war --paramsFromStdIn`.
 
 |`--useJmx`
-|Enable link:https://www.eclipse.org/jetty/documentation/current/jmx-chapter.html[Jetty Java Management Extension (JMX)]
+|Enable link:https://www.eclipse.org/jetty/documentation/current/#jmx-chapter[Jetty Java Management Extension (JMX)]
 |===
 
 Jenkins passes all command line parameters to the Winstone servlet container.
@@ -77,11 +86,9 @@ More information about Jenkins Winstone command line parameters is available fro
 link:https://github.com/jenkinsci/winstone#command-line-options[Winstone Command Line Parameter Reference].
 
 CAUTION: *Be Careful with Command Line Parameters* +
-Jenkins ignores command line parameters it doesn't understand instead of
-producing an error. Be careful when using command line parameters and
-make sure you have the correct spelling. For example, the parameter
-needed for defining the Jenkins administrative user is
-`--argument**s**Realm` and not `--argumentRealm`.
+Jenkins ignores command line parameters it doesn't understand instead of producing an error.
+Be careful when using command line parameters and make sure you have the correct spelling.
+For example, the parameter needed for defining the Jenkins administrative user is `--argument**s**Realm` and not `--argumentRealm`.
 
 === Jenkins properties
 
@@ -96,8 +103,7 @@ Refer to the detailed list of link:/doc/book/managing/system-properties/#Feature
 
 === HTTPS with an existing certificate
 
-If you're setting up Jenkins using the built-in Winstone server and want
-to use an existing certificate for HTTPS:
+If you're setting up Jenkins using the built-in Winstone server and want to use an existing certificate for HTTPS:
 
 [source,bash]
 ----
@@ -109,34 +115,17 @@ to use an existing certificate for HTTPS:
 
 === Using HTTP/2
 
-The link:https://tools.ietf.org/html/rfc7540[HTTP/2 protocol] allows web servers to reduce latency over encrypted connections by pipelining requests, multiplexing requests, and allowing servers to push in some cases before receiving a client request for the data.
+The link:https://tools.ietf.org/html/rfc7540[HTTP/2 protocol] allows web servers to reduce latency over encrypted connections by pipelining requests, multiplexing requests, and allowing servers to push, in some cases, before receiving a client request for the data.
 The Jetty server used by Jenkins supports HTTP/2 with the addition of the Application-Layer Protocol Negotiation (ALPN) TLS extension.
-The ALPN TLS extension is connected to the specific Jetty version and has specific requirements depending on the Java version.
 
-Note that enabling HTTP/2 implicitly enables TLS even if no HTTPS port is set, and as of Jenkins 2.339 (which uses Winstone 5.23) you have to also specify an HTTPS key store file.
-
-==== Java 11, Java 8u252, and later
-
-IMPORTANT: Starting with weekly release line *2.357*, Java 11 will be required.
-The Long Term Support release line will not require Java 11 until September, at which point Java 8 support will be deprecated.
-
-Java 11 and Java 8 versions later than update 252 can run the ALPN TLS extension by installing the Jetty ALPN Java server jar and passing it as a Java command line argument.
-Steps to install the extension are:
-
-* Identify the Jetty version included in your Jenkins server by searching the Jenkins startup log for the string `org.eclipse.jetty.server.Server#doStart`. For example: +
-  `org.eclipse.jetty.server.Server#doStart: jetty-9.4.27.v20200227`
-* Locate the Java version on the "System Information" page of "Manage Jenkins" to confirm it is Java 11 or 8u252 (or later)
-* Download the link:https://mvnrepository.com/artifact/org.eclipse.jetty/jetty-alpn-java-server[jetty-alpn-java-server] with the version number matching the Jetty version bundled with your Jenkins version
-* Place the jetty-alpn-java-server.jar file in a directory accessible to the JVM
-* Add `--extraLibFolder=/path/to/extra/lib/folder` to the Java command line arguments that start Jenkins
+NOTE: Enabling HTTP/2 implicitly enables TLS even if no HTTPS port is set, and as of Jenkins 2.339, which uses Winstone 5.23, you have to also specify an HTTPS key store file.
 
 [source,bash]
 ----
-java --extraLibFolder=/opt/java/jetty-alpn-java-server-9.4.27.v20200227.jar \
-    -jar target/jenkins.war \
-    --http2Port=9090 \
-    --httpsKeyStore=path/to/keystore \
-    --httpsKeyStorePassword=keystorePassword
+--httpPort=-1 \
+--http2Port=9090 \
+--httpsKeyStore=path/to/keystore \
+--httpsKeyStorePassword=keystorePassword
 ----
 
 === HTTPS certificates with Windows
@@ -148,8 +137,8 @@ If you are making your own certificate skip steps 3, 4, and 5.
 This process utilizes Java's keytool.
 Use the Java `keytool` included with your Java installation.
 
-*Step 1*: Create a new keystore on your server. This will place a
-'keystore' file in your current directory.
+*Step 1*: Create a new keystore on your server.
+This will place a 'keystore' file in your current directory.
 
 [source]
 ----
@@ -175,7 +164,7 @@ Enter key password for <jenkins>
 (RETURN if same as keystore password):
 ----
 
-*Step 2*: Verify the keystore was created (your fingerprint will vary)
+*Step 2*: Verify the keystore was created (your fingerprint will vary).
 
 [source]
 ----
@@ -203,11 +192,9 @@ C:\>keytool -certreq -alias jenkins -keyalg RSA ^
 Enter keystore password:
 ----
 
-*Step 4*: Use the contents of the `+certreq.csr+` file to generate a
-certificate from your certificate provider. Request a SHA-1 certificate
-(SHA-2 is untested but will likely work). If using DigiCert, download
-the resulting certificate as Other format  "a .p7b bundle of all the
-certs in a .p7b file".
+*Step 4*: Use the contents of the `+certreq.csr+` file to generate a certificate from your certificate provider.
+Request a SHA-1 certificate (SHA-2 is untested but will likely work).
+If using DigiCert, download the resulting certificate as Other format  "a .p7b bundle of all the certs in a .p7b file".
 
 *Step 5*: Add the resulting .p7b into the keystore you created above.
 
@@ -222,8 +209,8 @@ Enter keystore password:
 Certificate reply was installed in keystore
 ----
 
-*Step 6*: Copy the 'keystore' file to your Jenkins secrets directory. On a
-stock installation, this will be at
+*Step 6*: Copy the 'keystore' file to your Jenkins secrets directory.
+On a stock installation, this will be at
 
 [source]
 ----
@@ -232,8 +219,8 @@ C:\Program Files (x86)\Jenkins\secrets
 
 *Step 7*: Modify the <arguments> section of your
 `+C:\Program Files (x86)\Jenkins\jenkins.xml+` file to reflect the new
-certificate. Note: This example disables http via `+--httpPort=-1+` and
-places the server on `+8443+` via `+--httpsPort=8443+`.
+certificate.
+NOTE: This example disables http via `+--httpPort=-1+` and places the server on `+8443+` via `+--httpsPort=8443+`.
 
 [source,xml]
 ----
@@ -257,8 +244,7 @@ net stop jenkins
 net start jenkins
 ----
 
-*Step 9*: After 30-60 seconds, Jenkins will have completed the startup
-process and you should be able to access the website at _\https://server.example.com:8443_.
+*Step 9*: After 30-60 seconds, Jenkins will have completed the startup process and you should be able to access the website at _\https://server.example.com:8443_.
 Verify the certificate looks good via your browser's tools.
 If the service terminates immediately, there's an error somewhere in your configuration.
 Useful error information can be found in:

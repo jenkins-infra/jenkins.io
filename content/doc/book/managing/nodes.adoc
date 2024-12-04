@@ -5,7 +5,6 @@ ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
 :hide-uri-scheme:
@@ -15,9 +14,7 @@ endif::[]
 
 == Components of Distributed Builds
 
-Builds in a
-link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[Distributed Builds Architecture]
-use nodes, agents, and executors which are distinct from the Jenkins controller itself.
+Builds in a link:/doc/book/scaling/architecting-for-scale/#distributed-builds-architecture[distributed builds architecture] use nodes, agents, and executors, which are distinct from the Jenkins controller itself.
 Understanding what each of these components are is useful when managing nodes:
 
 ////
@@ -27,63 +24,46 @@ https://github.com/jenkins-infra/jenkins.io/pull/4612 is merged
 
 Jenkins controller::
 
-The Jenkins controller is the Jenkins service itself
-and is where Jenkins is installed.
-It is a webserver that also acts as a "brain"
-for deciding how, when and where to run tasks.
-Management tasks (configuration, authorization, and authentication)
-are executed on the controller, which serves HTTP requests.
-Files written when a Pipeline executes are written to the filesystem on the controller
-unless they are off-loaded to an artifact repository such as Nexus or Artifactory.
+The Jenkins controller is the Jenkins service itself and where Jenkins is installed.
+It is also a web server that also acts as a "brain" for deciding how, when, and where to run tasks. 
+Management tasks such as configuration, authorization, and authentication are executed on the controller, which serves HTTP requests. 
+Files written when a Pipeline executes are written to the filesystem on the controller, unless they are off-loaded to an artifact repository such as Nexus or Artifactory.
 
 Nodes::
 
-Nodes are the "machines" on which build agents run.
-Jenkins monitors each attached node for
-disk space, free temp space, free swap,
-clock time/sync and response time.
-A node is taken offline if any of these values
-go outside the configured threshold.
-
-The Jenkins controller itself runs on a special _built-in node_.
-It is possible to run agents and executors on this built-in node
-although this can degrade performance, reduce scalability of the Jenkins instance, and create serious security problems
-and is strongly discouraged, especially for production environments.
+Nodes are the "machines" on which build agents run. 
+Jenkins monitors each attached node for disk space, free temp space, free swap, clock time/sync, and response time. 
+A node is taken offline if any of these values go outside the configured threshold.
+Jenkins supports two types of nodes:
+* *agents* (described below)
+* *built-in node*
+** The built-in node is a node that exists within the controller process. 
+It is possible to use agents and the build-in node to run tasks. 
+However, running tasks on the built-in node is discouraged for security, performance, and scalability reasons. 
+The number of executors configured for the node determines the node's ability to run tasks. 
+Set the number of executors to 0 to disable running tasks on the built-in node.
 
 Agents::
 
-Agents manage the task execution on behalf of the Jenkins controller
-by using executors.
-An agent is actually a small (170KB single jar) Java client process
-that connects to a Jenkins controller and is assumed to be unreliable.
-An agent can use any operating system that supports Java.
-Tools required for builds and tests are installed on the node where the agent runs;
-they can be installed directly or in a container (Docker or Kubernetes).
-Each agent is effectively a process with its own PID (Process Identifier) on the host machine.
-
+Agents manage the task execution on behalf of the Jenkins controller by using executors. 
+An agent is a small (170KB single jar) Java client process that connects to a Jenkins controller and is assumed to be unreliable. 
+An agent can use any operating system that supports Java. 
+Any tools required for building and testing get installed on the node where the agent runs. 
+Because these tools are a part of the node, they can be installed directly or in a container, such as Docker or Kubernetes. 
+Each agent is effectively a process with its own Process Identifier (PID) on the host machine.
 In practice, nodes and agents are essentially the same but it is good to remember that they are conceptually distinct.
 
 Executors::
 
-An executor is a slot for execution of tasks;
-effectively, it is a thread in the agent.
-The number of executors on a node defines the number of concurrent tasks
-that can be executed on that node at one time.
-In other words, this determines the number of concurrent Pipeline `stages`
-that can execute on that node at one time.
-
-The proper number of executors per build node must be determined
-based on the resources available on the node
-and the resources required for the workload.
-When determining how many executors to run on a node,
-consider CPU and memory requirements
-as well as the amount of I/O and network activity:
-
+An executor is a slot for the execution of tasks. 
+Effectively, it is a thread in the agent. 
+The number of executors on a node defines the number of concurrent tasks that can run. 
+In other words, this determines the number of concurrent Pipeline `stages` that can execute at the same time.
+Determine the correct number of executors per build node must be determined based on the resources available on the node and the resources required for the workload.
+When determining how many executors to run on a node, consider CPU and memory requirements, as well as the amount of I/O and network activity:
 * One executor per node is the safest configuration.
-* One executor per CPU core may work well
-if the tasks being run are small.
-* Monitor I/O performance, CPU load, memory usage, and I/O throughput carefully
-when running multiple executors on a node.
+* One executor per CPU core can work well, if the tasks running are small.
+* Monitor I/O performance, CPU load, memory usage, and I/O throughput carefully when running multiple executors on a node.
 
 == Creating Agents
 
@@ -107,23 +87,34 @@ We take advantage of the Windows Scheduler's ability to run command at system st
 . Note the command required to launch the agent
 * On the new agent node's Jenkins page, note the agent command line shown. 
 ** It will be like:
-.....
-java -jar agent.jar \
--jnlpUrl http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp \
--secret <some_long_hex_string>
-.....
+
+[source,java]
+----
+java \
+    -jar agent.jar \
+    -url <Jenkins URL> \
+    -secret <secret key> \
+    -name <agent name>
+----
+
 . Obtain the agent.jar file and copy it to your new Windows agent node
 * In the command line noted in the last step, the "agent.jar" is a hyperlink. Click it to download the agent.jar file.
 * Copy the agent.jar file to a permanent location on your agent machine
 . Ensure that you have a java version available on your agent machine
-* If not, obtain and install a link:/doc/administration/requirements/java/[supported version] of Java
+* If not, obtain and install a link:/doc/book/platform-information/support-policy-java/[supported version] of Java
 . Run the command manually from a CMD window on your agent to confirm that it works
 * Open the CMD window
 * Run the command the one like
-.....
-java -jar agent.jar -jnlpUrl \
-http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp -secret <some_long_hex_string>
-.....
+
+[source,java]
+----
+java \
+    -jar agent.jar \
+    -url <Jenkins URL> \
+    -secret <secret key> \
+    -name <agent name>
+----
+
 * Go back to the node's web page in Jenkins.  If everything works then page should say "Agent is connected"
 * Stop the command (control-c)
 . Register a new scheduled job to run the same command
@@ -143,16 +134,27 @@ http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp -secret <some
 ** Next page of the wizard
 *** Program/Script: enter "java.exe" (or the full path to your java.exe)
 *** Add arguments: enter the rest of the command, like
-.....
--jar agent.jar -jnlpUrl http://<JenkinsHostName>:8080/computer/<nodeName>/slave-agent.jnlp \
--secret <some_long_hex_string>
-.....
+
+[source,java]
+----
+java
+    -jar agent.jar \
+    -url <Jenkins URL> \
+    -secret <secret key> \
+    -name <agent name>
+----
+
 *** eg:
-.....
--jar D:\Scripts\jenkins\agent.jar \
--jnlpUrl http://jenkinshost.example.com:8080/computer/buildNode1/slave-agent.jnlp -secret \
-d6a84df1fc4f45ddc9c6ab34b08f13391983ffffffffffb3488b7d5ac77fbc7
-.....
+
+[source,java]
+----
+java \
+    -jar D:\Scripts\jenkins\agent.jar \
+    -url http://jenkinshost.example.com \
+    -secret d6a84df1fc4f45ddc9c6ab34b08f13391983ffffffffffb3488b7d5ac77fbc7 \
+    -name buildNode1
+----
+
 *** Click Next
 ** Next page of the wizard
 *** Click the check box "Open the Properties dialog for this task when I click Finish
@@ -183,112 +185,3 @@ This video reviews the process of creating a macOS agent for Jenkins using Java 
 
 video::DteE1Zf8CIw[youtube,width=800,height=420]
 
-== Monitor and Restart Offline Agents
-
-
-This script can monitor and restart offline nodes if they are not disconnected manually.
-It can be executed in the Jenkins Script Console or can run periodically as a Jenkins job with the plugin:groovy[Groovy plugin].
-
-Also see link:https://wiki.jenkins-ci.org/display/JENKINS/Display+Information+About+Nodes[Display Information About Nodes]
-
-[source,groovy]
-----
-import hudson.node_monitors.*
-import hudson.slaves.*
-import java.util.concurrent.*
-
-jenkins = Jenkins.instance
-
-import javax.mail.internet.*;
-import javax.mail.*
-import javax.activation.*
-
-def sendMail (agent, cause) {
-
- message = agent + " agent is down. Check http://JENKINS_HOSTNAME:JENKINS_PORT/computer/" + agent + "\nBecause " + cause
- subject = agent + " agent is offline"
- toAddress = "JENKINS_ADMIN@YOUR_DOMAIN"
- fromAddress = "JENKINS@YOUR_DOMAIN"
- host = "SMTP_SERVER"
- port = "SMTP_PORT"
-
- Properties mprops = new Properties();
- mprops.setProperty("mail.transport.protocol","smtp");
- mprops.setProperty("mail.host",host);
- mprops.setProperty("mail.smtp.port",port);
-
- Session lSession = Session.getDefaultInstance(mprops,null);
- MimeMessage msg = new MimeMessage(lSession);
-
- //tokenize out the recipients in case they came in as a list
- StringTokenizer tok = new StringTokenizer(toAddress,";");
- ArrayList emailTos = new ArrayList();
- while(tok.hasMoreElements()) {
-   emailTos.add(new InternetAddress(tok.nextElement().toString()));
- }
- InternetAddress[] to = new InternetAddress[emailTos.size()];
- to = (InternetAddress[]) emailTos.toArray(to);
- msg.setRecipients(MimeMessage.RecipientType.TO,to);
- InternetAddress fromAddr = new InternetAddress(fromAddress);
- msg.setFrom(fromAddr);
- msg.setFrom(new InternetAddress(fromAddress));
- msg.setSubject(subject);
- msg.setText(message)
-
- Transport transporter = lSession.getTransport("smtp");
- transporter.connect();
- transporter.send(msg);
-}
-
-def getEnviron(computer) {
-   def env
-   def thread = Thread.start("Getting env from ${computer.name}", { env = computer.environment })
-   thread.join(2000)
-   if (thread.isAlive()) thread.interrupt()
-   env
-}
-
-def agentAccessible(computer) {
-    getEnviron(computer)?.get('PATH') != null
-}
-
-def numberOfflineNodes = 0
-def numberNodes = 0
-for (agent in jenkins.getNodes()) {
-   def computer = agent.computer
-   numberNodes ++
-   println ""
-   println "Checking computer ${computer.name}:"
-   def isOK = (agentAccessible(computer) && !computer.offline)
-   if (isOK) {
-     println "\t\tOK, got PATH back from agent ${computer.name}."
-     println('\tcomputer.isOffline: ' + computer.isOffline());
-     println('\tcomputer.isTemporarilyOffline: ' + computer.isTemporarilyOffline());
-     println('\tcomputer.getOfflineCause: ' + computer.getOfflineCause());
-     println('\tcomputer.offline: ' + computer.offline);
-   } else {
-     numberOfflineNodes ++
-     println "  ERROR: can't get PATH from agent ${computer.name}."
-     println('\tcomputer.isOffline: ' + computer.isOffline());
-     println('\tcomputer.isTemporarilyOffline: ' + computer.isTemporarilyOffline());
-     println('\tcomputer.getOfflineCause: ' + computer.getOfflineCause());
-     println('\tcomputer.offline: ' + computer.offline);
-     sendMail(computer.name, computer.getOfflineCause().toString())
-     if (computer.isTemporarilyOffline()) {
-       if (!computer.getOfflineCause().toString().contains("Disconnected by")) {
-         computer.setTemporarilyOffline(false, agent.getComputer().getOfflineCause())
-       }
-     } else {
-         computer.connect(true)
-     }
-   }
- }
-println ("Number of Offline Nodes: " + numberOfflineNodes)
-println ("Number of Nodes: " + numberNodes)
-----
-
-////
-Pages to mark as deprecated by this document:
-
-https://wiki.jenkins.io/display/JENKINS/Distributed+builds
-////

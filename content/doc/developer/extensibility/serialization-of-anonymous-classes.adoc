@@ -1,6 +1,6 @@
 ---
 title: How to serialize anonymous classes
-layout: developerguide
+layout: developer
 ---
 
 Jenkins core and plugin code make use of two kinds of serialization of Java objects: to XML files like `+config.xml+` or `+build.xml+` or global settings, via XStream; and using Java’s built-in serialization mechanism, for Remoting calls. In either case you may see a warning from (link:https://issues.jenkins.io/browse/JENKINS-49795[Bad serialization of ParametersAction.parameterDefinitionNames]) or (link:https://issues.jenkins.io/browse/JENKINS-49994[Report uses of anonymous classes in outgoing Remoting packets]) such as:
@@ -16,7 +16,7 @@ There are less common variants for attempts to serialize lambdas or local classe
 The warning will be logged by `+org.jenkinsci.remoting.util.AnonymousClassWarnings+`.
 If you see this warning, track down the location in source code:
 
-[source]
+[source,bash]
 ----
 javap -classpath /…/plugins/stuff/WEB-INF/lib/stuff.jar -l 'org.jenkinsci.plugins.stuff.YourClass$3'
 ----
@@ -34,7 +34,7 @@ To fix code like this:
 int stuff(FilePath workspace, final String arg) throws IOException, InterruptedException {
     return workspace.act(new MasterToSlaveFileCallable<Integer>() {
         @Override
-        Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+        public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
             return countThings(f, arg);
         }
     });
@@ -45,13 +45,28 @@ just use a "convert anonymous to member" refactoring in your IDE, or manually:
 
 [source,java]
 ----
+private record ThingCounter(String arg) implements ControllerToAgentFileCallable<Integer> {
+    @Override
+    public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+        return countThings(f, arg);
+    }
+}
+int stuff(FilePath workspace, String arg) throws IOException, InterruptedException {
+    return workspace.act(new ThingCounter(arg));
+}
+----
+
+or prior to Jenkins 2.485:
+
+[source,java]
+----
 private static final class ThingCounter extends MasterToSlaveFileCallable<Integer> {
     private final String arg;
     ThingCounter(String arg) {
         this.arg = arg;
     }
     @Override
-    Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
+    public Integer invoke(File f, VirtualChannel channel) throws IOException, InterruptedException {
         return countThings(f, arg);
     }
 }

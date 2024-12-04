@@ -1,0 +1,131 @@
+---
+:layout: post
+:title: "Pipeline Steps Documentation Generator Improvements"
+:tags:
+- gsoc
+- gsoc2022
+- pipeline
+- steps
+- layout
+- documentation
+:author: vihaanthora
+opengraph:
+  image: /images/gsoc/opengraph.png
+---
+
+== About
+
+link:/projects/gsoc/2022/projects/pipeline-step-documentation-generator/[Pipeline Steps Documentation Generator Improvements] is a project under Google Summer of Code 2022, and this project aims to improve the steps documentation generated for Pipeline jobs, which is used by thousands of Pipeline developers worldwide.
+
+Some initial parts of the project involved changes to the UI of the website. 
+I spent most of the community bonding period thinking about possible improvements, understanding the code base (for jenkins.io and pipeline-steps-doc-generator), and creating website wireframes that can be shared with the community. 
+This phase helped me communicate with my mentors and plan my project out, at least to a level where I could distinguish tasks for the two coding phases. 
+I created an link:https://issues.jenkins.io/browse/JENKINS-68650[epic] to generate and maintain tickets. Below is a summary of the two coding phases.
+
+== Coding Phase - I
+
+* *Updating sidebar scrolling for Jenkins documentation* (link:https://issues.jenkins.io/browse/WEBSITE-799[ticket]) -
+The sidebar required independent scrolling from the main content to improve the navigation on longer pages.
+
+* *Listing plugins on Pipeline Steps Reference* (link:https://issues.jenkins.io/browse/WEBSITE-803[ticket]) -
+I had included this idea in my proposal, but seeing the outcome, we decided that this does not add much value to the steps documentation for the users. 
+This gave rise to the idea of adding a search filter instead. See the discussion in this link:https://github.com/jenkins-infra/jenkins.io/pull/5245[PR].
+
+* *Adding search filter* (link:https://issues.jenkins.io/browse/WEBSITE-807[ticket]) -
+There are more than 1500 steps listed on the Pipeline Steps Reference page, and filtering them becomes a much required feature for the users. 
+With this change, users can now type in any string, and the content of the page is changed dynamically according to the input.
+
+* *Separating declarative steps generation from main class* (link:https://issues.jenkins.io/browse/JENKINS-68811[ticket]) -
+A small but helpful change was to separate all the functions that generate declarative Pipeline steps from the main (`PipelineStepExtractor`) class. 
+This would not only make the main class more readable but also isolate the specific functions related to declarative steps, making the code more modular.
+
+* *Shifting parameter data types* (link:https://issues.jenkins.io/browse/WEBSITE-801[ticket]) -
+This was an initiative to reduce the overall length of each plugin page listed on Pipeline Steps Reference. 
+The idea was to move the parameter data type (an essential piece of information regarding a step's parameter that a user might want to know) from the bottom of the help text to inline with the name of the parameter/property.
+
+* *Releasing pipeline-metadata-utils* (link:https://issues.jenkins.io/browse/WEBSITE-806[ticket]) -
+`pipeline-metadata-utils` is a tool that can be imported onto a project as a maven dependency. It provides a `HyperLocalPluginManager` that can be used to query plugins and build documentation with its help. My work involved updating and refining the code base and writing tests for the same. The released artifact is available in the Jenkins link:https://repo.jenkins-ci.org/ui/repos/tree/General/releases/org/jenkins-ci/infra/pipeline-metadata-utils[artifact repository].
+
+* *Midterm Meetup*
+
+** link:https://docs.google.com/presentation/d/1t2vuNn1NFpDusnw0m4vdFw6WBQMeU6kccv_K1v2L6R0/edit#slide=id.g13dcaed2105_0_25[Slides]
+** Presentation Recording -
+
+video::loLSNdCv6K4[youtube,width=800,height=420,start=3154]
+
+== Coding Phase - II
+
+* *Label deprecated plugins* (link:https://issues.jenkins.io/browse/WEBSITE-808[ticket]) -
+Earlier, the only way to determine if a plugin was deprecated was to visit the plugin site.
+This can be remediated by adding a label saying so on Pipeline Steps Reference itself.
+In this way, users can also find all deprecated plugins that provide Pipeline steps by simply searching "(deprecated)" in the search filter provided.
+
+* *Separate configured parameter classes* (link:https://issues.jenkins.io/browse/WEBSITE-809[ticket]) -
+** Many plugin pages included enormous amounts of documentation on a single page. 
+** Currently, there are 625 plugins listed on Pipeline Steps Reference. The total size of the Asciidocs that hold their respective documentation is around 16.7 MB. Out of these 625 plugins, 8 of them contribute to 85% of the total size of the Asciidocs.
+** There were many issues associated with this -
+*** *Slow loading* - some pages, such as `workflow-multibranch` took more than 15 to 20 seconds to load. This was due to the laggy action on javascript in collapsing the lists on the 4 MB large page.
+*** *Difficult navigation* - once the user expanded a parameter containing deeply nested documentation, it became tough to keep track of the hierarchy levels within the documentation (it's not easy to eyeball indentation :P). The only possible way to get back to a legible starting point was to refresh the page, which was not a quick thing to do, as mentioned above.
+*** *Redundant content* - upon some investigation, it was found that there are several occurrences of redundant documentation. Redundant content is never good for any piece of documentation, and hence, this problem needed to be solved.
+** This problem is solved with the help of configuration-based post-processing of the generated AsciiDocs. A file would contain a list of parameter classes that are then searched in all AsciiDocs and localized in a single document, one by one. This new document is then referenced by all the depending documents with the help of a hyperlink. The tasks done under this ticket were -
++
+--
+*** Create Java class `ProcessAsciiDoc`.
+*** Write tests and Javadoc comments for it.
+*** Add instructions to use the configuration file in the README of `pipeline-steps-doc-generator`.
+*** Add around 36 parameter classes to the configuration as a starting point.
+--
++
+** The results obtained after running the processing layer with the initial configuration file were pretty encouraging. More than *2 MBs of redundancy* was removed, and the new size of the AsciiDocs is around 14.4 MBs. 
+** The larger pages saw a significant drop in size -
++
+[cols="1,1,1"]
+|===
+|Name | Previous Size (in KBs) | New Size (in KBs)
+|workflow-multibranch
+|4967
+|688
+|pipeline-groovy-lib
+|2267
+|564
+|workflow-scm-step
+|373
+|96
+|===
+
+* *Final Meetup*
+
+
+** link:https://docs.google.com/presentation/d/1fswNO3qyeq7iwe9UWK2dWTBncTarSdujwqXWMgYKjIU/edit?usp=sharing[Slides]
+** Presentation Recording -
+
+video::fM2SMbppRxw[youtube,width=800,height=420,start=2193]
+
+== Future Scope
+
+* Identify the plugin that a particular parameter class belongs to. 
+This can be done by manipulating the getPluginNameFromDescriptor method supplied by `pipeline-metadata-utils`` such that it takes the class name and returns the plugin name corresponding to that.
+* Reduce the manual work required to configure the parameters and make the processing layer more robust towards inconsistencies.
+* Improve the time complexity associated with running the processing layer.
+* *Possible future GSoC goal* - Integrate the snippet generator with jenkins.io.
+
+== Acknowledgements and Insights
+
+I am grateful to my mentor, Kristin, and the community at link:https://app.gitter.im/#/room/#jenkins/docs:matrix.org[docs-sig]. Their support was essential in making this project successful. I got consistent ideas and feedback from them throughout the project's tenure.
+Here are some tips for new contributors who wish to participate in GSoC at Jenkins.
+
+* Make sure you ask your queries in the right channel. This will maximize the chances of an accurate and fast reply.
+* Don't rely on others to solve every error you get. Try to figure it out yourself, and after an honest attempt, mention your query on the channel and all that you have tried.
+* Attend office hours regularly as soon as they begin for the next edition of GSoC. They are a great way to communicate with the mentors and understand the project idea.
+* Draft your proposal as soon as possible and gather feedback to maximize your chance of getting accepted. Make sure you add value to the original idea and include some implementation details in the proposal. +
+
+=== Project-specific guidance
+
+* After the separation of `pipeline-metadata-utils`, the code has become more abstract and relatively straightforward to dive into for newer contributors. You need not understand everything to start making changes to the code.
+* `PipelineStepExtractor` is the main class responsible for initializing the reactor in which the mock Jenkins instance is set up. It then uses the `HyperLocalPluginManager` to query the plugins and return all the information as a Java map.
+* `ToAsciiDoc` is responsible for formatting the Java map as an AsciiDoc and contains several functions to handle the different sections in a plugin page. Hence, if your goal is to change the presentation of the documentation while keeping the content static, you will probably need to make changes in this class only.
+* `ProcessAsciiDoc` is a string algorithm-based class responsible for matching the configuration keywords to their occurrences in the produced AsciiDocs. It currently follows a brute-force approach and is not very immune to complex configurations. Hence, there is a lot of scope for improvement in this class. If you want to improve something, feel free to tag my GitHub handle (`@vihaanthora`) in the issue/pull request you create.
+* The other classes will not require change unless a particular requirement arises.
+* Try to find bugs in the generated documentation by browsing through random AsciiDocs under Pipeline Steps Reference and create an issue on the project's GitHub repository. If you want to seek clarification about some anomaly, you can write a brief description about it on the docs-sig gitter channel, and we'll try to respond whenever possible.
+
+You can find all the important links on the link:/projects/gsoc/2022/projects/pipeline-step-documentation-generator/[project page].
