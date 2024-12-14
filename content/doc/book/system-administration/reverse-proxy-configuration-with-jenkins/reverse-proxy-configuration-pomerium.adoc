@@ -54,15 +54,15 @@ jenkins:
   image: jenkins/jenkins:lts-jdk11
   privileged: true
   user: root
-  ports:
-    - 8080:8080
-    - 50000:50000
-
   volumes:
     # File path to Jenkins_home -- stores configs, build logs, and artifacts
     - ./home/jenkins_compose/jenkins_configuration:/var/jenkins_home
-    # "sock" is the Unix socket the Docker daemon listens on by default
+    # Unix domain socket
     - ./var/run/docker.sock:/var/run/docker.sock
+  extra_hosts:
+    # Use Unix domain sockets for Jenkins and Pomerium communication
+    - "jenkins.local:/var/run/jenkins.sock"
+
 ```
 
 Now, run `docker compose up`.
@@ -123,6 +123,16 @@ routes:
                is: example.com
            - user:
                is: username
+  - from: https://jenkins.localhost.pomerium.io
+    to: unix:///var/run/jenkins.sock
+    pass_identity_headers: true
+    policy:
+      - allow:
+          and:
+            - domain:
+                is: example.com
+            - user:
+                is: username
 ```
 
 Next, you need to:
@@ -153,16 +163,16 @@ version: '3'
 networks:
  main: {}
 services:
- pomerium:
-   image: pomerium/pomerium:latest
-   volumes:
-     - ./config.yaml:/pomerium/config.yaml:ro
-   ports:
-     - 443:443
-   networks:
-     main:
-       aliases:
-       - authenticate.localhost.pomerium.io
+  pomerium:
+    image: pomerium/pomerium:latest
+    volumes:
+      - ./config.yaml:/pomerium/config.yaml:ro
+      # Mount Unix domain socket
+      - ./var/run/jenkins.sock:/var/run/jenkins.sock
+    ports:
+      - 443:443
+    networks:
+      main: {}
  verify:
    networks:
      main: {}
