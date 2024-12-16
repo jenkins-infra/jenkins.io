@@ -653,9 +653,47 @@ To use them in your plugin, please find documentation here:
 * link:https://github.com/jenkinsci/plugin-pom#running-benchmarks[Maven profile that runs benchmarks]
 * link:https://github.com/jenkins-infra/pipeline-library#runbenchmarks[Running benchmark through Jenkinsfile]
 
-== Further Pipeline Testing
-=== Testing Durable Pipeline Steps
-TODO: RestartableJenkinsRule.
+== Testing Jenkins Restart
+
+If you want to ensure that your plugin behaves correctly after a restart, there are methods to help you.
+`RestartableJenkinsRule` is part of the Jenkins testing framework and provides an easy way to simulate restarting Jenkins in your tests without actually having to restart the Jenkins instance.
+You can use the `then()` method to run one Jenkins session and then shut down.
+The following example shows how it can be used with a `FreeStyleProject` build which is verified after a Jenkins restart:
+
+[source,java]
+----
+import hudson.model.FreeStyleProject;
+import org.jvnet.hudson.test.RestartableJenkinsRule;
+import org.junit.Rule;
+import org.junit.Test;
+
+public class MyPluginTest {
+
+    @Rule
+    public RestartableJenkinsRule rr = new RestartableJenkinsRule();
+
+    @Test
+    public void testPluginAfterRestart() {
+        rr.then(r -> {
+            // Set up the test environment
+            // e.g., create a job, configure your plugin, etc.
+            FreeStyleProject project = r.createFreeStyleProject("myJob");
+            // let's execute one build
+            project.scheduleBuild2(0).get();
+        });
+
+        // now we want to verify things after the restart
+        rr.then(r -> {
+            // get first project
+            FreeStyleProject p = (FreeStyleProject) r.getInstance().getAllItems().get(0);
+            // verify that it is still successfully
+            r.assertBuildStatusSuccess(p.getBuild("1"));
+        });
+    }
+}
+----
+
+For more detailed information, you can take a look at the link:https://javadoc.jenkins.io/component/jenkins-test-harness/org/jvnet/hudson/test/RestartableJenkinsRule.html[`RestartableJenkinsRule` JavaDoc].
 
 == Further Patterns
 === Custom builder
