@@ -307,88 +307,88 @@ Ensure that you have Pomerium installed and configured according to the [Pomeriu
 
 ### Configuration Steps
 
-1. **Update Pomerium Configuration:**
+## 1. Update Pomerium Configuration :
 
-   Add and update the following to your Pomerium configuration to enable Unix domain sockets:
+Add and update the following to your Pomerium configuration to enable Unix domain sockets:
 
-   ```yaml title=config.yaml
-    authenticate_service_url: https://authenticate.localhost.pomerium.io/oauth2/callback
+```yaml
+authenticate_service_url: https://authenticate.localhost.pomerium.io/oauth2/callback
 
-    idp_provider: REPLACE_ME
-    idp_provider_url: REPLACE_ME
-    idp_client_id: REPLACE_ME
-    idp_client_secret: REPLACE_ME
+idp_provider: REPLACE_ME
+idp_provider_url: REPLACE_ME
+idp_client_id: REPLACE_ME
+idp_client_secret: REPLACE_ME
 
-    signing_key: REPLACE_ME
+signing_key: REPLACE_ME
 
-    routes:
-      - from: https://verify.localhost.pomerium.io
-        to: http://verify:8000
-        pass_identity_headers: true
-        allow_websockets: true
-        policy:
-          - allow:
-              and:
-                - email:
-                    is: user@example.com
-      - from: https://jenkins.localhost.pomerium.io
-        to: http://jenkins:8080
-        host_rewrite_header: true
-        pass_identity_headers: true
-        policy:
-          - allow:
-              and:
-                - domain:
-                    is: example.com
-                - user:
-                    is: username
-   ```
+routes:
+  - from: https://verify.localhost.pomerium.io
+    to: http://verify:8000
+    pass_identity_headers: true
+    allow_websockets: true
+    policy:
+      - allow:
+          and:
+            - email:
+                is: user@example.com
+  - from: https://jenkins.localhost.pomerium.io
+    to: http://jenkins:8080
+    host_rewrite_header: true
+    pass_identity_headers: true
+    policy:
+      - allow:
+          and:
+            - domain:
+                is: example.com
+            - user:
+                is: username
+```
 
-2. **Configure Jenkins:**
+## 2. Configure Jenkins :
 
-   Ensure that Jenkins is configured to listen on the Unix domain socket. Update your Jenkins configuration as follows:
+Ensure that Jenkins is configured to listen on the Unix domain socket. Update your Jenkins configuration as follows:
 
-   ```yaml title=docker-compose.yaml
+```yaml
+networks:
+  main: {}
+services:
+  pomerium:
+    image: pomerium/pomerium:latest
+    volumes:
+      - ./config.yaml:/pomerium/config.yaml:ro
+      - /var/run/jenkins.sock:/var/run/jenkins.sock
+    ports:
+      - 443:443
+    networks:
+      main:
+        aliases:
+          - authenticate.localhost.pomerium.io
+
+  verify:
     networks:
       main: {}
-    services:
-      pomerium:
-        image: pomerium/pomerium:latest
-        volumes:
-          - ./config.yaml:/pomerium/config.yaml:ro
-          - /var/run/jenkins.sock:/var/run/jenkins.sock
-        ports:
-          - 443:443
-        networks:
-          main:
-            aliases:
-              - authenticate.localhost.pomerium.io
+    image: pomerium/verify:latest
+    expose:
+      - 8000
 
-      verify:
-        networks:
-          main: {}
-        image: pomerium/verify:latest
-        expose:
-          - 8000
+  jenkins:
+    networks:
+      main: {}
+    image: jenkins/jenkins:lts-jdk11
+    privileged: true
+    user: root
+    environment:
+      JAVA_OPTS: "-Djenkins.httpListenAddress=unix:/var/run/jenkins/jenkins.socket"
+      JENKINS_UNIX_DOMAIN_PATH: "/var/run/jenkins/jenkins.socket"
+    volumes:
+      - ./home/jenkins_compose/jenkins_configuration:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/jenkins:/var/run/jenkins
+```
 
-      jenkins:
-        networks:
-          main: {}
-        image: jenkins/jenkins:lts-jdk11
-        privileged: true
-        user: root
-        environment:
-          JAVA_OPTS: "-Djenkins.httpListenAddress=unix:/var/run/jenkins/jenkins.socket"
-          JENKINS_UNIX_DOMAIN_PATH: "/var/run/jenkins/jenkins.socket"
-        volumes:
-          - ./home/jenkins_compose/jenkins_configuration:/var/jenkins_home
-          - /var/run/docker.sock:/var/run/docker.sock
-          - /var/run/jenkins:/var/run/jenkins
-   ```
+## 3. Restart Services :
 
-3. **Restart Services:**
-
-   Restart both Jenkins and Pomerium to apply the new configuration.
+Restart both Jenkins and Pomerium to apply the new configuration.
 
 ### Verification
 
