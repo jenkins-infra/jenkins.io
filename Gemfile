@@ -9,6 +9,7 @@ gem 'webrick', '~> 1.8.1'
 
 gem 'sassc'
 gem 'rouge'
+gem 'iconv'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.2.0'
@@ -17,9 +18,13 @@ gem 'kramdown', '~> 2.5.0'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
-  gem 'faraday', '~> 2.9.0'
+  gem 'faraday', '~> 2.12.0'
   gem 'faraday-follow_redirects', '~> 0.3.0'
   gem 'rubyzip', '~> 2.3.2'
+  # dependencies for faraday 2.12.1
+  gem 'faraday-net_http', '~> 3.4'
+  gem 'json', '~> 2.9'
+  gem 'logger', '~> 1.6', '>= 1.6.3'
 end
 
 gem "concurrent-ruby", "~> 1.1"
