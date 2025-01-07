@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'colorize'
+gem 'base64' # needed since ruby 3.4 https://github.com/igrigorik/em-websocket/pull/161
 gem 'awestruct', '~> 0.6.7'
 gem 'naturally', '~> 2.2.1'
 gem 'asciidoctor', '~> 2.0.18'
