@@ -22,7 +22,7 @@ class ChangelogReleases
         page.type = @limit_version_key
         page.title = page.title + " for " + changelog_entry.version
         page.backlink = {
-          label: "Back to changelogs",
+          label: "Back to changelog",
           url: @limit_version_key === "stable" ? "/changelog-stable" : "/changelog"
         }
         page.uneditable = true
