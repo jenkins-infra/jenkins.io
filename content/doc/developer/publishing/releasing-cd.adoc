@@ -2,7 +2,7 @@
 title: Setting up automated plugin release
 layout: developer
 references:
-- url: /jep/229
+- url: https://github.com/jenkinsci/jep/blob/master/jep/229/README.adoc
   title: 'JEP-229: Continuous Delivery of Jenkins Components and Plugins'
 ---
 
@@ -32,7 +32,7 @@ Don't push the changes directly to the default branch or merge the PR before the
 === Incrementals Enablement
 
 Verify that the plugin has already been link:../../plugin-development/incrementals[incrementalified].
-`pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` and the files `.mvn/extensions.xml` and `.mvn/maven.config` should exist *before proceeding with subsequent steps*.
+The file `pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` and the files `.mvn/extensions.xml` and `.mvn/maven.config` should exist *before proceeding with subsequent steps*.
 
 NOTE: A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
 
@@ -41,21 +41,6 @@ Here are some PR examples for various plugins to enable CD:
 - link:https://github.com/jenkinsci/junit-plugin/pull/395/files[junit]
 - link:https://github.com/jenkinsci/kubernetes-plugin/pull/1139/files[kubernetes-plugin]
 - link:https://github.com/jenkinsci/plain-credentials-plugin/pull/31/files[plain-credentials-plugin]
-
-=== Enable CD Permissions
-
-Enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin by filing a pull request adding to `permissions/plugin-xxx.yml`:
-
-[source,yaml]
-----
-cd:
-  enabled: true
-----
-
-In your PR towards the repository permission updater, include a link to the PR in your plugin, which contains all the necessary changes, like described above.
-
-Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
-until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
 
 === Configure CD Workflow
 
@@ -124,7 +109,7 @@ Be sure to apply one of the link:https://github.com/jenkinsci/.github/blob/ce466
 to this and every subsequent PR before merging so that Release Drafter can properly categorize changes.
 
 Fully automated versioning (recommended)::
-For a regular component whose version number is not that meaningful, let the version number be automatically determined by setting a top-level `<version>+++${changelist}+++</version>` and having an entry `<changelist>999999-SNAPSHOT</changelist>` in the `<properties>` section, removing `<revision>`:
+For a regular component whose version number is not that meaningful, let the version number be automatically determined by setting a top-level `<version>+++${changelist}+++</version>` and having an entry `<changelist>999999-SNAPSHOT</changelist>` in the `<properties>` section, removing `<revision>` and `<project.build.outputTimestamp>` (if present):
 +
 [source,diff]
 ----
@@ -146,6 +131,7 @@ For a regular component whose version number is not that meaningful, let the ver
 -        <changelist>-SNAPSHOT</changelist>
 +        <changelist>999999-SNAPSHOT</changelist>
          <jenkins.version>2.361.4</jenkins.version>
+-        <project.build.outputTimestamp>2023-01-01T00:00:00Z</project.build.outputTimestamp>
      </properties>
 ----
 +
@@ -166,7 +152,7 @@ NOTE: It is worth communicating this to your users, as they will see a very diff
 The best way to do this is to add a line to the release notes: link:https://github.com/jenkinsci/azure-artifact-manager-plugin/releases/tag/86.va2aa4b1038c7[example note].
 
 Manually controlled prefix (optional)::
-If you do not want to have large major version numbers, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element:
+If you do not want to have large major version numbers, like with fully automated versioning described above, keep `<revision>` in the `<properties>` section, setting it to the prefix (`major`, `major.minor`, etc., depending on how much of the version number you want to manually manage) and use it as part of the top-level `<version>` element, removing `<project.build.outputTimestamp>` (if present):
 +
 [source,diff]
 ----
@@ -189,6 +175,7 @@ If you do not want to have large major version numbers, like with fully automate
 +    <revision>1</revision>
 +    <changelist>999999-SNAPSHOT</changelist>
      <jenkins.version>2.361.4</jenkins.version>
+-    <project.build.outputTimestamp>2023-01-01T00:00:00Z</project.build.outputTimestamp>
 ----
 +
 Here the version numbers will look like `1.321.vabcdef456789` or `1.999999-SNAPSHOT`, respectively.
@@ -200,7 +187,7 @@ IMPORTANT: It is _not recommended_ to implement actual semantic versioning with 
 Otherwise, automated releases may have version numbers that semantically would not make sense.
 
 Versioning with wrapped components (optional)::
-Similar to the previous option, for a component whose version number ought to reflect a release version of some wrapped component, use a hyphen (`-`) as the separator between the prefix corresponding to the wrapped component's version and the CD-generated suffix:
+Similar to the previous option, for a component whose version number ought to reflect a release version of some wrapped component, use a hyphen (`-`) as the separator between the prefix corresponding to the wrapped component's version and the CD-generated suffix, removing `<project.build.outputTimestamp>` (if present):
 +
 [source,diff]
 ----
@@ -223,6 +210,7 @@ Similar to the previous option, for a component whose version number ought to re
 +    <revision>4.0.0</revision>
 +    <changelist>999999-SNAPSHOT</changelist>
      <jenkins.version>2.361.4</jenkins.version>
+-    <project.build.outputTimestamp>2023-01-01T00:00:00Z</project.build.outputTimestamp>
 ----
 +
 Here the version numbers will look like `4.0.0-123.vabcdef456789` or `4.0.0-999999-SNAPSHOT`, respectively.
@@ -236,6 +224,23 @@ Use the `revision` property for the `<dependency>` declaration to ensure they al
     <version>${revision}</version>
 </dependency>
 ----
+
+=== Enable CD Permissions
+
+Enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin by filing a pull request adding to `permissions/plugin-xxx.yml`:
+
+[source,yaml]
+----
+cd:
+  enabled: true
+----
+
+By default, this enables https://github.com/jenkins-infra/repository-permissions-updater?tab=readme-ov-file#exclusively-using-jep-229-cd[exclusive JEP-229 CD], which does not grant the listed account upload permissions.
+
+In your PR towards the repository permission updater, include a link to the PR in your plugin, which contains all the necessary changes, like described above.
+
+Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
+until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
 
 == Releasing
 
@@ -281,15 +286,14 @@ Do not forget to mark the PR with the label `breaking` (or `removed`) to get an 
 
 == Fallback
 
-You can also release manually if you have configured your machine for link:../releasing-manually[manual release].
+If https://github.com/jenkins-infra/repository-permissions-updater?tab=readme-ov-file#exclusively-using-jep-229-cd[exclusive JEP-229 CD] is disabled for your component, you can also release manually if you have configured your machine for link:../releasing-manually[manual release].
 To cut a release:
 
 [source,shell]
 ----
-# Checkout the primary branch of the repository if you are on a Unix system:
-git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-# Windows users are advised to use the following command in CMD:
-# for /f "tokens=4 delims=/" %i in ('git symbolic-ref refs/remotes/origin/HEAD') do git checkout %i
+# Checkout the primary branch of the repository.
+# If your branch is not named 'main' or 'master', update it as needed.
+git checkout main || git checkout master
 git pull --ff-only
 mvn -Dset.changelist \
   -Pquick-build \
@@ -301,6 +305,18 @@ mvn -Dset.changelist \
 == Troubleshooting
 
 Check that `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
+
+=== No release has been triggered after merging a pull request
+
+Ensure that the pull request has a label indicating it was of interest to users (e.g., `enhancement` rather than `chore`).
+
+See the complete list of label categories at https://github.com/jenkinsci/.github/blob/master/.github/release-drafter.yml and the list of "interesting" categories at https://github.com/jenkins-infra/interesting-category-action/blob/main/action.yaml#L13.
+
+You can use the `developer` label to release a pull request even if its not interesting to end users, e.g. it is a dependency of a downstream pull request or it fixes tests for Plugin Compatibility Testing.
+
+If you add an "interesting" label on a pull request already merged then merge another pull request (even with an uninteresting label), you will get a release since the workflow will see that there has been at least one interesting pull request since the last release.
+
+Finally, if you manually trigger the CD action and the build is passing on the primary branch, it will publish a new release regardless of any labels.
 
 === The upload to the Maven repository fails with "401 Unauthorized"
 
