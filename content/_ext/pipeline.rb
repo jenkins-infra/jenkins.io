@@ -53,8 +53,11 @@ Awestruct::Extensions::Pipeline.new do
 
   extension Awestruct::IBeams::HandbookExtension.new(:devbook,
                                                      File.expand_path(File.dirname(__FILE__) + '/../doc/developer'))
-
+  
+  # For backwards compatibility
   extension ChangelogReleases.new(:lts, 'changelog-stable', 'stable')
+
+  extension ChangelogReleases.new(:lts, 'changelog', 'stable')
   extension ChangelogReleases.new(:weekly, 'changelog', 'latest')
 
   transformer VersionSwitcher.new
