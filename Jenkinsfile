@@ -34,7 +34,7 @@ node('docker&&linux') {
         *
         *
         * git url: 'git://github.com/jenkinsci/jenkins.io',
-        *     branch: 'master'
+        *     branch: 'main'
         */
 
         /*
