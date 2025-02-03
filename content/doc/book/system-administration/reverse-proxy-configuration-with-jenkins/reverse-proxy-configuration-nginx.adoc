@@ -1,0 +1,175 @@
+---
+layout: subsection
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../../resources/managing]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+= Reverse proxy - Nginx
+
+In situations where you have existing web sites on your server, you may
+find it useful to run Jenkins (or the servlet container that Jenkins
+runs in) behind https://nginx.org/[Nginx], so that you can bind Jenkins
+to the part of a bigger website that you may have.
+This section discusses some of the approaches for doing this.
+
+When a request arrives for certain URLs, Nginx becomes a proxy and forwards that request to Jenkins, then it forwards the response back to the client.
+
+This 9 minute video tutorial from Darin Pope configures Nginx as a reverse proxy.
+
+.Configuring Nginx as a reverse proxy
+video::yixMeJGtLFk[youtube, width=640, height=360]
+
+The Nginx configuration fragment below provides an example Nginx reverse proxy configuration.
+It assumes the Jenkins controller and the Nginx reverse proxy are running on the same computer.
+
+[source]
+----
+upstream jenkins {
+  keepalive 32; # keepalive connections
+  server 127.0.0.1:8080; # jenkins ip and port
+}
+
+# Required for Jenkins websocket agents
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  '' close;
+}
+
+server {
+  listen          80;       # Listen on port 80 for IPv4 requests
+
+  server_name     jenkins.example.com;  # replace 'jenkins.example.com' with your server domain name
+
+  # this is the jenkins web root directory
+  # (mentioned in the output of "systemctl cat jenkins")
+  root            /var/run/jenkins/war/;
+
+  access_log      /var/log/nginx/jenkins.access.log;
+  error_log       /var/log/nginx/jenkins.error.log;
+  
+  # pass through headers from Jenkins that Nginx considers invalid
+  ignore_invalid_headers off;
+
+  location ~ "^/static/[0-9a-fA-F]{8}\/(.*)$" {
+    # rewrite all static files into requests to the root
+    # E.g /static/12345678/css/something.css will become /css/something.css
+    rewrite "^/static/[0-9a-fA-F]{8}\/(.*)" /$1 last;
+  }
+
+  location /userContent {
+    # have nginx handle all the static requests to userContent folder
+    # note : This is the $JENKINS_HOME dir
+    root /var/lib/jenkins/;
+    if (!-f $request_filename){
+      # this file does not exist, might be a directory or a /**view** url
+      rewrite (.*) /$1 last;
+      break;
+    }
+    sendfile on;
+  }
+
+  location / {
+      sendfile off;
+      proxy_pass         http://jenkins;
+      proxy_redirect     default;
+      proxy_http_version 1.1;
+
+      # Required for Jenkins websocket agents
+      proxy_set_header   Connection        $connection_upgrade;
+      proxy_set_header   Upgrade           $http_upgrade;
+
+      proxy_set_header   Host              $http_host;
+      proxy_set_header   X-Real-IP         $remote_addr;
+      proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+      proxy_set_header   X-Forwarded-Proto $scheme;
+      proxy_max_temp_file_size 0;
+
+      #this is the maximum upload size
+      client_max_body_size       10m;
+      client_body_buffer_size    128k;
+
+      proxy_connect_timeout      90;
+      proxy_send_timeout         90;
+      proxy_read_timeout         90;
+      proxy_request_buffering    off; # Required for HTTP CLI commands
+  }
+
+}
+----
+
+This assumes that you run Jenkins on port 8080.
+Remember to create the folder /var/log/nginx/jenkins.
+
+Make sure you do not end the `proxy_pass` value with a slash, as it will cause problems like those described in link:https://community.jenkins.io/t/reverse-proxy-test-does-not-handle-url-correctly/1294/16[this discussion].
+
+include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
+
+If you are having problems with some paths (eg folders) with *Blue
+Ocean*, you may need to add the following snippet to your proxy
+configuration:
+
+[source]
+----
+if ($request_uri ~* "/blue(/.*)") {
+    proxy_pass http://YOUR_SERVER_IP:YOUR_JENKINS_PORT/blue$1;
+    break;
+}
+----
+
+== Permissions
+
+To give Nginx permission to read Jenkins web root folder, add the `nginx` user to
+the Jenkins group:
+
+[source,sh]
+----
+usermod -aG jenkins nginx
+----
+
+If the last command failed because the `nginx` user is not defined in the system,
+then you can try adding the `www-data` user to the Jenkins group:
+
+[source,sh]
+----
+usermod -aG jenkins www-data
+----
+
+If you are experiencing timeouts when attempting to run long CLI
+commands through a proxy in Jenkins, you can increase the
+`+proxy_read_timeout+` setting as necessary.
+Older versions of Jenkins may not respect the `+proxy_read_timeout+` setting.
+
+If you are experiencing the following error when attempting to run long
+CLI commands in Jenkins and Jenkins is running behind Nginx, it
+is probably due to Nginx timing out the CLI connection.
+You can increase the `+proxy_read_timeout+` setting as necessary so the command will
+complete successfully.
+
+[source]
+----
+WARNING: null
+hudson.cli.DiagnosedStreamCorruptionException
+Read back: 0x00 0x00 0x00 0x1e 0x07
+           'Started reverse-proxy-test #68'
+           0x00 0x00 0x00 0x01 0x07 0x0a
+Read ahead:
+Diagnosis problem:
+    java.io.IOException: Premature EOF
+        at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+        ...
+    at hudson.cli.FlightRecorderInputStream.analyzeCrash(FlightRecorderInputStream.java:82)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:153)
+Caused by: java.io.IOException: Premature EOF
+    at sun.net.www.http.ChunkedInputStream.readAheadBlocking(ChunkedInputStream.java:565)
+    ...
+    at java.io.DataInputStream.readInt(DataInputStream.java:387)
+    at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:111)
+----

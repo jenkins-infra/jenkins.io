@@ -39,7 +39,7 @@ properties:
   tags:
   - packaging
   description: |
-    This is the path to `jenkins.war` and set by the `executable-war` wrapper when invoked using `java -jar jenkins.war`.
+    This is the path to `jenkins.war` and set by `executable.Main` when invoked using `java -jar jenkins.war`.
     This allows Jenkins to find its own `.war` file and e.g. replace it to apply an update.
     If undefined, Jenkins will not e.g. offer to update itself.
 
@@ -85,6 +85,28 @@ properties:
   description: |
     Client-side HTTP CLI ping interval in milliseconds.
     Set on the CLI client (`java -jar jenkins-cli.jar`), not Jenkins server process.
+
+- name: hudson.cli.CLIAction.ALLOW_WEBSOCKET
+  tags:
+  - escape hatch
+  - security
+  def: undefined
+  since: 2.442 and LTS 2.426.3
+  description: |
+    Escape hatch for link:/security/advisory/2024-01-24/#SECURITY-3315[SECURITY-3315].
+    The default behavior (when undefined) is to apply an `Origin` header check when an attempt is made to access the CLI via WebSocket.
+    Set to `true` to allow CLI access via WebSocket connections without `Origin` header check (the default before introduction of this system property).
+    Set to `false` to prohibit CLI access via WebSocket connections completely.
+
+- name: hudson.cli.CLICommand.allowAtSyntax
+  tags:
+  - escape hatch
+  - security
+  def: |
+    `false`
+  since: 2.442 and LTS 2.426.3
+  description: |
+    Escape hatch for link:/security/advisory/2024-01-24/#SECURITY-3314[SECURITY-3314].
 
 - name: hudson.ConsoleNote.INSECURE
   tags:
@@ -335,14 +357,15 @@ properties:
 
 - name: hudson.model.DirectoryBrowserSupport.allowAbsolutePath
   tags:
+  - obsolete
   - security
   - escape hatch
   def: |
     `false`
   since: 2.315 and 2.303.2
   description: |
-    Escape hatch for link:/security/advisory/2021-10-06/#SECURITY-2481[SECURITY-2481].
-    Set this to `true` to allow browsing to absolute paths.
+    Deprecated: Escape hatch for link:/security/advisory/2021-10-06/#SECURITY-2481[SECURITY-2481].
+    Has no effect since 2.463.
 
 - name: hudson.model.DirectoryBrowserSupport.allowSymlinkEscape
   tags:
@@ -354,6 +377,16 @@ properties:
   description: |
     Escape hatch for link:/security/advisory/2018-12-05/#SECURITY-904[SECURITY-904] and link:/security/advisory/2021-01-13/#SECURITY-1452[SECURITY-1452].
 
+- name: hudson.model.DirectoryBrowserSupport.allowTmpEscape
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.394 and 2.375.4
+  description: |
+    Escape hatch for link:/security/advisory/2023-03-08/#SECURITY-1807[SECURITY-1807].
+
 - name: hudson.model.DirectoryBrowserSupport.CSP
   tags:
   - security
@@ -363,7 +396,7 @@ properties:
   since: 1.625.3, 1.641
   description: |
     Determines the Content Security Policy header sent for static files served by Jenkins.
-    Only affects instances that don't have a resource root URL set up.
+    Only affects controllers that don't have a resource root URL set up.
     See link:../../system-administration/security/configuring-content-security-policy/[Configuring Content Security Policy] for more details.
 
 - name: hudson.model.DownloadService$Downloadable.defaultInterval
@@ -483,6 +516,17 @@ properties:
   description: |
     Font used for load statistics.
     See http://docs.oracle.com/javase/7/docs/api/java/awt/Font.html#decode%28java.lang.String%29[Java documentation] on how the value is decoded.
+
+- name: hudson.model.MyViewsProperty.skipPermissionCheck
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.471 and 2.452.4
+  description: |
+    Allow non-admin users to access (and potentially change) other users' "My Views".
+    Escape hatch for link:/security/advisory/2024-08-07/#SECURITY-3349[SECURITY-3349].
 
 - name: hudson.model.Node.SKIP_BUILD_CHECK_ON_FLYWEIGHTS
   tags:
@@ -640,7 +684,7 @@ properties:
   since: 1.602
   description: |
     When `true`, does not check auth realm for existence of user if there's a record in Jenkins.
-    Unsafe, but may be used on some instances for service accounts
+    Unsafe, but may be used on some controllers for service accounts
 
 - name: hudson.model.User.allowUserCreationViaUrl
   tags:
@@ -790,6 +834,17 @@ properties:
   description: |
     Connection timeout applied to connections e.g. to the update site.
 
+- name: hudson.remoting.Channel.DISABLE_JAR_URL_VALIDATOR
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.471 and 2.452.4
+  description: |
+    Disable validation of URLs attempted to be read by agents.
+    Escape hatch for link:/security/advisory/2024-08-07/#SECURITY-3430[SECURITY-3430].
+
 - name: hudson.remoting.ChannelBuilder.allCallablesCanIgnoreRoleChecker
   tags:
   - security
@@ -847,6 +902,16 @@ properties:
   description: |
     When set to true, Jenkins will not reference resource files through the `/static/.../` URL space, preventing their caching.
     This is set to `true` during development by default, and `false` otherwise.
+
+- name: hudson.search.Search.MAX_SEARCH_SIZE
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `500`
+  since: 2.375.4 / 2.394
+  description: |
+    Limits the number of results a search can render.
 
 - name: hudson.search.Search.skipPermissionCheck
   tags:
@@ -1152,7 +1217,7 @@ properties:
   since: 2.114
   description: |
     Allows to move the logs usually found under `$JENKINS_HOME/logs` to another location.
-    Beware that no migration is handled if you change it on an existing instance.
+    Beware that no migration is handled if you change it on an existing deployment.
 
 - name: hudson.triggers.SCMTrigger.starvationThreshold
   tags:
@@ -1194,6 +1259,17 @@ properties:
   description: |
     Disables the forced flushing when calling `#close()`.
     Not expected to be used.
+
+- name: hudson.util.AtomicFileWriter.REQUIRES_DIR_FSYNC
+  tags:
+  - escape hatch
+  def: |
+    `true` on Unix, `false` on Windows
+  since: 2.440
+  description: |
+    Whether or not to flush the parent directory to disk after flushing the file to disk,
+    which is needed to ensure crash consistency in several Unix filesystems.
+    Prior to 2.440, the parent directory was never flushed to disk.
 
 - name: hudson.util.CharacterEncodingFilter.disableFilter
   tags:
@@ -1270,6 +1346,46 @@ properties:
     The number of times to attempt to delete files/directory trees before giving up and throwing an exception.
     Specifying a value less than 1 is invalid and will be treated as if a value of 1 (i.e. one attempt, no retries) was specified.
     See https://issues.jenkins.io/browse/JENKINS-10113[JENKINS-10113] and https://issues.jenkins.io/browse/JENKINS-15331[JENKINS-15331].
+
+- name: hudson.util.MultipartFormDataParser.FILEUPLOAD_MAX_FILES
+  tags:
+  - escape hatch
+  - tuning
+  - security
+  def: |
+    `1000`
+  since: 2.375.4, 2.394
+  description: |
+    Limits the number of form fields that can be processed in one `multipart/form-data` request.
+    Used to set `org.apache.commons.fileupload.servlet.ServletFileUpload#setFileCountMax(long)`.
+    Despite the name, this applies to all form fields, not just actual file attachments.
+    `-1` disables this limit.
+
+- name: hudson.util.MultipartFormDataParser.FILEUPLOAD_MAX_FILE_SIZE
+  tags:
+  # Not an escape hatch since it's disabled by default
+  - tuning
+  - security
+  def: |
+    `-1`
+  since: 2.375.4, 2.394
+  description: |
+    Limits the size (in bytes) of individual fields that can be processed in one `multipart/form-data` request.
+    Despite the name, this applies to all form fields, not just actual file attachments.
+    `-1` disables this limit.
+
+- name: hudson.util.MultipartFormDataParser.FILEUPLOAD_MAX_SIZE
+  tags:
+    # Not an escape hatch since it's disabled by default
+    - tuning
+    - security
+  def: |
+    `-1`
+  since: 2.375.4, 2.394
+  description: |
+    Limits the total request size (in bytes) that can be processed in one `multipart/form-data` request.
+    Used to set `org.apache.commons.fileupload.servlet.ServletFileUpload#setSizeMax(long)`.
+    `-1` disables this limit.
 
 - name: hudson.Util.noSymLink
   tags:
@@ -1447,23 +1563,23 @@ properties:
     See documentation there.
 
 - name: jenkins.CLI.disabled
-  # TODO Understand how this currently (2.138+) works
   tags:
   - feature
+  - obsolete
   def: |
     `false`
   since: 2.32 and 2.19.3
   description: |
-    `true` to disable Jenkins CLI via JNLP and HTTP (SSHD can still be enabled)
+    `true` to disable Jenkins CLI via JNLP and HTTP (SSHD can still be enabled). This has no effect since 2.165.
 
 - name: jenkins.InitReactorRunner.concurrency
   tags:
   - tuning
   def: 2x of CPU
   description: |
-    During start of Jenkins, loading of jobs in parallel have a fixed number of threads by default (twice the CPU).
+    During the start of Jenkins, the loading of jobs in parallel have a fixed number of threads by default (twice the CPU).
     To make Jenkins load time 8x faster (assuming sufficient IO), increase it to 8x.
-    For example, 24 CPU Jenkins controller host use this: `-Dhudson.InitReactorRunner.concurrency=192`
+    For example, 24 CPU Jenkins controller host use this: `-Djenkins.InitReactorRunner.concurrency=192`
 
 - name: jenkins.install.runSetupWizard
   tags:
@@ -1721,7 +1837,7 @@ properties:
     `false`
   since: 2.305
   description: |
-    `true` to disable the monitor that recommends Java 11.
+    `true` to disable the monitor that recommends newer Java versions.
 
 - name: jenkins.security.ApiTokenProperty.adminCanGenerateNewTokens 
   tags:
@@ -1743,7 +1859,7 @@ properties:
   since: 1.638
   description: |
     True to show API tokens for users to administrators on the user configuration page.
-    This was set to `false` as part of https://wiki.jenkins-ci.org/display/SECURITY/Jenkins+Security+Advisory+2015-11-11#JenkinsSecurityAdvisory2015-11-11-APItokensofotherusersavailabletoadmins[SECURITY-200]
+    This was set to `false` as part of link:/security/advisory/2015-11-11/#api-tokens-of-other-users-available-to-admins[SECURITY-200]
 
 - name: jenkins.security.ClassFilterImpl.SUPPRESS_ALL
   tags:
@@ -1769,6 +1885,19 @@ properties:
     With this flag set, only explicitly blacklisted types will be rejected.
     Setting this to `true` is unsafe.
     See link:/redirect/class-filter/[documentation].
+
+- name: jenkins.security.FIPS140.COMPLIANCE
+  tags:
+  - feature
+  - security
+  def: |
+    `false`
+  since: 2.424
+  description: |
+    If Jenkins and plugins systems should prefer link:https://csrc.nist.gov/pubs/fips/140-2/upd2/final[FIPS-140] compliant cryptography.
+    Not all features/plugins have been adapted, and this only indicates a preference.
+    If you set this flag to `true`, it does not make Jenkins and its plugins FIPS-140 compliant.
+    Refer to link:/doc/book/system-administration/FIPS-140/[Jenkins and FIPS-140 Overview] for more information.
 
 - name: jenkins.security.FrameOptionsPageDecorator.enabled
   tags:
@@ -1801,6 +1930,17 @@ properties:
   description: |
     Enable the optional Overall/Manage permission that allows limited access to administrative features suitable for a hosted Jenkins environment.
     See https://github.com/jenkinsci/jep/tree/master/jep/223[JEP-223].
+
+- name: jenkins.security.ResourceDomainRootAction.allowAuthenticatedUser
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.475
+  description: |
+    Allow authenticated user access to link:/doc/book/security/user-content/#resource-root-url[Resource URLs].
+    Escape hatch for a security improvement related to the link:/security/advisory/2024-01-24/#SECURITY-3314[2024-01-24 security advisory].
 
 - name: jenkins.security.ResourceDomainRootAction.validForMinutes
   tags:
@@ -1846,6 +1986,17 @@ properties:
   description: |
     Allow all file paths on the Jenkins controller to be accessed from agents.
     This disables a big part of link:/security/advisory/2014-10-30/[SECURITY-144] protections.
+
+- name: jenkins.security.s2m.JarURLValidatorImpl.REJECT_ALL
+  tags:
+  - security
+  def: |
+    `false`
+  since: 2.471 and 2.452.4
+  description: |
+    Reject all attempts by agents to use `ClassLoaderProxy#fetchJar`.
+    Drops backward compatibility with releases of remoting (`agent.jar`) before 2024-08.
+    See link:/security/advisory/2024-08-07/#SECURITY-3430[SECURITY-3430].
 
 - name: jenkins.security.s2m.RunningBuildFilePathFilter.FAIL
   tags:
@@ -2023,7 +2174,7 @@ properties:
     Unfortunately, some JVM output (e.g. related to GC) also goes to standard out.
     This will swap output streams around to prevent stream corruption through unexpected writes to standard out.
 
-- name: jekins.SoloFilePathFilter.redactErrors
+- name: jenkins.SoloFilePathFilter.redactErrors
   tags:
   - escape hatch
   - security
@@ -2056,6 +2207,25 @@ properties:
     `true` to enable the new experimental UX on Jenkins.
     See https://issues.jenkins.io/browse/JENKINS-60920[JENKINS-60920].
     Also see link:/sigs/ux/[Jenkins UX SIG].
+    Has no effect since https://github.com/jenkinsci/jenkins/commit/51e7142d5705c10833e0959fdf2534a32b0e7d86[2.344] as the feature has been removed.
+
+- name: jenkins.websocket.idleTimeout
+  tags:
+  - tuning
+  def: |
+    `60`
+  since: 2.395
+  description: |
+    Number of seconds a WebSocket agent connection may stay idle until it expires. `0` to disable. Must be higher than `jenkins.websocket.pingInterval`.
+
+- name: jenkins.websocket.pingInterval
+  tags:
+  - tuning
+  def: |
+    `30`
+  since: 2.217
+  description: |
+    Number of seconds between server-sent pings over WebSocket agent connections. `0` to disable. Must be lower than `jenkins.websocket.idleTimeout`.
 
 - name: jenkins.util.ProgressiveRendering.DEBUG_SLEEP
   def: |
@@ -2153,6 +2323,46 @@ properties:
     HTTP verbs of requests that are allowed to provide `StaplerRequest#getSubmittedForm` or `@SubmittedForm`.
     Escape hatch for a security hardening, see link:/doc/upgrade-guide/2.277/#submittedform[2.277.2 upgrade guide].
 
+- name: org.kohsuke.stapler.RequestImpl.FILEUPLOAD_MAX_FILES
+  tags:
+  - escape hatch
+  - tuning
+  - security
+  def: |
+    `1000`
+  since: 2.375.4, 2.394
+  description: |
+    Limits the number of form fields that can be processed in one `multipart/form-data` request.
+    Used to set `org.apache.commons.fileupload.servlet.ServletFileUpload#setFileCountMax(long)`.
+    Despite the name, this applies to all form fields, not just actual file attachments.
+    `-1` disables this limit.
+
+- name: org.kohsuke.stapler.RequestImpl.FILEUPLOAD_MAX_FILE_SIZE
+  tags:
+  # Not an escape hatch since it's disabled by default
+  - tuning
+  - security
+  def: |
+    `-1`
+  since: 2.375.4, 2.394
+  description: |
+    Limits the size (in bytes) of individual fields that can be processed in one `multipart/form-data` request.
+    Despite the name, this applies to all form fields, not just actual file attachments.
+    `-1` disables this limit.
+
+- name: org.kohsuke.stapler.RequestImpl.FILEUPLOAD_MAX_SIZE
+  tags:
+  # Not an escape hatch since it's disabled by default
+  - tuning
+  - security
+  def: |
+    `-1`
+  since: 2.375.4, 2.394
+  description: |
+    Limits the total request size (in bytes) that can be processed in one `multipart/form-data` request.
+    Used to set `org.apache.commons.fileupload.servlet.ServletFileUpload#setSizeMax(long)`.
+    `-1` disables this limit.
+
 - name: stapler.jelly.noCache
   tags:
   - development
@@ -2224,12 +2434,24 @@ properties:
     `$JENKINS_HOME`
   description: |
     Set the root directory used to load groovy hooks scripts.
+
+- name: jenkins.branch.MultiBranchProject.fireSCMSourceBuildsAfterSave
+  since: branch-api 2.7.0
+  tags:
+  - feature
+  def: |
+    `true`
+  description: |
+    When Multibranch Pipeline is reloaded from XML, it notifies its branch sources about it and triggers a scan if possible. 
+    This flag allows turning off this behavior. 
+    When Job DSL manages the items, this can avoid triggering many scans, which can potentially cause a build storm. 
+    The downside is that the branch source might use this notification to register webhooks or do any other useful setup work.
 ---
 
 = Jenkins Features Controlled with System Properties
 
 Jenkins has several "hidden" features that can be enabled with system properties.
-This page documents many of them and explain how to configure them on your instance.
+This page documents many of them and explains how to configure them on your controller.
 
 Some system properties related to the Remoting library used for communication between controller and agents are documented in https://github.com/jenkinsci/remoting/blob/master/docs/configuration.md[that component's repository].
 
