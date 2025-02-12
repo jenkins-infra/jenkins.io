@@ -63,10 +63,10 @@ A portion of the Jenkins documentation has been created by professional technica
 We previously had several coordinated documentation initiatives, e.g. creation of new documentation for Jenkins Pipeline.
 We also facilitate documentation contributions and encourage newcomers to participate (https://jenkins.io/participate/#document), regardless of their experience with Jenkins and our tools.
 We also invest time in contributing guidelines for documentation contributors,
-e.g. here are our contributing guidelines for the website: https://github.com/jenkins-infra/jenkins.io/blob/master/CONTRIBUTING.adoc.
+e.g. here are our contributing guidelines for the website: https://github.com/jenkins-infra/jenkins.io/blob/main/CONTRIBUTING.adoc.
 
 Reviews: jenkins.io and GitHub documentation are managed and reviewed via pull requests.
-For example, there are contribution guidelines for jenkins.io: https://github.com/jenkins-infra/jenkins.io/blob/master/CONTRIBUTING.adoc.
+For example, there are contribution guidelines for jenkins.io: https://github.com/jenkins-infra/jenkins.io/blob/main/CONTRIBUTING.adoc.
 In the project, we also have a team of copy-editors who review the content: https://github.com/orgs/jenkins-infra/teams/copy-editors.
 Contributions to Jenkins component documentation (e.g. plugin docs) are usually reviewed by maintainers.
 
@@ -88,7 +88,7 @@ The Jenkins project has also been selected for Google Summer of Code 2020.
 The project also has many contributors whose roles at work include mentoring people (university professors and advisors, training leads, developer relations, senior engineers and tech writers).
 As an organization, we do not have particular experience in mentoring technical writers,
 but we do have experience in onboarding documentation contributors to the community.
-We also work on onboarding programs for documentation contributors, e.g. for website copy-editors: https://github.com/jenkins-infra/jenkins.io/blob/master/CONTRIBUTING.adoc#maintainer-guide.
+We also work on onboarding programs for documentation contributors, e.g. for website copy-editors: https://github.com/jenkins-infra/jenkins.io/blob/main/CONTRIBUTING.adoc#maintainer-guide.
 
 ### How many technical writers does your organization want to mentor this year?
 
