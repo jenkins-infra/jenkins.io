@@ -26,6 +26,7 @@ group :fetcher do
   gem 'faraday-net_http', '~> 3.4'
   gem 'json', '~> 2.9'
   gem 'logger', '~> 1.6', '>= 1.6.3'
+  gem 'csv', '~> 3.3.2'
 end
 
 gem "concurrent-ruby", "~> 1.1"
