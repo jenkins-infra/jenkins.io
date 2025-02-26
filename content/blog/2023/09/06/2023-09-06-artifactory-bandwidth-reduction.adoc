@@ -1,0 +1,100 @@
+---
+layout: post
+title: "Stop Caching Maven Central"
+tags:
+- infrastructure
+- artifactory
+- jfrog
+authors:
+- markewaite
+- dduportal
+opengraph:
+  image: /images/post-images/2023/09/06/2023-09-06-artifactory-bandwidth-reduction.png
+discourse: true
+---
+
+image:/images/post-images/2023/09/06/2023-09-06-artifactory-bandwidth-reduction.png[image,width=839]
+
+link:https://jfrog.com/[JFrog] has been a sponsor of the Jenkins project for many years.
+We're delighted that they continue to sponsor the Jenkins project and continue to provide our artifact hosting service, link:https://repo.jenkins-ci.org[repo.jenkins-ci.org].
+
+Releases, incremental development builds, and snapshots of Jenkins core, Jenkins tooling, Jenkins plugins, and Jenkins infrastructure components are hosted on JFrog Artifactory.
+The worldwide Jenkins community has been well served for many years by JFrog's hosted artifact repository.
+
+== Maven Central
+
+Effective Thursday September 7, 2023, we will stop caching the Maven Central repository from link:https://repo.jenkins-ci.org[repo.jenkins-ci.org].
+The change will be transparent to Jenkins developers because Apache Maven automatically appends the Maven Central repository to its list of repositories.
+Beginning Thursday September 7, 2023, Jenkins developers will receive Maven Central artifacts from Maven Central instead of receiving them from the Jenkins Artifactory.
+
+In case of issues, please open a link:https://github.com/jenkins-infra/helpdesk/issues/new/choose[Jenkins help desk ticket].
+
+If you'd like more details of the bandwidth misuse investigation, refer to the link:https://github.com/jenkins-infra/helpdesk/issues/3599[help desk ticket].
+
+== Bandwidth misuse - the long story
+
+Bandwidth misuse can happen in many different ways.
+Most of our bandwidth misuse was innocent misconfiguration.
+You can benefit users, the Jenkins community, and Jenkins sponsors by better configuration.
+
+When the bandwidth misuse was not innocent misconfiguration, it was bad programming and bad monitoring of a server.
+You can benefit users, the Jenkins community, and Jenkins sponsors by monitoring bandwidth used by your servers.
+
+=== Correct tool configuration
+
+Two cases involved a Jenkins tool binary that was being downloaded repeatedly from Artifactory.
+Ephemeral Jenkins agents were configured to download the tool every time they started.
+The download source was configured to read the tar.gz tool installer from the Jenkins Artifactory repository.
+Once the tool was downloaded from Jenkins Artifactory, it was unpacked, installed, and used.
+
+The download process took time because it was reading from the public internet to a local agent.
+The unpack and install took time because it was performed every time an ephemeral agent started.
+
+**Please install remote tools onto the agent __before__ connecting the agent to the controller**
+
+**Please download a __local copy__ of the tool if you must download tools onto the agent**
+
+Don't waste the time and bandwidth to download and install a tool from a remote location after the agent starts.
+The OpenJDK project, Eclipse Temurin project, and the Apache Maven project all thank you for not repeatedly downloading the same binary from their servers.
+Jenkins thanks you as well.
+
+=== Abuse reports to cloud providers
+
+Another case involved a rogue server that was repeatedly downloading all versions of the Jenkins war files.
+That rogue server was using over 20TB per month for its repeated downloads of the same files.
+
+We reported the misuse to the abuse reporting service of the cloud provider that was hosting the server.
+The abuse reporting service told us they would investigate.
+The cloud provider took no further actions.
+
+**Please choose cloud providers that __honor abuse reports__**
+
+We blocked the IP address of that server, hoping that the server would not switch to a new IP address and resume its abusive downloads.
+The IP block stopped the abusive requests.
+
+=== Use local caching
+
+Another case involved agents from the Jenkins project that were repeatedly downloading dependencies as part of their regular build processes.
+Because we prefer ephemeral agents, the dependencies were being downloaded to the newly launched agent while it was building Jenkins core and Jenkins plugins.
+
+Herve Le Meur and Damien Duportal implemented an link:https://github.com/jenkins-infra/helm-charts/blob/main/charts/artifact-caching-proxy/templates/nginx-proxy-configmap.yaml[artifact caching proxy using nginx] for each of the cloud providers that host agents for the Jenkins project.
+The artifact caching proxy is hosted on the same cloud provider that runs the agents.
+It caches requests from agents running on that cloud provider.
+
+Mark Waite's home lab appeared in the top 5 consumers in a slightly different case.
+Mark corrected job configuration errors in his home lab that were causing individual jobs to download all their dependencies to a job-specific cache folder.
+Job specific caching caused the discs to fill on his agents and wasted bandwidth from the repository server.
+Fixing the job configuration error removed that home lab from the list.
+Mark implemented a central cache in his home lab in an attempt to prevent the issue in the future.
+
+**Cache your __dependencies__**
+
+Use local drives and local servers to cache your dependencies so that they can be downloaded faster.
+
+=== Summary
+
+We've learned to analyze log files with SQL queries thanks to the link:https://github.com/basil/artifactory-sql[Artifactory SQL tool] provided by Basil Crow.
+We upload artifactory logs into a SQLite database and can then use SQL select statements to identify patterns and trends.
+Thanks to Basil for a very helpful analysis tool.
+
+Special thanks to JFrog for their patience and perseverance while we worked through these improvements.

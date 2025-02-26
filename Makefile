@@ -8,24 +8,26 @@ VERSION ?= $(BUILD_NUMBER)-$(shell git rev-parse --short HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 DOCKER_ORG ?= jenkinsciinfra
 
-# Generate everything
+## Generate everything (default target)
 all: fetch-reset prepare generate archive
+## Download external dependencies and resources necessary to build the site.
 prepare: scripts-permission fetch depends assets
 
-# Run a local dev server on localhost:4242
+## Runs a live-reloading development server on 127.0.0.1 at port 4242.
 run: prepare scripts/awestruct
-	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0  $(AWESTRUCT_CONFIG)
+	LISTEN=true ./scripts/awestruct --dev --bind 0.0.0.0 $(AWESTRUCT_CONFIG)
 
+## Explicitly generate static website files.
 generate: prepare scripts/awestruct real_generate
 
 real_generate:
 	./scripts/awestruct --generate --verbose $(AWESTRUCT_CONFIG)
 
+## Checks for broken links.
 check-broken-links: generate
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
 # Fetching and generating content from external sources
-#######################################################
 # NOTE: Fetch only runs once until flag is reset
 fetch: $(BUILD_DIR)/fetch
 
@@ -55,11 +57,10 @@ docker_run:
 docker_push:
 	docker push $(DOCKER_ORG)/jenkinsio
 
-#######################################################
+#-----------------------------------------------------#
 
 
 # Handling dependencies
-#######################################################
 depends: $(BUILD_DIR)/ruby $(BUILD_DIR)/node
 
 # Update dependencies to latest within the allowed version ranges.
@@ -103,38 +104,39 @@ $(BUILD_DIR)/assets: $(BUILD_DIR)/node $(shell find . -ipath "./node_modules/*" 
 	cp node_modules/anchor-js/*.js $(ASSETS_DIR)/anchor-js/
 	@touch $(BUILD_DIR)/assets
 
-#######################################################
+#-----------------------------------------------------#
 
 
 # Archive tasks
-#######################################################
+#-----------------------------------------------------#
 archive: generate
 	mkdir -p $(BUILD_DIR)/archives
 	(cd $(BUILD_DIR) && \
 		rm -f archives/jenkins.io-$(VERSION).zip && \
 		ln -f -s _site jenkins.io-$(VERSION) && \
 		zip --quiet -r archives/jenkins.io-$(VERSION).zip jenkins.io-$(VERSION))
-#######################################################
+#-----------------------------------------------------#
 
-# Check Typo
-#######################################################
+## Check for typos.
 check:
 	scripts/check-hard-coded-URL-references
 	scripts/check-typos
-#######################################################
 
 # Miscellaneous tasks
-#######################################################
+#-----------------------------------------------------#
 # Build targets for directories.
 $(OUTPUT_DIR) node_modules vendor/gems content/_tmp:
 	mkdir -p $@
 
-# clean -Xfd removes any ignored files and directories
-# but leave any changed or untracked files alone.
+## Remove all build output and dependencies in preparation for a full rebuild, but leave any changed or untracked files alone.
 clean:
 	git clean -Xfd
 
-#######################################################
+## Show this help message.
+help:
+	@awk '/^##/{c=substr($$0,3);next}c&&/^[[:alpha:]][[:alnum:]_-]+:/{print substr($$1,1,index($$1,":")),c}1{c=0}' $(MAKEFILE_LIST) | column -s: -t | sort
+
+#-----------------------------------------------------#
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate prepare run update
+		fetch fetch-reset generate prepare run update help

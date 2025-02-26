@@ -29,7 +29,7 @@ called Jenkins agents.
 Scalability is a measure that shows the ability of a system to expand its capabilities
 to handle additional load.
 One of the strongest sides of Jenkins is that it has a scaling feature out-of-the-box.
-Jenkins scaling is based on the controller/agents model, where you have a number of agent instances and one main Jenkins instance called the controller that is responsible mainly for distributing jobs across the agents.
+Jenkins scaling is based on the controller/agents model, where you have a number of agents and one main Jenkins controller that is responsible mainly for distributing jobs across the agents.
 Jenkins agents run a small program that communicates with the Jenkins controller to check if there’s any job it can run.
 When Jenkins finds a job scheduled, it transfers the build to the agent.
 
@@ -60,10 +60,9 @@ Having your Jenkins setup as a dockerfile is highly recommended to make your con
 So let’s create our first example dockerfile for the Jenkins controller:
 
 .Dockerfile
-[source,text]
+[source,Dockerfile]
 ----
-FROM jenkins/jenkins:lts-slim <1>
-
+FROM jenkins/jenkins:lts-slim-jdk17 <1>
 # Pipelines with Blue Ocean UI and Kubernetes
 RUN jenkins-plugin-cli --plugins blueocean kubernetes <2>
 ----
@@ -86,7 +85,7 @@ You can build your docker image right inside your Minikube virtual machine, but 
 
 [source,bash]
 ----
-$ eval $(minikube docker-env)
+eval $(minikube docker-env)
 ----
 
 This command doesn’t show any output after execution so if you didn’t get any errors then everything should be fine.
@@ -94,14 +93,14 @@ To build a docker image based on the dockerfile you created, all you need is to 
 
 [source,bash]
 ----
-$ docker build -t my-jenkins-image:1.1 .
+docker build -t my-jenkins-image:1.1 .
 ----
 
 After the build process is finished, let’s verify that the newly created image is there:
 
 [source,bash]
 ----
-$ docker images
+docker images
 REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
 my-jenkins-image              1.1                 d6e46aa2470d        10 minutes ago      969MB
 ----
@@ -121,14 +120,14 @@ To validate that creating the deployment was successful you can invoke:
 
 [source,bash]
 ----
-$ kubectl get deployments -n jenkins
+kubectl get deployments -n jenkins
 ----
 
 To validate that creating the service was successful you can run:
 
 [source,bash]
 ----
-$ kubectl get services -n jenkins
+kubectl get services -n jenkins
 NAME       TYPE        CLUSTER-IP       EXTERNAL-IP    PORT(S)           AGE
 jenkins    NodePort    10.103.31.217    <none>         8080:32664/TCP    59s
 ----
@@ -143,11 +142,11 @@ We can get it by using this command:
 
 [source,bash]
 ----
-$ minikube ip
+minikube ip
 192.168.99.100
 ----
 
-Now we can access the Jenkins controller instance at \http://192.168.99.100:32664/
+Now we can access the Jenkins controller at \http://192.168.99.100:32664/
 
 == Jenkins Agents Configuration
 
@@ -161,7 +160,7 @@ You can get the Kubernetes controller URL by this specified command:
 
 [source,bash]
 ----
-$ kubectl cluster-info
+kubectl cluster-info
 Kubernetes control plane is running at https://192.168.49.2:8443
 KubeDNS is running at https://192.168.49.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
 
@@ -174,7 +173,7 @@ First, we need to get the Jenkins pod id, which is the value of the output provi
 
 [source,bash]
 ----
-$ kubectl get pods -n jenkins | grep jenkins
+kubectl get pods -n jenkins | grep jenkins
 <pod_id>   1/1       Running   0          9m
 ----
 
@@ -182,7 +181,7 @@ Second, we need to run the command that describes the pods passing the pod id as
 
 [source,bash]
 ----
-$ kubectl describe pod -n jenkins jenkins-5fdbf5d7c5-dj2rq
+kubectl describe pod -n jenkins jenkins-5fdbf5d7c5-dj2rq
 …..
 IP:             172.17.0.4
 ----
@@ -191,7 +190,7 @@ IP:             172.17.0.4
 
 Now, we are ready to fill in the Kubernetes plugin configuration. In order to do that, open the Jenkins UI and navigate to “Manage Jenkins -> Nodes and Clouds -> Clouds -> Add a new cloud -> Kubernetes and fill in the `Kubernetes URL` and `Jenkins URL` appropriately, by using the values which we have just collected in the previous step.
 
-image::kubernetes-plugin-configuration.png[kubernetes-plugin-configuration]
+image::Kubernetes-cloud.png[kubernetes-plugin-configuration]
 
 In addition to that, in the `Kubernetes Pod Template` section, we need to configure the image that will be used to spin up the agents.
 If you have some custom requirements for your agents, you can build one more dockerfile with the appropriate changes the same way we did for the Jenkins controller.
@@ -200,13 +199,13 @@ On the other hand, if you don’t have unique requirements for your agents, you 
 Kubernetes Pod Template Name - can be any and will be shown as a prefix for unique generated agents' names, which will be run automatically during builds
 Docker image - the docker image name that will be used as a reference to spin up a new Jenkins agents.
 
-image::pod-template-configuration.png[pod-template-configuration]
+image::Pod-template.png[pod-template-configuration]
 
 == Using Jenkins Agents
 
 Now all the configuration seems to be in place and we are ready for some tests. Let’s create two different build plans.
 
-image::build-jobs.png[image]
+image::Build-job.png[build-job-image]
 
 Now let’s trigger the execution for both of the builds.
 You should see that both build plans appear in the `Build Queue` box almost immediately.

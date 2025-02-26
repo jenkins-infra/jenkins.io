@@ -1,0 +1,118 @@
+---
+name: Bump the Maven docker images versions for various tutorials
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  mavenLatestVersion:
+    kind: githubrelease
+    spec:
+      owner: "apache"
+      repository: "maven"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versioning:
+        kind: semver
+        pattern: "~3"
+    transformers:
+      - trimprefix: "maven-"
+
+conditions:
+  testMavenHelloWorld:
+    name: "Does the 'Hello World!' tutorial have a reference to the Maven alpine image?"
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        .*agent.*docker.*image.*maven:.*
+  testMavenDockerTutorial:
+    name: "Does the 'Pipeline as YAML' tutorial have a reference to the Maven alpine image?"
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: content/doc/book/pipeline/docker.adoc
+      matchpattern: >-
+        .*image.*\'maven:.*\'.*
+  testMavenAlpineImagePublished:
+    name: "Test maven:<latest_version>-eclipse-temurin-21-alpine docker image tag"
+    kind: dockerimage
+    disablesourceinput: true
+    spec:
+      image: "maven"
+      tag: '{{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine'
+
+targets:
+  updateHelloWorldTutorialMavenPipeline:
+    name: "Update the value of the maven docker image for pipelines in the 'Hello World!' tutorial"
+    kind: file
+    sourceid: mavenLatestVersion
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        (.*agent.*docker.*image.*\')maven:(.*)(\'.*)
+      replacepattern: >-
+        ${1}maven:{{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine${3}
+    scmid: default
+  updateHelloWorldTutorialMavenScripted:
+    name: "Update the value of the maven docker image for scripts in the 'Hello World!' tutorial"
+    kind: file
+    sourceid: mavenLatestVersion
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        (.*docker.*image.*\')maven:(.*)(\'.*)
+      replacepattern: >-
+        ${1}maven:{{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine${3}
+    scmid: default
+  updateDockerTutorial:
+    name: "Update the value of the maven docker image in the Docker tutorial"
+    kind: file
+    sourceid: mavenLatestVersion
+    spec:
+      file: content/doc/book/pipeline/docker.adoc
+      matchpattern: >-
+        (.*image.*\')maven:(.*)(\'\).inside\(.*)
+      replacepattern: >-
+        ${1}maven:{{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine${3}
+    scmid: default
+  updateDockerTutorialWithoutComplexInside:
+    name: "Update the value of the maven docker image in the Docker tutorial"
+    kind: file
+    sourceid: mavenLatestVersion
+    spec:
+      file: content/doc/book/pipeline/docker.adoc
+      matchpattern: >-
+        (.*image.*\')maven:(.*)(\'\).inside.*)
+      replacepattern: >-
+        ${1}maven:{{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine${3}
+    scmid: default
+  updateDockerTutorialDeclarative:
+      name: "Update the value of the maven docker image in the Docker tutorial"
+      kind: file
+      sourceid: mavenLatestVersion
+      spec:
+        file: content/doc/book/pipeline/docker.adoc
+        matchpattern: >-
+          (.*docker.*{.*image.*\')maven:(.*)(\'.*)
+        replacepattern: >-
+          ${1}maven:{{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine${3}
+      scmid: default
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: '[Tutorials] Bump maven alpine docker image version to {{ source "mavenLatestVersion" }}-eclipse-temurin-21-alpine'
+    spec:
+      labels:
+        - dependencies

@@ -14,42 +14,30 @@ endif::[]
 
 = Using Docker with Pipeline
 
-Many organizations use link:https://www.docker.com[Docker] to unify their build
-and test environments across machines, and to provide an efficient mechanism
-for deploying applications. Starting with Pipeline versions 2.5 and higher,
-Pipeline has built-in support for interacting with Docker from within a
-`Jenkinsfile`.
+Many organizations use link:https://www.docker.com[Docker] to unify their build and test environments across machines, and to provide an efficient mechanism for deploying applications.
+Starting with Pipeline versions 2.5 and higher, Pipeline has built-in support for interacting with Docker from within a `Jenkinsfile`.
 
-While this section will cover the basics of utilizing Docker from within a
-`Jenkinsfile`, it will not cover the fundamentals of Docker, which can be read
-about in the
-link:https://docs.docker.com/get-started/[Docker Getting Started Guide].
+While this page covers the basics of utilizing Docker from within a `Jenkinsfile`, it will not cover the fundamentals of Docker, which you can refer to in the link:https://docs.docker.com/get-started/[Docker Getting Started Guide].
 
 
 [[execution-environment]]
 == Customizing the execution environment
 
-Pipeline is designed to easily use
-link:https://docs.docker.com/[Docker]
-images as the execution environment for a single
-link:../../glossary/#stage[Stage]
-or the entire Pipeline. Meaning that a user can define the tools required for
-their Pipeline, without having to manually configure agents.
-Practically any tool which can be
-link:https://hub.docker.com[packaged in a Docker container].
-can be used with ease by making only minor edits to a `Jenkinsfile`.
+Pipeline is designed to easily use link:https://docs.docker.com/[Docker] images as the execution environment for a single link:../../glossary/#stage[Stage] or the entire Pipeline.
+Meaning that a user can define the tools required for their Pipeline, without having to manually configure agents.
+Any tool that can be link:https://hub.docker.com[packaged in a Docker container] can be used with ease, by making only minor edits to a `Jenkinsfile`.
 
 [pipeline]
 ----
 // Declarative //
 pipeline {
     agent {
-        docker { image 'node:16.13.1-alpine' }
+        docker { image 'node:22.14.0-alpine3.21' }
     }
     stages {
         stage('Test') {
             steps {
-                sh 'node --version'
+                sh 'node --eval "console.log(process.platform,process.env.CI)"'
             }
         }
     }
@@ -57,16 +45,15 @@ pipeline {
 // Script //
 node {
     /* Requires the Docker Pipeline plugin to be installed */
-    docker.image('node:16.13.1-alpine').inside {
+    docker.image('node:22.14.0-alpine3.21').inside {
         stage('Test') {
-            sh 'node --version'
+            sh 'node --eval "console.log(process.platform,process.env.CI)"'
         }
     }
 }
 ----
 
-When the Pipeline executes, Jenkins will automatically start the specified
-container and execute the defined steps within it:
+When the Pipeline executes, Jenkins will automatically start the specified container and execute the defined steps within:
 
 [source]
 ----
@@ -74,28 +61,33 @@ container and execute the defined steps within it:
 [Pipeline] { (Test)
 [Pipeline] sh
 [guided-tour] Running shell script
-+ node --version
-v16.13.1
++ node --eval 'console.log(process.platform,process.env.CI)'
+linux true
 [Pipeline] }
 [Pipeline] // stage
 [Pipeline] }
 ----
 
+=== Additional arguments
+
+Additional arguments, such as the `registryUrl`, are described in the link:../syntax/#agent-parameters[agent parameters] syntax documentation.
+
 === Workspace synchronization
 
-Short: if it is important to keep workspace synchronized with other stages, use `reuseNode true`.
-Otherwise, dockerized stage can be run on any other agent or on the same agent, but in temporary workspace.
+If it is important to keep the workspace synchronized with other stages, use `reuseNode true`.
+Otherwise, a dockerized stage can be run on the same agent or any other agent, but in a temporary workspace.
 
-By default, for containerized stage, Jenkins does:
+By default, for a containerized stage, Jenkins:
 
-* pick any agent,
-* create new empty workspace,
-* clone pipeline code into it,
-* mount this new workspace into container.
+* Picks an agent.
+* Creates a new empty workspace.
+* Clones pipeline code into it.
+* Mounts this new workspace into the container.
 
 If you have multiple Jenkins agents, your containerized stage can be started on any of them.
 
-When `reuseNode` set to `true`: no new workspace will be created, and current workspace from current agent will be mounted into container, and container will be started at the same node, so whole data will be synchronized.
+When `reuseNode` is set to `true`, no new workspace will be created, and the current workspace from the current agent will be mounted into the container. 
+After this, the container will be started on the same node, so all of the data will be synchronized.
 
 [pipeline]
 ----
@@ -106,7 +98,7 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'gradle:6.7-jdk11'
+                    image 'gradle:8.2.0-jdk17-alpine'
                     // Run the container on the node specified at the
                     // top-level of the Pipeline, in the same workspace,
                     // rather than on a new node entirely:
@@ -126,21 +118,11 @@ pipeline {
 
 === Caching data for containers
 
-Many build tools will download external dependencies and cache them locally for
-future re-use. Since containers are initially created with "clean" file
-systems, this can result in slower Pipelines, as they may not take advantage of
-on-disk caches between subsequent Pipeline runs.
+Many build tools will download external dependencies and cache them locally for future re-use.
+Since containers are initially created with "clean" file systems, this can result in slower Pipelines, as they may not take advantage of on-disk caches between subsequent Pipeline runs.
 
-Pipeline supports adding custom arguments which are passed
-to Docker, allowing users to specify custom
-link:https://docs.docker.com/engine/tutorials/dockervolumes/[Docker Volumes]
-to mount, which can be used for caching data on the
-link:../../glossary/#agent[agent]
-between Pipeline runs. The following example will cache `~/.m2` between
-Pipeline runs utilizing the
-link:https://hub.docker.com/_/maven/[`maven` container],
- thereby avoiding the need to re-download dependencies for subsequent runs of
- the Pipeline.
+Pipeline supports adding custom arguments that are passed to Docker, allowing users to specify custom link:https://docs.docker.com/engine/tutorials/dockervolumes/[Docker Volumes] to mount, which can be used for caching data on the link:../../glossary/#agent[agent] between Pipeline runs.
+The following example will cache `~/.m2` between Pipeline runs utilizing the link:https://hub.docker.com/_/maven/[`maven` container], avoiding the need to re-download dependencies for subsequent Pipeline runs.
 
 [pipeline]
 ----
@@ -148,7 +130,7 @@ link:https://hub.docker.com/_/maven/[`maven` container],
 pipeline {
     agent {
         docker {
-            image 'maven:3.9.0-eclipse-temurin-11'
+            image 'maven:3.9.3-eclipse-temurin-17'
             args '-v $HOME/.m2:/root/.m2'
         }
     }
@@ -163,7 +145,7 @@ pipeline {
 // Script //
 node {
     /* Requires the Docker Pipeline plugin to be installed */
-    docker.image('maven:3.9.0-eclipse-temurin-11').inside('-v $HOME/.m2:/root/.m2') {
+    docker.image('maven:3.9.9-eclipse-temurin-21-alpine').inside('-v $HOME/.m2:/root/.m2') {
         stage('Build') {
             sh 'mvn -B'
         }
@@ -175,12 +157,9 @@ node {
 
 === Using multiple containers
 
-It has become increasingly common for code bases to rely on
-multiple, different, technologies. For example, a repository might have both a
-Java-based back-end API implementation _and_ a JavaScript-based front-end
-implementation. Combining Docker and Pipeline allows a `Jenkinsfile` to use
-*multiple* types of technologies by combining the `agent {}` directive, with
-different stages.
+It has become increasingly common for code bases to rely on multiple different technologies.
+For example, a repository might have both a Java-based back-end API implementation _and_ a JavaScript-based front-end implementation.
+Combining Docker and Pipeline allows a `Jenkinsfile` to use *multiple* types of technologies, by combining the `agent {}` directive with different stages.
 
 [pipeline]
 ----
@@ -190,7 +169,7 @@ pipeline {
     stages {
         stage('Back-end') {
             agent {
-                docker { image 'maven:3.9.0-eclipse-temurin-11' }
+                docker { image 'maven:3.9.9-eclipse-temurin-21-alpine' }
             }
             steps {
                 sh 'mvn --version'
@@ -198,7 +177,7 @@ pipeline {
         }
         stage('Front-end') {
             agent {
-                docker { image 'node:16.13.1-alpine' }
+                docker { image 'node:22.14.0-alpine3.21' }
             }
             steps {
                 sh 'node --version'
@@ -211,13 +190,13 @@ node {
     /* Requires the Docker Pipeline plugin to be installed */
 
     stage('Back-end') {
-        docker.image('maven:3.9.0-eclipse-temurin-11').inside {
+        docker.image('maven:3.9.9-eclipse-temurin-21-alpine').inside {
             sh 'mvn --version'
         }
     }
 
     stage('Front-end') {
-        docker.image('node:16.13.1-alpine').inside {
+        docker.image('node:22.14.0-alpine3.21').inside {
             sh 'node --version'
         }
     }
@@ -227,26 +206,20 @@ node {
 [[dockerfile]]
 === Using a Dockerfile
 
-For projects which require a more customized execution environment, Pipeline
-also supports building and running a container from a `Dockerfile` in the source
-repository. In contrast to the <<execution-environment,previous approach>> of using
-an "off-the-shelf" container, using the `agent { dockerfile true }` syntax will
-build a new image from a `Dockerfile` rather than pulling one from
-link:https://hub.docker.com[Docker Hub].
+For projects requiring a more customized execution environment, Pipeline also supports building and running a container from a `Dockerfile` in the source repository.
+In contrast to the <<execution-environment,previous approach>> of using an "off-the-shelf" container, using the `agent { dockerfile true }` syntax builds a new image from a `Dockerfile`, rather than pulling one from link:https://hub.docker.com[Docker Hub].
 
-Re-using an example from above, with a more custom `Dockerfile`:
+Reusing an example from above, with a more custom `Dockerfile`:
 
 .Dockerfile
 [source]
 ----
-FROM node:16.13.1-alpine
+FROM node:22.14.0-alpine3.21
 
 RUN apk add -U subversion
 ----
 
-By committing this to the root of the source repository, the `Jenkinsfile` can
-be changed to build a container based on this `Dockerfile` and then run the
-defined steps using that container:
+By committing this to the root of the source repository, the `Jenkinsfile` can be changed to build a container based on this `Dockerfile`, and then run the defined steps using that container:
 
 [pipeline]
 ----
@@ -266,9 +239,7 @@ pipeline {
 ----
 
 
-The `agent { dockerfile true }` syntax supports a number of other options which
-are described in more detail in the
-link:../syntax#agent[Pipeline Syntax] section.
+The `agent { dockerfile true }` syntax supports a number of other options, which are described in more detail in the link:../syntax#agent[Pipeline Syntax] section.
 
 .Using a Dockerfile with Jenkins Pipeline
 video::Pi2kJ2RJS50[youtube, width=852, height=480]
@@ -276,23 +247,16 @@ video::Pi2kJ2RJS50[youtube, width=852, height=480]
 
 === Specifying a Docker Label
 
-By default, Pipeline assumes that _any_ configured
-link:../../glossary/#agent[agent] is capable of running Docker-based Pipelines.
-For Jenkins environments which have macOS, Windows, or other agents, which are
-unable to run the Docker daemon, this default setting may be problematic.
-Pipeline provides a global option in the **Manage Jenkins** page, and on
-the
-link:../../glossary/#folder[Folder]
-level, for specifying which agents (by
-link:../../glossary/#label[Label])
-to use for running Docker-based Pipelines.
+By default, Pipeline assumes that _any_ configured link:../../glossary/#agent[agent] is capable of running Docker-based Pipelines.
+For Jenkins environments that have macOS, Windows, or other agents that are unable to run the Docker daemon, this default setting may be problematic.
+Pipeline provides a global option on the *Manage Jenkins* page and on the link:../../glossary/#folder[Folder] level, for specifying which agents (by link:../../glossary/#label[Label]) to use for running Docker-based Pipelines. To enable this option for Docker labels, the plugin:docker-workflow[*Docker Pipeline*] plugin must be installed.
 
-image::pipeline/configure-docker-label.png[Configuring the Pipeline Docker Label]
+image::pipeline/configure-docker-label.png[alt = "Navigate from Dashboard to Manage Jenkins then to System. In the 'Declarative Pipeline (Docker)' section set the Docker label, Docker Registry URL and Registry Credentials."]
 
 === Path setup for mac OS users
 
 The `/usr/local/bin` directory is not included in the macOS `PATH` for Docker images by default.
-If executables from `/usr/local/bin` need to be called from within Jenkins, then the `PATH` needs to be extended to include `/usr/local/bin`.
+If executables from `/usr/local/bin` need to be called from within Jenkins, the `PATH` needs to be extended to include `/usr/local/bin`.
 Add a path node in the file "/usr/local/Cellar/jenkins-lts/XXX/homebrew.mxcl.jenkins-lts.plist" like this:
 
 .Contents of homebrew.mxcl.jenkins-lts.plist
@@ -300,7 +264,7 @@ Add a path node in the file "/usr/local/Cellar/jenkins-lts/XXX/homebrew.mxcl.jen
 ----
 <key>EnvironmentVariables</key>
 <dict>
-<key>PATH</key
+<key>PATH</key>
 <string><!-- insert revised path here --></string>
 </dict>
 ----
@@ -315,23 +279,18 @@ The revised `PATH` `string` should be a colon separated list of directories in t
 * `/Applications/Docker.app/Contents/Resources/bin/`
 * `/Users/XXX/Library/Group\ Containers/group.com.docker/Applications/Docker.app/Contents/Resources/bin` (where `XXX` is replaced by your user name)
 
-Now restart jenkins using "brew services restart jenkins-lts" 
+Now, restart jenkins using `brew services restart jenkins-lts`.
 
 == Advanced Usage with Scripted Pipeline
 
 === Running "sidecar" containers
 
-Using Docker in Pipeline can be an effective way to run a service on which the
-build, or a set of tests, may rely. Similar to the
-link:https://docs.microsoft.com/en-us/azure/architecture/patterns/sidecar[sidecar
-pattern], Docker Pipeline can run one container "in the background", while
-performing work in another. Utilizing this sidecar approach, a Pipeline can
-have a "clean" container provisioned for each Pipeline run.
+Using Docker in Pipeline is an effective way to run a service on which the build, or a set of tests, may rely.
+Similar to the link:https://docs.microsoft.com/en-us/azure/architecture/patterns/sidecar[sidecar pattern], Docker Pipeline can run one container "in the background", while performing work in another.
+Utilizing this sidecar approach, a Pipeline can have a "clean" container provisioned for each Pipeline run.
 
-Consider a hypothetical integration test suite which relies on a local MySQL
-database to be running. Using the `withRun` method, implemented in the
-plugin:docker-workflow[Docker Pipeline] plugin's support for Scripted Pipeline,
-a `Jenkinsfile` can run MySQL as a sidecar:
+Consider a hypothetical integration test suite that relies on a local MySQL database to be running.
+Using the `withRun` method, implemented in the plugin:docker-workflow[Docker Pipeline] plugin's support for Scripted Pipeline, a `Jenkinsfile` can run MySQL as a sidecar:
 
 [source,groovy]
 ----
@@ -352,9 +311,7 @@ node {
 ----
 
 This example can be taken further, utilizing two containers simultaneously.
-One "sidecar" running MySQL, and another providing the <<execution-environment,
-execution environment>>, by using the Docker
-link:https://docs.docker.com/engine/userguide/networking/default_network/dockerlinks/[container links].
+One "sidecar" running MySQL, and another providing the <<execution-environment,execution environment>> by using the Docker link:https://docs.docker.com/engine/userguide/networking/default_network/dockerlinks/[container links].
 
 [source,groovy]
 ----
@@ -367,7 +324,7 @@ node {
         }
         docker.image('oraclelinux:9').inside("--link ${c.id}:db") {
             /*
-             * Run some tests which require MySQL, and assume that it is
+             * Run some tests that require MySQL, and assume that it is
              * available on the host name `db`
              */
             sh 'make check'
@@ -376,14 +333,11 @@ node {
 }
 ----
 
-The above example uses the object exposed by `withRun`, which has the
-running container's ID available via the `id` property. Using the container's
-ID, the Pipeline can create a link by passing custom Docker arguments to the
-`inside()` method.
+The above example uses the object exposed by `withRun`, which has the running container's ID available via the `id` property.
+Using the container's ID, the Pipeline can create a link by passing custom Docker arguments to the `inside()` method.
 
 
-The `id` property can also be useful for inspecting logs from a running Docker
-container before the Pipeline exits:
+The `id` property can also be useful for inspecting logs from a running Docker container before the Pipeline exits:
 
 [source,groovy]
 ----
@@ -393,14 +347,9 @@ sh "docker logs ${c.id}"
 
 === Building containers
 
+In order to create a Docker image, the plugin:docker-workflow[Docker Pipeline] plugin also provides a `build()` method for creating a new image from a `Dockerfile` in the repository during a Pipeline run.
 
-In order to create a Docker image, the plugin:docker-workflow[Docker Pipeline]
-plugin also provides a `build()` method for creating a new image, from a
-`Dockerfile` in the repository, during a Pipeline run.
-
-One major benefit of using the syntax `docker.build("my-image-name")` is that a
-Scripted Pipeline can use the return value for subsequent Docker Pipeline
-calls, for example:
+One major benefit of using the syntax `docker.build("my-image-name")` is that a Scripted Pipeline can use the return value for subsequent Docker Pipeline calls, for example:
 
 [source,groovy]
 ----
@@ -416,10 +365,7 @@ node {
 ----
 
 
-The return value can also be used to publish the Docker image to
-link:https://hub.docker.com[Docker Hub],
-or a <<custom-registry, custom Registry>>,
-via the `push()` method, for example:
+The return value can also be used to publish the Docker image to link:https://hub.docker.com[Docker Hub] or a <<custom-registry, custom Registry>>, via the `push()` method, for example:
 
 [source,groovy]
 ----
@@ -430,10 +376,8 @@ node {
 }
 ----
 
-One common usage of image "tags" is to specify a `latest` tag for the most
-recently, validated, version of a Docker image. The `push()` method accepts an
-optional `tag` parameter, allowing the Pipeline to push the `customImage` with
-different tags, for example:
+One common usage of image "tags" is to specify a `latest` tag for the most recently validated version of a Docker image.
+The `push()` method accepts an optional `tag` parameter, allowing the Pipeline to push the `customImage` with different tags, for example:
 
 [source,groovy]
 ----
@@ -446,9 +390,8 @@ node {
 }
 ----
 
-The `build()` method builds the `Dockerfile` in the current directory by 
-default. This can be overridden by providing a directory path 
-containing a `Dockerfile` as the second argument of the `build()` method, for example:
+The `build()` method builds the `Dockerfile` in the current directory by default.
+This can be overridden by providing a directory path containing a `Dockerfile` as the second argument of the `build()` method, for example:
 
 [source,groovy]
 ----
@@ -463,14 +406,10 @@ node {
 ----
 <1> Builds `test-image` from the Dockerfile found at `./dockerfiles/test/Dockerfile`.
 
-It is possible to pass other arguments to 
-link:https://docs.docker.com/engine/reference/commandline/build/[docker build]
-by adding them to the second argument of the `build()` method.
-When passing arguments this way, the last value in the that string must be 
-the path to the docker file and should end with the folder to use as the build context)
+It is possible to pass other arguments to link:https://docs.docker.com/engine/reference/commandline/build/[`docker build`] by adding them to the second argument of the `build()` method.
+When passing arguments this way, the last value in the string must be the path to the docker file, and should end with the folder to use as the build context.
 
-This example overrides the default `Dockerfile` by passing the `-f`
-flag:
+This example overrides the default `Dockerfile` by passing the `-f` flag:
 
 [source,groovy]
 ----
@@ -485,16 +424,12 @@ node {
 
 === Using a remote Docker server
 
-By default, the plugin:docker-workflow[Docker Pipeline] plugin will communicate
-with a local Docker daemon, typically accessed through `/var/run/docker.sock`.
+By default, the plugin:docker-workflow[Docker Pipeline] plugin will communicate with a local Docker daemon, typically accessed through `/var/run/docker.sock`.
 
 
-To select a non-default Docker server, such as with
-link:https://docs.docker.com/swarm/[Docker Swarm],
-the `withServer()` method should be used.
+To select a non-default Docker server, such as with link:https://docs.docker.com/swarm/[Docker Swarm], use the `withServer()` method.
 
-By passing a URI, and optionally the Credentials ID of a **Docker Server
-Certificate Authentication** pre-configured in Jenkins, to the method with:
+You can pass a URI, and optionally the Credentials ID of a *Docker Server Certificate Authentication* pre-configured in Jenkins, to the method with:
 
 
 [source,groovy]
@@ -512,26 +447,21 @@ node {
 
 [CAUTION]
 ====
-`inside()` and `build()` will not work properly with a Docker Swarm server out
-of the box
+`inside()` and `build()` will not work properly with a Docker Swarm server out of the box.
 
-For `inside()` to work, the Docker server and the Jenkins agent must use the
-same filesystem, so that the workspace can be mounted.
+For `inside()` to work, the Docker server and the Jenkins agent must use the same filesystem, so that the workspace can be mounted.
 
-Currently neither the Jenkins plugin nor the Docker CLI will automatically
-detect the case that the server is running remotely; a typical symptom would be
-errors from nested `sh` commands such as
+Currently, neither the Jenkins plugin nor the Docker CLI will automatically detect the case that the server is running remotely.
+A typical symptom of this would be errors from nested `sh` commands such as:
 
 [source]
 ----
 cannot create /…@tmp/durable-…/pid: Directory nonexistent
 ----
 
-When Jenkins detects that the agent is itself running inside a Docker
-container, it will automatically pass the `--volumes-from` argument to the
-`inside` container, ensuring that it can share a workspace with the agent.
+When Jenkins detects that the agent is itself running inside a Docker container, it will automatically pass the `--volumes-from` argument to the `inside` container, ensuring that it can share a workspace with the agent.
 
-Additionally some versions of Docker Swarm do not support custom Registries.
+Additionally, some versions of Docker Swarm do not support custom Registries.
 ====
 
 
@@ -540,13 +470,9 @@ Additionally some versions of Docker Swarm do not support custom Registries.
 [[custom-registry]]
 === Using a custom registry
 
-By default the plugin:docker-workflow[Docker Pipeline] integrates assumes the
-default Docker Registry of
-link:https://hub.docker.com[Docker Hub].
+By default, the plugin:docker-workflow[Docker Pipeline] plugin assumes the default Docker Registry of link:https://hub.docker.com[Docker Hub].
 
-In order to use a custom Docker Registry, users of Scripted Pipeline can wrap
-steps with the `withRegistry()` method, passing in the custom Registry URL, for
-example:
+In order to use a custom Docker Registry, users of Scripted Pipeline can wrap steps with the `withRegistry()` method, passing in the custom Registry URL, for example:
 
 [source, groovy]
 ----
@@ -562,9 +488,7 @@ node {
 }
 ----
 
-For a Docker Registry which requires authentication, add a "Username/Password"
-Credentials item from the Jenkins home page and use the Credentials ID as a
-second argument to `withRegistry()`:
+For a Docker Registry requiring authentication, add a "Username/Password" Credentials item from the Jenkins home page and use the Credentials ID as a second argument to `withRegistry()`:
 
 [source, groovy]
 ----
