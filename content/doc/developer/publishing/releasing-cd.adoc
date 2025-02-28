@@ -32,7 +32,7 @@ Don't push the changes directly to the default branch or merge the PR before the
 === Incrementals Enablement
 
 Verify that the plugin has already been link:../../plugin-development/incrementals[incrementalified].
-`pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` and the files `.mvn/extensions.xml` and `.mvn/maven.config` should exist *before proceeding with subsequent steps*.
+The file `pom.xml` should contain `<version>$\{revision}$\{changelist}</version>` and the files `.mvn/extensions.xml` and `.mvn/maven.config` should exist *before proceeding with subsequent steps*.
 
 NOTE: A new plugin created from the link:https://github.com/jenkinsci/archetypes/[archetypes] will already have this setup.
 
@@ -41,23 +41,6 @@ Here are some PR examples for various plugins to enable CD:
 - link:https://github.com/jenkinsci/junit-plugin/pull/395/files[junit]
 - link:https://github.com/jenkinsci/kubernetes-plugin/pull/1139/files[kubernetes-plugin]
 - link:https://github.com/jenkinsci/plain-credentials-plugin/pull/31/files[plain-credentials-plugin]
-
-=== Enable CD Permissions
-
-Enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin by filing a pull request adding to `permissions/plugin-xxx.yml`:
-
-[source,yaml]
-----
-cd:
-  enabled: true
-----
-
-By default, this enables https://github.com/jenkins-infra/repository-permissions-updater?tab=readme-ov-file#exclusively-using-jep-229-cd[exclusive JEP-229 CD], which does not grant the listed account upload permissions.
-
-In your PR towards the repository permission updater, include a link to the PR in your plugin, which contains all the necessary changes, like described above.
-
-Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
-until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
 
 === Configure CD Workflow
 
@@ -87,6 +70,8 @@ Also link:https://github.com/apps/release-drafter/installations/775283[remove th
 IMPORTANT: These files may have been set up this way by the https://github.com/jenkinsci/archetypes/[plugin archetype] that you used to initialize the plugin.
 
 === Configure Dependabot
+
+NOTE: If you have link:https://docs.renovatebot.com/[Renovate] configured (normally in `renovate.json` or `.github/renovate.json`) do not configure Dependabot.
 
 If you have a `.github/dependabot.yml`, add:
 
@@ -242,6 +227,23 @@ Use the `revision` property for the `<dependency>` declaration to ensure they al
 </dependency>
 ----
 
+=== Enable CD Permissions
+
+Enable the continuous delivery flag in link:https://github.com/jenkins-infra/repository-permissions-updater/[repository permission updater] (RPU) for your plugin by filing a pull request adding to `permissions/plugin-xxx.yml`:
+
+[source,yaml]
+----
+cd:
+  enabled: true
+----
+
+By default, this enables https://github.com/jenkins-infra/repository-permissions-updater?tab=readme-ov-file#exclusively-using-jep-229-cd[exclusive JEP-229 CD], which does not grant the listed account upload permissions.
+
+In your PR towards the repository permission updater, include a link to the PR in your plugin, which contains all the necessary changes, like described above.
+
+Once that has been merged, start checking `https://github.com/jenkinsci/your-plugin/settings/secrets/actions`
+until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secrets*.
+
 == Releasing
 
 Now whenever Jenkins reports a successful build of your default branch,
@@ -305,6 +307,18 @@ mvn -Dset.changelist \
 == Troubleshooting
 
 Check that `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under Repository secrets.
+
+=== No release has been triggered after merging a pull request
+
+Ensure that the pull request has a label indicating it was of interest to users (e.g., `enhancement` rather than `chore`).
+
+See the complete list of label categories at https://github.com/jenkinsci/.github/blob/master/.github/release-drafter.yml and the list of "interesting" categories at https://github.com/jenkins-infra/interesting-category-action/blob/main/action.yaml#L13.
+
+You can use the `developer` label to release a pull request even if its not interesting to end users, e.g. it is a dependency of a downstream pull request or it fixes tests for Plugin Compatibility Testing.
+
+If you add an "interesting" label on a pull request already merged then merge another pull request (even with an uninteresting label), you will get a release since the workflow will see that there has been at least one interesting pull request since the last release.
+
+Finally, if you manually trigger the CD action and the build is passing on the primary branch, it will publish a new release regardless of any labels.
 
 === The upload to the Maven repository fails with "401 Unauthorized"
 
