@@ -1,5 +1,5 @@
 ---
-title: Setting up automated plugin release
+title: Setting up plugin releases through GitHub
 layout: developer
 references:
 - url: https://github.com/jenkinsci/jep/blob/master/jep/229/README.adoc
@@ -51,6 +51,24 @@ Create the CD workflow as a copy of the template:
 mkdir -p .github/workflows
 curl --silent --show-error --location --output .github/workflows/cd.yaml https://raw.githubusercontent.com/jenkinsci/.github/master/workflow-templates/cd.yaml
 git add .github/workflows/cd.yaml
+----
+
+If you want to prevent automatic releases after PRs are merged, edit the `.github/workflows/cd.yaml` and remove the `check_run` workflow trigger, leaving only `workflow_dispatch`:
+
+[source,diff]
+----
+--- a/workflow-templates/cd.yaml
++++ b/workflow-templates/cd.yaml
+@@ -3,9 +3,6 @@
+ name: cd
+ on:
+   workflow_dispatch:
+-  check_run:
+-    types:
+-      - completed
+
+ permissions:
+   checks: read
 ----
 
 === Configure Release Drafter
@@ -246,18 +264,23 @@ until you see `MAVEN_TOKEN` and `MAVEN_USERNAME` appear under *Repository secret
 
 == Releasing
 
-Now whenever Jenkins reports a successful build of your default branch,
+If you use `cd.yaml` unchanged::
+Whenever Jenkins reports a successful build of your default branch,
 and at least one pull request had a label indicating it was of interest to users
 (e.g., `enhancement` rather than `chore`), your component will be released to Artifactory and 
 release notes published in GitHub.
 You do not need any special credentials or local checkout; just merge pull requests with suitable titles and labels.
-
++
 You will see a lot of workflow runs in the *Actions* tab in GitHub, only a small proportion of which are actual releases.
 Due to technical limitations in GitHub Actions it is not possible to suppress the extraneous runs.
 Actual releases will display a green check next to the *release* stage.
++
+You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins.
+Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
 
-You can also trigger a deployment explicitly, if the current commit has a passing check from Jenkins. Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
-If you prefer to only deploy explicitly, not on every push, just comment out the `check_run` section in the workflow.
+If you changed `cd.yaml` to only run on `workflow_dispatch`::
+You can trigger a release explicitly, if the current commit has a passing check from Jenkins.
+Visit https://github.com/jenkinsci/your-plugin/actions?query=workflow%3Acd and click Run workflow.
 
 == Noting incompatible changes
 
