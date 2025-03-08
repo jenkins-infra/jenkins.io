@@ -31,6 +31,7 @@ Choose the technique that best meets your needs:
 * <<mod_proxy>>
 * <<mod_proxy with HTTPS>>
 * <<mod_rewrite>>
+* <<mod_proxy_unix_sockets>>
 
 This 6 minute tutorial from Darin Pope configures Apache httpd on Alma Linux as a reverse proxy with <<mod_proxy>>.
 
@@ -316,6 +317,129 @@ Jenkins can't run on \http://example.com:8081/ci and be reverse proxied at \http
 The _ProxyRequests Off_ prevents Apache from functioning as a forward
 proxy server (except for _ProxyPass_), it is advised to include it
 unless the server should function as a proxy.
+
+== mod_proxy_unix_sockets
+
+Apache can be configured to proxy requests to Jenkins over a Unix domain socket instead of a TCP port. This approach enhances security by eliminating network exposure of Jenkins and is particularly useful when Jenkins and Apache run on the same host.
+NOTE: This configuration is specific to Debian-based systems (e.g., Ubuntu). Adjustments may be required for other distributions like RHEL. Apache 2.4.7 or later is required for Unix domain socket support.
+The following Apache modules must be installed:
+
+----
+a2enmod proxy
+a2enmod proxy_http
+----
+
+[source]
+----
+sudo ufw allow http
+sudo ufw allow https
+sudo ufw reload
+sudo ufw status
+----
+
+. *Modify Jenkins to Use Unix Domain Socket* +
+Edit the Jenkins systemd service to disable TCP and enable a Unix socket:
++
+[source]
+----
+sudo systemctl edit jenkins
+----
+Add the following override:
++
+[source]
+----
+[Service]
+# Remove the previous ExecStart
+ExecStart=
+# Set the new ExecStart with Unix socket
+ExecStart=/usr/bin/jenkins --pluginroot=/var/cache/jenkins/plugins --httpPort=-1 --httpUnixDomainPath=/var/run/jenkins/jenkins.socket
+----
+Reload and restart Jenkins:
++
+[source]
+----
+sudo systemctl daemon-reload
+sudo systemctl restart jenkins
+----
+Verify the socket exists:
++
+[source]
+----
+ls -l /var/run/jenkins/jenkins.socket
+----
+
+. *Set Permissions for the Socket* +
+Ensure Apache can access the socket:
++
+[source]
+----
+sudo chown jenkins:jenkins /var/run/jenkins/jenkins.socket
+sudo chmod 660 /var/run/jenkins/jenkins.socket
+----
+NOTE: Adjust ownership if Apache runs as a different user (e.g., `www-data`).
+
+. *Configure Apache Reverse Proxy* +
+Create a new virtual host:
++
+[source]
+----
+sudo nano /etc/apache2/sites-available/jenkins.conf
+----
+Add the following:
++
+[source]
+----
+<VirtualHost *:80>
+    ServerName localhost
+
+    # Proxy to Unix domain socket
+    ProxyPass / unix:/var/run/jenkins/jenkins.socket|http://localhost/
+    ProxyPassReverse / unix:/var/run/jenkins/jenkins.socket|http://localhost/
+
+    # Preserve host header
+    ProxyPreserveHost On
+
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/jenkins_error.log
+    CustomLog ${APACHE_LOG_DIR}/jenkins_access.log combined
+</VirtualHost>
+----
+Enable the site and restart Apache:
++
+[source]
+----
+sudo a2ensite jenkins.conf
+sudo systemctl restart apache2
+----
+
+. *Adjust Apache User/Group (Optional)* +
+If Apache needs to share socket access with Jenkins, update its user/group:
++
+[source]
+----
+sudo nano /etc/apache2/envvars
+----
+Modify:
++
+[source]
+----
+export APACHE_RUN_USER=jenkins
+export APACHE_RUN_GROUP=jenkins
+----
+Restart Apache:
++
+[source]
+----
+sudo systemctl restart apache2
+----
+
+Test the setup by accessing `http://localhost/` in a browser. Check logs if issues arise:
+[source]
+----
+sudo tail -f /var/log/apache2/jenkins_error.log
+sudo tail -f /var/log/apache2/jenkins_access.log
+----
+
 
 include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
 
