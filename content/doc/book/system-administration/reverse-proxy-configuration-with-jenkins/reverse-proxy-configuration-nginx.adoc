@@ -22,6 +22,8 @@ This section discusses some of the approaches for doing this.
 
 When a request arrives for certain URLs, Nginx becomes a proxy and forwards that request to Jenkins, then it forwards the response back to the client.
 
+=== HTTP Reverse Proxy with NGINX
+
 This 9 minute video tutorial from Darin Pope configures Nginx as a reverse proxy.
 
 .Configuring Nginx as a reverse proxy
@@ -109,6 +111,96 @@ This assumes that you run Jenkins on port 8080.
 Remember to create the folder /var/log/nginx/jenkins.
 
 Make sure you do not end the `proxy_pass` value with a slash, as it will cause problems like those described in link:https://community.jenkins.io/t/reverse-proxy-test-does-not-handle-url-correctly/1294/16[this discussion].
+
+=== UDS Reverse Proxy with NGINX
+
+This guide sets up Jenkins with NGINX as a reverse proxy using a UNIX socket and HTTP.
+
+To avoid repetitive use of `sudo` in the commands below, switch to a root shell first by running:
+
+[source,bash]
+----
+sudo -i
+----
+
+[source,bash]
+----
+# Edit Jenkins systemd service
+systemctl edit jenkins
+
+# Override Jenkins service to use UNIX socket instead of HTTP port
+[Service]
+ExecStart=
+ExecStart=/usr/bin/jenkins --pluginroot=/var/cache/jenkins/plugins --httpPort=-1 --httpUnixDomainPath=/var/run/jenkins/jenkins.socket
+
+# Ensure Jenkins owns the socket and restrict access
+chown jenkins:jenkins /var/run/jenkins/jenkins.socket
+chmod 700 /var/run/jenkins/jenkins.socket
+
+# Update package list and install NGINX (Debian-based systems)
+apt update
+apt install nginx
+
+# Create NGINX site config for Jenkins
+nano /etc/nginx/sites-available/jenkins
+
+# NGINX server block: proxies to Jenkins UNIX socket
+server {
+    listen 80;
+    server_name localhost;
+
+    access_log /var/log/nginx/jenkins_access.log;
+    error_log /var/log/nginx/jenkins_error.log;
+
+    location / {
+        proxy_pass http://unix:/var/run/jenkins/jenkins.socket;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Jenkins-specific settings
+        proxy_max_temp_file_size 0;
+        client_max_body_size 10m;
+        client_body_buffer_size 128k;
+        
+        proxy_connect_timeout 90;
+        proxy_send_timeout 90;
+        proxy_read_timeout 90;
+        
+        # Support Jenkins WebSocket agents
+        proxy_http_version 1.1;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        
+        # Enable HTTP CLI commands
+        proxy_set_header Connection "";
+    }
+}
+
+# Link config to sites-enabled and restart NGINX
+ln -s /etc/nginx/sites-available/jenkins /etc/nginx/sites-enabled/
+systemctl restart nginx
+
+# Allow HTTP/HTTPS traffic and verify firewall status
+ufw allow http
+ufw allow https
+ufw reload
+ufw status
+
+# Edit NGINX config to run as jenkins user
+nano /etc/nginx/nginx.conf
+# Add or modify this line at the top
+user jenkins jenkins;
+
+# Restart NGINX to apply changes
+systemctl restart nginx
+
+# Remove default NGINX site
+unlink /etc/nginx/sites-enabled/default
+----
+
+Once you have finished your configuration, access `http://localhost/` in a browser.
 
 include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
 
