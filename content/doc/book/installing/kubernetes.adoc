@@ -22,7 +22,21 @@ and underlying infrastructure are not overloaded.
 Kubernetes' ability to orchestrate container deployment ensures that Jenkins always
 has the right amount of resources available.
 
-Hosting Jenkins on a Kubernetes Cluster is beneficial for Kubernetes-based deployments and dynamic container-based scalable Jenkins agents.
+Hosting Jenkins on a Kubernetes Cluster is beneficial for Kubernetes-based
+deployments and dynamic container-based scalable Jenkins agents.
+
+Several strategies for such setup and maintenance are explored below, including:
+
+* Direct use of `kubectl` and YAML files to configure certain aspects of
+  the deployment.
+* Use of the `helm` tool and Helm Chart files to manage a whole ecosystem.
+  For example, both the controller AND a population of agents where actual work
+  happens.
+* Further use of the Jenkins Operator to manage operations for Jenkins
+  on Kubernetes in the cluster.
+
+'''
+
 Here, we see a step-by-step process for setting up Jenkins on a Kubernetes Cluster.
 
 == Setup Jenkins On Kubernetes
@@ -65,7 +79,7 @@ kubectl create namespace devops-tools
 ----
 
 [#create-a-service-account]
-*Step 2:* Create a 'serviceAccount.yaml' file and copy the following admin service account manifest.
+*Step 2:* Create a 'jenkins-01-serviceAccount.yaml' file and copy the following admin service account manifest.
 [source,yaml]
 ----
 ---
@@ -98,7 +112,7 @@ subjects:
   namespace: devops-tools
 ----
 
-The 'serviceAccount.yaml' creates a 'jenkins-admin' clusterRole, 'jenkins-admin' ServiceAccount and binds the 'clusterRole' to the service account.
+The 'jenkins-01-serviceAccount.yaml' creates a 'jenkins-admin' clusterRole, 'jenkins-admin' ServiceAccount and binds the 'clusterRole' to the service account.
 
 The 'jenkins-admin' cluster role has all the permissions to manage the cluster components.
 You can also restrict access by specifying individual resource actions.
@@ -107,11 +121,11 @@ Now create the service account using kubectl.
 
 [source,bash]
 ----
-kubectl apply -f serviceAccount.yaml
+kubectl apply -f jenkins-01-serviceAccount.yaml
 ----
 
 [#create-a-volume]
-**Step 3: **Create 'volume.yaml' and copy the following persistent volume manifest.
+**Step 3: **Create 'jenkins-02-volume.yaml' and copy the following persistent volume manifest.
 
 [source,yaml]
 ----
@@ -185,11 +199,11 @@ Let’s create the volume using kubectl
 
 [source,bash]
 ----
-kubectl create -f volume.yaml
+kubectl create -f jenkins-02-volume.yaml
 ----
 
 [#create-a-deployment]
-*Step 4:* Create a Deployment file named 'deployment.yaml' and copy the following deployment manifest.
+*Step 4:* Create a Deployment file named 'jenkins-03-deployment.yaml' and copy the following deployment manifest.
 
 [source,yaml]
 ----
@@ -203,18 +217,25 @@ spec:
   selector:
     matchLabels:
       app: jenkins-server
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
         app: jenkins-server
     spec:
       securityContext:
+            # Note: fsGroup may be customized for a bit of better
+            # filesystem security on the shared host
             fsGroup: 1000 
             runAsUser: 1000
+            ### runAsGroup: 1000
       serviceAccountName: jenkins-admin
       containers:
         - name: jenkins
           image: jenkins/jenkins:lts
+          # OPTIONAL: check for new floating-tag LTS releases whenever the pod is restarted:
+          imagePullPolicy: Always
           resources:
             limits:
               memory: "2Gi"
@@ -255,9 +276,33 @@ spec:
 In this Jenkins Kubernetes deployment we have used the following:
 
 [arabic]
+. The Jenkins container version is referenced in the example YAML above by a floating tag `lts`, so the optional `imagePullPolicy: Always` line is added to pull and deploy a new LTS image release (if it exists) *whenever* the pod is restarted. Otherwise, the currently deployed version is used after restart (and there's no other way to tell Kubernetes to pull a newer image, short of locating and deleting the old one from the node's cache).
+  * Note that "whenever the pod is restarted" includes events such as a server reboot or the restart requested in Web-UI to apply downloaded plugin updates.
+  * Kubernetes automatically uses this policy by default if the `:latest` image tag is specified, or none is specified at all (then the `:latest` image tag is automatically defaulted).
+  * For predictable and deterministic updates, use the version-based image tags instead. Search https://hub.docker.com/r/jenkins/jenkins/tags for the ones currently served.
+  * Consider an image tag like `lts-jdk21` to avoid surprises when the Jenkins core switches to using a newer JDK (usually they are backwards compatible, but...) or stay with `lts` for indefinite hands-off maintenance approach.
+. The `spec:/strategy:/type: Recreate` requires that Kubernetes first stops the old container instance, then starts a new one a few seconds later, whenever a restart is requested such as pulling in a new Jenkins version.
 . 'securityContext' for Jenkins pod to be able to write to the local persistent volume.
+  * Note that `fsGroup` specifies the group ID used for mounted filesystem access,
+    while `runAsUser` and `runAsGroup` specify the account IDs all process runs as
+    (as seen by both the host OS and the container guest operating environment).
+    There is no `fsUser` equivalent.
+  * One caveat is that the Jenkins container has ID 1000 defined in its `/etc/passwd`
+    and `/etc/group` files, and e.g. `git` program requires that the identifier of
+    the user it runs as is resolvable.  While it is trivial to define desired accounts
+    in a derived container (made `FROM jenkins:lts` for example) and run as accounts
+    according to your site preferences, it is clumsy out of the box.
 . Liveness and readiness probe to monitor the health of the Jenkins pod.
-. Local persistent volume based on local storage class that holds the Jenkins data path '/var/jenkins_home'.
+. Local persistent volume based on local storage class that holds the Jenkins data
+  path '/var/jenkins_home'. You may have to prepare it with:
++
+----
+runAsUser=1000
+fsGroup=1000   # Or custom ID, per above
+mkdir -p /var/jenkins_home
+chown -R $runAsUser:$fsGroup /var/jenkins_home
+chmod -R g+rwX /var/jenkins_home
+----
 
 NOTE: The deployment file uses local storage class persistent volume for Jenkins data. 
 For production use cases, you should add a cloud-specific storage class persistent volume for your Jenkins data.
@@ -275,7 +320,7 @@ Create the deployment using kubectl.
 
 [source,bash]
 ----
-kubectl apply -f deployment.yaml
+kubectl apply -f jenkins-03-deployment.yaml
 ----
 
 Check the deployment status.
@@ -299,7 +344,7 @@ We have now created a deployment.
 However, it is not accessible to the outside world.
 For accessing the Jenkins deployment from the outside world, we need to create a service and map it to the deployment.
 
-Create 'service.yaml' and copy the following service manifest:
+Create 'jenkins-04-service.yaml' and copy the following service manifest:
 
 [source,yaml]
 ----
@@ -330,7 +375,7 @@ Create the Jenkins service using kubectl.
 
 [source,bash]
 ----
-kubectl apply -f service.yaml
+kubectl apply -f jenkins-04-service.yaml
 ---- 
 
 Now, when browsing to any one of the Node IPs on port 32000, you will be able to access the Jenkins dashboard.
@@ -360,15 +405,41 @@ kubectl logs jenkins-deployment-2539456353-j00w5 --namespace=devops-tools
 
 The password can be found at the end of the log.
 
+[NOTE]
+======
+You can watch the Jenkins server logs (posted to `stdout` or `stderr` of the JVM and collected by Kubernetes) with the following loop to handle Jenkins restarts as well:
+
+----
+while sleep 0.1 ; do kubectl logs -f -l app=jenkins-server -n devops-tools ; done &
+----
+
+(The label `jenkins-server` is defined in `jenkins-03-deployment.yaml`)
+
+Alternatively, link:https://github.com/stern/stern[stern] tool can be used to watch multiple pods' logs.
+======
+
 Alternatively, you can run the exec command to get the password directly from the location as shown below.
 
+* Using the first (normally only) instance of the application pod:
++
+[source,bash]
+----
+kubectl exec -it "deployment.apps/jenkins" cat /var/jenkins_home/secrets/initialAdminPassword -n devops-tools
+----
+
+* ...or, using a specific container instance:
++
 [source,bash]
 ----
 kubectl exec -it jenkins-559d8cd85c-cfcgk cat /var/jenkins_home/secrets/initialAdminPassword -n devops-tools
 ----
 
-Once you enter the password, proceed to install the suggested plugin and create an admin user. 
+Once you enter the password, proceed to install the suggested plugins and create an admin user.
 All of these steps are self-explanatory from the Jenkins dashboard.
+
+'''
+
+Below we will explore further deployment strategies.
 
 include::doc/book/installing/_kubernetes.adoc[]
 
