@@ -1,31 +1,35 @@
 - author = page.author
-%ul.app-social-media-buttons
-  - sigs = site.pages.select { |p| p.source_path =~ /\/content\/sigs\/[^\/]+\/index.adoc/ }.select { |p| p.leads&.include?(author.github) }
-  - if sigs
-    - sigs.each do |item|
-      -# Skip the item if it does not contain links - a retired SIG
-      - next if not item.links
-      %li
-        %a{:href => item.url, :'data-tooltip' => item.title}
-          .app-sigs__item__icon.smol{:style => '--background: url("' + expand_link(item.logo) + '")'}
-            - if item.logo.end_with?('.png')
-              %img{:title => "Logo", :src => expand_link(item.logo), :width => "96"}
-            - else
-              = File.read("content/" + expand_link(item.logo))
 
-  - if author.github
-    %li
-      %a{:href => "https://github.com/#{author.github}", :class => "app-button", :'data-tooltip' => 'GitHub', :target => "_blank", :rel => "noreferrer noopener"}
-        = File.read("content/images/symbols/github.svg")
-  - if author.twitter
-    %li
-      %a{:href => "https://twitter.com/#{author.twitter}", :class => "app-button", :'data-tooltip' => '𝕏 (formerly Twitter)', :target => "_blank", :rel => "noreferrer noopener"}
-        = File.read("content/images/symbols/x.svg")
-  - if author.blog
-    %li
-      %a{:href => "#{author.blog}", :target => "_blank", :class => "app-button", :'data-tooltip' => 'Blog', :rel => "noreferrer noopener"}
-        = File.read("content/images/symbols/blog.svg")
-  - if author.linkedin
-    %li
-      %a{:href => "https://www.linkedin.com/in/#{author.linkedin}", :class => "app-button", :'data-tooltip' => 'LinkedIn', :target => "_blank", :rel => "noreferrer noopener"}
-        = File.read("content/images/symbols/linkedin.svg")
+:ruby
+  authorId = author.github # change this
+  sigs = site.pages.select { |p| p.source_path =~ /\/content\/sigs\/[^\/]+\/index.adoc/ }
+                  .select { |p| p.links }
+                  .select { |p| (p.leads&.include?(authorId) || p.participants&.include?(authorId)) }
+                  .sort_by { |p| p.leads&.include?(authorId) ? 0 : 1 }
+
+  social_links = [
+    { url: author.blog, icon: "blog.svg", label: "Blog" },
+    { url: author.github&.then { |u| "https://github.com/#{u}" }, icon: "github.svg", label: "GitHub" },
+    { url: author.twitter&.then { |u| "https://twitter.com/#{u}" }, icon: "x.svg", label: "𝕏 (formerly Twitter)" },
+    { url: author.linkedin&.then { |u| "https://www.linkedin.com/in/#{u}" }, icon: "linkedin.svg", label: "LinkedIn" }
+  ].select { |link| link[:url] }
+
+- if sigs.any? || social_links.any?
+  %div.app-social-media-buttons__container
+    - if sigs.any?
+      %ul.app-social-media-buttons
+        - sigs.each do |item|
+          %li
+            %a{:href => item.url, :class => "app-button", :'data-tooltip' => item.title}
+              .app-sigs__item__icon{:style => '--background: url("' + expand_link(item.logo) + '")'}
+                - if item.logo.end_with?('.png')
+                  %img{:title => "Logo", :src => expand_link(item.logo), :width => "96"}
+                - else
+                  = File.read("content/" + expand_link(item.logo))
+
+    - if social_links.any?
+      %ul.app-social-media-buttons
+        - social_links.each do |link|
+          %li
+            %a{:href => link[:url], :class => "app-button", :'data-tooltip' => link[:label], :target => "_blank", :rel => "noreferrer noopener"}
+              = File.read("content/images/symbols/#{link[:icon]}")
