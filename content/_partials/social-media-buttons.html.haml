@@ -1,10 +1,18 @@
 - author = page.author
+- authorId = page.authorId
 
 :ruby
-  sigs = site.pages.select { |p| p.source_path =~ /\/content\/sigs\/[^\/]+\/index.adoc/ }
-                  .select { |p| p.links }
-                  .select { |p| (p.leads&.include?(authorId) || p.participants&.include?(authorId)) }
-                  .sort_by { |p| p.leads&.include?(authorId) ? 0 : 1 }
+  sigs = site.pages
+    .select { |p| p.source_path =~ /\/content\/sigs\/[^\/]+\/index.adoc/ }
+    .select { |p| p.links }
+    .select { |p| p.leads&.include?(authorId) || p.participants&.include?(authorId) }
+    .map do |p|
+      type = p.leads&.include?(authorId) ? "Lead" : "Participant"
+      def p.type; @type; end
+      p.instance_variable_set(:@type, type)
+      p
+    end
+    .sort_by { |p| p.type == "Lead" ? 0 : 1 }
 
   social_links = [
     { url: author.blog, icon: "blog", label: "Blog" },
@@ -19,7 +27,7 @@
       %ul.app-social-media-buttons
         - sigs.each do |item|
           %li
-            %a{:href => item.url, :class => "app-button", :'data-tooltip' => item.title}
+            %a{:href => item.url, :class => "app-button", :'data-tooltip' => item.title + ' ' + item.type}
               .app-sigs__item__icon{:style => '--background: url("' + expand_link(item.logo) + '")'}
                 - if item.logo.end_with?('.png')
                   %img{:title => "Logo", :src => expand_link(item.logo), :width => "96"}
