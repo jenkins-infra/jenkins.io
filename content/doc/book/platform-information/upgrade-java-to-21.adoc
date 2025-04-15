@@ -1,0 +1,141 @@
+---
+layout: subsection
+title: Upgrade to Java 21
+---
+
+When upgrading the JVM used to run Jenkins from Java 17 to Java 21, there are some details you should know and precautions you should take.
+Java 21 is supported as of LTS 2.426.1 and Jenkins Weekly 2.419.
+
+== Back up Jenkins
+
+As with any upgrade, we recommend:
+
+. link:https:/doc/book/system-administration/backing-up/#jenkins_home[Backing up `JENKINS_HOME`].
+. Testing the upgrade with your backup.
+. Only after all required tests pass, performing the upgrade on your production controller.
+
+=== Upgrade the Jenkins Java version to Java 21
+
+.Upgrading Jenkins Java Version From 17 to 21
+video::8xQVGpWeIe0[youtube,width=800,height=420]
+
+To verify the Java version currently used in your controller:
+
+. Navigate to *Manage Jenkins* and then select *System Information* in the *Status Information* section.
+. While on the *System Properties* tab, locate the `java.runtime.version` and reveal the hidden value to display your current Java version.
+
+To verify the Java version currently used in your agent:
+
+. Select an agent name from the *Build Executor Status* widget and then select *System Information*
+. Locate the `java.runtime.version` and reveal the hidden value to display the current Java version.
+
+The `checkNodes` script determines what version of Java is running the controller process, along with the version of the agent that's associated with that controller.
+The script then checks the version of Java that is on the agent.
+When these values are returned, `OK` means that the agent Java version matches the controller Java version.
+Otherwise, the result displays the expected Java version and the version found instead.
+To run the `checkNodes` script:
+
+. Navigate to *Manage Jenkins* and select *Script Console* from the *Tools and Actions* section.
+. Copy the following script into the empty text box and select *Run*:
+
+[source]
+----
+/*** BEGIN META {
+ "name" : "Check Nodes Version",
+ "comment" : "Check the .jar version and the java version of the Nodes against the Master versions",
+ "parameters" : [ ],
+ "core": "1.609",
+ "authors" : [
+ { name : "Allan Burdajewicz" }
+ ]
+ } END META**/
+
+import hudson.remoting.Launcher
+import hudson.slaves.SlaveComputer
+import jenkins.model.Jenkins
+
+def expectedAgentVersion = Launcher.VERSION
+def expectedJavaVersion = System.getProperty("java.version")
+println "Master"
+println " Expected Agent Version = '${expectedAgentVersion}'"
+println " Expected Java Version = '${expectedJavaVersion}'"
+Jenkins.instance.getComputers()
+        .findAll { it instanceof SlaveComputer }
+        .each { computer ->
+    println "Node '${computer.name}'"
+    if (!computer.getChannel()) {
+        println " is disconnected."
+    } else {
+        def isOk = true
+        def agentVersion = computer.getSlaveVersion()
+        if (!expectedAgentVersion.equals(agentVersion)) {
+            println " expected agent version '${expectedAgentVersion}' but got '${agentVersion}'"
+            isOk = false
+        }
+        def javaVersion = computer.getSystemProperties().get("java.version")
+        if (!expectedJavaVersion.equals(javaVersion)) {
+            println " expected java version '${expectedJavaVersion}' but got '${javaVersion}'"
+            isOk = false
+        }
+
+        if(isOk) {
+            println " OK"
+        }
+    }
+}
+return;
+----
+
+=== Upgrade to Java 21 on your Jenkins controller
+
+The following steps are taken from the video linked at the top of this page.
+
+. Stop the Jenkins controller using `systemctl stop jenkins`.
+. Install the corresponding Java version with `dnf -y install temurin-21-jdk`.
+. Check the Java version with `java -version`.
+. Change the default Java for the system using `update-alternatives --config java` and then enter `2` to select Java 21.
+. Restart Jenkins using `systemctl restart jenkins`.
+
+=== Upgrade Jenkins
+
+If you need to upgrade Jenkins, as well as the JVM, we recommend you:
+
+. link:/doc/book/system-administration/backing-up/#jenkins_home[Back up `JENKINS_HOME`].
+. Stop the Jenkins controller.
+. Upgrade the JVM on which Jenkins is running.
+** Use a package manager to install the new JVM.
+** Ensure the default JVM is the newly installed version.
+*** If it is not, run `systemctl edit jenkins`, and set either the `JAVA_HOME` environment variable or the `JENKINS_JAVA_CMD` environment variable.
+. Upgrade Jenkins to the most recent version.
+** How you upgrade Jenkins is dependent upon your original Jenkins installation method.
++
+TIP: We recommend that you use the package manager of your system (such as `apt` or `yum`).
+. Validate the upgrade to confirm that all plugins and jobs are loaded.
+. Upgrade the required plugins.
+
+When upgrading the Java version for Jenkins and the JVM, it is important to upgrade all plugins that support Java 21.
+Plugin upgrades assure compatibility with the most recent Jenkins releases.
+
+NOTE: If you discover a previously unreported issue, please let us know.
+Refer to link:/participate/report-issue/#issue-reporting[our issue reporting documentation] for guidance.
+
+=== JVM version on agents
+
+All agents must be running on the same JVM version as the controller, due to how controllers and agents communicate.
+If you're upgrading your Jenkins controller to run on Java 21, you must upgrade the JVM on your agents.
+
+Validating the version of each agent can be done with the plugin:versioncolumn[Versions Node Monitors] plugin.
+This plugin provides information about the JVM version of each agent on the node management screen of your Jenkins controller.
+This plugin can also be configured to automatically disconnect any agent with an incorrect JVM version.
+
+=== Upgrade to Java 21 on agents
+
+The following steps are taken from the video linked at the top of this page.
+
+. In the command line, log into the agent.
+. Enter `dnf -y install temurin-21-jdk`.
+. Check your java version using `java -version`.
+. Change the default Java version using `update-alternatives --config java` and then enter the selection corresponding to Java 21.
+. Verify the Java version has been updated with `java -version`.
+. From the agent page in your Jenkins controller, select *Disconnect*.
+. After disconnecting the agent, reconnect it by selecting *Bring this node back online* and then selecting *Launch agent*.
