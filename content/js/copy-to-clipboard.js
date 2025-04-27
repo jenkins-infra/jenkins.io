@@ -1,18 +1,11 @@
 $(function () {
   "use strict";
 
-  // Regex definitions
   const CMD_RX = /^\$ (\S[^\\\n]*(\\\n(?!\$ )[^\\\n]*)*)(?=\n|$)/gm;
   const LINE_CONTINUATION_RX = /( ) *\\\n *|\\\n( ?) */g;
   const TRAILING_SPACE_RX = / +$/gm;
 
-  // Configuration
-  const config = (document.getElementById("site-script") || { dataset: {} }).dataset;
-  const uiRootPath = config.uiRootPath || ".";
-  const svgAs = config.svgAs;
   const supportsCopy = !!navigator.clipboard;
-
-  // Enhance each target block
   document.querySelectorAll(".ctc pre.highlight, .ctc .literalblock pre").forEach((pre) => {
     let code, language, langLabel, copyButton, toast, toolbox;
 
@@ -40,30 +33,16 @@ $(function () {
     } else {
       return;
     }
-
-    // Toolbox container
     toolbox = document.createElement("div");
     toolbox.className = "source-toolbox";
     if (langLabel) toolbox.appendChild(langLabel);
 
-    // Add copy button
     if (supportsCopy) {
       copyButton = document.createElement("button");
       copyButton.className = "copy-button";
       copyButton.title = "Copy to clipboard";
 
-      if (svgAs === "svg") {
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.classList.add("copy-icon");
-
-        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-        use.setAttribute("href", `${uiRootPath}/img/octicons-16.svg#icon-clippy`);
-
-        svg.appendChild(use);
-        copyButton.appendChild(svg);
-      } else {
-        copyButton.innerHTML = `<ion-icon size="large" name="copy-outline" class="copy-icon"></ion-icon>`;
-      }
+      copyButton.innerHTML = `<ion-icon size="large" name="copy-outline" class="copy-icon"></ion-icon>`;
 
       toast = document.createElement("span");
       toast.className = "copy-toast";
@@ -94,7 +73,6 @@ $(function () {
 
     navigator.clipboard.writeText(text).then(() => {
       button.classList.add("clicked");
-      // Force reflow for animation reset
       void button.offsetHeight;
       button.classList.remove("clicked");
     });
