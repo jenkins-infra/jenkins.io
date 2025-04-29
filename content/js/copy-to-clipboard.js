@@ -6,8 +6,9 @@ $(function () {
   const TRAILING_SPACE_RX = / +$/gm;
 
   const supportsCopy = !!navigator.clipboard;
+
   document.querySelectorAll(".ctc pre.highlight, .ctc .literalblock pre").forEach((pre) => {
-    let code, language, langLabel, copyButton, toast, toolbox;
+    let code, language, langLabel, copyButton, toolbox;
 
     if (pre.classList.contains("highlight")) {
       code = pre.querySelector("code");
@@ -33,6 +34,7 @@ $(function () {
     } else {
       return;
     }
+
     toolbox = document.createElement("div");
     toolbox.className = "source-toolbox";
     if (langLabel) toolbox.appendChild(langLabel);
@@ -41,16 +43,10 @@ $(function () {
       copyButton = document.createElement("button");
       copyButton.className = "copy-button";
       copyButton.title = "Copy to clipboard";
-
       copyButton.innerHTML = `<ion-icon size="large" name="copy-outline" class="copy-icon"></ion-icon>`;
-
-      toast = document.createElement("span");
-      toast.className = "copy-toast";
-      toast.textContent = "Copied!";
-      copyButton.appendChild(toast);
       toolbox.appendChild(copyButton);
 
-      copyButton.addEventListener("click", () => writeToClipboard(code, copyButton));
+      copyButton.addEventListener("click", () => writeToClipboard(code));
     }
 
     pre.parentNode.appendChild(toolbox);
@@ -64,17 +60,11 @@ $(function () {
     }
     return cmds.join(" && ");
   }
-
-  function writeToClipboard(code, button) {
+  function writeToClipboard(code) {
     let text = code.innerText.replace(TRAILING_SPACE_RX, "");
     if (code.dataset.lang === "console" && text.startsWith("$ ")) {
       text = extractCommands(text);
     }
-
-    navigator.clipboard.writeText(text).then(() => {
-      button.classList.add("clicked");
-      void button.offsetHeight;
-      button.classList.remove("clicked");
-    });
+    navigator.clipboard.writeText(text);
   }
 });
