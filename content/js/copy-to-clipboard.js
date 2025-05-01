@@ -8,7 +8,7 @@ $(function () {
   const supportsCopy = !!navigator.clipboard;
 
   document.querySelectorAll(".ctc pre.highlight, .ctc .literalblock pre").forEach((pre) => {
-    let code, language, langLabel, copyButton, toolbox;
+    let code, language, langLabel, copyButton, toast, toolbox;
 
     if (pre.classList.contains("highlight")) {
       code = pre.querySelector("code");
@@ -44,9 +44,17 @@ $(function () {
       copyButton.className = "copy-button";
       copyButton.title = "Copy to clipboard";
       copyButton.innerHTML = `<ion-icon size="large" name="copy-outline" class="copy-icon"></ion-icon>`;
-      toolbox.appendChild(copyButton);
 
-      copyButton.addEventListener("click", () => writeToClipboard(code));
+      toast = document.createElement("span");
+      toast.className = "copy-toast";
+      toast.textContent = "Copied!";
+      copyButton.appendChild(toast);
+
+      copyButton.addEventListener("click", function () {
+        writeToClipboard.call(this, code);
+      });
+
+      toolbox.appendChild(copyButton);
     }
 
     pre.parentNode.appendChild(toolbox);
@@ -60,11 +68,17 @@ $(function () {
     }
     return cmds.join(" && ");
   }
+
   function writeToClipboard(code) {
     let text = code.innerText.replace(TRAILING_SPACE_RX, "");
     if (code.dataset.lang === "console" && text.startsWith("$ ")) {
       text = extractCommands(text);
     }
-    navigator.clipboard.writeText(text);
+
+    navigator.clipboard.writeText(text).then(() => {
+      this.classList.add("clicked");
+      this.offsetHeight; // trigger reflow
+      this.classList.remove("clicked");
+    });
   }
 });
