@@ -75,10 +75,12 @@ $(function () {
       text = extractCommands(text);
     }
 
-    navigator.clipboard.writeText(text).then(() => {
-      this.classList.add("clicked");
-      this.offsetHeight; // trigger reflow
-      this.classList.remove("clicked");
-    });
+    navigator.clipboard.writeText(text).then(
+      function () {
+        this.classList.add("clicked");
+        this.offsetHeight; // force reflow
+        this.classList.remove("clicked");
+      }.bind(this)
+    );
   }
 });
