@@ -1,0 +1,123 @@
+==== Require Java 17
+
+Beginning with Jenkins 2.479.1, Jenkins requires Java 17 or newer on both the controller JVM and agent JVMs.
+
+Therefore, it is critical to upgrade both the controller _and_ agents to Java 17 or newer prior to upgrading Jenkins to 2.479.1.
+Use the link:https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin to verify that agents are running a compatible version of Java.
+In addition to upgrading your controller and agents, you must ensure that all plugins have been updated both *before and after* upgrading.
+This ensures up-to-date plugins that remain compatible.
+If plugins are not updated both before and after the upgrade, compatibility issues may arise.
+
+The official Jenkins Docker images for link:https://hub.docker.com/r/jenkins/jenkins/[the controller] and link:https://hub.docker.com/r/jenkins/inbound-agent/[agents] have been based on Java 17 for several months, while also supporting Java 21 as an alternative.
+With the release of Jenkins 2.479.1, the Java 11 images have been retired.
+Users of the official Docker images do not need to install or configure Java on their own, as it comes preinstalled in the Docker images.
+
+If your application build still requires Java 8 or 11, and you are using a Docker image to run the agent Java process `remoting.jar` simultaneously, you must provide a Java 17 or newer runtime for the Jenkins agent process and a Java 8 or 11 environment for your application build.
+
+Users of the official Jenkins OS packages for Debian, Red Hat, and SUSE Linux distributions must use their own Java package.
+These users may install Java 17 from their Linux distribution, as described on the package download site:
+
+* link:https://pkg.jenkins.io/debian-stable/[Debian Linux and derivatives]
+* link:https://pkg.jenkins.io/redhat-stable/[Red Hat Enterprise Linux and derivatives]
+* link:https://pkg.jenkins.io/opensuse-stable/[openSUSE Linux and derivatives]
+
+The above downloads do not require any custom repositories, so this is the simplest method, and has been tested by the Jenkins project.
+However, the above method does not give the user a high degree of control over the Java runtime environment.
+The official Jenkins Docker images and the Jenkins infrastructure project use Adoptium/Eclipse Temurin.
+Enthusiastic users can install Java from Adoptium or another vendor.
+Adoptium recently began providing Linux installation packages, as described in link:https://blog.adoptium.net/2021/12/eclipse-temurin-linux-installers-available/[a blog post by George Adams].
+The choice of Java vendor is up to you, as long as that vendor provides Java 17 or Java 21.
+Refer to your chosen Java vendor for installation instructions.
+
+Once you have installed a suitable version of Java, configure Jenkins to use that Java runtime.
+The most straightforward way is to configure that version of Java as the default version, at the operating system (OS) level:
+
+Debian:: `update-alternatives --config java`
+Red Hat:: `alternatives --config java`
+SUSE:: `update-alternatives --config java`
+
+Alternatively, users who do not wish to change the default version of Java can customize the `JAVA_HOME` or `JENKINS_JAVA_CMD` environment variable as part of the Jenkins `systemd(1)` service unit.
+Refer to the link:/doc/book/system-administration/systemd-services/[Managing systemd services] documentation for more information.
+
+If you are using the Environment Injector plugin and receive a `WARNING: An illegal reflective access operation has occurred` message, there are two workarounds for affected users:
+
+If you only need to update an existing environment variable (such as PATH), but do not need to add or remove environment variables, upgrade to link:https://github.com/jenkinsci/envinject-plugin/releases/tag/2.919.v009a_a_1067cd0[version 2.919.v009a_a_1067cd0] of the plugin:envinject[Environment Injector plugin].
+
+If you need to add (set) or remove (unset) environment variables, consider unchecking *Prepare jobs environment* or *Unset System Environment Variables* in the plugin:envinject[Environment Injector plugin], to reduce or eliminate usage of this plugin..
+Instead, implement by starting the agent process (the process started by running java -jar agent.jar […]) in the desired environment (clearing the environment and defining FOO with env - FOO=BAR java -jar agent.jar […]) in your shell.
+Mutating environment variables in a Unix process can be problematic, so it is recommended that you start the process with the desired environment, rather than changing the environment later.
+Changing the environment after a Unix process has started often results in race conditions, and the Environment Injector plugin is no exception.
+
+If you need to add (set) or remove (unset) environment variables and must do this using the plugin:envinject[Environment Injector] plugin, then specify the --add-opens JVM option for your agent:
+
+For outbound agents that connect via SSH, you must specify the JVM options on the agent configuration page:
+
+image::/images/post-images/2024/10/jvm-options-ssh.png[Specifying the JVM options for your agent that connects via SSH.]
+
+For inbound agents, you must also add the argument to the JVM on the agent configuration page.
+For example:
+[source,bash]
+----
+java --add-opens java.base/java.lang=ALL-UNNAMED --add-
+opens=java.base/java.lang.reflect=ALL-UNNAMED -jar agent.jar -url
+http://localhost:9090/ -secret <secret> -name inbound -workDir <workdir>
+----
+
+==== Upgrade Spring Security, Spring Framework, and servlet containers
+
+In addition to Java 17, 2.479.1 includes upgrades to Spring Security 6, Spring Framework 6, and Jakarta EE 9.
+When upgrading your Jenkins controller and agents, you must also ensure that all plugins have been updated accordingly.
+Prior to upgrading Jenkins, make sure that all plugins have been brought up to date as much as possible.
+After completing the Jenkins upgrade, update your plugins once more to ensure that they are in line with the latest LTS build.
+
+Users of the LDAP plugin **must** upgrade it to link:https://plugins.jenkins.io/ldap/releases/#version_733.vd3700c27b_043[version 733.vd3700c27b_043] in tandem with upgrading Jenkins core.
+Users of the Reverse Proxy Auth plugin **must** upgrade it to link:https://plugins.jenkins.io/reverse-proxy-auth-plugin/releases/#version_1.8.0[version 1.8.0] in tandem with upgrading Jenkins core and must also upgrade the Mailer plugin to link:https://updates.jenkins.io/download/plugins/mailer/489.vd4b_25144138f/mailer.hpi[version 489.vd4b_25144138f].
+Users of the CAS plugin **must** upgrade it to link:https://plugins.jenkins.io/cas-plugin/releases/#version_1.7.0[version 1.7.0] in tandem with upgrading Jenkins core.
+Users of the Windows Negotiate SSO plugin **must** upgrade it to link:https://plugins.jenkins.io/NegotiateSSO/releases/#version_136.vda_2b_6a_744b_d8[version 136.vda_2b_6a_744b_d8] in tandem with upgrading Jenkins core.
+Users of third-party servlet containers **must** upgrade the servlet container to an EE 9 version in accordance with the link:https://www.jenkins.io/doc/book/platform-information/support-policy-servlet-containers/[Jenkins Servlet Container Support Policy].
+
+To upgrade the LDAP plugin, follow these steps:
+
+. Stop the Jenkins service with `systemctl stop jenkins` on Linux or similar commands on other operating systems.
+. Download the LDAP plugin from the link:https://updates.jenkins.io/latest/ldap.hpi[Jenkins update center].
+. Move ldap.hpi into $JENKINS_HOME/plugins/ldap.jpi and set the correct ownership and permissions.
+. Start the Jenkins service with `systemctl start jenkins` or similar commands on other operating systems.
+
+To upgrade the Reverse Proxy Auth plugin, follow these steps:
+
+. Stop the Jenkins service with `systemctl stop jenkins` on Linux or similar commands on other operating systems.
+. Download the Reverse Proxy Auth plugin from the link:https://updates.jenkins.io/download/plugins/reverse-proxy-auth-plugin/1.8.0/reverse-proxy-auth-plugin.hpi[Jenkins update center].
+. Move reverse-proxy-auth-plugin.hpi into $JENKINS_HOME/plugins/reverse-proxy-auth-plugin.jpi and set the correct ownership and permissions.
+. Download the Mailer plugin from the link:https://updates.jenkins.io/download/plugins/mailer/489.vd4b_25144138f/mailer.hpi[Jenkins update center].
+. Move mailer.hpi into $JENKINS_HOME/plugins/mailer.jpi and set the correct ownership and permissions.
+. Start the Jenkins service with `systemctl start jenkins` or similar commands on other operating systems.
+
+To upgrade the CAS plugin, follow these steps:
+
+. Stop the Jenkins service with `systemctl stop jenkins` on Linux or similar commands on other operating systems.
+. Download the CAS plugin from the link:https://updates.jenkins.io/download/plugins/cas-plugin/1.7.0/cas-plugin.hpi[Jenkins update center].
+. Move cas-plugin.hpi into $JENKINS_HOME/plugins/cas-plugin.jpi and set the correct ownership and permissions.
+. Start the Jenkins service with `systemctl start jenkins` or similar commands on other operating systems.
+
+To upgrade the Windows Negotiate SSO plugin, follow these steps:
+
+. Stop the Jenkins service with `systemctl stop jenkins` on Linux or similar commands on other operating systems.
+. Download the Windows Negotiate SSO plugin from the link:https://updates.jenkins.io/download/plugins/NegotiateSSO/136.vda_2b_6a_744b_d8/NegotiateSSO.hpi[Jenkins update center].
+. Move NegotiateSSO.hpi into $JENKINS_HOME/plugins/NegotiateSSO.jpi and set the correct ownership and permissions.
+. Start the Jenkins service with `systemctl start jenkins` or similar commands on other operating systems.
+
+// Intentionally not describing servlet container upgrade. Is that okay?
+
+==== Remove Windows escape hatch
+
+The `hudson.model.DirectoryBrowserSupport.allowAbsolutePath` system property that allows the Windows path traversal vulnerability escape hatch has been removed.
+Users that rely on it must adapt their usage to no longer require the Windows path traversal vulnerability.
+No other workaround is planned.
+Refer to link:https://www.jenkins.io/security/advisory/2021-10-06/#SECURITY-2481[SECURITY-2481] for details.
+
+==== Increase minimum required Remoting version
+
+The minimum required Remoting version has been updated to link:https://github.com/jenkinsci/remoting/releases/tag/3107.v665000b_51092[3107.v665000b_51092].
+When an agent with a Remoting version older than 3107.v665000b_51092 connects to the Jenkins controller, the agent connection is rejected.
+Ensure that all agents are running a recent version of Remoting prior to upgrading.
+Agents with unsupported Remoting versions can be allowed to connect to the controller by setting the `hudson.slaves.SlaveComputer.allowUnsupportedRemotingVersions` system property to `true`.

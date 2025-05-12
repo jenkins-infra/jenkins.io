@@ -19,7 +19,12 @@ class ChangelogReleases
         page = site.engine.load_page(entry_template)
         page.output_path = "/#{@changelog_path}/#{changelog_entry.version}/index.html"
         page.release = changelog_entry
+        page.type = @limit_version_key
         page.title = page.title + " for " + changelog_entry.version
+        page.backlink = {
+          label: "Back to changelog",
+          url: @limit_version_key === "stable" ? "/changelog-stable/" : "/changelog/"
+        }
         page.uneditable = true
         site.pages << page
       end

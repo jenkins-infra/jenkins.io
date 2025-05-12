@@ -15,26 +15,19 @@ endif::[]
 = Pipeline as Code
 
 
-_Pipeline as Code_ describes a set of features that allow Jenkins users to
-define pipelined job processes with code, stored and versioned in a source
-repository.  These features allow Jenkins to discover, manage, and run jobs for
-multiple source repositories and branches -- eliminating the need for manual job
-creation and management.
+_Pipeline as Code_ describes a set of features that allow Jenkins users to define pipelined job processes with code, stored and versioned in a source repository.
+These features allow Jenkins to discover, manage, and run jobs for multiple source repositories and branches -- eliminating the need for manual job creation and management.
 
-To use _Pipeline as Code_, projects must contain a file named `Jenkinsfile` in
-the repository root, which contains a "Pipeline script."
+To use _Pipeline as Code_, projects must contain a file named `Jenkinsfile` in the repository root, which contains a "Pipeline script."
 
 Additionally, one of the enabling jobs needs to be configured in Jenkins:
 
 * _Multibranch Pipeline_: build multiple branches of a _single_ repository automatically
-* _Organization Folders_: scan a *GitHub Organization* or *Bitbucket Team* to
-  discover an organization's repositories, automatically creating managed
-  _Multibranch Pipeline_ jobs for them
+* _Organization Folders_: scan a *GitHub Organization* or *Bitbucket Team* to discover an organization's repositories, automatically creating managed _Multibranch Pipeline_ jobs for them
 * _Pipeline_: Regular Pipeline jobs have an option when specifying the pipeline to "Use SCM".
 
 
-Fundamentally, an organization's repositories can be viewed as a hierarchy,
-where each repository may have child elements of branches and pull requests.
+Fundamentally, an organization's repositories can be viewed as a hierarchy, where each repository may have child elements of branches and pull requests.
 
 .Example Repository Structure
 [source]
@@ -56,96 +49,68 @@ plugin:cloudbees-folder[Folders]
 could be used to create this hierarchy in Jenkins by organizing repositories
 into folders containing jobs for each individual branch.
 
-_Multibranch Pipeline_ and _Organization Folders_ eliminate the manual process
-by detecting branches and repositories, respectively, and creating appropriate
-folders with jobs in Jenkins automatically.
-
+_Multibranch Pipeline_ and _Organization Folders_ eliminate the manual process by detecting branches and repositories, respectively, and creating appropriate folders with jobs in Jenkins automatically.
 
 == The Jenkinsfile
 
-Presence of the `Jenkinsfile` in the root of a repository makes it eligible for
-Jenkins to automatically manage and execute jobs based on repository branches.
+Presence of the `Jenkinsfile` in the root of a repository makes it eligible for Jenkins to automatically manage and execute jobs based on repository branches.
 
-The `Jenkinsfile` should contain a Pipeline script, specifying the steps to
-execute the job.  The script has all the power of Pipeline available, from
-something as simple as invoking a Maven builder, to a series of interdependent
-steps, which have coordinated parallel execution with deployment and validation
-phases.
+The `Jenkinsfile` should contain a Pipeline script, specifying the steps to execute the job.
+The script has all the power of Pipeline available, from something as simple as invoking a Maven builder, to a series of interdependent steps, which have coordinated parallel execution with deployment and validation phases.
 
-A simple way to get started with Pipeline is to use the _Snippet Generator_
-available in the configuration screen for a Jenkins _Pipeline_ job.  Using the
-_Snippet Generator_, you can create a Pipeline script as you might through the
-dropdowns in other Jenkins jobs.
+A simple way to get started with Pipeline is to use the _Snippet Generator_ available in the configuration screen for a Jenkins _Pipeline_ job.
+Using the _Snippet Generator_, you can create a Pipeline script as you might through the dropdowns in other Jenkins jobs.
 
+[[folder-computation]]
+== Multibranch Pipeline and Organization Folder
 
-== Folder Computation
+*Multibranch Pipeline* projects and *GitHub Organization Folders* extend Jenkins' folder functionality by introducing computed folders, which automatically manage their contents by dynamically creating and updating child items.
+These features require the plugin:github-branch-source[*GitHub Branch Source*] plugin to be installed, as it provides the necessary functionality for managing branches and repositories.
+ 
+* **Multibranch Pipeline Projects:** The computed folder functionality includes **Scan Multibranch Pipeline Log** and **Scan Multibranch Pipeline Now** options, which dynamically manage pipeline items. 
+These options allow Jenkins to scan repositories, generate child items for eligible branches, and automatically update the pipeline list based on changes.
 
-_Multibranch Pipeline_ projects and _Organization Folders_ extend the existing
-folder functionality by introducing 'computed' folders.  Computed folders
-automatically run a process to manage the folder contents.  This computation, in
-the case of _Multibranch Pipeline_ projects, creates child items for each
-eligible branch within the child.  For _Organization Folders_, computation
-populates child items for repositories as individual _Multibranch Pipelines_.
-
-Folder computation may happen automatically via webhook callbacks, as branches
-and repositories are created or removed.  Computation may also be triggered by
-the _Build Trigger_ defined in the configuration, which will automatically run a
-computation task after a period of inactivity (this defaults to run after one
-day).
+* **GitHub Organization Projects:** The computed folder functionality includes **Scan Organization Log** and **Scan Organization Now** options. 
+This functionality populates repositories as individual Multibranch Pipelines and provides insights into branch and repository scans.
+ 
+Folder scans can be automatically triggered through webhook callbacks whenever branches or repositories are created or removed. 
+Scans can also be configured to run periodically via the **Build Triggers** settings, which default to a re-scan after one day of inactivity.
+ 
+[role="image-border"]
+image::github-organization-build-triggers-settings.png[alt = "Configuration page for the 'CloudBeersInc' project, of the GitHub Organization Folder type. In the 'Scan Organization Triggers' section the 'Periodically if not otherwise run' option is checked and the Interval is set to '1 day'.", width=80%]
+ 
+The log from the last attempt to scan the organization is available in the **Scan Organization Log**. 
+If the scan doesn’t produce the expected set of repositories, the log may contain useful information to help diagnose the issue.
 
 [role="image-border"]
-image::folder-computation-build-trigger-schedule.png[scaledwidth="75%"]
-
-Information about the last execution of the folder computation is available in
-the *Folder Computation* section.
-
-[role="image-border"]
-image::folder-computation-main.png[scaledwidth="75%",width="75%"]
-
-The log from the last attempt to compute the folder is available from this page.
-If folder computation doesn't result in an expected set of repositories, the log
-may have useful information to diagnose the problem.
-
-[role="image-border"]
-image::folder-computation-log.png[scaledwidth="75%",width="75%"]
+image::scan-organization-log.png[alt = "The 'Scan Organization Log' page in Jenkins for the 'CloudBeersInc' project, of the GitHub Organization Folder type, displays the scan's progress and results. The left panel contains various navigation options, with the 'Scan Organization Log' section selected. The log indicates that the scan was initiated by the user admin along with Time and Date information. It provides details about the scan's progress, including consulting GitHub for the repository CloudBeersInc/community-docs and processing the main branch.", scaledwidth=75%,width=80%]
 
 
 == Configuration
 
-Both _Multibranch Pipeline_ projects and _Organization Folders_ have
-configuration options to allow precise selection of repositories.  These
-features also allow selection of two types of credentials to use when connecting
-to the remote systems:
+Both _Multibranch Pipeline_ projects and _Organization Folders_ have configuration options to allow precise selection of repositories.
+These features also allow selection of two types of credentials to use when connecting to the remote systems:
 
 * _scan_ credentials, which are used for accessing the GitHub or Bitbucket APIs
-* _checkout_ credentials, which are used when the repository is cloned from the
-  remote system; it may be useful to choose an SSH key or _"- anonymous -"_,
-  which uses the default credentials configured for the OS user
+* _checkout_ credentials, which are used when the repository is cloned from the remote system; it may be useful to choose an SSH key or _"- anonymous -"_, which uses the default credentials configured for the OS user
 
 IMPORTANT: If you are using a _GitHub Organization_, you should link:https://github.com/settings/tokens/new?scopes=repo,public_repo,admin:repo_hook,admin:org_hook&amp;description=Jenkins+Access[create a GitHub access token] to use to avoid storing your password in Jenkins and prevent any issues when using the GitHub API.
 When using a GitHub access token, you must use standard _Username with password_ credentials, where the username is the same as your GitHub username and the password is your access token.
 
 === Multibranch Pipeline Projects
 
-_Multibranch Pipeline_ projects are one of the fundamental enabling features for
-_Pipeline as Code_.  Changes to the build or deployment procedure can evolve
-with project requirements and the job always reflects the current state of the
-project.  It also allows you to configure different jobs for different branches
-of the same project, or to forgo a job if appropriate.  The `Jenkinsfile` in the
-root directory of a branch or pull request identifies a multibranch project.
+_Multibranch Pipeline_ projects are one of the fundamental enabling features for _Pipeline as Code_.
+Changes to the build or deployment procedure can evolve with project requirements and the job always reflects the current state of the project.
+It also allows you to configure different jobs for different branches of the same project, or to forgo a job if appropriate.
+The `Jenkinsfile` in the root directory of a branch or pull request identifies a multibranch project.
 
-NOTE:  _Multibranch Pipeline_ projects expose the name of the branch being built with
-the `BRANCH_NAME` environment variable and provide a special `checkout scm`
-Pipeline command, which is guaranteed to check out the specific commit that the
-Jenkinsfile originated.  If the Jenkinsfile needs to check out the repository
-for any reason, make sure to use `checkout scm`, as it also accounts for
-alternate origin repositories to handle things like pull requests.
+NOTE: _Multibranch Pipeline_ projects expose the name of the branch being built with the `BRANCH_NAME` environment variable and provide a special `checkout scm` Pipeline command, which is guaranteed to check out the specific commit that the Jenkinsfile originated.
+If the Jenkinsfile needs to check out the repository for any reason, make sure to use `checkout scm`, as it also accounts for alternate origin repositories to handle things like pull requests.
 
 To create a _Multibranch Pipeline_, go to: _New Item -> Multibranch Pipeline_.
-Configure the SCM source as appropriate.  There are options for many different
-types of repositories and services including Git, Mercurial, Bitbucket, and
-GitHub.  If using GitHub, for example, click *Add source*, select GitHub and
-configure the appropriate owner, scan credentials, and repository.
+Configure the SCM source as appropriate.
+There are options for many different types of repositories and services including Git, Mercurial, Bitbucket, and GitHub.
+If using GitHub, for example, click *Add source*, select GitHub and configure the appropriate owner, scan credentials, and repository.
 
 Other options available to _Multibranch Pipeline_ projects are:
 
@@ -155,8 +120,7 @@ Other options available to _Multibranch Pipeline_ projects are:
 * *Exclude branches* - a regular expression to specify branches to exclude; note that this will take precedence over includes
 * *Property strategy* - if necessary, define custom properties for each branch
 
-After configuring these items and saving the configuration, Jenkins will
-automatically scan the repository and import appropriate branches.
+After configuring these items and saving the configuration, Jenkins will automatically scan the repository and import appropriate branches.
 
 === Organization Folders
 
@@ -165,8 +129,7 @@ Particularly, if your organization utilizes _GitHub Organizations_ or _Bitbucket
 with a `Jenkinsfile`, Jenkins will automatically detect it and create a _Multibranch Pipeline_ project for it.
 This alleviates the need for administrators or developers to manually create projects for these new repositories.
 
-To create an _Organization Folder_ in Jenkins, go to: *New Item -> GitHub Organization* or *New Item -> Bitbucket Team* and follow the configuration steps for each item,
-making sure to specify appropriate _Scan Credentials_ and a specific *owner* for the GitHub Organization or Bitbucket Team name, respectively.
+To create an _Organization Folder_ in Jenkins, go to: *New Item -> Organization Folder* or *New Item -> Bitbucket Team* and follow the configuration steps for each item, making sure to specify appropriate _Scan Credentials_ and a specific *owner* for the GitHub Organization or Bitbucket Team name, respectively.
 
 Other options available are:
 
@@ -185,54 +148,53 @@ If your organization requires these items remain available for a longer period o
 It may be useful to keep items in order to examine build results of a branch after it's been removed, for example.
 
 [role="image-border"]
-image::orphaned-item-strategy.png[scaledwidth="75%"]
+image::orphaned-item-strategy.png[alt = "Orphaned Item Strategy section in Jenkins configuration page for organization folder, showing the 'discard old items' option as checked, with fields for 'Days to keep old items' and 'Max # of old items to keep', both with empty input boxes. Checkbox to 'Abort builds' is unchecked.", scaledwidth="75%", width=80%]
 
 === Icon and View Strategy
 
-You may also configure an icon to use for the folder display.
+You can also configure a custom icon for folder display by installing the plugin:custom-folder-icon[*Custom Folder Icon*] plugin.
 For example, it might be useful to display an aggregate health of the child builds.
 Alternately, you might reference the same icon you use in your GitHub organization account.
 
 [role="image-border"]
-image::folder-icon.png[scaledwidth="75%"]
+image::folder-icon.png[alt = "Appearance section in Jenkins configuration page for organization folder, showing icon field with 'Custom Folder Icon' option selected. This section includes an option to choose an image file for the icon, along with an Apply button to save your changes.", scaledwidth="75%", width=80%]
 
 
 == Example
 
-To demonstrate using an Organization Folder to manage repositories, we'll use
-the fictitious organization: CloudBeers, Inc..
+To demonstrate using an Organization Folder to manage repositories, we'll use the fictitious organization: CloudBeers, Inc..
 
 Go to *New Item*.
-Enter 'cloudbeers' for the item name.
-Select *GitHub Organization* and click *OK*.
+Enter 'CloudBeersInc' for the item name.
+Select *Organization Folder* and click *OK*.
 
 [role="image-border"]
-image::screenshot1.png[scaledwidth="75%"]
+image::organization-folder-creation.png[alt = "Jenkins New Item page with item name as 'CloudBeersInc' and 'Organization Folder' option selected from the options for item type given as follows: Freestyle project, Pipeline, Multi-configuration project, Folder, Multi-branch Pipeline and Organization Folder.", scaledwidth="75%"]
 
 Optionally, enter a better descriptive name for the _Description_, such as 'CloudBeers GitHub'.
 In the _Repository Sources_ section, complete the section for "GitHub Organization".
-Make sure the *owner* matches the GitHub Organization name exactly, in our case it must be: _cloudbeers_.
+Make sure the *owner* matches the GitHub Organization name exactly, in our case it must be: _CloudBeersInc_.
 This defaults to the same value that was entered for the item name in the first step.
-Next, select or add new "Scan credentials" - we'll enter our GitHub username and access token as the password.
+Next, select or add new *Credentials* - we'll enter our GitHub username and access token as the password.
 
 [role="image-border"]
-image::screenshot2.png[scaledwidth="75%"]
+image::github-configuration-for-organization-folder.png[alt = "Projects section in the Jenkins configuration page for a GitHub Organization repository source includes fields to specify the API endpoint, credentials, and repository owner, which is set to 'CloudBeersInc'. Additionally, there are options to enable avatar display and define behaviors such as discovering branches, pull requests from origin, and pull requests from forks. Each behavior has a strategy dropdown for specific configurations, along with options for setting trust levels for pull requests from forks.", scaledwidth="75%", width=80%]
 
 After saving, the "Folder Computation" will run to scan for eligible repositories, followed by multibranch builds.
 
 [role="image-border"]
-image::screenshot3.png[scaledwidth="75%"]
+image::organization-repositories-scan.png[alt = "Jenkins Build Queue and Build Executor Status view. The Build Queue section shows 'No builds in the queue'. The Build Executor Status section displays ongoing builds under the 'Built-In Node' with progress indicators. Three jobs are actively running: 'PR-demo repository (main branch) from the CloudBeersInc organization', 'community-docs repository (main branch) from the CloudBeersInc organization', and 'multibranch-demo repository (main branch) from the CloudBeersInc organization'. Each has a blue progress bar. Below, the 'docker-ssh-jenkins-agent' is listed as idle with a status of '1 Idle' at the bottom.", scaledwidth="75%"]
 
 Refresh the page after the job runs to ensure the view of repositories has been updated.
 
 [role="image-border"]
-image::screenshot4.png[scaledwidth="75%"]
+image::organization-folder-repositories.png[alt = "Jenkins dashboard view for the 'CloudBeersInc' organization. The status section shows the repository count as 'Repositories (3)' with a table listing three repositories: 'community-docs', 'multibranch-demo', and 'PR-demo'. Each repository entry includes columns labeled 'S' for status of last build, 'W' for weather status of recent aggregated builds, 'Name', and 'Description'. The 'multibranch-demo' repository contains a description stating, 'Simple demonstration of how to use multibranch pipelines'. Icon size options (S, M, L) are available below the table.", scaledwidth="75%"]
 
-A this point, you're finished with basic project configuration and can now explore your imported repositories.
+At this point, you're finished with basic project configuration and can now explore your imported repositories.
 You can also investigate the results of the jobs run as part of the initial _Folder Computation_.
 
 [role="image-border"]
-image::screenshot5.png[scaledwidth="75%"]
+image::PR-demo-branches.png[alt = "Jenkins dashboard view for a job named 'PR-demo' under the 'CloudBeersInc' organization folder. The page lists four branches with the names: main, stephenc-patch-1, stephenc-patch-2, and stephenc-patch-3. The main and stephenc-patch-1 branches show successful builds with a green check mark and last success time of 2 min 39 sec and 2 min 34 sec respectively. The stephenc-patch-2 branch has an unstable status indicated by an orange exclamation mark with last success time of 2 min 34 sec, while the stephenc-patch-3 branch has a failed status indicated by a red cross mark.", scaledwidth="75%"]
 
 
 == Continuous Delivery with Pipeline
@@ -241,75 +203,52 @@ image::screenshot5.png[scaledwidth="75%"]
 TODO: This section is remedial and doesn't flow properly. Suggest rewrite
 ////
 Continuous delivery allows organizations to deliver software with lower risk.
-The path to continuous delivery starts by modeling the software delivery
-pipeline used within the organization and then focusing on the automation of it
-all. Early, directed feedback, enabled by pipeline automation enables software
-delivery more quickly over traditional methods of delivery.
+The path to continuous delivery starts by modeling the software delivery pipeline used within the organization and then focusing on the automation of it all.
+Early, directed feedback, enabled by pipeline automation enables software delivery more quickly over traditional methods of delivery.
 
-Jenkins is the Swiss army knife in the software delivery toolchain. Developers
-and operations (DevOps) personnel have different mindsets and use different
-tools to get their respective jobs done. Since Jenkins integrates with a huge
-variety of toolsets, it serves as the intersection point between development and
-operations teams.
+Jenkins is the Swiss army knife in the software delivery toolchain.
+Developers and operations (DevOps) personnel have different mindsets and use different tools to get their respective jobs done.
+Since Jenkins integrates with a huge variety of toolsets, it serves as the intersection point between development and operations teams.
 
-Many organizations have been orchestrating pipelines with existing Jenkins
-plugins for several years. As their automation sophistication and their own
-Jenkins experience increases, organizations inevitably want to move beyond
-simple pipelines and create complex flows specific to their delivery process.
+Many organizations have been orchestrating pipelines with existing Jenkins plugins for several years.
+As their automation sophistication and their own Jenkins experience increases, organizations inevitably want to move beyond simple pipelines and create complex flows specific to their delivery process.
 
-These Jenkins users require a feature that treats complex pipelines as a
-first-class object, and so the plugin:workflow-aggregator[Pipeline plugin]
-was developed .
+These Jenkins users require a feature that treats complex pipelines as a first-class object, and so the plugin:workflow-aggregator[Pipeline plugin] was developed.
 
 === Pre-requisites
 
-Continuous delivery is a process - rather than a tool - and requires a mindset
-and culture that must percolate from the top-down within an organization. Once
-the organization has bought into the philosophy, the next and most difficult
-part is mapping the flow of software as it makes its way from development to
-production.
+Continuous delivery is a process - rather than a tool - and requires a mindset and culture that must percolate from the top-down within an organization.
+Once the organization has bought into the philosophy, the next and most difficult part is mapping the flow of software as it makes its way from development to production.
 
-The root of such a pipeline will always be an orchestration tool like a Jenkins,
-but there are some key requirements that such an integral part of the pipeline
-must satisfy before it can be tasked with enterprise-critical processes:
+The root of such a pipeline will always be an orchestration tool like a Jenkins, but there are some key requirements that such an integral part of the pipeline must satisfy before it can be tasked with enterprise-critical processes:
 
-* *Zero or low downtime disaster recovery*: A commit, just as a mythical hero,
-  encounters harder and longer challenges as it makes its way down the pipeline.
-  It is not unusual to see pipeline executions that last days. A hardware or a
-  Jenkins failure on day six of a seven-day pipeline has serious consequences
-  for on-time delivery of a product.
-* *Audit runs and debug ability*: Build managers like to see the exact execution
-  flow through the pipeline, so they can easily debug issues.
+* *Zero or low downtime disaster recovery*: A commit, just as a mythical hero, encounters harder and longer challenges as it makes its way down the pipeline.
+  It is not unusual to see pipeline executions that last days.
+  A hardware or a Jenkins failure on day six of a seven-day pipeline has serious consequences for on-time delivery of a product.
+* *Audit runs and debug ability*: Build managers like to see the exact execution flow through the pipeline, so they can easily debug issues.
 
 
 To ensure a tool can scale with an organization and suitably automate existing delivery pipelines without changing them, the tool should also support:
 
-* *Complex pipelines*: Delivery pipelines are typically more complex than
-  canonical examples (linear process: Dev->Test->Deploy, with a couple of
-  operations at each stage). Build managers want constructs that help
-  parallelize parts of the flow, run loops, perform retries and so forth. Stated
-  differently, build managers want programming constructs to define pipelines.
+* *Complex pipelines*: Delivery pipelines are typically more complex than canonical examples (linear process: Dev->Test->Deploy, with a couple of operations at each stage).
+  Build managers want constructs that help parallelize parts of the flow, run loops, perform retries and so forth.
+  Stated differently, build managers want programming constructs to define pipelines.
 
-* *Manual interventions*: Pipelines cross intra-organizational boundaries
-  necessitating manual handoffs and interventions. Build managers seek
-  capabilities such as being able to pause a pipeline for a human to intervene
-  and make manual decisions.
+* *Manual interventions*: Pipelines cross intra-organizational boundaries necessitating manual handoffs and interventions.
+  Build managers seek capabilities such as being able to pause a pipeline for a human to intervene and make manual decisions.
 
-The Pipeline plugin allows users to create such a pipeline through a new job
-type called Pipeline. The flow definition is captured in a Groovy script, thus
-adding control flow capabilities such as loops, forks and retries. Pipeline
-allows for stages with the option to set concurrencies, preventing multiple
-builds of the same pipeline from trying to access the same resource at the same
-time.
+The Pipeline plugin allows users to create such a pipeline through a new job type called Pipeline.
+The flow definition is captured in a Groovy script, thus adding control flow capabilities such as loops, forks and retries.
+Pipeline allows for stages with the option to set concurrencies, preventing multiple builds of the same pipeline from trying to access the same resource at the same time.
 
 === Concepts
 
 .Pipeline Job Type
 
-There is just one job to capture the entire software delivery pipeline in an
-organization. Of course, you can still connect two Pipeline job types together
-if you want. A Pipeline job type uses a Groovy-based DSL for job definitions.
-    The DSL affords the advantage of defining jobs programmatically:
+There is just one job to capture the entire software delivery pipeline in an organization.
+Of course, you can still connect two Pipeline job types together if you want.
+A Pipeline job type uses a Groovy-based DSL for job definitions.
+The DSL affords the advantage of defining jobs programmatically:
 
 
 [source, groovy]
@@ -324,31 +263,24 @@ node('linux'){
 
 .Stages
 
-Intra-organizational (or conceptual) boundaries are captured through a primitive
-called "stages." A deployment pipeline consists of various stages, where each
-subsequent stage builds on the previous one. The idea is to spend as few
-resources as possible early in the pipeline and find obvious issues, rather than
-spend a lot of computing resources for something that is ultimately discovered
-to be broken.
+Intra-organizational (or conceptual) boundaries are captured through a primitive called "stages."
+A deployment pipeline consists of various stages, where each subsequent stage builds on the previous one.
+The idea is to spend as few resources as possible early in the pipeline and find obvious issues, rather than spend a lot of computing resources for something that is ultimately discovered to be broken.
 
 [[throttled-concurrent]]
 .Throttled stage concurrency with Pipeline
-image::stage-concurrency.png[scaledwidth="90%"]
+image::stage-concurrency.png[alt = "A graph depicting time on the x-axis and commits on the y-axis. Three red dots represent individual commits, each having three stages: Build, Selenium Test, and Deploy. The first commit and third commit have Deploy stages, while the second commit lacks a Deploy stage. A downward dotted line connects the Deploy stage of the first commit to the Deploy stage of the third commit, which is positioned slightly ahead on the x-axis.", scaledwidth="90%"]
 
-Consider a simple pipeline with three stages. A naive implementation of this
-pipeline can sequentially trigger each stage on every commit. Thus, the
-deployment step is triggered immediately after the Selenium test steps are
-complete. However, this would mean that the deployment from commit two overrides
-the last deployment in motion from commit one. The right approach is for commits
-two and three to wait for the deployment from commit one to complete,
-consolidate all the changes that have happened since commit one and trigger the
-deployment. If there is an issue, developers can easily figure out if the issue
-was introduced in commit two or commit three.
+Consider a simple pipeline with three stages.
+A naive implementation of this pipeline can sequentially trigger each stage on every commit.
+Thus, the deployment step is triggered immediately after the Selenium test steps are complete.
+However, this would mean that the deployment from commit two overrides the last deployment in motion from commit one.
+The right approach is for commits two and three to wait for the deployment from commit one to complete, consolidate all the changes that have happened since commit one and trigger the deployment.
+If there is an issue, developers can easily figure out if the issue was introduced in commit two or commit three.
 
-Pipeline provides this functionality by enhancing the stage primitive.  For
-example, a stage can have a concurrency level of one defined to indicate that at
-any point only one thread should be running through the stage. This achieves the
-desired state of running a deployment as fast as it should run.
+Pipeline provides this functionality by enhancing the stage primitive.
+For example, a stage can have a concurrency level of one defined to indicate that at any point only one thread should be running through the stage.
+This achieves the desired state of running a deployment as fast as it should run.
 
 [source, groovy]
 ----
@@ -362,12 +294,10 @@ desired state of running a deployment as fast as it should run.
 
 .Gates and Approvals
 
-Continuous delivery means having binaries in a release ready state whereas
-continuous deployment means pushing the binaries to production - or automated
-deployments. Although continuous deployment is a sexy term and a desired state,
-in reality organizations still want a human to give the final approval before
-bits are pushed to production.  This is captured through the "input" primitive
-in Pipeline. The input step can wait indefinitely for a human to intervene.
+Continuous delivery means having binaries in a release ready state whereas continuous deployment means pushing the binaries to production - or automated deployments.
+Although continuous deployment is a sexy term and a desired state, in reality organizations still want a human to give the final approval before bits are pushed to production.
+This is captured through the "input" primitive in Pipeline.
+The input step can wait indefinitely for a human to intervene.
 
 [source, groovy]
 ----
@@ -376,15 +306,12 @@ input message: "Does http://localhost:8888/staging/ look good?"
 
 .Deployment of Artifacts to Staging/Production
 
-Deployment of binaries is the last mile in a pipeline. The numerous servers
-employed within the organization and available in the market make it difficult
-to employ a uniform deployment step. Today, these are solved by third-party
-deployer products whose job it is to focus on deployment of a particular stack
-to a data center. Teams can also write their own extensions to hook into the
-Pipeline job type and make the deployment easier.
+Deployment of binaries is the last mile in a pipeline.
+The numerous servers employed within the organization and available in the market make it difficult to employ a uniform deployment step.
+Today, these are solved by third-party deployer products whose job it is to focus on deployment of a particular stack to a data center.
+Teams can also write their own extensions to hook into the Pipeline job type and make the deployment easier.
 
-Meanwhile, job creators can write a plain old Groovy function to define any
-custom steps that can deploy (or undeploy) artifacts from production.
+Meanwhile, job creators can write a plain old Groovy function to define any custom steps that can deploy (or undeploy) artifacts from production.
 
 [source, groovy]
 ----
@@ -395,69 +322,48 @@ def deploy(war, id) {
 
 .Restartable flows
 
-All Pipelines are resumable, so if Jenkins needs to be restarted while a flow is
-running, it should resume at the same point in its execution after Jenkins
-starts back up. Similarly, if a flow is running a lengthy sh or bat step when an
-agent unexpectedly disconnects, no progress should be lost when connectivity is
-restored.
+All Pipelines are resumable, so if Jenkins needs to be restarted while a flow is running, it should resume at the same point in its execution after Jenkins starts back up.
+Similarly, if a flow is running a lengthy sh or bat step when an agent unexpectedly disconnects, no progress should be lost when connectivity is restored.
 
-There are some cases when a flow build will have done a great deal of work and
-proceeded to a point where a transient error occurred: one which does not
-reflect the inputs to this build, such as source code changes. For example,
-after completing a lengthy build and test of a software component, final
-deployment to a server might fail because of network problems.
+There are some cases when a flow build will have done a great deal of work and proceeded to a point where a transient error occurred: one which does not reflect the inputs to this build, such as source code changes.
+For example, after completing a lengthy build and test of a software component, final deployment to a server might fail because of network problems.
 
 
 .Pipeline Stage View
 
-When you have complex builds pipelines, it is useful to see the progress of each
-stage and to see where build failures are occurring in the pipeline. This can
-enable users to debug which tests are failing at which stage or if there are
-other problems in their pipeline. Many organization also want to make their
-pipelines user-friendly for non-developers without having to develop a homegrown
-UI, which can prove to be a lengthy and ongoing development effort.
+When you have complex builds pipelines, it is useful to see the progress of each stage and to see where build failures are occurring in the pipeline.
+This can enable users to debug which tests are failing at which stage or if there are other problems in their pipeline. 
+Many organization also want to make their pipelines user-friendly for non-developers without having to develop a homegrown UI, which can prove to be a lengthy and ongoing development effort.
 
-The Pipeline Stage View feature offers extended visualization of Pipeline build
-history on the index page of a flow project. This visualization also includes
-helpful metrics like average run time by stage and by build, and a user-friendly
-interface for interacting with input steps.
+The Pipeline Stage View feature offers extended visualization of Pipeline build history on the index page of a flow project.
+This visualization also includes helpful metrics like average run time by stage and by build, and a user-friendly interface for interacting with input steps.
 
 .Pipeline Stage View plugin
-image::workflow-big-responsive.png[scaledwidth="90%"]
+image::pipeline-workflow-big-responsive.png[alt = "Jenkins Stage View displaying the status of multiple pipeline stages across five builds. The stages include 'Test', 'Re-test', 'Deploy', 'Deploy Again', 'Keep Deploying', 'Final Deploy', and 'Clean Up'. Each build is timestamped and labeled (#12 to #8). Builds #8 was successful till the 'Deploy Again' stage and then Failed. Build #9 and #10 are fully successful with green cells showing their individual stage durations in milliseconds. Build #11 has failed across all stages, with red striped cells labeled 'failed' and corresponding durations. Build #12 mostly failed except for the initial 'Test' and 'Re-test' stage, which succeeded. The top row summarizes average stage times, with the full pipeline run time averaging ~523ms.", scaledwidth="90%"]
 
-The only prerequisite for this plugin is a pipeline with defined stages in the
-flow. There can be as many stages as you desired and they can be in a linear
-sequence, and the stage names will be displayed as columns in the Stage View
-interface.
+The only prerequisite for this plugin is a pipeline with defined stages in the flow.
+There can be as many stages as you desired and they can be in a linear sequence, and the stage names will be displayed as columns in the Stage View interface.
 
 ==== Artifact traceability with fingerprints
 
-Traceability is important for DevOps teams who need to be able to trace code
-from commit to deployment. It enables impact analysis by showing relationships
-between artifacts and allows for visibility into the full lifecycle of an
-artifact, from its code repository to where the artifact is eventually deployed
-in production.
+Traceability is important for DevOps teams who need to be able to trace code from commit to deployment.
+It enables impact analysis by showing relationships between artifacts and allows for visibility into the full lifecycle of an artifact, from its code repository to where the artifact is eventually deployed in production.
 
-Jenkins and the Pipeline feature support tracking versions of artifacts using
-file fingerprinting, which allows users to trace which downstream builds are
-using any given artifact. To fingerprint with Pipeline, simply add a
-"fingerprint: true" argument to any artifact archiving step. For example:
+Jenkins and the Pipeline feature support tracking versions of artifacts using file fingerprinting, which allows users to trace which downstream builds are using any given artifact.
+To fingerprint with Pipeline, simply add a "fingerprint: true" argument to any artifact archiving step. For example:
 
 [source, groovy]
 ----
 archiveArtifacts artifacts: '**', fingerprint: true
 ----
 
-will archive any WAR artifacts created in the Pipeline and fingerprint them for
-traceability. This trace log of this artifact and a list of all fingerprinted
-artifacts in a build will then be available in the left-hand menu of Jenkins:
+will archive any WAR artifacts created in the Pipeline and fingerprint them for traceability. 
+This trace log of this artifact and a list of all fingerprinted artifacts in a build will then be available in the left-hand menu of Jenkins:
 
-To find where an artifact is used and deployed to, simply follow the "more
-details" link through the artifact's name and view the entries for the artifact
-in its "Usage" list.
+To find where an artifact is used and deployed to, simply follow the "more details" link through the artifact's name and view the entries for the artifact in its "Usage" list.
 
 [[fingerprinting]]
 .Fingerprint of a WAR
-image::fingerprinting.png[scaledwidth="90%"]
+image::fingerprinting.png[alt = "A page displaying the fingerprint details of an app.war file. The section labeled 'This file has been used in the following places' identifies it as fingerprint #6, indicating that it was created or modified in the 'fingerprint' named pipeline's #6 build. The page shows the MD5 hash of the file and the duration since it was created and tracked. This information is located under the 'See Fingerprint' tab of that pipeline build.", scaledwidth="90%"]
 
 Visit the link:/doc/book/using/fingerprints/[fingerprint documentation] to learn more.

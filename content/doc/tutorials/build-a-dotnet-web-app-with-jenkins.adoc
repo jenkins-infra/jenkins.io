@@ -1,0 +1,363 @@
+---
+layout: documentation
+title: Build a .NET Web App with Jenkins
+section: doc
+---
+
+:toc:
+:toclevels: 3
+:imagesdir: ../../book/resources
+
+This tutorial shows you how to build a CI/CD pipeline in Jenkins to build, test, and deliver a simple link:https://dotnet.microsoft.com/en-us/[.NET web app].
+
+If you are unfamiliar with publishing a .NET web app or you are not sure how to prepare a web app using Jenkins, this tutorial is for you.
+
+This tutorial provides a ready-to-use web app, simple .NET API, and an integration test to ensure functionality.
+The test results are generated in a Cobertura XML report.
+
+*Duration:* This tutorial takes 30 - 40 minutes to complete, assuming you meet the below <<prerequisites,prerequisites>>.
+The exact duration will depend on the speed of your machine and whether you've already installed `docker` and `docker compose`.
+
+You can stop this tutorial at any time and continue from where you left off.
+
+include::doc/tutorials/_new_prerequisites.adoc[]
+** link:https://git-scm.com/downloads[Git], and optionally link:https://desktop.github.com/[GitHub Desktop].
+
+[[fork-sample-repository]]
+[[fork-and-clone-the-sample-repository-on-github]]
+=== Fork and clone the sample repository
+
+Get the "Weather Forecast" .NET Web API from GitHub, by forking the sample repository of the application's source code into your own GitHub account, and then cloning this fork locally.
+
+. Make sure you are signed in to your GitHub account.
+If you don't yet have a GitHub account, sign up for free at link:https://github.com/[GitHub].
+. Fork the link:https://github.com/jenkins-docs/simple-dotnet-web-app[`simple-dotnet-web-app`] on GitHub into your local GitHub account.
+If you need help, refer to the link:https://help.github.com/articles/fork-a-repo/[GitHub documentation on forking a repo] for more information.
+. Clone the forked `simple-dotnet-web-app` repository from GitHub to your machine.
+To begin this process, do either of the following, where `<your-username>` is the name of your user account on your operating system:
+** If you have the link:https://desktop.github.com/[GitHub Desktop] app installed on your machine:
+.. In GitHub, select *Code* in your forked repository, then select *Open with GitHub Desktop*.
+.. In GitHub Desktop, before selecting *Clone* in *Clone a Repository*, ensure *Local Path* for your operating system, as follows:
+*** macOS is `/Users/<your-username>/Documents/GitHub/simple-dotnet-web-app`
+*** Linux is `/home/<your-username>/GitHub/simple-dotnet-web-app`
+*** Windows is `C:\Users\<your-username>\Documents\GitHub\simple-dotnet-web-app`
+** Alternatively:
+.. Open a terminal/command line prompt and `cd` to the appropriate directory, according to your operating system:
+*** macOS - `/Users/<your-username>/Documents/GitHub/`
+*** Linux - `/home/<your-username>/GitHub/`
+*** Windows - `C:\Users\<your-username>\Documents\GitHub\` (Use a Git bash command line window, not the usual Microsoft command prompt)
+.. Run the following command to clone your forked repo, replacing `YOUR-GITHUB-ACCOUNT-NAME` with the name of your GitHub account:
++
+----
+git clone https://github.com/YOUR-GITHUB-ACCOUNT-NAME/simple-dotnet-web-app
+----
+
+=== Start your Jenkins controller
+
+1. Obtain the latest Jenkins deployment, customized for this tutorial, by cloning the link:https://github.com/jenkins-docs/quickstart-tutorials.git[quickstart-tutorials repository].
+2. After cloning, navigate to the `quickstart-tutorials` directory, and execute the command
++
+----
+docker compose --profile dotnet up -d
+----
+to run the example.
+3. Once the containers are running successfully (you can verify this with `docker compose ps`), the controller can be accessed at http://localhost:8080.
+
+If you are unable to install `docker compose` on your machine for any reason, you can still run the example in the cloud for free thanks to link:https://www.gitpod.io/[GitPod]. GitPod link:https://www.gitpod.io/pricing[is free] for 50 hours per month.
+You need to link it to your GitHub account so you can run the example in the cloud.
+Click on link:https://gitpod.io/?autostart=true#https://github.com/jenkins-docs/quickstart-tutorials[that link] to open a new browser tab with a GitPod workspace where you'll be able to start the Jenkins controller, and run the rest of the tutorial.
+
+Now, log in using the `admin` username and `admin` password.
+
+=== Create your Pipeline project in Jenkins
+
+. In Jenkins, select *New Item* under *Dashboard >* at the top left.
+. Enter your new Pipeline project name, such as `dotnet-tutorial`, in *Enter an item name*.
+. Scroll down if necessary and select *Pipeline*, then select *OK* at the end of the page.
+. (Optional) Enter a Pipeline *Description*.
+. Select *Pipeline* on the left pane.
+. Select *Definition*, and then choose the *Pipeline script from SCM* option.
+This option instructs Jenkins to obtain your Pipeline from the source control management (SCM), which is your forked Git repository.
+. Choose *Git* from the options in *SCM*.
+. Enter the URL of your repository in *Repositories/Repository URL*. This URL can be found when selecting the green *Code* button in the main page of your GitHub repo.
+. Under *Branches to build*, enter `*/main` in the *Branch Specifier* field.
+. Select *Save* at the end of the page.
+You're now ready to create a `Jenkinsfile` to check into your locally cloned Git repository.
+
+=== Create your initial Pipeline as a Jenkinsfile
+
+You are now ready to create a Pipeline to automate the building of your .NET web app.
+
+Your Pipeline is created as a `Jenkinsfile`, which is committed to your locally cloned Git repository (`simple-dotnet-web-app`).
+
+This is the foundation of "Pipeline-as-Code", which treats the continuous delivery pipeline as a part of the application, to be versioned and reviewed like any other code.
+Read more about Pipeline and what a Jenkinsfile is in the link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using a Jenkinsfile] sections of the User Handbook.
+
+First, create an initial Pipeline to build your .NET web app.
+The pipeline utilizes a customized agent that is shipped with .NET SDK.
+Ensure you add a "Build" stage to the Pipeline that begins orchestrating this whole process.
+
+. Using your preferred text editor or IDE, create and save a new text file named `Jenkinsfile` at the root of your local `simple-dotnet-web-app` Git repository.
+. Copy the following Declarative Pipeline code and paste it into your newly created `Jenkinsfile`:
++
+[source,groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Build') { // <1>
+            steps {
+                sh 'dotnet restore' // <2>
+                sh 'dotnet build --no-restore' // <3>
+            }
+        }
+    }
+}
+----
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called `Build` that appears on the Jenkins UI.
+<2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step runs the `dotnet restore` command to download/restore the required dependencies of the .NET web app.
+<3> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step runs the `dotnet build` command to build the .NET web app.
+. Save your edited `Jenkinsfile` and commit it to your local `simple-dotnet-web-app` Git repository.
+Within the `simple-dotnet-web-app` directory, run the commands:
++
+.. `git add .`
+.. `git commit -m "Add initial Jenkinsfile"`
+.. `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. Now select *Build Now* on the left pane of your Pipeline project in Jenkins.
+After making a clone of your local `simple-dotnet-web-app` Git repository itself, Jenkins:
+
+. Initially queues the project to be run on the agent.
+. Runs the `Build` stage defined in the `Jenkinsfile` on the agent.
+
+When it's a success, the green check will be shown and now you are ready to explore your initial pipeline.
+[.boxshadow]
+image:tutorials/dotnet/initial-pipeline.png[alt="Initial Pipeline Success",width=100%]
+
+You can now select *#1* in the *Stage View* or *Builds* widget to see the details of the build.
+The status page displays how much time the build took waiting in the queue and how much time it took to run.
+
+[.boxshadow]
+image:tutorials/dotnet/first-build-details.png[alt="Initial Pipeline first run details",width=100%]
+In the left navigation pane, you can select *Pipeline Overview* to see the stages of the Pipeline.
+[.boxshadow]
+image:tutorials/dotnet/pipeline-overview.png[alt="Initial Pipeline runs successfully",width=100%]
+If you select the *Build* stage, you will see more information about the stage, including the output of the `dotnet build` command if you select the green `dotnet build` section.
+[.boxshadow]
+image:tutorials/dotnet/build-stage-overview.png[alt="Build stage overview",width=100%]
+You can now select *dotnet-tutorial* (if that's the name you chose for your pipeline) from the breadcrumb navigation in the top-left to return to your pipeline main page.
+
+=== Add a test stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the `Build` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Test') {
+            steps {
+                sh 'dotnet test --no-build --no-restore --collect "XPlat Code Coverage"'
+            }
+            post {
+                always {
+                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: '**/*.xml']], sourceDirectories: [[path: 'SimpleWebApi.Test/TestResults']])
+                }
+            }
+        }
+----
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'dotnet restore'
+                sh 'dotnet build --no-restore'
+            }
+        }
+        stage('Test') { // <1>
+            steps {
+                sh 'dotnet test --no-build --no-restore --collect "XPlat Code Coverage"' // <2>
+            }
+            post {
+                always {
+                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: '**/*.xml']], sourceDirectories: [[path: 'SimpleWebApi.Test/TestResults']])  // <3>
+                }
+            }
+        }
+    }
+}
+----
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called `Test` that appears on the Jenkins UI.
+<2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step executes the `dotnet test` command to run the unit/integration test on your .NET web app.
+This command also generates a Cobertura XML report, which is saved to the `SimpleWebApi.Test/TestResults` directory within the `/home/jenkins/agent/workspace/dotnet-tutorial` directory in the Jenkins agent container.
+<3> This link:/doc/pipeline/steps/coverage[`recordCoverage`] step (provided by the link:/doc/pipeline/steps/coverage[Coverage Plugin]), archives the Cobertura XML report generated by the `dotnet test` command above, and displays the results through the Jenkins interface.
+The link:/doc/book/pipeline/syntax/#post[`post`] section's `always` condition that contains this `recordCoverage` step ensures that the step is _always_ executed _at the completion_ of the `Test` stage, regardless of the stage's outcome.
+. Save your edited `Jenkinsfile` and commit it to your local `simple-dotnet-web-app` Git repository.
+Within the `simple-dotnet-web-app` directory, run the commands:
++
+.. `git stage .`
+.. `git commit -m "Add 'Test' stage"`
+.. `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. In Jenkins, go back to *Dashboard* if necessary, then *dotnet-tutorial* and launch another build using *Build Now*.
+. After a while, a new column titled *Test* appears in the *Stage View*.
+
+[.boxshadow]
+image:tutorials/dotnet/test-stage-added.png[alt="Test stage runs successfully",width=100%]
+
+You can select *#2* (or the number representing your last build) in the *Stage View* or *Builds* widget to see the details of the build.
+
+[.boxshadow]
+image:tutorials/dotnet/build-widget.png[alt="Last Build in Builds widget",width=100%]
+
+You can now select *Pipeline Overview* to see the stages of the Pipeline.
+[.boxshadow]
+image:tutorials/dotnet/test-stage-visible-pipeline-overview.png[alt="Test stage runs successfully",width=100%]
+
+The newly added "Test" stage is visible here.
+Selecting the "Test" stage checkmark displays the stage output.
+[.boxshadow]
+image:tutorials/dotnet/test-stage-output.png[alt="Test stage runs successfully (with output)",width=100%]
+
+Additionally, you can check the coverage result by navigating back to the job status page and selecting *Coverage Report*.
+
+[.boxshadow]
+image:tutorials/dotnet/test-coverage-result.png[alt="Test coverage result",width=100%]
+
+=== Add a final deliver stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the `Test` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Deliver') {
+            steps {
+                sh 'dotnet publish SimpleWebApi --no-restore -o published'
+            }
+            post {
+                success {
+                    archiveArtifacts 'published/*.*'
+                }
+            }
+        }
+----
+Add a `skipStagesAfterUnstable` option, resulting in:
++
+[source,groovy]
+----
+pipeline {
+    agent any
+    options {
+        skipStagesAfterUnstable()
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'dotnet restore'
+                sh 'dotnet build --no-restore'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'dotnet test --no-build --no-restore --collect "XPlat Code Coverage"'
+            }
+            post {
+                always {
+                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: '**/*.xml']], sourceDirectories: [[path: 'SimpleWebApi.Test/TestResults']])
+                }
+            }
+        }
+        stage('Deliver') { // <1>
+            steps {
+                sh 'dotnet publish SimpleWebApi --no-restore -o published'  // <2>
+            }
+            post {
+                success {
+                    archiveArtifacts 'published/*.*' // <3>
+                }
+            }
+        }
+    }
+}
+----
+<1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
+<2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step executes the `dotnet publish` command to publish your .NET web app into executable and store it into the `published` directory.
+<3> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-archiveartifacts-code-archive-the-artifacts[`archiveArtifacts`] step archives the `published` directory as a build artifact.
+
+. Save your updated `Jenkinsfile` and commit it to your local `simple-dotnet-web-app` Git repository.
++
+.. `git stage .`
+.. `git commit -m "Add 'Deliver' stage"`
+.. `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. Return to the *Dashboard* and select *dotnet-tutorial*.
+. Select *Build Now* on the left. After a while, a new column titled *Deliver* will appear in the Stage View.
++
+[.boxshadow]
+image:tutorials/dotnet/deliver-stage-added.png[alt="Deliver stage runs successfully",width=100%]
+
+You can select *#3* (or the number representing your last build) in the *Stage View* or *Builds* widget to see the details of the build.
+
++
+You can now select *Pipeline Overview* to see the stages of the Pipeline.
+Once you are on the *Pipeline Overview* page, you can select the green checkmark under *Deliver* green checkmark to see the stage output.
+Selecting the `dotnet publish` section expands to display the execution results of your .NET web app at the end of the build.
+[.boxshadow]
+image:tutorials/dotnet/deliver-stage-output.png[alt="Deliver stage output only",width=100%]
+. You can now select *dotnet-tutorial* (if that's the name you chose for your pipeline) from the breadcrumb navigation in the top-left to return to your pipeline main page.
+Once you are on the *Status* page, you can select *Stages* from the left navigation pane to list your previous Pipeline runs in reverse chronological order.
+[.boxshadow]
+image:tutorials/dotnet/pipeline-runs.png[alt="Pipeline overview interface with all previous runs displayed",width=100%]
+
+
+After your job finishes, you can review the delivered artifacts by navigating to the *Status* page.
+After selecting *dotnet-tutorial* from the breadcrumb navigation, the status page displays artifacts under *Last Successful Artifacts*.
+[.boxshadow]
+image:tutorials/dotnet/deliver-artifacts.png[alt="Delivered artifacts",width=100%]
+
+
+=== Wrapping up
+
+Well done!
+You've just used Jenkins to build a simple .NET web app!
+
+The "Build", "Test" and "Deliver" stages you created above are the basis for building more complex .NET web apps in Jenkins, as well as .NET applications that integrate with other technology stacks.
+
+Because Jenkins is extremely extensible, it can be modified and configured to handle practically any aspect of build orchestration and automation.
+
+To learn more about what Jenkins can do, check out:
+
+* The link:/doc/tutorials[Tutorials overview] page for other introductory tutorials.
+* The link:/doc/book[User Handbook] for more detailed information about using Jenkins, such as link:/doc/book/pipeline[Pipelines] (in particular link:/doc/book/pipeline/syntax[Pipeline syntax]) and the link:/doc/book/blueocean[Blue Ocean] interface.
+* The link:/node[Jenkins blog] for the latest events, other tutorials and updates.
+
+=== Cleaning Up Your Environment
+
+After completing the tutorial, it's important to clean up your environment to prevent interference with other tutorials you might try later.
+
+To stop the containers and remove associated volumes:
+
+[source,bash]
+----
+docker compose --profile dotnet down -v --remove-orphans
+----
+
+This command ensures a clean slate for your next project.
+
+[NOTE]
+====
+The `--remove-orphans` option instructs Docker Compose to remove any containers that are not defined in the `docker-compose.yml` file but are labeled as belonging to the project.
+This helps in cleaning up any services that might have been started independently but are considered part of the project.
+====
+
+[[appendix]]
+
+'''
+++++
+include::_partials/_feedback-footer.html[]
+++++
