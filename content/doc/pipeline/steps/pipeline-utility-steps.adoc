@@ -1,1 +1,775 @@
-404: Not Found
+---
+layout: pipelinesteps
+title: "Pipeline Utility Steps"
+---
+
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+:compat-mode!:
+
+== Pipeline Utility Steps
+
+plugin:pipeline-utility-steps[View this plugin on the Plugins site]
+
+=== `compareVersions`: Compare two version number strings
+++++
+<div><p>Compare two version numbers with each other. See <a href="https://github.com/jenkinsci/lib-version-number/blob/master/src/main/java/hudson/util/VersionNumber.java" rel="nofollow">VersionNumber.java</a> for how version strings are handled.</p>
+<p>The return value is an Integer;</p>
+<ul>
+ <li><code>-1</code> if <code>v1 &lt; v2</code></li>
+ <li><code>0</code> if <code>v1 == v2</code></li>
+ <li><code>1</code> if <code>v1 &gt; v2</code></li>
+</ul>
+<p></p></div>
+<ul><li><code>v1 : String</code>
+<div><p>The version number string that will be compared to <code>v2</code>.</p></div>
+
+</li>
+<li><code>v2 : String</code>
+<div><p>The version number string that <code>v1</code> will be compared to.</p></div>
+
+</li>
+<li><code>failIfEmpty : boolean</code> (optional)
+<div><p>Fail the build if <code>v1</code> or <code>v2</code> is empty or <code>null</code>.</p>
+<p>By default the empty string or <code>null</code> is treated as the lowest version and will not fail the build. I.e.:</p>
+<ul>
+ <li><code>null</code> compared to <code>null</code> <code> == 0</code></li>
+ <li>empty compared to empty <code> == 0</code></li>
+ <li><code>null</code> compared to empty <code> == 0</code></li>
+ <li><code>null</code> or empty compared to anything <code> == -1</code></li>
+ <li>anything compared to <code>null</code> or empty <code> == 1</code></li>
+</ul>
+<p></p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `findFiles`: Find files in the workspace
+++++
+<div><p>Find files in the current working directory. The step returns an array of file info objects who's properties you can see in the below example.
+ <br>
+ <em>Ex: </em><code> def files = findFiles(glob: '**/TEST-*.xml') echo """${files[0].name} ${files[0].path} ${files[0].directory} ${files[0].length} ${files[0].lastModified}""" </code></p></div>
+<ul><li><code>excludes : String</code> (optional)
+</li>
+<li><code>glob : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of file paths that should match. If this property is set all descendants of the current working directory will be searched for a match and returned, if it is omitted only the direct descendants of the directory will be returned.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `nodesByLabel`: List of nodes by Label, by default excludes offline nodes.
+++++
+<div><div>
+ Returns an array of <code>node</code> names with the given label.
+</div></div>
+<ul><li><code>label : String</code>
+</li>
+<li><code>offline : boolean</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `prependToFile`: Create a file (if not already exist) in the workspace, and prepend given content to that file.
+++++
+<div><p>Creates a file if it does not already exist, and prepends given content to it.</p></div>
+<ul><li><code>file : String</code>
+<div><p>The path to the file that will be prepended.</p></div>
+
+</li>
+<li><code>content : String</code>
+<div><p>The content to prepend.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `readCSV`: Read content from a CSV file in the workspace.
+++++
+<div><p>Reads a file in the current working directory or a String as a plain text. A List of <a href="https://commons.apache.org/proper/commons-csv/apidocs/org/apache/commons/csv/CSVRecord.html" rel="nofollow">CSVRecord</a> instances is returned</p>
+<p><strong>Example:</strong>
+ <br>
+ <code></code></p>
+<pre><code>def records = readCSV file: 'dir/input.csv'
+assert records[0][0] == 'key'
+assert records[1][1] == 'b'
+
+def records = readCSV text: 'key,value\na,b'
+assert records[0][0] == 'key'
+assert records[1][1] == 'b'
+	</code></pre>
+<p></p>
+<p><strong>Advanced Example:</strong>
+ <br>
+ <code></code></p>
+<pre><code>def excelFormat = CSVFormat.EXCEL
+def records = readCSV file: 'dir/input.csv', format: excelFormat
+assert records[0][0] == 'key'
+assert records[1][1] == 'b'
+
+def records = readCSV text: 'key,value\na,b', format: CSVFormat.DEFAULT.withHeader()
+assert records[0].get('key') == 'a'
+assert records[0].get('value') == 'b'
+	</code></pre>
+<p></p></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>Path to a file in the workspace from which to read the CSV data. <em>Data is accessed as a List of String Arrays.</em></p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+<li><code>format</code> (optional)
+<ul><li><b>Type:</b> <code>class org.apache.commons.csv.CSVFormat</code></li>
+</ul></li>
+<li><code>text : String</code> (optional)
+<div><p>A string containing the CSV formatted data. <em>Data is accessed as a List of String Arrays.</em></p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `readJSON`: Read JSON from files in the workspace.
+++++
+<div><p>Reads a file in the current working directory or a String as a plain text <a href="http://www.json.org/json-it.html" rel="nofollow">JSON</a> file. The returned object is a normal Map with String keys or a List of primitives or Map.</p>
+<p><strong>Example:</strong>
+ <br>
+ <code></code></p>
+<pre><code>def props = readJSON file: 'dir/input.json'
+assert props['attr1'] == 'One'
+assert props.attr1 == 'One'
+
+def props = readJSON text: '{ "key": "value" }'
+assert props['key'] == 'value'
+assert props.key == 'value'
+
+def props = readJSON text: '[ "a", "b"]'
+assert props[0] == 'a'
+assert props[1] == 'b'
+
+def props = readJSON text: '{ "key": null, "a": "b" }', returnPojo: true
+assert props['key'] == null
+props.each { key, value -&gt;
+    echo "Walked through key $key and value $value"
+}
+	</code></pre>
+<p></p></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>Path to a file in the workspace from which to read the JSON data. <em>Data could be access as an array or a map.</em></p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+<li><code>returnPojo : boolean</code> (optional)
+<div><p>Transforms the output into a POJO type (<code>LinkedHashMap</code> or <code>ArrayList</code>) before returning it.</p>
+<p>By default deactivated (<code>false</code>), and a JSON object (<code>JSONObject</code> or <code>JSONArray</code> from json-lib) is returned.</p></div>
+
+</li>
+<li><code>text : String</code> (optional)
+<div><p>A string containing the JSON formatted data. <em>Data could be access as an array or a map.</em></p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `readManifest`: Read a Jar Manifest
+++++
+<div><p>Reads a <a href="https://docs.oracle.com/javase/7/docs/technotes/guides/jar/jar.html#JAR_Manifest" rel="nofollow">Jar Manifest</a> file or text and parses it into a set of Maps. The returned data structure has two properties: <code>main</code> for the main attributes, and <code>entries</code> containing each individual section (except for main).</p>
+<p><strong>Example:</strong>
+ <br>
+ <code> </code></p>
+<pre><code>            def man = readManifest file: 'target/my.jar'
+            assert man.main['Version'] == '6.15.8'
+            assert man.main['Application-Name'] == 'My App'
+            assert man.entries['Section1']['Key1'] == 'value1-1'
+            assert man.entries['Section2']['Key2'] == 'value2-2'
+        </code></pre>
+<code> </code>
+<p></p></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>Optional path to a file to read. It could be a plain text, <code>.jar</code>, <code>.war</code> or <code>.ear</code>. In the latter cases the manifest will be extracted from the archive and then read.</p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+<li><code>text : String</code> (optional)
+<div><p>Optional text containing the manifest data.</p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `readMavenPom`: Read a maven project file.
+++++
+<div><p>Reads a <a href="https://maven.apache.org/pom.html" rel="nofollow">Maven project</a> file. The returned object is a <a href="http://maven.apache.org/components/ref/3.3.9/maven-model/apidocs/org/apache/maven/model/Model.html" rel="nofollow">Model</a> .</p>
+<p>Avoid using this step and <code>writeMavenPom</code>. It is better to use the <code>sh</code> step to run <code>mvn</code> goals. For example:</p>
+<pre><code>
+def version = sh script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout', returnStdout: true
+</code></pre></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>Optional path to the file to read. <em>If left empty the step will try to read <code>pom.xml</code> in the current working directory</em>.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `readProperties`: Read properties from files in the workspace or text.
+++++
+<div><p>Reads a file in the current working directory or a String as a plain text <a href="https://docs.oracle.com/javase/7/docs/api/java/util/Properties.html" rel="nofollow">Java Properties</a> file. The returned object is a normal Map with String keys. The map can also be pre loaded with default values before reading/parsing the data.</p>
+<strong>Fields:</strong>
+<ul>
+ <li><code>file</code>: Optional path to a file in the workspace to read the properties from. <em>These are added to the resulting map after the defaults and so will overwrite any key/value pairs already present.</em></li>
+ <li><code>text</code>: An Optional String containing properties formatted data. <em>These are added to the resulting map after <code>file</code> and so will overwrite any key/value pairs already present.</em></li>
+ <li><code>defaults</code>: An Optional Map containing default key/values. <em>These are added to the resulting map first.</em></li>
+ <li><code>interpolate</code>: Flag to indicate if the properties should be interpolated or not.
+  <br>
+  Prefix interpolations allowed by default are: <code>urlDecoder</code>, <code>urlEncoder</code>, <code>date</code>, <code>base64Decoder</code>, <code>base64Encoder</code>. Default prefix interpolations can be overridden by setting the <a href="https://www.jenkins.io/redirect/setting-system-properties" rel="nofollow">system property</a>:
+  <br>
+  <code>org.jenkinsci.plugins.pipeline.utility.steps.conf.ReadPropertiesStepExecution.CUSTOM_PREFIX_INTERPOLATOR_LOOKUPS</code>
+  <br>
+  <b>Note that overriding default prefix interpolations can be insecure depending on which ones you enable.</b>In case of error or cyclic dependencies, the original properties will be returned.</li>
+ <li><code>charset</code>: What charset to use when read properties file. Default is empty, then will use jvm ISO 8859-1.</li>
+</ul>
+<p><strong>Example:</strong>
+ <br>
+ <code> </code></p>
+<pre><code>        def d = [test: 'Default', something: 'Default', other: 'Default']
+        def props = readProperties defaults: d, file: 'dir/my.properties', text: 'other=Override'
+        assert props['test'] == 'One'
+        assert props['something'] == 'Default'
+        assert props.something == 'Default'
+        assert props.other == 'Override'
+        </code></pre>
+<code> </code><strong>Example with interpolation:</strong> <code> 
+ <pre>        def props = readProperties interpolate: true, file: 'test.properties'
+        assert props.url = 'http://localhost'
+        assert props.resource = 'README.txt'
+        // if fullUrl is defined to ${url}/${resource} then it should evaluate to http://localhost/README.txt
+        assert props.fullUrl = 'http://localhost/README.txt'
+        </pre> 
+</code> <strong>Example with charset:</strong> <code> 
+ <pre>        def props = readProperties charset: 'UTF-8', file: 'test.properties'
+        </pre> 
+</code>
+<p></p></div>
+<ul><li><code>charset : String</code> (optional)
+</li>
+<li><code>defaults</code> (optional)
+<ul><li><b>Type:</b> <code>java.util.Map&lt;java.lang.Object, java.lang.Object&gt;</code></li>
+</ul></li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>interpolate : boolean</code> (optional)
+</li>
+<li><code>text : String</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `readTOML`: Read toml from files in the workspace.
+++++
+<div><p>Reads a file in the current working directory or a String as a plain text <a href="https://toml.io" rel="nofollow">TOML</a> file. The returned object is a normal Map with String keys or a List of primitives or Map.</p>
+<p><strong>Example:</strong>
+ <br>
+ <code></code></p>
+<pre><code>def props = readTOML file: 'dir/input.toml'
+assert props['attr1'] == 'One'
+assert props.attr1 == 'One'
+
+def props = readTOML text: 'key = "value"'
+assert props['key'] == 'value'
+assert props.key == 'value'
+
+def props = readTOML text: 'a = [ "a", "b" ]'
+assert props.a[0] == 'a'
+assert props.a[1] == 'b'
+
+def props = readTOML text: 'a.b.c = 1\n[key]\nvalue = ""'
+assert props['key'].value == ""
+assert props.a.b.c == 1
+props.each { key, value -&gt;
+    echo "Walked through key $key and value $value"
+}
+	</code></pre>
+<p></p></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>Path to a file in the workspace from which to read the TOML data. <em>Data could be access as a map.</em></p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+<li><code>text : String</code> (optional)
+<div><p>A string containing the TOML formatted data. <em>Data could be access as a map.</em></p>
+<p>You can only specify <code>file</code> <strong>or</strong> <code>text</code>, not both in the same invocation.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `readYaml`: Read yaml from files in the workspace or text.
+++++
+<ul><li><code>codePointLimit : int</code> (optional)
+</li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>maxAliasesForCollections : int</code> (optional)
+</li>
+<li><code>text : String</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `sha1`: Compute the SHA1 of a given file
+++++
+<div><p>Computes the SHA1 of a given file.</p></div>
+<ul><li><code>file : String</code>
+<div><p>The path to the file to hash.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `sha256`: Compute the SHA256 of a given file
+++++
+<div><p>Computes the SHA256 of a given file.</p></div>
+<ul><li><code>file : String</code>
+<div><p>The path to the file to hash.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `tar`: Create Tar file
+++++
+<div><p>Create a tar/tar.gz file of content in the workspace.</p></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>The name/path of the tar file to create.</p></div>
+
+</li>
+<li><code>archive : boolean</code> (optional)
+<div><p>If the tar file should be archived as an artifact of the current build. The file will still be kept in the workspace after archiving.</p></div>
+
+</li>
+<li><code>compress : boolean</code> (optional)
+<div><p>The created tar file shall be compressed as gz.</p></div>
+
+</li>
+<li><code>defaultExcludes : boolean</code> (optional)
+</li>
+<li><code>dir : String</code> (optional)
+<div><p>The path of the base directory to create the tar from. Leave empty to create from the current working directory.</p></div>
+
+</li>
+<li><code>exclude : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of files to exclude from the tar.</p></div>
+
+</li>
+<li><code>glob : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of files to include in the tar. Leave empty to include all files and directories.</p></div>
+
+</li>
+<li><code>overwrite : boolean</code> (optional)
+<div><p>If the tar file should be overwritten in case of already existing a file with the same name.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `tee`: Tee output to file
+++++
+<ul><li><code>file : String</code>
+</li>
+</ul>
+
+
+++++
+=== `touch`: Create a file (if not already exist) in the workspace, and set the timestamp
+++++
+<div><p>Creates a file if it does not already exist, and updates the timestamp.</p></div>
+<ul><li><code>file : String</code>
+<div><p>The path to the file to touch.</p></div>
+
+</li>
+<li><code>timestamp : long</code> (optional)
+<div><p>The timestamp to set (number of ms since the epoc), leave empty for current system time.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `untar`: Extract Tar file
+++++
+<div><p>Extract a tar/tar.gz file in the workspace.</p></div>
+<ul><li><code>file : String</code> (optional)
+<div><p>The name/path of the tar/tar.gz file to extract.</p></div>
+
+</li>
+<li><code>dir : String</code> (optional)
+<div><p>The path of the base directory to extract the tar to. Leave empty to extract in the current working directory.</p></div>
+
+</li>
+<li><code>glob : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of files to extract from the tar. Leave empty to include all files and directories.</p></div>
+
+</li>
+<li><code>keepPermissions : boolean</code> (optional)
+<div><p>Extract file permissions. <em>E.g.</em> <code> untar file: 'example.tgz', keepPermissions: true </code></p></div>
+
+</li>
+<li><code>quiet : boolean</code> (optional)
+<div><p>Suppress the verbose output that logs every single file that is dealt with. <em>E.g.</em> <code> untar file: 'example.tgz', quiet: true </code></p></div>
+
+</li>
+<li><code>test : boolean</code> (optional)
+<div><p>Test the integrity of the archive instead of extracting it. When this parameter is enabled, all other parameters <em>(except for file)</em> will be ignored. The step will return <code>true</code> or <code>false</code> depending on the result instead of throwing an exception.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `unzip`: Extract Zip file
+++++
+<div><p>Extract a zip file in the workspace.</p></div>
+<ul><li><code>zipFile : String</code>
+<div><p>The name/path of the zip file to extract.</p></div>
+
+</li>
+<li><code>charset : String</code> (optional)
+<div><p>Specify which Charset you wish to use eg. UTF-8</p></div>
+
+</li>
+<li><code>dir : String</code> (optional)
+<div><p>The path of the base directory to extract the zip to. Leave empty to extract in the current working directory.</p></div>
+
+</li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>glob : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of files to extract from the zip. Leave empty to include all files and directories.</p></div>
+
+</li>
+<li><code>quiet : boolean</code> (optional)
+<div><p>Suppress the verbose output that logs every single file that is dealt with. <em>E.g.</em> <code> unzip zipFile: 'example.zip', quiet: true </code></p></div>
+
+</li>
+<li><code>read : boolean</code> (optional)
+<div><p>Read the content of the files into a Map instead of writing them to the workspace. The keys of the map will be the path of the files read. <em>E.g.</em> <code> def v = unzip zipFile: 'example.zip', glob: '*.txt', read: true String version = v['version.txt'] </code></p></div>
+
+</li>
+<li><code>test : boolean</code> (optional)
+<div><p>Test the integrity of the archive instead of extracting it. When this parameter is enabled, all other parameters <em>(except for zipFile)</em> will be ignored. The step will return <code>true</code> or <code>false</code> depending on the result instead of throwing an exception.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `verifySha1`: Verify the SHA1 of a given file
+++++
+<div><p>Verifies the SHA1 of a given file.</p></div>
+<ul><li><code>file : String</code>
+<div><p>The path to the file to hash.</p></div>
+
+</li>
+<li><code>hash : String</code>
+<div><p>The expected hash.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `verifySha256`: Verify the SHA256 of a given file
+++++
+<div><p>Verifies the SHA256 of a given file.</p></div>
+<ul><li><code>file : String</code>
+<div><p>The path to the file to hash.</p></div>
+
+</li>
+<li><code>hash : String</code>
+<div><p>The expected hash.</p></div>
+
+</li>
+</ul>
+
+
+++++
+=== `writeCSV`: Write content to a CSV file in the workspace.
+++++
+<div><p>Write a CSV file in the current working directory. That for example was previously read by <code>readCSV</code>. See <a href="https://commons.apache.org/proper/commons-csv/apidocs/org/apache/commons/csv/CSVPrinter.html" rel="nofollow">CSVPrinter</a> for details.</p>
+<strong>Fields:</strong>
+<ul>
+ <li><code>records</code>: The list of <a href="https://commons.apache.org/proper/commons-csv/apidocs/org/apache/commons/csv/CSVRecord.html" rel="nofollow">CSVRecord</a> instances to write.</li>
+ <li><code>file</code>: Path to a file in the workspace to write to.</li>
+ <li><code>format</code>: See <a href="https://commons.apache.org/proper/commons-csv/apidocs/org/apache/commons/csv/CSVFormat.html" rel="nofollow">CSVFormat</a> for details.</li>
+</ul>
+<p><strong>Example:</strong>
+ <br>
+ <code></code></p>
+<pre><code>def records = [['key', 'value'], ['a', 'b']]
+writeCSV file: 'output.csv', records: records, format: CSVFormat.EXCEL
+    </code></pre>
+<p></p></div>
+<ul><li><code>file : String</code>
+</li>
+<li><code>records</code>
+<ul><li><b>Type:</b> <code>java.lang.Iterable&lt;?&gt;</code></li>
+</ul></li>
+<li><code>format</code> (optional)
+<ul><li><b>Type:</b> <code>class org.apache.commons.csv.CSVFormat</code></li>
+</ul></li>
+</ul>
+
+
+++++
+=== `writeJSON`: Write JSON to a file in the workspace.
+++++
+<div><p>Write <a href="http://www.json.org/json-it.html" rel="nofollow">JSON</a> to a file in the current working directory, or to a String.</p>
+<strong>Fields:</strong>
+<ul>
+ <li><code>json</code>: The object to write. Can either be a <a href="http://json-lib.sourceforge.net/apidocs/jdk15/net/sf/json/JSON.html" rel="nofollow">JSON</a> instance or another Map/List implementation. Both are supported.</li>
+ <li><code>file</code> <i>(optional)</i>: Optional path to a file in the workspace to write to. If provided, then <code>returnText</code> must be <code>false</code> or omitted. It is required that either <code>file</code> is provided, or <code>returnText</code> is <code>true</code>.</li>
+ <li><code>pretty</code> <i>(optional)</i>: Prettify the output with this number of spaces added to each level of indentation.</li>
+ <li><code>returnText</code> <i>(optional)</i>: Return the JSON as a string instead of writing it to a file. Defaults to <code>false</code>. If <code>true</code>, then <code>file</code> must not be provided. It is required that either <code>file</code> is provided, or <code>returnText</code> is <code>true</code>.</li>
+</ul>
+<p><strong>Example:</strong>
+ <br>
+ Writing to a file: <code> </code></p>
+<pre><code>        def amap = ['something': 'my datas',
+                    'size': 3,
+                    'isEmpty': false]
+
+        writeJSON file: 'data.json', json: amap
+        def read = readJSON file: 'data.json'
+
+        assert read.something == 'my datas'
+        assert read.size == 3
+        assert read.isEmpty == false
+        </code></pre>
+<code> </code>Writing to a string: <code> 
+ <pre>        def amap = ['something': 'my datas',
+                    'size': 3,
+                    'isEmpty': false]
+
+        String json = writeJSON returnText: true, json: amap
+        def read = readJSON text: json
+
+        assert read.something == 'my datas'
+        assert read.size == 3
+        assert read.isEmpty == false
+        </pre> 
+</code>
+<p></p></div>
+<ul><li><code>json : <code>Object</code></code>
+</li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>pretty : int</code> (optional)
+</li>
+<li><code>returnText : boolean</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `writeMavenPom`: Write a maven project file.
+++++
+<div><p>Writes a <a href="https://maven.apache.org/pom.html" rel="nofollow">Maven project</a> file. That for example was previously read by <code>readMavenPom</code>.</p>
+<strong>Fields:</strong>
+<ul>
+ <li><code>model</code>: The <a href="http://maven.apache.org/components/ref/3.3.9/maven-model/apidocs/org/apache/maven/model/Model.html" rel="nofollow">Model</a> object to write.</li>
+ <li><code>file</code>: Optional path to a file in the workspace to write to. <em>If left empty the step will write to <code>pom.xml</code> in the current working directory.</em></li>
+</ul>
+<p><strong>Example:</strong>
+ <br>
+ <code> </code></p>
+<pre><code>        def pom = readMavenPom file: 'pom.xml'
+        //Do some manipulation
+        writeMavenPom model: pom
+        </code></pre>
+<code> </code>
+<p></p>
+<p>Avoid using this step and <code>readMavenPom</code>. It is better to use the <code>sh</code> step to run <code>mvn</code> goals: For example:</p>
+<pre><code>
+sh 'mvn versions:set-property -Dproperty=some-key -DnewVersion=some-value -DgenerateBackupPoms=false'
+</code></pre></div>
+<ul><li><code>model</code>
+<ul><li><b>Type:</b> <code>class org.apache.maven.model.Model</code></li>
+</ul></li>
+<li><code>file : String</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `writeTOML`: Write toml to a file in the workspace.
+++++
+<div><p>Write <a href="https://toml.io" rel="nofollow">TOML</a> to a file in the current working directory, or to a String.</p>
+<strong>Fields:</strong>
+<ul>
+ <li><code>toml</code>: The object to write. Can be Map implementation.</li>
+ <li><code>file</code> <i>(optional)</i>: Optional path to a file in the workspace to write to. If provided, then <code>returnText</code> must be <code>false</code> or omitted. It is required that either <code>file</code> is provided, or <code>returnText</code> is <code>true</code>.</li>
+ <li><code>returnText</code> <i>(optional)</i>: Return the TOML as a string instead of writing it to a file. Defaults to <code>false</code>. If <code>true</code>, then <code>file</code> must not be provided. It is required that either <code>file</code> is provided, or <code>returnText</code> is <code>true</code>.</li>
+</ul>
+<p><strong>Example:</strong>
+ <br>
+ Writing to a file: <code> </code></p>
+<pre><code>        def amap = ['something': 'my datas',
+                    'size': 3,
+                    'isEmpty': false]
+
+        writeTOML file: 'data.toml', toml: amap
+        def read = readTOML file: 'data.toml'
+
+        assert read.something == 'my datas'
+        assert read.size == 3
+        assert read.isEmpty == false
+        </code></pre>
+<code> </code>Writing to a string: <code> 
+ <pre>        def amap = ['something': 'my datas',
+                    'size': 3,
+                    'isEmpty': false]
+
+        String toml = writeTOML returnText: true, toml: amap
+        def read = readTOML text: toml
+
+        assert read.something == 'my datas'
+        assert read.size == 3
+        assert read.isEmpty == false
+        </pre> 
+</code>
+<p></p></div>
+<ul><li><code>toml : <code>Object</code></code>
+</li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>returnText : boolean</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `writeYaml`: Write a yaml from an object or objects.
+++++
+<div><p>Writes yaml to a file in the current working directory or a String from an Object or a String. It uses <a href="https://bitbucket.org/snakeyaml/snakeyaml" rel="nofollow">SnakeYAML</a> as YAML processor. The call will fail if the file already exists.</p>
+<strong>Fields:</strong>
+<ul>
+ <li><code>file</code> <i>(optional)</i>: Optional path to a file in the workspace to write the YAML datas to. If provided, then <code>returnText</code> must be <code>false</code> or omitted. It is required that either <code>file</code> is provided, or <code>returnText</code> is <code>true</code>.</li>
+ <li><code>data</code> <i>(optional)</i>: An Optional Object containing the data to be serialized. You must specify <code>data</code> <strong>or</strong> <code>datas</code>, but not both in the same invocation.</li>
+ <li><code>datas</code> <i>(optional)</i>: An Optional Collection containing the datas to be serialized as several YAML documents. You must specify <code>data</code> <strong>or</strong> <code>datas</code>, but not both in the same invocation.</li>
+ <li><code>charset</code> <i>(optional)</i>: Optionally specify the charset to use when writing the file. Defaults to <code>UTF-8</code> if nothing else is specified. What charsets that are available depends on your Jenkins master system. The java specification tells us though that at least the following should be available:
+  <ul>
+   <li>US-ASCII</li>
+   <li>ISO-8859-1</li>
+   <li>UTF-8</li>
+   <li>UTF-16BE</li>
+   <li>UTF-16LE</li>
+   <li>UTF-16</li>
+  </ul></li>
+ <li><code>overwrite</code> <i>(optional)</i>: Allow existing files to be overwritten. Defaults to <code>false</code>.</li>
+ <li><code>returnText</code> <i>(optional)</i>: Return the YAML as a string instead of writing it to a file. Defaults to <code>false</code>. If <code>true</code>, then <code>file</code>, <code>charset</code>, and <code>overwrite</code> must not be provided. It is required that either <code>file</code> is provided, or <code>returnText</code> is <code>true</code>.</li>
+</ul>
+<p><strong>Examples:</strong>
+ <br>
+ Writing to a file: <code> </code></p>
+<pre><code>        def amap = ['something': 'my datas',
+                    'size': 3,
+                    'isEmpty': false]
+
+        writeYaml file: 'datas.yaml', data: amap
+        def read = readYaml file: 'datas.yaml'
+
+        assert read.something == 'my datas'
+        assert read.size == 3
+        assert read.isEmpty == false
+        </code></pre>
+<code> </code>Writing to a string: <code> 
+ <pre>        def amap = ['something': 'my datas',
+                    'size': 3,
+                    'isEmpty': false]
+
+        String yml = writeYaml returnText: true, data: amap
+        def read = readYaml text: yml
+
+        assert read.something == 'my datas'
+        assert read.size == 3
+        assert read.isEmpty == false
+        </pre> 
+</code>
+<p></p></div>
+<ul><li><code>charset : String</code> (optional)
+</li>
+<li><code>data : <code>Object</code></code> (optional)
+</li>
+<li><code>datas</code> (optional)
+<ul><b>Nested Choice of Objects</b>
+<li><code>$class: 'RegistrationConfigCollection'</code><div>
+<ul><li><code>data</code> (optional)
+<ul><li><b>Type:</b> <code>T</code></li>
+</ul></li>
+</ul></div></li>
+</ul></li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>overwrite : boolean</code> (optional)
+</li>
+<li><code>returnText : boolean</code> (optional)
+</li>
+</ul>
+
+
+++++
+=== `zip`: Create Zip file
+++++
+<div><p>Create a zip file of content in the workspace.</p></div>
+<ul><li><code>zipFile : String</code>
+<div><p>The name/path of the zip file to create.</p></div>
+
+</li>
+<li><code>archive : boolean</code> (optional)
+<div><p>If the zip file should be archived as an artifact of the current build. The file will still be kept in the workspace after archiving.</p></div>
+
+</li>
+<li><code>defaultExcludes : boolean</code> (optional)
+</li>
+<li><code>dir : String</code> (optional)
+<div><p>The path of the base directory to create the zip from. Leave empty to create from the current working directory.</p></div>
+
+</li>
+<li><code>exclude : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of files to exclude from the zip.</p></div>
+
+</li>
+<li><code>file : String</code> (optional)
+</li>
+<li><code>glob : String</code> (optional)
+<div><p><a href="https://ant.apache.org/manual/dirtasks.html#patterns" rel="nofollow">Ant style pattern</a> of files to include in the zip. Leave empty to include all files and directories.</p></div>
+
+</li>
+<li><code>overwrite : boolean</code> (optional)
+<div><p>If the zip file should be overwritten in case of already existing a file with the same name.</p></div>
+
+</li>
+</ul>
+
+
+++++
