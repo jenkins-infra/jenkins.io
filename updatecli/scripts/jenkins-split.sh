@@ -2,7 +2,7 @@
 
 # Define a variable to hold the URL
 # This is where we're getting our data from.
-# For this file, assume that the the entries are in increasing order and get the second column (which is the last pre-split version)
+# For this file, assume that theentries are in increasing order and get the second column (which is the last pre-split version)
 # TODO Figure out a way to obtain this content differently, this is terrible
 url="https://raw.githubusercontent.com/jenkinsci/jenkins/master/core/src/main/resources/jenkins/split-plugins.txt"
 
