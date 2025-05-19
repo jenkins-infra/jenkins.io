@@ -513,9 +513,7 @@ The result: every time you push code, Jenkins will grab it and run your build.
 
 [source,shell]
 ----
-pkg install libmpfr
-pkg install git
-pkg install make
+pkg install git libmpfr make maven
 ----
 
 === Setting Up the Jenkins Pipeline
@@ -563,36 +561,8 @@ Now Jenkins will clone your GitHub repo and run the pipeline defined in the `Jen
 
 Why not try to build an existing project from the Jenkins ecosystem, like the one we use for the Maven tutorial?
 This way, we'll know if we have a nice toy, or an adult-sized tool.
-So... We already have Java installed, as our beloved Jenkins controller and agents are already using it.
-What else could we need?
-Maven of course!
-There are several ways of installing Maven, but let's go with the lazy man's installation.
-Let's go with SDKMAN.
-But first, let's install SDKMAN requirements:
-`pkg install zip tar curl sed`
-
-We can now go on with SDKMAN installation:
-`curl -s "https://get.sdkman.io" | bash`
-
-This should install SDKMAN in `/data/data/com.termux/files/home/.sdkman`.
-We now have to source `~/.bashrc` to get access to SDKMAN.
-Let's go with Maven now:
-
-```bash
-sdk install maven
-
-Downloading: maven 3.9.9
-
-In progress...
-
-############################################################################################################################################################################ 100.0%
-
-Installing: maven 3.9.9
-Done installing!
-Setting maven 3.9.9 as default.
-```
-
-But... Is it working? I guess so!
+So... We already have Java and maven installed, as our beloved Jenkins controller and agents are already using it.
+Let's check if Maven is available and working:
 
 ```bash
 mvn --version
@@ -604,36 +574,75 @@ Default locale: en, platform encoding: UTF-8
 OS name: "linux", version: "5.4.274-qgki-gfffde3ec8864", arch: "aarch64", family: "unix"
 ```
 
-== Linking the Pipeline to GitHub
+=== Creation of the tutorial project
 
-Now that we have a pipeline job, let’s hook it up so that GitHub can kick off builds automatically.
+The repository is located at: link:https://github.com/jenkins-docs/simple-java-maven-app.
+You can see it already has a `Jenkinsfile` in the `jenkins` subdirectory.
+```groovy
+pipeline {
+    agent any
+    options {
+        skipStagesAfterUnstable()
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+        stage('Deliver') {
+            steps {
+                sh './jenkins/scripts/deliver.sh'
+            }
+        }
+    }
+}
+```
 
-* *Install GitHub plugins:* First, ensure Jenkins can talk to GitHub.
-In _Manage Jenkins → Manage Plugins_, confirm you have the GitHub Integration plugin (it often comes pre-installed).
-If not, install it.
-This plugin provides the “GitHub hook trigger” and other useful bells and whistles.
-* *Add GitHub credentials:* Go to *Manage Jenkins → Manage Credentials*, choose Global, and click *Add Credentials*. Use:
-** `Username with password` (GitHub username + PAT)
-** or `SSH Username with private key` if preferred
-* *Configure the pipeline job:* Set repo URL and credentials in *Pipeline script from SCM*. Under *Build Triggers*, check `GitHub hook trigger for GITScm polling`.
-* *Set up the webhook in GitHub:*
-** Go to *Settings → Webhooks*
-** Payload URL: `http://your-jenkins-server/github-webhook/`
-** Content type: `application/json`
-** Events: push and/or pull requests
-** Click *Add webhook*
+We'll be able to reference this file in our new project so that Jenkins can build this Maven project.
+Let's create a new project within Jenkins:
+ - Click on _+ New Item_"
+ - _Enter an item name_: "Maven Project", why not.
+ - _Select an item type_: _Pipeline_
+ - Click _Ok_
 
-TIP: If Jenkins is not publicly accessible (e.g. running locally), you can test with `ngrok` or trigger builds manually.
+In the next window:
+ - Select _Pipeline_
+ - In _Definition_, choose _Pipeline script from SCM_
+ - In _SCM_, choose _Git_
+ - In _Repositories/Repository URL_, enter `https://github.com/jenkins-docs/simple-java-maven-app`
+ - in _Script Path_, enter jenkins/Jenkinsfile
+ - Hit _Save_
+ - On the left, you should now see _Build Now_. Double check you're not using a metered connection, as you're about to download half of the Internet, and click on _Build Now_
+
+image:/images/post-images/2024/04/18/first-maven-build.png[first Maven build,860]
+
+And voilà, our first Maven project is built on the Android phone. High five, mate!
 
 == Reflecting on Our Pipeline Journey
 
-Well done, adventurer! Your Jenkins pipeline is now alive and kicking. Jenkins is basically your sidekick – monitoring your GitHub repo and automatically building whenever you push.
+Well done, adventurer!
+Your Jenkins pipeline is now alive and kicking.
 
-Jenkins has turned from a grumpy butler into a superhero for your code. You might not hear applause, but trust us, you’re silently being hero-worshipped by your future self every time you see a green build light.
+Jenkins has turned from a grumpy butler into a superhero for your code.
+You might not hear applause, but trust us, you’re silently being hero-worshipped by your future self every time you see a green build light.
 
 == Onward to the Next Adventure…
 
-If you thought hooking Jenkins to GitHub was fun, just wait for the next chapter. Maybe next time we’ll teach Jenkins to deploy itself to Mars, or hook your code pipeline to a coffee machine. Will Jenkins learn kung-fu? Will it discover an existential love for YAML?
+If you thought hooking Jenkins to GitHub was fun, just wait for the next chapter.
+Maybe next time we’ll teach Jenkins to deploy itself to Mars, or hook your code pipeline to a coffee machine.
+Will Jenkins learn kung-fu? Will it discover an existential love for YAML?
+This last one may be far-stretched...
 
 == Bonus: Jenkins Pun
 
