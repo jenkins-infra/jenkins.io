@@ -17,23 +17,27 @@ Jenkins will execute `Callables` it receives through a remoting channel, with fi
 == Remoting roles
 
 It is important to ensure that the less-privileged end of the channel (typically agents) cannot run arbitrary code on the more-privileged end (typically a controller), so care needs to be taken when implementing `Callables`.
-The remoting library offers the `RoleSensitive` interface for this which `Callable` extends since Jenkins 1.587 and 1.580.1:
+The remoting library offers the `RoleSensitive` interface for this which `Callable` extends.
 Callables can use it to limit where they can be executed by implementing `#checkRoles(RoleChecker)`.
 
-The abstract classes `MasterToSlaveCallable` and `SlaveToMasterCallable` implement this interface with the two most common modes:
+The abstract supertypes `ControllerToAgentCallable` and `SlaveToMasterCallable` implement this interface with two well-defined modes:
 
-* `MasterToSlaveCallable` can be sent from a controller to an agent.
-  In general, you should write your code so it works with this implementation.
+* `ControllerToAgentCallable` can be sent from a controller to an agent.
+  In practice, almost all `Callable` implementations will be ```ControllerToAgentCallable``s.
+  (Prior to Jenkins 2.485 when `ControllerToAgentCallable` was introduced, use the abstract superclass ``MasterToSlaveCallable`.)
 * `SlaveToMasterCallable` can be sent from an agent to a controller.
-  This is less safe, as malicious agents can use these implementations to run code on a controller.
+  This is extremely risky, as malicious agents can use poorly-reviewed implementations to run code on a controller.
 
-Despite their names, either implementation can be executed anywhere, the name just describes through which channels it can be sent for execution:
-`MasterToSlaveCallable` can be executed on the controller, just not sent from an agent to a controller for execution, unlike `SlaveToMasterCallable`, which can be sent through a controller/agent channel through either direction.
+Despite their names, either implementation can be executed anywhere; the name just describes through which channels it can be sent for execution.
+`ControllerToAgentCallable` can be executed on the controller, just not sent from an agent to a controller for execution;
+whereas `SlaveToMasterCallable` can be sent through a controller/agent channel in either direction.
 
 In addition to the above, `NotReallyRoleSensitiveCallable` can be used for a `Callable` that is not intended to be sent through a channel.
 Its `#checkRoles` method will throw an exception, thereby preventing it from being executed on any side of a communication channel that performs a role check.
+This would only be used when some API is defined using `hudson.remoting.Callable` rather than a more generic functional interface,
+for example because it has a `Throwable` type parameter.
 
-It is recommended to use one of these classes in your plugin, rather than implementing `#checkRoles(RoleChecker)` directly.
+It is recommended to use one of these supertypes in your plugin, rather than implementing `#checkRoles(RoleChecker)` directly.
 
 === Mandatory role checks
 
@@ -61,20 +65,20 @@ class MyCallable implements Callable<ReturnType,ExceptionType> {
 If a plugin implementing an inadequate role check (like this example) attempts to send a `Callable` through the remoting channel from the agent to the controller, the security improvement will detect it and throw an exception before `#call()` would be invoked.
 
 While administrators can allow specific `Callable` subtypes to bypass this protection mechanism (link:/doc/book/security/controller-isolation/required-role-check/[see documentation]), plugin developers are advised to update their plugins:
-`Callable` implementations should extend from one of the classes mentioned above, with a strong preference for `MasterToSlaveCallable`, which should work in almost all cases.
-If that does not work and the plugin cannot be restructured to work with a `MasterToSlaveCallable`, the `Callable` implementation should be changed to a `SlaveToMasterCallable`, and the best practices recommended below must be implemented to ensure it cannot be bypassed.
+`Callable` implementations should extend from one of the classes mentioned above, with a strong preference for `ControllerToAgentCallable`, which should work in almost all cases.
+If that does not work and the plugin cannot be restructured to work with a `ControllerToAgentCallable`, the `Callable` implementation should be changed to a `SlaveToMasterCallable`, and the best practices recommended below must be implemented to ensure it cannot be bypassed.
 
 == Best practices
 
 === Prohibit sending to controllers wherever possible
 
-Use `MasterToSlaveCallable` wherever possible, restructure your plugin code as needed to allow this.
+Use `ControllerToAgentCallable` wherever possible, restructure your plugin code as needed to allow this.
 
-For Callables not intended to be sent through a channel, extend `NotReallyRoleSensitiveCallable` instead of implementing `Callable` directly.
+For ``Callable``s not intended to be sent through a channel, extend `NotReallyRoleSensitiveCallable` instead of implementing `Callable` directly.
 
 === Never run unsafe code during deserialization or role check
 
-All `Callables` are still deserialized on the controller, and `#checkRoles` is invoked to determine whether the `Callable` can be executed.
+All ``Callable``s are still deserialized on the controller, and `#checkRoles` is invoked to determine whether the `Callable` can be executed.
 Do not add code to https://docs.oracle.com/javase/8/docs/platform/serialization/spec/input.html#a5903[`#readResolve`] and related methods, or to `#checkRoles`, that would be unsafe to execute, as these methods will still be executed on the controller between receiving the `Callable` and invoking `#call()`.
 
 === Minimal, safe implementations
@@ -85,7 +89,7 @@ Do not use (anonymous) inner classes for your Callables, instead make them top-l
 Perform parameter validation inside `#call()` or https://docs.oracle.com/javase/8/docs/platform/serialization/spec/input.html#a5903[`#readResolve()`] rather than (only) in constructors and setters, and do not rely on `private` or `final` modifiers for your fields to protect from unexpected values:
 reflection can be used to set fields to arbitrary, attacker-chosen values.
 
-The vast majority of plugins should have their `Callables` extend from `MasterToSlaveCallable` (if they're implementing `Callable`) or `MasterToSlaveFileCallable` (if they're implementing `FileCallable`).
+The vast majority of plugins should have their `Callables` extend from `ControllerToAgentCallable` (if they're implementing `Callable`) or `ControllerToAgentFileCallable` (if they're implementing `FileCallable`).
 
 This will allow the controller-side of a connection to initiate the Callable submission and invocation on both the controller and any agents and is the safest approach.
 
