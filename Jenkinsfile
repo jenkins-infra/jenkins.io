@@ -54,7 +54,7 @@ node('docker&&linux') {
         */
         if (!infra.isTrusted() && env.BRANCH_NAME != null) {
             sh 'make check'
-            recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')],
+            recordIssues(tools: [sarif(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')],
                          qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
         }
     }
