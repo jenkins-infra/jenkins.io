@@ -1,0 +1,114 @@
+---
+name: Bumps the ruby docker images versions in the documentation
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+  ruby:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "ruby"
+      repository: "ruby"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  alpineLatestVersion:
+    kind: githubrelease
+    name: "Get the latest Alpine Linux version"
+    spec:
+      owner: "alpinelinux"
+      repository: "aports" # Its release process follows Alpine's
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versionfilter:
+        kind: semver
+        pattern: "~3"
+    transformers:
+      - findsubmatch:
+          pattern: >-
+            v(.*)(\.\d+)
+          captureindex: 1
+  rubyDockerImageLatestVersion:
+    kind: dockerimage
+    name: "Get the latest Ruby version"
+    spec:
+      image: "ruby"
+      tagFilter: >-
+        \d\.\d\.\d$
+      versionfilter:
+        kind: regex
+        pattern: >-
+          \d\.\d\.\d$
+  rubyLatestVersion:
+    kind: gittag
+    name: "Get the latest Ruby version"
+    scmid: ruby
+    spec:
+      versionfilter:
+      kind: regex
+      pattern: >-
+        v3_\d+\d+$
+    transformers:
+      - removesuffix: "v"
+
+conditions:
+  testRubyAlpineImagePublished:
+    name: "Test ruby:3.x.x-alpine-3.xx docker image tag"
+    kind: dockerimage
+    disablesourceinput: true
+    spec:
+      image: "ruby"
+      tag: '{{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+  testRubyAlpineArg:
+    name: "Does the 'Hello World!' tutorial have a reference to the ruby alpine image?"
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        .*agent.*docker.*image.*ruby:.*
+
+targets:
+  updateHelloWorldTutorialRubyPipeline:
+    name: "Update the value of the ruby docker image for pipelines in the 'Hello World!' tutorial"
+    kind: file
+    sourceid: rubyLatestVersion
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        (.*agent.*docker.*image.*\')ruby:(.*)(\'.*)
+      replacepattern: >-
+        ${1}ruby:{{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+    scmid: default
+  updateHelloWorldTutorialRubyScripted:
+    name: "Update the value of the ruby docker image for scripts in the 'Hello World!' tutorial"
+    kind: file
+    sourceid: rubyLatestVersion
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        (.*docker.*image.*\')ruby:(.*)(\'.*)
+      replacepattern: >-
+        ${1}ruby:{{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: '[Ruby Tutorial] Bump ruby alpine docker image version to {{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+    spec:
+      labels:
+        - dependencies
