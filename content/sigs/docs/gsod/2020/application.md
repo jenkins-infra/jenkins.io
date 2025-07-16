@@ -1,9 +1,6 @@
 ---
 :layout: simplepage
 :title: "Jenkins GSoD application draft, 2020"
-:tags:
-- gsod
-- gsod2020
 ---
 
 <!-- This file uses Markdown intentionally.
