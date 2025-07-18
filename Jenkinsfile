@@ -95,7 +95,7 @@ node('docker&&linux') {
                     sh '''
                     # Don't output sensitive information
                     set +x
-    
+
                     # Synchronize the File Share content
                     azcopy sync \
                         --skip-version-check \
@@ -117,11 +117,20 @@ node('docker&&linux') {
                 archiveArtifacts 'azcopy.log'
             }
         }
-        stage('Purge cached CSS') {
-            sh '''
-            curl --request PURGE https://www.jenkins.io/css/jenkins.css
-            curl --request PURGE https://www.jenkins.io/stylesheets/styles.css
-            '''
+        stage('Purge pages on CDN') {
+            withCredentials([
+                string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'), // Needed for AWS login
+
+            ]) {
+                sh '''
+                export FASTLY_SITE_ID=2gq2YvW3Ni9XeTTjr0pa0j
+                curl --fail --location --silent --show-error \
+                    --request POST \
+                    --header "Fastly-Key: ${FASTLY_API_TOKEN}" \
+                    --header "Accept: application/json" \
+                    "https://api.fastly.com/service/${FASTLY_SITE_ID}/purge_all"
+                '''
+            }
         }
     }
 }
