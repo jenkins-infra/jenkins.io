@@ -119,8 +119,7 @@ node('docker&&linux') {
         }
         stage('Purge pages on CDN') {
             withCredentials([
-                string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'), // Needed for AWS login
-
+                string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'),
             ]) {
                 sh '''
                 export FASTLY_SITE_ID=2gq2YvW3Ni9XeTTjr0pa0j
