@@ -14,12 +14,12 @@ references:
 This page explains how to expose Json objects over HTTP API in your Jenkins plugins, using `GET` and `POST` verbs.
 This page also shows how to test it with JenkinsRules from link:https://github.com/jenkinsci/jenkins-test-harness[jenkins-test-harness].
 
-== Pre-requisite : a POJO (Plain Old Java Object)
+== Pre-requisite: a POJO (Plain Old Java Object)
 
-This object represent the structured data that is exchanged between the HTTP server (Jenkins) and the client (curl for example).
+This object represents the structured data that is exchanged between the HTTP server (Jenkins) and the client (curl for example).
 We are using a very simple java Object for example purpose, but in production code you will have more complex objects to manipulate. 
 
-Note that if you use Stapler (JSONObject) for marshalling and unmarshalling JSON, you need an empty constructor.
+Note that if you use Stapler (`JSONObject`) for marshalling and unmarshalling JSON, you need an empty constructor.
 
 [source,java]
 ----
@@ -50,10 +50,12 @@ This part shows how to expose an HTTP GET that return a structured JSON response
 [source,java]
 ----
 /* (1) */
+import static java.util.Objects.requireNonNull;
+
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import hudson.Extension;
 import hudson.model.RootAction;
 import net.sf.json.JSONObject;
-import org.junit.Rule;
-import org.junit.Test;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.WebMethod;
@@ -62,9 +64,8 @@ import org.kohsuke.stapler.json.JsonHttpResponse;
 import org.kohsuke.stapler.verb.GET;
 import org.kohsuke.stapler.verb.POST;
 
-
 @Extension /* (2) */
-public static class JsonAPI implements RootAction /* (3) */ {
+public class JsonAPI implements RootAction /* (3) */ {
 
     @CheckForNull
     @Override
@@ -93,9 +94,9 @@ public static class JsonAPI implements RootAction /* (3) */ {
     @GET
     @WebMethod(name = "get-example-param")
     public JsonHttpResponse getWithParameters(
-        @QueryParameter(required = true) String paramValue /* (9) */) {
+        @QueryParameter(required = true) String paramValue /* (10) */) {
 
-        assertNotNull(paramValue);
+        requireNonNull(paramValue);
         MyJsonObject myJsonObject = new MyJsonObject("I am Jenkins " + paramValue);
         JSONObject response = JSONObject.fromObject(myJsonObject);
         return new JsonHttpResponse(response, 200);
@@ -103,7 +104,7 @@ public static class JsonAPI implements RootAction /* (3) */ {
 
     @GET
     @WebMethod(name = "get-error500")
-    public JsonHttpResponse getError500() { /* (10) */
+    public JsonHttpResponse getError500() { /* (11) */
         MyJsonObject myJsonObject = new MyJsonObject("You got an error 500");
         JSONObject jsonResponse = JSONObject.fromObject(myJsonObject);
         JsonHttpResponse error500 = new JsonHttpResponse(jsonResponse, 500);
@@ -112,16 +113,17 @@ public static class JsonAPI implements RootAction /* (3) */ {
 }
 ----
 
-1. Non exhaustive list of imports to use.
+1. Non-exhaustive list of imports to use.
 2. Must be an extension to be discovered as a service by Jenkins.
 3. This class is an extension of RootAction.  It is a way to expose HTTP paths that is more frequently used to expose the Web UI, but it can also be used without HTML rendering.
 4. Since there is no HTML/Jelly rendering, no icons are needed.
 5. Since there is no HTML/Jelly rendering, no display name is needed.
 6. `getUrlName()` is the root of the JSON API.  Each WebMethod in the class is prefixed by this.
 7. `@GET` indicates the HTTP method that is expected, and `@WebMethod` indicates that it is accepting an HTTP request. By default, the JAVA name of the WebMethod is used, but a different name can be specified by using `name =`
-8. `JsonHttpResponse` is a sub class of `HttpResponse` that indicates that the response content will be JSON
+8. `JsonHttpResponse` is a subclass of `HttpResponse` that indicates that the response content will be JSON
 9. An HTTP status can be set in the response.
-10. The method `get-error500` is added in the example to show how to set a error response as JSON.
+10. `@QueryParameter` indicates that this parameter is injected from HTTP query parameter. By default, the JAVA parameter name is used (in this case `paramValue`), but a different name can be specified by using `value =` annotation attribute.
+11. The method `getError500` is added in the example to show how to set an error response as JSON.
 
 
 === Testing with CURL
@@ -142,26 +144,32 @@ curl -XGET \
 
 [source,java]
 ----
-public class JsonAPITest {
+import static org.hamcrest.MatcherAssert.assertThat;
 
-    @Rule
-    public JenkinsRule j = new JenkinsRule();
+import jenkins.model.Jenkins;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Test;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.JenkinsRule.JSONWebResponse;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-    private static String GET_API_URL = "custom-api/get-example-param?paramValue=hello";
+@WithJenkins
+class JsonAPITest {
+
+    private static final String GET_API_URL = "custom-api/get-example-param?paramValue=hello";
 
     @Test
-    public void testGetJSON() throws Exception {
-
+    void testGetJSON(JenkinsRule j) throws Exception {
         JenkinsRule.WebClient webClient = j.createWebClient();
 
-        // Testing a simple GET that should answer 200 OK and a JSON
-        JenkinsRule.JSONWebResponse response = webClient.getJSON(GET_API_URL);
-        assertTrue(response.getContentAsString().contains("I am JenkinsRule hello"));
-        assertEquals(response.getStatusCode(), 200);
+        JSONWebResponse response = webClient.getJSON(GET_API_URL);
+        assertThat(response.getContentAsString(), Matchers.containsString("I am Jenkins hello"));
+        assertThat(response.getStatusCode(), Matchers.equalTo(200));
     }
 
     @Test
-    public void testAdvancedGetJSON() throws Exception {
+    void testAdvancedGetJSON(JenkinsRule j) throws Exception {
         //Given a Jenkins setup with a user "admin"
         MockAuthorizationStrategy auth = new MockAuthorizationStrategy()
             .grant(Jenkins.ADMINISTER).everywhere().to("admin");
@@ -177,19 +185,19 @@ public class JsonAPITest {
         webClient.setThrowExceptionOnFailingStatusCode(false);
 
         // - simple call without authentication should be forbidden
-        response = webClient.getJSON(GET_API_URL);
-        assertEquals(response.getStatusCode(), 403);
+        JSONWebResponse response = webClient.getJSON(GET_API_URL);
+        assertThat(response.getStatusCode(), Matchers.equalTo(403));
 
         // - same call but authenticated using withBasicApiToken() should be fine
         response = webClient.withBasicApiToken("admin").getJSON(GET_API_URL);
-        assertEquals(response.getStatusCode(), 200);
+        assertThat(response.getStatusCode(), Matchers.equalTo(200));
     }
-
+}
 ----
 
 == Handling POST with Jenkins
 
-This section shows how to expose an HTTP endpoint that takes a structured JSON Object as input, and do a response with a JSON structured Object.
+This section shows how to expose an HTTP endpoint that takes a structured JSON Object as input, and does a response with a JSON structured Object.
 For this example the same Object is used as input and output, but you can also use different JSON structure for the response.
 
 Starting from the class `JsonAPI` provided for GET example, add:
@@ -213,12 +221,12 @@ A `mvn hpi:run` in the plugin should be enough to run it locally.
 Assuming that Jenkins is up at http://localhost:8080/jenkins/ , you should have at this point:
 
 Write a file `my.json` containing the JSON body:
-[source,bash]
+[source,json]
 ----
 {"message":"A nice message to send"}
 ----
 
-Then if you need a user and a token:
+Then, if you need a user and a token:
 
 * go on Jenkins UI
 * login as a user, for example 'myuser'
@@ -226,7 +234,7 @@ Then if you need a user and a token:
 * go on configure (for this user)
 * in the section "API Token" create a new token.
 
-For additional documentation on token, please visit:
+For additional documentation on the token, please visit:
 
 * link:../../../book/system-administration/authenticating-scripted-clients[Authenticating scripted clients]
 * link:../../../book/security/csrf-protection[CSRF Protection]
@@ -237,10 +245,10 @@ And then send the POST request:
 curl -XPOST \
     -H "Content-Type: application/json" \
     --user myuser:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-    http://localhost:40393/jenkins/testing-cli/create \
-    --data "@/my.json" \
+    http://localhost:8080/jenkins/custom-api/create \
+    --data "@my.json"
 
-{"message":"A nice message to send"}
+{"message":"A NICE MESSAGE TO SEND"}
  STATUS:200
 ----
 
@@ -251,11 +259,11 @@ Starting from the class `JsonAPITest` provided for the GET example, add:
 [source,java]
 ----
 @Test
-public void testPostJSON() throws Exception {
+void testPostJSON(JenkinsRule j) throws Exception {
 
     //Given a Jenkins setup with a user "admin"
     MockAuthorizationStrategy auth = new MockAuthorizationStrategy()
-            .grant(Jenkins.ADMINISTER).everywhere().to("admin");
+        .grant(Jenkins.ADMINISTER).everywhere().to("admin");
 
     j.jenkins.setSecurityRealm(j.createDummySecurityRealm());
     j.jenkins.setAuthorizationStrategy(auth);
@@ -266,21 +274,21 @@ public void testPostJSON() throws Exception {
     // Testing an authenticated POST that should answer 200 OK and return same json
     MyJsonObject objectToSend = new MyJsonObject("Jenkins is the way !");
     JenkinsRule.JSONWebResponse response = webClient
-                    .withBasicApiToken("admin")
-                    .postJSON( "testing-cli/create", JSONObject.fromObject(objectToSend));
+        .withBasicApiToken("admin")
+        .postJSON("custom-api/create", JSONObject.fromObject(objectToSend));
 
     //because API is returning the same object, we assert the input message.
-    assertTrue(response.getContentAsString().contains("Jenkins is the way !")); 
-    assertEquals(response.getStatusCode(), 200);
+    assertThat(response.getContentAsString(), Matchers.containsString("JENKINS IS THE WAY !"));
+    assertThat(response.getStatusCode(), Matchers.equalTo(200));
 }
 ----
 
 == Some additional information
 
-For people that are familiar with REST/JSON concept you may want to use other HTTP verbs, it should work, but since generally in Jenkins only `GET` and `POST` are used this page only shows example for this 2 verbs.
+For people that are familiar with REST/JSON concept you may want to use other HTTP verbs. It should work, but since generally in Jenkins only `GET` and `POST` are used, this page only shows example for this 2 verbs.
 
-You may also want to use several HTTP status code, following HTTP convention like `201` for created, it will also work, and the example above are returning explicit `200` status to show how to manage the HTTP status that is return.
-Some status are managed by Jenkins Core and may be return automatically, like `403` when the user in the request does not have the required permission or is anonymous, or `404` when the HTTP API is not found.
+You may also want to use several HTTP status code, following HTTP convention like `201` for created. It will also work, and the examples above are returning explicit `200` status to show how to manage the HTTP status that is return.
+Some statuses are managed by Jenkins Core and may be returned automatically, like `403` when the user in the request does not have the required permission or is anonymous, or `404` when the HTTP API is not found.
 
 If you are not familiar with Jenkins architecture, you can have a look to link:../../architecture/model[High level view of Jenkins application] and at link:../../architecture[Architecture]
 

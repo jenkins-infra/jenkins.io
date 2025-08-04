@@ -31,6 +31,7 @@ If you already have one, you can skip to step 3.
 
 . An *AWS account*. If you don't have one, you can register link:https://portal.aws.amazon.com/billing/signup#/start[here].
 . An Amazon EC2 key pair. If you don't have one, refer to <<Creating a key pair>>.
+. An AWS IAM User with programmatic key access and link:https://plugins.jenkins.io/ec2/#plugin-content-iam-setup[permissions to launch EC2 instances]
 
 == Creating a key pair
 
@@ -45,7 +46,7 @@ To create your key pair:
 . Select **Create key pair**.
 
 . For *Name*, enter a descriptive name for the key pair.
-Amazon EC2 associates the public key with the name that you specify as the *key name*. 
+Amazon EC2 associates the public key with the name that you specify as the *key name*.
 A key name can include up to 255 ASCII characters.
 It cannot include leading or trailing spaces.
 
@@ -125,7 +126,7 @@ Now that you have configured a key pair and security group, you can launch an EC
 
 To launch an EC2 instance:
 
-. Sign in to the the link:https://console.aws.amazon.com/ec2/[AWS Management Console].
+. Sign in to the link:https://console.aws.amazon.com/ec2/[AWS Management Console].
 . Open the Amazon EC2 console by selecting EC2 under *Compute*.
 . From the Amazon EC2 dashboard, select *Launch Instance*.
 +
@@ -138,30 +139,12 @@ NOTE: This configuration is marked *Free tier eligible*.
 +
 image::tutorials/AWS/ec2_choose_ami.png[Choosing an Amazon Machine Image]
 
-. On the *Choose an Instance Type* page, the *t2.micro* instance is selected by default.
-Verify this instance type is selected to stay within the free tier. 
-Once chosen, you can select *Review and Launch*.
-+
-image::tutorials/AWS/ec2_choose_instance_type.png[Amazon instance type]
-
-. On the *Review Instance Launch* page, select *Edit security groups*.
-+
-image::tutorials/AWS/ec2_review_instance_launch.png[Review your amazon launch instance]
-
-. On the *Configure Security Group* page:
+. Scroll down and select the key pair you created in the <<Creating a key pair, creating a key pair>> section above or any existing key pair you intend to use.
 .. Select *Select an existing security group*.
 .. Select the *WebServerSG* security group that you created.
-.. Select *Review and Launch*.
+.. Select *Launch Instance*.
 +
-image::tutorials/AWS/select_security_group.png[Amazon security group selection]
-
-. On the *Review Instance Launch* page, select *Launch*.
-+
-image::tutorials/AWS/review_instance_launch.png[Amazon review your instance prior to launch]
-
-. In the **Select an existing key pair or create a new key pair** dialog box, select *Choose an existing key pair*. Then select the key pair you created in the <<Creating a key pair, creating a key pair>> section above or any existing key pair you intend to use.
-+
-image::tutorials/AWS/select_key_pair.png[Selecting a key pair for Amazon]
+image::tutorials/AWS/ec2_review_instance_launch.png[Review your Amazon launch instance]
 
 . In the left-hand navigation bar, choose **Instances** to view the status of your instance.
 Initially, the status of your instance is pending.
@@ -196,39 +179,53 @@ If either DNS resolution or DNS hostnames is *no*, select *Edit* and change the 
 
 The tool that you use to connect to your Linux instance depends on your operating system.
 
-* If your computer runs Windows, you will connect using PuTTY.
+* If your computer runs Windows, you will connect using OpenSSH (built into Windows 10 version 1809 and later).
 * If your computer runs Linux or Mac OS X, you will connect using the SSH client.
 
 These tools require the use of your key pair.
 Be sure that you have created your key pair as described in <<Creating a key pair>>.
 
+==== Using OpenSSH to connect to your instance (Windows)
 
-==== Using PuTTY to connect to your instance
-
-. From the *Start* menu, select *All Programs* > *PuTTY* > *PuTTY*.
-. In the *Category* pane, select *Session*, and complete the following fields:
-.. In *Host Name*, enter ec2-user@public_dns_name.
-.. Ensure that *Port* is 22.
+. Open a terminal or PowerShell window.
+. Use the `ssh` command to connect to the instance.
+You will specify the private key (.pem) file and ec2-user@public_dns_name.
 +
-image::tutorials/AWS/ec2_putty.png[Amazon EC2 PuTTY selection]
-
-. In the *Category* pane, expand *Connection*, expand *SSH*, and then select *Auth*. Complete the following:
-.. Select *Browse*.
-.. Select the .ppk file that you generated for your key pair, as
-described in <<Creating a key pair>> and then select *Open*.
-. Select *Open* to start the PuTTY session.
+[source,bash]
+----
+$ ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-100-1.compute-1.amazonaws.com
+----
 +
-image::tutorials/AWS/putty_select_key_pair.png[Selecting and opening a new PuTTY session]
+You will receive a response like the following:
++
+[source,bash]
+----
+The authenticity of host 'ec2-198-51-100-1.compute1.amazonaws.com (10.254.142.33)' can't be
+established.
 
-==== Using SSH to connect to your instance
+RSA key fingerprint is 1f:51:ae:28:bf:89:e9:d8:1f:25:5d:37:2d:7d:b8:ca:9f:f5:f1:6f.
+
+Are you sure you want to continue connecting
+(yes/no)?
+----
+
+. Enter yes.
++
+You will receive a response like the following:
++
+[source,bash]
+----
+Warning: Permanently added 'ec2-198-51-100-1.compute1.amazonaws.com' (RSA) to the list of known hosts.
+----
+
+==== Using SSH to connect to your instance (Linux/Mac)
 
 . Use the ssh command to connect to the instance.
 You will specify the private key (.pem) file and ec2-user@public_dns_name.
 +
 [source,bash]
 ----
-$ ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-
-100-1.compute-1.amazonaws.com
+$ ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-100-1.compute-1.amazonaws.com
 ----
 +
 You will receive a response like the following:
@@ -258,7 +255,9 @@ Warning: Permanently added 'ec2-198-51-100-1.compute1.amazonaws.com' (RSA) to th
 Completing the previous steps enables you to download and install Jenkins on AWS.
 To download and install Jenkins:
 
-. Ensure that your software packages are up to date on your instance by uing the following command to perform a quick software update:
+NOTE: The following steps are written for *Amazon Linux 2*. If you're using *Amazon Linux 2023*, it's recommended to use `dnf` instead of `yum`. While the `yum` command is still available for compatibility in this context, it is actually a symbolic link to `dnf` and may not support all of its features. For more details, please refer to the https://docs.aws.amazon.com/linux/al2023/ug/package-management.html[official AWS documentation].
+
+. Ensure that your software packages are up to date on your instance by using the following command to perform a quick software update:
 +
 [source,bash]
 ----
@@ -277,7 +276,7 @@ To download and install Jenkins:
 +
 [source,bash]
 ----
-[ec2-user ~]$ sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+[ec2-user ~]$ sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 ----
 +
 [source,bash]
@@ -289,7 +288,7 @@ To download and install Jenkins:
 +
 [source,bash]
 ----
-[ec2-user ~]$ sudo amazon-linux-extras install java-openjdk11 -y
+[ec2-user ~]$ sudo yum install java-17-amazon-corretto -y
 ----
 
 . Install Jenkins:
@@ -367,7 +366,7 @@ image::tutorials/AWS/manage-jenkins.png[Jenkins dashboard if there are existing 
 .. After navigating to *Manage Jenkins*, select *Configure Nodes and Clouds* from the left hand side of the page.
 +
 image::tutorials/AWS/manage-nodes-and-clouds.png[Manage nodes and clouds option from Manage Jenkins page]
-.. From here, select *Configure Clouds*.
+.. From here, select *Clouds*.
 +
 image::tutorials/AWS/manage-jenkins-configure-clouds.png[Configure clouds option in navigation.]
 
@@ -376,9 +375,32 @@ A collection of new fields appears.
 +
 image::tutorials/AWS/add-amazon-cloud.png[Adding Amazon EC2 cloud to Jenkins.]
 
-. Fill out all the fields.
-You will need to input the *Amazon EC2 Credentials*, ensuring they are *AWS Credentials*.
-
+. Click *Add* under Amazon EC2 Credentials
++
+image::tutorials/AWS/configure_cloud_add_ec2_credentials.png[Adding EC2 credentials in Configure Cloud.]
+.. From the Jenkins Credentials Provider, select AWS Credentials as the *Kind*.
++
+image::tutorials/AWS/jenkins_credentials_provider_aws_credentials.png[Choosing Kind AWS Credentials.]
+.. Scroll down and enter in the IAM User programmatic access keys with permissions to launch EC2 instances and select *Add*.
++
+image::tutorials/AWS/add_access_secret_access_keys.png[Adding AWS Credentials.]
+.. Scroll down to select your region using the drop-down, and select *Add* for the EC2 Key Pair's Private Key.
++
+image::tutorials/AWS/configure_cloud_region_private_key.png[Set Region and add Private Key.]
+.. From the Jenkins Credentials Provider, select SSH Username with private key as the Kind and set the Username to `ec2-user`.
++
+image::tutorials/AWS/ssh_username.png[Set Kind to SSH Username with private key.]
+.. Scroll down and select *Enter Directly* under Private Key, then select *Add*.
++
+image::tutorials/AWS/private_key_enter_directly.png[Set Private Key to Enter Directly.]
+.. Open the private key pair you created in the <<Creating a key pair, creating a key pair>> step and paste in the contents from "-----BEGIN RSA PRIVATE KEY-----" to "-----END RSA PRIVATE KEY-----".
+Select *Add* when completed.
++
+image::tutorials/AWS/enter_private_key.png[Enter Private Key.]
+.. Scroll down to "Test Connection" and ensure it states "Success".
+Select *Save* when done
++
+image::tutorials/AWS/test_connection.png[Test Connection.]
 
 You are now ready to use EC2 instances as Jenkins agents.
 
@@ -391,6 +413,52 @@ created so you do not continue to accrue charges.
 
 . In the left-hand navigation bar of the Amazon EC2 console, select
 *Instances*.
-. Right-click on the instance you created earlier, and select *Terminate*.
+. Right-click on the instance you created earlier, and select *Terminate instance*.
 +
 image::tutorials/AWS/terminate_instance.png[Terminating your AWS EC2 instance.]
+
+=== Optional: Using PuTTY (for older Windows versions or users who prefer PuTTY)
+
+If you are using an older version of Windows or prefer to use PuTTY, follow these steps:
+
+==== Prerequisites
+
+. Ensure you have PuTTY installed on your system.
+You can download it from the link:https://www.chiark.greenend.org.uk/~sgtatham/putty/[official website].
+. If you generated a `.pem` key file in AWS, you will need to convert it to a `.ppk` file for use with PuTTY. To do this:
+   .. Download and install PuTTYgen (included with PuTTY).
+   .. Open PuTTYgen and select *Load*.
+   .. Load your `.pem` file (you may need to select "All Files" in the file dialog to see it).
+   .. Once loaded, select *Save private key* and save the file as a `.ppk` file.
++
+NOTE: If you already generated a `.ppk` file in AWS (by selecting the PuTTY-compatible format during key pair creation), you can skip this step.
+
+==== Connecting to Your Instance with PuTTY
+
+. From the *Start* menu, select *All Programs* > *PuTTY* > *PuTTY*.
+. In the *Category* pane, select *Session*, and complete the following fields:
+.. In *Host Name*, enter **`ec2-user@public_dns_name`**. 
+   Make sure to replace `public_dns_name` with the actual public DNS of your instance.
++
+IMPORTANT: You must prefix the public DNS name with `ec2-user@` to successfully connect to the instance.
+For example, if your public DNS is `ec2-198-51-100-1.compute-1.amazonaws.com`, enter `ec2-user@ec2-198-51-100-1.compute-1.amazonaws.com`.
++
+.. Ensure that *Port* is 22.
++
+image::tutorials/AWS/ec2_putty.png[Amazon EC2 PuTTY selection]
+
+. In the *Category* pane, expand *Connection*, expand *SSH*, and then select *Auth*. Complete the following:
+.. Select *Browse*.
+.. Select the `.ppk` file that you generated for your key pair (either directly from AWS or converted using PuTTYgen).
+.. Select *Open* to load the key.
+. Select *Open* to start the PuTTY session.
++
+image::tutorials/AWS/putty_select_key_pair.png[Selecting and opening a new PuTTY session]
+
+==== Differences Between PEM and PPK Keys
+
+* **PEM Keys**: Used by OpenSSH and other SSH clients. These are text-based files that start with `-----BEGIN RSA PRIVATE KEY-----`.
+* **PPK Keys**: Used by PuTTY. These are binary files and are not compatible with OpenSSH without conversion.
+
+For more detailed instructions, refer to the official AWS documentation: 
+link:https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-linux-inst-from-windows.html[Connecting to Your Linux Instance from Windows Using PuTTY].

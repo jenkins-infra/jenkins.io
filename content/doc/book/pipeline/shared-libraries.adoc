@@ -6,7 +6,6 @@ ifdef::backend-html5[]
 :notitle:
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 ifdef::env-github[:imagesdir: ../resources]
 ifndef::env-github[:imagesdir: ../../resources]
@@ -92,21 +91,24 @@ Other directories under the root are reserved for future enhancements.
 === Global Shared Libraries
 
 There are several places where Shared Libraries can be defined, depending on
-the use-case. _Manage Jenkins » Configure System » Global Pipeline Libraries_
-as many libraries as necessary can be configured.
+the use-case.
+Navigate to *_Manage Jenkins » System » Global Trusted Pipeline Libraries_* to configure as many libraries as necessary.
 
-image::pipeline/add-global-pipeline-libraries.png["Add a Global Pipeline Library", role=center]
+image::pipeline/add-global-pipeline-libraries.png[alt = "Jenkins System Configuration page, accessed by navigating from Dashboard to Manage Jenkins then to System, displaying sections for Global Trusted Pipeline Libraries and Global Untrusted Pipeline Libraries. Each section provides options to add sharable libraries.", role=center, width=90%]
+{empty}
 
 Since these libraries will be globally usable, any Pipeline in the system can
 utilize functionality implemented in these libraries.
 
-These libraries are considered "trusted:" they can run any methods in Java,
-Groovy, Jenkins internal APIs, Jenkins plugins, or third-party libraries.  This
-allows you to define libraries which encapsulate individually unsafe APIs in a
-higher-level wrapper safe for use from any Pipeline.  Beware that **anyone able to
-push commits to this SCM repository could obtain unlimited access to Jenkins**.
-You need the _Overall/RunScripts_ permission to configure these libraries
-(normally this will be granted to Jenkins administrators).
+These libraries may be marked “trusted“, meaning they can run any methods in Java,
+Groovy, Jenkins internal APIs, Jenkins plugins, or third-party libraries.
+This allows you to define libraries that encapsulate individually unsafe APIs in a
+higher-level wrapper that is safe for use from any pipeline.
+Beware that **anyone able to push commits to this SCM repository could obtain unlimited access to Jenkins**.
+You need the _Overall/RunScripts_ permission to configure these libraries (normally this will be granted to Jenkins administrators).
+
+If you only have _Overall/Manage_ permission, you can still configure global libraries,
+but only “untrusted” ones that run in the Groovy sandbox just like typical Pipeline scripts.
 
 === Folder-level Shared Libraries
 
@@ -114,15 +116,14 @@ Any Folder created can have Shared Libraries associated with it. This mechanism
 allows scoping of specific libraries to all the Pipelines inside of the folder
 or subfolder.
 
-Folder-based libraries are not considered "trusted:" they run in the Groovy
-sandbox just like typical Pipelines.
+Folder-scoped libraries are always “untrusted”.
 
 ===  Automatic Shared Libraries
 
 Other plugins may add ways of defining libraries on the fly.  For example, the
-plugin:github-branch-source[GitHub Branch Source] plugin provides a "GitHub
-Organization Folder" item which allows a script to use an untrusted library
-such as `github.com/someorg/somerepo` without any additional configuration.  In
+plugin:pipeline-github-lib[Pipeline: GitHub Groovy Libraries] plugin
+allows a script to use an untrusted library
+named like `github.com/someorg/somerepo` without any additional configuration.  In
 this case, the specified GitHub repository would be loaded, from the `master`
 branch, using an anonymous checkout.
 
@@ -133,8 +134,8 @@ classes or global variables defined by any such libraries. To access other
 shared libraries, the `Jenkinsfile` needs to use the `@Library` annotation,
 specifying the library's name:
 
-image::pipeline/configure-global-pipeline-library.png["Configuring a Global Pipeline Library", role=center]
-
+image::pipeline/configure-global-pipeline-library.png[alt = "Jenkins System Configuration page accessed by navigating from Dashboard to Manage Jenkins then to System, displaying options to configure a Global Trusted Pipeline Library. It includes fields for the library name, default version, checkboxes for 'Allow the default version to be overridden' and 'Include @Library changes in job recent changes' are checked, and a dropdown to select the retrieval method (Modern SCM or Legacy SCM) is shown.", role=center, width=90%]
+{empty}
 [source,groovy]
 ----
 @Library('my-shared-library') _
@@ -165,7 +166,7 @@ the symbol `_` is annotated.
 
 It is not recommended to `import` a global variable/function,
 since this will force the compiler to interpret fields and methods as `static`
-even if they were intended to be instance.
+even if they were intended to be customized.
 The Groovy compiler in this case can produce confusing error messages.
 ====
 
@@ -285,7 +286,8 @@ specifically updated to support a new API for checking out an arbitrary named
 version (**Modern SCM** option). As of this writing, the latest versions of the
 Git and Subversion plugins support this mode.
 
-image::pipeline/global-pipeline-library-modern-scm.png["Configuring a 'Modern SCM' for a Pipeline Library", role=center]
+image::pipeline/global-pipeline-library-modern-scm.png[alt = "Jenkins System Configuration page accessed by navigating from the Dashboard to Manage Jenkins, then to System, showing settings for adding a Global Trusted Pipeline Library. It includes options as follows: the library name is set to 'my-shared-library', the default version to 'main', and checkboxes for 'Allow default version to be overridden' and 'Include @Library changes in job recent changes' are checked. The retrieval method is set to Modern SCM, with the source code management field set to 'Git' including options such as project repository, credentials, and behaviors like branch discovery.", role=center, width=90%]
+{empty}
 
 ==== Legacy SCM
 
@@ -296,7 +298,8 @@ branch/tag/ref may be configured for that particular SCM plugin.  This ensures
 that during checkout of the library's source code, the SCM plugin will expand
 this variable to checkout the appropriate version of the library.
 
-image::pipeline/global-pipeline-library-legacy-scm.png["Configuring a 'Legacy SCM' for a Pipeline Library", role=center]
+image::pipeline/global-pipeline-library-legacy-scm.png[alt = "Jenkins System Configuration page accessed by navigating from the Dashboard to Manage Jenkins, then to System, showing settings for adding a Global Trusted Pipeline Library. It includes options as follows: the library name is set to 'my-shared-library', the default version to 'Stable', and checkboxes for 'Allow default version to be overridden','Include @Library changes in job recent changes' and 'Cache fetched versions on the controller for quick retrieval' are checked. The 'Cache refresh time in minutes' is set to 37. The retrieval method is set to Legacy SCM, with the source code management field set to 'Subversion'. The repository URL is parameterized as svn://svn.example.com/pipeline-library/branches/${library.my-shared-library.version}. No credentials are selected. Additional options include the local module directory set to . (current directory), repository depth set to 'infinity' and options to 'Ignore externals' and 'Cancel process on externals fail' are enabled.", role=center, width=90%]
+{empty}
 
 ==== Dynamic retrieval
 
@@ -701,3 +704,29 @@ Only entire ``pipeline``s can be defined in shared libraries as of this time.
 This can only be done in `vars/*.groovy`, and only in a `call` method. Only one
 Declarative Pipeline can be executed in a single build, and if you attempt to
 execute a second one, your build will fail as a result.
+
+=== Testing library pull request changes
+
+By adding `@Library('my-shared-library@pull/<your-pr-number>/head') _` at the top of a library consumer Jenkinsfile, you can test your pipeline library pull request changes __in situ__ if your pipeline library is hosted on GitHub and the SCM configuration for the pipeline library uses GitHub. +
+Refer to the pull request or merge request branch naming convention for other providers like Assembla, Bitbucket, Gitea, GitLab, and Tuleap.
+
+Take, for example, a change to the global ci.jenkins.io shared pipeline, which has its source code stored at https://github.com/jenkins-infra/pipeline-library/.
+
+Let's say you're writing a new feature and opened a pull request on the pipeline library, number `123`.
+
+By opening a pull request on https://github.com/jenkinsci/jenkins-infra-test-plugin/[the dedicated `jenkins-infra-test-plugin` test repository] with the following content, you'll be able to check your changes on ci.jenkins.io:
+
+[source,diff]
+----
+--- jenkins-infra-test-plugin/Jenkinsfile
++++ jenkins-infra-test-plugin/Jenkinsfile
+@@ -1,3 +1,4 @@
++ @Library('pipeline-library@pull/123/head') _
+  buildPlugin(
+    useContainerAgent: true,
+    configurations: [
+      [platform: 'linux', jdk: 21],
+      [platform: 'windows', jdk: 17],
+  ])
+----
+

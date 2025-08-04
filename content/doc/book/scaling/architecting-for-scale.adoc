@@ -31,7 +31,7 @@ to an existing controller.
 There are potential pitfalls associated with each approach to scaling Jenkins,
 but with careful planning, many of them can be avoided or managed. Here are
 some things to consider when choosing a strategy for scaling your
-organization's Jenkins instances:
+organization's Jenkins controllers:
 
 * **Do you have the resources to run a distributed build system?** If possible,
   it is recommended set up dedicated build nodes that run separately from the
@@ -51,7 +51,7 @@ organization's Jenkins instances:
   downed controller. Also consider converting any mission-critical project
   pipelines to Pipeline jobs, which continue executing even when the
   agent connection to the controller is lost.
-* **How important is a fast start-up time for your Jenkins instance?** The more
+* **How important is a fast start-up time for your Jenkins controller?** The more
   jobs a controller has configured, the longer it takes to load Jenkins after an
   upgrade or a crash. The use of folders and views to organize jobs can limit
   the number of that need to be rendered on start up.
@@ -93,6 +93,7 @@ project. For example, some projects may be configured to "restrict where this
 project is run" which ties the project to a specific agent or set of labeled
 agents. Other projects which omit this configuration will select an agent from
 the available pool in Jenkins.
+Learn more about Agents in link:/doc/book/managing/nodes/#creating-agents/[Managing Nodes]
 
 In a distributed builds environment, the Jenkins controller will use its resources
 to only handle HTTP requests and manage the build environment. Actual execution
@@ -186,9 +187,8 @@ This approach is convenient for an execution as a daemon on Unix.
   that the script runs the java program as a _java -jar agent.jar_ on the
   agent.
 
-Windows agent set-up can either follow the standard SSH and JNLP approach  or
-use a more Windows-specific configuration approach. Windows agents have the
-following options:
+Windows agent set-up can follow the standard SSH and inbound agent approaches.
+Windows agents have the following options:
 
 * *SSH-connector approach with Putty*
 * *SSH-connector approach with Cygwin and OpenSSH*:
@@ -197,13 +197,7 @@ following options:
 * *SSH-connector approach with Microsoft OpenSSH*:
   The link:https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse[Microsoft OpenSSH server] works well for Microsoft operating systems that support the server.
   Refer to installation instructions in the link:https://github.com/jenkinsci/ssh-slaves-plugin/blob/master/doc/CONFIGURE.md#launch-windows-agents-using-microsoft-openssh[ssh build agents configuration guide].
-* *Remote management facilities (WMI + DCOM)*: With this approach, which
-  utilizes the
-  plugin:windows-slaves[WMI Windows Agents Plugin]), the Jenkins controller will register the agent on the
-  windows agent machine creating a Windows service. The Jenkins controller can
-  control the agents, issuing stops/restarts/updates of the same. However this
-  is difficult to configure and not recommended.
-* *JNLP-connector approach*: With
+* *Inbound agent approach*: With
   https://wiki.jenkins.io/display/JENKINS/Installing+Jenkins+as+a+Windows+service[this approach]
    it is possible to manually register the agent as Windows service,
   but it will not be possible to centrally manage it from the controller. Each
@@ -225,9 +219,8 @@ than one installation for the same tool since different jobs may need different
 versions of the same tool.
 
 The pre-compiled "Default" option calls whatever is already installed on the
-agent and exists in the machine PATH, but this will return a failure if the
-tool was not already installed and its location was not added to the PATH
-system variable.
+agent and exists in the machine PATH, but this returns a failure if the tool is not
+installed and its location was not added to the PATH system variable.
 
 One best practice to avoid this failure is to configure a job with the
 assumption that the target agent does not have the necessary tools installed,
@@ -266,9 +259,8 @@ the cloud thanks to ad-hoc plugins which will handle the creation of the cloud
 resources together with their destruction when they are not needed anymore:
 
 * The plugin:ec2[EC2 Plugin]
-  let Jenkins use AWS EC2 instances as cloud build resources when it runs out
-  of on-premises agents. The EC2 agents will be dynamically created inside an
-  AWS network and de-provisioned when they are not needed.
+  lets Jenkins use AWS EC2 instances as cloud build resources when it runs out of on-premises agents.
+  The EC2 agents will be dynamically created inside an AWS network and de-provisioned when they are not needed.
 * The plugin:azure-vm-agents[Azure VM Agents Plugin]
   dynamically spins up Jenkins agents as Azure VMs per user provided
   configuration via templates, including support for virtual network integration
@@ -393,35 +385,34 @@ different approaches to expandable storage:
   spanned volume later.
 * *Logical Volume Manager for Linux* - LVM manages disk drives and allows
   logical volumes to be resized on the fly. Many distributions of Linux use LVM
-  when they are installed, but Jenkins should have its our LVM setup.
+  when they are installed, but Jenkins should have its own LVM setup.
 * *ZFS for Solaris* - ZFS is even more flexible than LVM and spanned volumes
   and just requires that the _$JENKINS_HOME_ be on its own filesystem. This
   makes it easier to create snapshots, backups, etc.
-* *Symbolic Links* - For systems with existing Jenkins installations and who
-  cannot use any of the above-mentioned methods, symbolic links (symlinks) may
-  be used instead to store job folders on separate volumes with symlinks to
-  those directories.
+- For systems with an existing Jenkins installation, there are at least two options:
+** The System Property link:/doc/book/managing/system-properties/#jenkins-model-jenkins-buildsdir[jenkins.model.Jenkins.buildsDir]
+** *Symbolic Links* (symlinks) may be used instead to store job 
+  folders on separate volumes with symlinks to those directories.
 
 Additionally, to easily prevent a _$JENKINS_HOME_ folder from becoming bloated,
 make it mandatory for jobs to discard build records after a specific time
-period has passed and/or after a specific number of builds have been run. This
-policy can be set on a job's configuration page.
+period has passed and/or after a specific number of builds have been run.
+This policy can be set on a job's configuration page.
 
 
 == Setting up a backup policy
 
-It is a best practice to take regular backups of your $JENKINS_HOME. A backup
-ensures that your Jenkins instance can be restored despite a misconfiguration,
-accidental job deletion, or data corruption.
+It is a best practice to take regular backups of your $JENKINS_HOME.
+A backup ensures that your Jenkins controller can be restored despite a misconfiguration,
+accidental job deletion, or data corruption. 
+See the link:/doc/book/system-administration/backing-up/[Backup policies] for more details.
 
 === Finding your $JENKINS_HOME
 
 **Windows**
 
-If you install Jenkins with the Windows installer, Jenkins will be installed as
-a service and the default _$JENKINS_HOME_ will be "C:\Program Files
-(x86)\jenkins".
-
+If you install Jenkins with the Windows installer, Jenkins is installed as
+a service and the default _$JENKINS_HOME_ will be "C:\Program Files (x86)\jenkins".
 You can edit the location of your _$JENKINS_HOME_ by opening the jenkins.xml
 file and editing the _$JENKINS_HOME_ variable, or going to the "Manage Jenkins"
 screen, clicking on the "Install as Windows Service" option in the menu, and
@@ -430,12 +421,7 @@ directory.
 
 **Mac OSX**
 
-If you install Jenkins with the OS X installer, you can find and edit the
-location of your _$JENKINS_HOME_ by editing the "Macintosh
-HD/Library/LaunchDaemons" file's _$JENKINS_HOME_ property.
-
-By default, the _$JENKINS_HOME_ will be set to "Macintosh
-HD/Users/Shared/Jenkins".
+By default, the _$JENKINS_HOME_ will be set to "~/.jenkins".
 
 **Linux**
 
@@ -483,11 +469,6 @@ a "/usr/ports/devel/jenkins" folder and compile Jenkins in that directory.
 You will be able to edit the _$JENKINS_HOME_ by editing the
 "/usr/local/etc/jenkins" file.
 
-**Solaris/OpenIndiana**
-
-The Jenkins project voted on September 17, 2014 to discontinue Solaris
-packages.
-
 === Anatomy of a $JENKINS_HOME
 
 The folder structure for a _$JENKINS_HOME_ directory is as follows:
@@ -497,7 +478,7 @@ The folder structure for a _$JENKINS_HOME_ directory is as follows:
 JENKINS_HOME
  +- config.xml     (Jenkins root configuration file)
  +- *.xml          (other site-wide configuration files)
- +- identity.key   (RSA key pair that identifies an instance)
+ +- identity.key.enc   (RSA key pair that identifies an instance)
  +- secret.key     (deprecated key used for some plugins' secure operations)
  +- secret.key.not-so-secret  (used for validating _$JENKINS_HOME_ creation date)
  +- userContent    (files served under your https://server/userContent/)
@@ -505,6 +486,8 @@ JENKINS_HOME
      +- hudson.util.Secret   (used for encrypting some Jenkins data)
      +- master.key           (used for encrypting the hudson.util.Secret key)
      +- InstanceIdentity.KEY (used to identity this instance)
+     +- jenkins.model.Jenkins.crumbSalt   (used for encrypting some Jenkins data)
+     +- initialAdminPassword (used for initial login)
  +- fingerprints   (stores fingerprint records, if any)
  +- plugins        (root directory for all Jenkins plugins)
      +- [PLUGINNAME]   (sub directory for each plugin)
@@ -600,7 +583,7 @@ build records are only as important as your organizations deems them.
 
 .System configurations
 
-Your instance's system configurations exist in the root level of the
+Your controller's system configurations exist in the root level of the
 _$JENKINS_HOME_ folder:
 
 [literal]
@@ -620,7 +603,7 @@ back up the _config.xml_.
 
 .Plugins
 
-Your instance's plugin files (.hpi and .jpi) and any of their dependent
+Your deployment's plugin files (.hpi and .jpi) and any of their dependent
 resources (help files, _pom.xml_ files, etc) will exist in the _plugins_ folder
 in $JENKINS_HOME.
 
@@ -640,7 +623,6 @@ _secrets_ folder, your _identity.key_, your _secret.key_, and your
 _secret.key.not-so-secret_ file.
 
 [literal]
-+- identity.key   (RSA key pair that identifies an instance)
  +- secret.key     (used for various secure Jenkins operations)
  +- secret.key.not-so-secret  (used for validating _$JENKINS_HOME_ creation date)
  +- userContent    (files served in https://server/userContent/)
@@ -648,10 +630,11 @@ _secret.key.not-so-secret_ file.
      +- hudson.util.Secret   (used for encrypting some Jenkins data)
      +- master.key           (used for encrypting the hudson.util.Secret key)
      +- InstanceIdentity.KEY (used to identity this instance)
-
+     +- jenkins.model.Jenkins.crumbSalt   (used for encrypting some Jenkins data)
+     +- initialAdminPassword (used for initial login)
 
 The _identity.key_ is an RSA key pair that identifies and authenticates the
-current Jenkins instance.
+current Jenkins controller.
 
 The _secret.key_ is used to encrypt plugin and other Jenkins data, and to
 establish a secure connection between a controller and agent.
@@ -661,13 +644,13 @@ _$JENKINS_HOME_ was created. It is also meant to be a flag that the secret.key
 file is a deprecated way of encrypting information.
 
 The files in the secrets folder are used by Jenkins to encrypt and decrypt your
-instance's stored credentials, if any exist. Loss of these files will prevent
+controller's stored credentials, if any exist. Loss of these files will prevent
 recovery of any stored credentials. _hudson.util.Secret_ is used for encrypting
 some Jenkins data like the credentials.xml, while the _master.key_ is used for
 encrypting the hudson.util.Secret key. Finally, the _InstanceIdentity.KEY_ is
-used to identity this instance and for producing digital signatures.
+used to identity this controller and for producing digital signatures.
 
-=== Define a Jenkins instance to rollback to
+=== Define a Jenkins controller to rollback to
 
 In the case of a total machine failure, it is important to ensure that there is
 a plan in place to get Jenkins both back online and in its last good state.
@@ -676,7 +659,7 @@ If a high availability set up has not been enabled and no back up of that
 controller's filesystem has been taken, then an corruption of a machine running
 Jenkins means that all historical build data and artifacts, job and system
 configurations, etc. will be lost and the lost configurations will need to be
-recreated on a new instance.
+recreated on a new controller.
 
 1. Backup policy - In addition to creating backups using the previous section's
    backup guide, it is important to establish a policy for selecting which backup
@@ -687,13 +670,13 @@ recreated on a new instance.
 == Resilient Jenkins Architecture
 
 Administrators are constantly adding more and more teams to the software
-factory, making administrators in the business of making their instances
+factory, making administrators in the business of making their controllers
 resilient to failures and scaling them in order to onboard more teams.
 
-Adding build nodes to a Jenkins instance while beefing up the machine that runs
+Adding build nodes to a Jenkins controller while beefing up the machine that runs
 the Jenkins controller is the typical way to scale Jenkins. Said differently,
 administrators scale their Jenkins controller vertically. However, there is a limit
-to how much an instance can be scaled. These limitations are covered in the
+to how much a controller can be scaled. These limitations are covered in the
 introduction to this chapter.
 
 Ideally, controllers will be set up to automatically recover from failures without
@@ -722,12 +705,12 @@ the plugin:mock-security-realm[Mock Security Realm plugin] for authentication.
 
 .Step 3: Add build nodes (agents) to controller
 
-Add build servers to your controller to ensure you are conducting actual build
+Add build servers to your controller to ensure you are conducting actual build
 execution off of the controller, which is meant to be an orchestration hub, and
 onto a "dumb" machine with sufficient memory and I/O for a given job or test.
 
-.Step 4: Setup a test instance
+.Step 4: Setup a test controller
 
-A test instance is typically used to test new plugin updates. When a plugin is
+A test controller is typically used to test new plugin updates. When a plugin is
 ready to be used, it should be installed into the main production update
 center.

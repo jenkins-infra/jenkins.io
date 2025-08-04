@@ -1,4 +1,4 @@
-FROM node:16.13.1 as node
+FROM node:20.18.3 as node
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
@@ -11,7 +11,7 @@ COPY scripts ./scripts
 RUN npm install
 RUN make assets
 
-FROM ruby:2.6.9 as builder
+FROM ruby:3.4.5 as builder
 ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
@@ -33,7 +33,7 @@ RUN bundle exec ./scripts/fetch-external-resources
 RUN make real_generate
 
 
-FROM nginx:1.17
+FROM nginx:1.25
 
 COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 

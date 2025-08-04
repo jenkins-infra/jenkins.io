@@ -1,0 +1,68 @@
+---
+name: Bump Ruby version (docker image) to follow packer-image infra version
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  getDeployedPackerImageVersion:
+    kind: file
+    name: Retrieve the current version of the Packer images used in production
+    spec:
+      file: https://raw.githubusercontent.com/jenkins-infra/kubernetes-management/refs/heads/main/config/jenkins_infra.ci.jenkins.io.yaml
+      matchpattern: 'galleryImageVersion:\s"(.*)"'
+    transformers:
+      - findsubmatch:
+          pattern: 'galleryImageVersion:\s"(.*)"'
+          captureindex: 1
+  getRubyVersionFromPackerImages:
+    kind: file
+    name: Get the latest Maven version set in packer-images
+    dependson:
+      - getDeployedPackerImageVersion
+    spec:
+      file: https://raw.githubusercontent.com/jenkins-infra/packer-images/{{ source "getDeployedPackerImageVersion" }}/provisioning/tools-versions.yml
+      matchpattern: 'ruby_version:\s(.*)'
+    transformers:
+      - findsubmatch:
+          pattern: 'ruby_version:\s(.*)'
+          captureindex: 1
+
+conditions:
+  checkDockerImagePublished:
+    name: Test ruby:{{ source "getRubyVersionFromPackerImages" }} docker image tag
+    sourceid: getRubyVersionFromPackerImages
+    kind: dockerimage
+    spec:
+      image: "ruby"
+      ## Tag from source
+
+targets:
+  setRubyImageVersion:
+    name: "Bump Ruby Image version in scripts ruby"
+    kind: file
+    sourceid: getRubyVersionFromPackerImages
+    spec:
+      file: scripts/ruby
+      matchpattern: 'CONTAINER_NAME=ruby:.*'
+      replacepattern: 'CONTAINER_NAME=ruby:{{ source "getRubyVersionFromPackerImages" }}'
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Bump Ruby Image version in scripts/ruby to {{ source "getRubyVersionFromPackerImages" }} the same as the packer-image in production
+    spec:
+      labels:
+        - dependencies
+        - ruby

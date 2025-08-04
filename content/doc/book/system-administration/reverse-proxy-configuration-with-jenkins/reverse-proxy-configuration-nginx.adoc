@@ -20,9 +20,15 @@ runs in) behind https://nginx.org/[Nginx], so that you can bind Jenkins
 to the part of a bigger website that you may have.
 This section discusses some of the approaches for doing this.
 
-When a request arrives for certain URLs, Nginx becomes a proxy and
-further forward that request to Jenkins, then it forwards the response
-back to the client. A typical set up for mod_proxy would look like this:
+When a request arrives for certain URLs, Nginx becomes a proxy and forwards that request to Jenkins, then it forwards the response back to the client.
+
+This 9 minute video tutorial from Darin Pope configures Nginx as a reverse proxy.
+
+.Configuring Nginx as a reverse proxy
+video::yixMeJGtLFk[youtube, width=640, height=360]
+
+The Nginx configuration fragment below provides an example Nginx reverse proxy configuration.
+It assumes the Jenkins controller and the Nginx reverse proxy are running on the same computer.
 
 [source]
 ----
@@ -52,10 +58,10 @@ server {
   # pass through headers from Jenkins that Nginx considers invalid
   ignore_invalid_headers off;
 
-  location ~ "^/static/[0-9a-fA-F]{8}\/(.*)$" {
+  location ~ "^\/static\/[0-9a-fA-F]{8}\/(.*)$" {
     # rewrite all static files into requests to the root
     # E.g /static/12345678/css/something.css will become /css/something.css
-    rewrite "^/static/[0-9a-fA-F]{8}\/(.*)" /$1 last;
+    rewrite "^\/static\/[0-9a-fA-F]{8}\/(.*)" /$1 last;
   }
 
   location /userContent {
@@ -80,7 +86,7 @@ server {
       proxy_set_header   Connection        $connection_upgrade;
       proxy_set_header   Upgrade           $http_upgrade;
 
-      proxy_set_header   Host              $host;
+      proxy_set_header   Host              $http_host;
       proxy_set_header   X-Real-IP         $remote_addr;
       proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
       proxy_set_header   X-Forwarded-Proto $scheme;
@@ -93,9 +99,7 @@ server {
       proxy_connect_timeout      90;
       proxy_send_timeout         90;
       proxy_read_timeout         90;
-      proxy_buffering            off;
       proxy_request_buffering    off; # Required for HTTP CLI commands
-      proxy_set_header Connection ""; # Clear for keepalive
   }
 
 }
@@ -104,13 +108,9 @@ server {
 This assumes that you run Jenkins on port 8080.
 Remember to create the folder /var/log/nginx/jenkins.
 
-For this set up to work, the context path of Jenkins must be the same
-between your Nginx and Jenkins (that is, you can't run Jenkins on
-http://localhost:8081/ci and have it exposed at
-http://localhost:80/jenkins).
+Make sure you do not end the `proxy_pass` value with a slash, as it will cause problems like those described in link:https://community.jenkins.io/t/reverse-proxy-test-does-not-handle-url-correctly/1294/16[this discussion].
 
-Set the context path by modifying the jenkins.xml configuration file and
-adding --prefix=/jenkins to the <arguments> entry.
+include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
 
 If you are having problems with some paths (eg folders) with *Blue
 Ocean*, you may need to add the following snippet to your proxy
@@ -123,6 +123,8 @@ if ($request_uri ~* "/blue(/.*)") {
     break;
 }
 ----
+
+== Permissions
 
 To give Nginx permission to read Jenkins web root folder, add the `nginx` user to
 the Jenkins group:

@@ -1,0 +1,58 @@
+---
+name: Bumps the docker-workflow plugin version
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  dockerWorkflowLatestVersion:
+    kind: githubrelease
+    name: "Get the latest docker-workflow plugin version"
+    spec:
+      owner: "jenkinsci"
+      repository: "docker-workflow-plugin" # Its release process follows Alpine's
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versionfilter:
+        kind: regex
+        pattern: '(\d+)\.(.+)$'
+
+conditions:
+  testDockerTutorialForDockerWorkflowArg:
+        name: "Does the Docker tutorial have a reference to the docker-workflow plugin?"
+        kind: file
+        disablesourceinput: true
+        spec:
+          file: content/doc/book/installing/_docker-for-tutorials.adoc
+          matchpattern: '.*docker-workflow:.*'
+
+targets:
+  updateDockerTutorialForDockerWorkflow:
+    name: "Update the value of the docker-workflow plugin in the Docker tutorial"
+    kind: file
+    sourceid: dockerWorkflowLatestVersion
+    spec:
+      file: content/doc/book/installing/_docker-for-tutorials.adoc
+      matchpattern: >-
+        (.*)jenkins-plugin-cli(.*)docker-workflow:(.*?) (.*)\"
+      replacepattern: >-
+        ${1}jenkins-plugin-cli${2}docker-workflow:{{ source "dockerWorkflowLatestVersion" }} ${4}"
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: '[Docker Tutorial] Bump Docker Workflow Plugin to {{ source "dockerWorkflowLatestVersion" }}'
+    spec:
+      labels:
+        - dependencies

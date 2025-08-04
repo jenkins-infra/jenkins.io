@@ -1,0 +1,151 @@
+---
+layout: security
+title: "Vulnerabilities and Scoring"
+section: security
+---
+
+// Style guide:
+// Complete CVSS vectors are shown in code formatting, e.g.: `CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N`
+// Vector snippets are shown in code formatting with a "CVSS v3.1" prefix, e.g.: (CVSS v3.1: `C:H/I:H/A:H`)
+
+This page collects information about historically common kinds of security vulnerabilities in Jenkins, including how we score them.
+For vulnerability scoring, we use https://www.first.org/cvss/v3-1/[CVSS v3.1].
+
+[#xss]
+== Cross-Site Scripting (XSS)
+
+Attackers can inject JavaScript into Jenkins in a way that causes it to be executed in another user's (the "victim") browser when they view certain pages.
+https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/XSS[Learn more].
+
+Who can exploit this vulnerability depends on whether it is _stored_ or _reflected_.
+The latter can generally be exploited by anyone, usually by having the victim click a link (CVSS v3.1: `PR:N/UI:R`), while the former usually needs some permission, such as View/Configure, to store the payload (CVSS v3.1: `PR:L/UI:R` or `PR:H/UI:R`).
+
+In Jenkins, if the victim is an administrator, features like the link:/doc/book/managing/script-console/[Script Console] allow executing arbitrary code on the controller.
+As a result, the impact can be a complete compromise of the Jenkins instance (CVSS v3.1: `C:H/I:H/A:H`).
+
+A less severe variant of this is when HTML elements, like formatting, can be injected in unexpected places, potentially causing user confusion, but JavaScript execution is prohibited through existing protections.
+We distinguish between these cases by calling this variant "HTML injection".
+
+[#csrf]
+== Cross-Site Request Forgery (CSRF)
+
+These vulnerabilities allow attackers to use the trust that Jenkins has in a web browser's cookies/session for their own purposes.
+If a legitimate Jenkins user visits another web site, that web site can send requests to Jenkins in the background, impersonating the user.
+
+Conventionally, POST requests are used for any requests changing state, as opposed to GET requests that only query information.footnote:[Requests using other HTTP verbs cannot be sent from other web sites ("origins") unless specifically allowed by Cross-Origin Resource Sharing (CORS).]
+Jenkins protects against CSRF by link:/doc/book/security/csrf-protection/[requiring POST requests to include a session-specific token (the _crumb_)].
+Because the crumb is temporary and specific to a user's session, it is not accessible to attackers and therefore absent from requests initiated by external websites.
+
+There are two common variants of CSRF vulnerabilities in Jenkins:
+
+* Some actions do not require POST requests, even if the UI for them always sends POST requests anyway.
+  As a result, these actions accept GET requests and the CSRF protection for POST requests can easily be bypassed.
+* Jenkins allows plugin and extension developers to disable CSRF protection for specific URLs.
+  If this is implemented improperly, an unintended consequence of that is the unexpected circumvention of CSRF protection.
+
+CSRF vulnerabilities generally have in common that attackers need no permissions, the attack occurs over the network, and victims need to interact in some manner (CVSS v3.1 `AV:N/AC:L/PR:N/UI:R/S:U`).
+Common issues and their severity:
+
+* Jenkins is made to send an HTTP request, possibly with attacker-specified username/password, to a (partially) attacker-controlled URL (`CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N`).
+  This can often occur as part of HTTP endpoints implementing form validation.
+  The impact of this is usually minor, but Jenkins may be on a private network with access to other services that lack access control.
+* Jenkins is made to send an HTTP request using credentials stored in Jenkins, often using an attacker-specified credentials ID parameter, to an attacker-controlled endpoint (`CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N`).
+  This can be used to capture credentials stored in Jenkins, but requires knowledge of the credentials ID.
+
+[#authorization]
+== Missing or improper permission checks
+
+This is any vulnerability that allows a user lacking certain permissions to take actions that should be subject to permission checks.
+
+Quite often, no dedicated permission checks are implemented on a web method (~HTTP endpoint) or similar action, allowing anyone with Overall/Read permission to take this action.
+It is expected that, for example, most form validation endpoints are protected by permission checks corresponding to that configuration form (link:/doc/developer/security/form-validation/[developer documentation]).
+
+The impact depends on the specific action, the expected permission check, and the permission actually required.
+Common issues and their severity:
+
+* A form autocompletion endpoint returns an enumeration of credentials IDs (`CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N`).
+  The immediate impact is low, but it may allow credentials capture (see below).
+* Jenkins is made to send an HTTP request, possibly with attacker-specified username/password, to a (partially) attacker-controlled URL (`CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N`).
+  This can often occur as part of HTTP endpoints implementing form validation.
+  The impact of this is usually minor, but Jenkins may be on a private network with access to other services that lack access control.
+* Jenkins is made to send an HTTP request using credentials stored in Jenkins, often using an attacker-specified credentials ID parameter, to an attacker-controlled endpoint (`CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N`).
+  This can be used to capture credentials stored in Jenkins, but requires knowledge of the credentials ID.
+  If the same component has both a credentials enumeration vulnerability and this issue, we consider them in combination and increase the score for this issue by using `AC:L`.
+
+For HTTP endpoints, these issues often occur in conjunction with corresponding CSRF vulnerabilities for anything with side effects, like accessing other systems.
+Severity is usually the same, with CVSS 3.1 vectors being just slightly different (CVSS v3.1: `PR:N/UI:R` for CSRF, `PR:L/UI:N` for missing permission checks, assuming Overall/Read is still required).
+
+[#pt]
+== Path Traversal
+
+Path traversal vulnerabilities can occur when file system operations accept user input that isn't sanitized or validated.
+If a file with a user-specified name is supposed to be stored in a specific directory, but that name is `../../../config.xml`, one of Jenkins's configuration files may be replaced.
+
+Regardless of whether the path traversal vulnerability affects reading from files or writing to files, the impact can be a complete compromise in both cases (CVSS v3.1: `C:H/I:H/A:H`).
+
+=== Writing Files
+
+When writing, a new plugin could be stored in `$JENKINS_HOME/plugins/`, or a new file in `$JENKINS_HOME/init.groovy.d`, or `$JENKINS_HOME/init.groovy` replaced (link:/doc/book/managing/groovy-hook-scripts/#post-initialization-script-init-hook[documentation]).
+Once Jenkins is restarted, the attacker's code will be executed (CVSS v3.1: `C:H/I:H/A:H`).
+
+[#reading]
+=== Reading Files
+
+When reading, the content of files in `$JENKINS_HOME/secrets/` can be used in a variety of ways.
+The following are the most severe known impacts of attackers getting access to the files in this directory:
+
+* **Remote code execution via Resource Root URLs** (Variant 1) +
+    Exploitation requires that all of the following conditions are met:
+    ** The "Resource Root URL" functionality is enabled (see link:/doc/book/security/user-content/#resource-root-url[documentation]).
+    ** The CLI WebSocket endpoint is accessible.
+        This requires that Jenkins is running on a version of Jetty for which Jenkins supports WebSockets.
+        This is the case when using the provided native installers, packages, or the Docker containers, as well as when running Jenkins with the command `java -jar jenkins.war`.
+        Additionally, reverse proxies may not allow WebSocket requests if improperly configured.
+    ** Attackers know, or can guess, the user name of any user with Overall/Read permission.
+* **Remote code execution via Resource Root URLs** (Variant 2) +
+    Exploitation requires that all of the following conditions are met:
+    ** The "Resource Root URL" functionality is enabled (see link:/doc/book/security/user-content/#resource-root-url[documentation]).
+    ** The attacker needs an API token for a (non-anonymous) user account.
+        It is not necessary for this user account to (still) have Overall/Read permission.
+* **Remote code execution via "Remember me" cookie** +
+    Forging a "Remember me" cookie allows attackers to log in to Jenkins using a web browser, thereby gaining access to the Script Console if they forge a cookie for an administrator account.
+    Exploitation requires that all of the following conditions are met:
+    ** The "Remember me" feature is enabled (the default).
+    ** Attackers have Overall/Read permission to be able to read content in files beyond the first few lines.
+* **Remote code execution via stored cross-site scripting (XSS) attacks through build logs** +
+    Forging serialized console note objects allows implementing XSS attacks by injecting arbitrary HTML and JavaScript into build logs.
+    This attack bypasses the protections added for link:/security/advisory/2017-02-01/#persisted-cross-site-scripting-vulnerability-in-console-notes[SECURITY-382 in the 2017-02-01 security advisory].
+    Exploitation requires that attackers can control build log output, such as through pull requests.
+* **Remote code execution via CSRF protection bypass** +
+    Forged CSRF tokens ("crumbs") can be used to implement CSRF attacks by sending POST requests with a valid crumb.
+    Exploitation requires that the web session ID is not part of CSRF crumbs.
+    By default it is (see link:/security/advisory/2019-07-17/#SECURITY-626[SECURITY-626 in the 2019-07-17 security advisory]), but not if one of the following conditions is met:
+    *** Jenkins uses the default crumb issuer and the link:/doc/book/managing/system-properties/#hudson-security-csrf-defaultcrumbissuer-exclude_session_id[Java system property `hudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID`] is set to `true`.
+    *** Jenkins uses the https://plugins.jenkins.io/strict-crumb-issuer/[Strict Crumb Issuer Plugin] to generate crumbs and the option "Check the session ID" is unchecked.
+
+Additionally, less severe impact is also possible, like extracting and decrypting encrypted secrets stored in Jenkins, or extracting information about projects built by Jenkins.
+
+These examples assume that path traversal is unconstrained.
+If only some directories can be written to, the impact may be very limited.
+The security advisory will typically explain the specific vulnerability's impact.
+
+[#xxe]
+== XML External Entity (XXE) Injection
+
+Improperly configured XML parsers can have significant security impact when XML files provided by users are parsed on the Jenkins controller.
+In addition to causing heavy load through a "billion laughs" attack and sending simple HTTP requests (https://owasp.org/www-community/attacks/Server_Side_Request_Forgery[Server-Side Request Forgery]), the content of local files can be sent to an attacker's web server (CVSS v3.1: `S:U/C:H/I:L/A:N`).
+
+A limitation of XXE is that binary files can usually not be read, as that will usually fail due to invalid UTF-8 sequences in the binary data, and all of the severe impacts listed in the <<reading,Reading Files>> section above are very unlikely to be possible.
+Some cryptographic keys can be read though, e.g., `secrets/master.key`, which may allow decrypting secrets from JENKINS_HOME backups obtained elsewhere even if that file is excluded.
+
+Content from other files can be obtained and used as well. For example, retrieving `users/(username)/config.xml` may allow offline attacks against BCrypt-hashed user passwords, if Jenkins is configured to use Jenkins' own user database.
+
+[#plaintext]
+== Unencrypted storage or transmission of secrets
+
+Jenkins needs to store a number of secrets to access other services.
+It is expected that these secrets (passwords, secret tokens, etc.) are stored encrypted in configuration files and that they're not shown in plain text in configuration form fields (link:/doc/developer/security/secrets/[developer documentation]).
+
+* Secrets stored unencrypted in global configuration files (global `config.xml`, or descriptor-specific XML files) can be accessed by attackers with local file system access, or access to Jenkins backups (`CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N`).
+* Secrets stored unencrypted in view, item, or agent `config.xml` can be accessed by attackers with the corresponding ExtendedRead (item or agent) or Read (view) permission, or with local file system access, or with access to Jenkins backups (`CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N`).
+* Secrets shown on the UI without being masked can be inadvertently be made accessible to attackers while screen sharing, shoulder surfing, or in similar situations (`CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N`).

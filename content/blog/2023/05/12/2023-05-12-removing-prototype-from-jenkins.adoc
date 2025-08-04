@@ -1,0 +1,173 @@
+---
+layout: post
+title: "Removing Prototype from Jenkins"
+tags:
+- announcement
+- developer
+- jenkins
+author: basil
+discourse: true
+opengraph:
+  image: /images/post-images/2023/05/12/2023-05-12-removing-prototype-from-jenkins.png
+---
+
+== Summary
+
+Usage of the http://prototypejs.org/[Prototype] JavaScript framework has been deprecated in recent versions of Jenkins core and will be removed completely in the future.
+Plugin developers should prepare for this transition by removing usages of Prototype and testing with Prototype removed.
+
+== Motivation
+
+Prototype was created by Sam Stephenson in February 2005 as part of https://en.wikipedia.org/wiki/Ajax_(programming)[Ajax] support in https://rubyonrails.org/[Ruby on Rails].
+While it was considered a major advance at the time, it has now fallen out of favor due to its invasive modifications to standard JavaScript functionality.
+At this point in time, all Prototype features have native equivalents in the https://developer.mozilla.org/[Web Platform].
+Moreover, the very presence of Prototype's invasive modifications actively causes compatibility problems with modern JavaScript libraries.
+
+Worse, core currently uses a patched version of Prototype https://github.com/prototypejs/prototype/releases/tag/1.7[1.7], released on November 15, 2010.
+The latest version is https://github.com/prototypejs/prototype/releases/tag/1.7.3[1.7.3], released on September 22, 2015.
+When an attempt was made to upgrade to 1.7.3 in 2018 in https://issues.jenkins.io/browse/JENKINS-49319[JENKINS-49319], the change had to be reverted.
+
+Clearly the status quo is unsustainable.
+For these reasons, we have been working to remove Prototype from the Jenkins ecosystem in https://issues.jenkins.io/browse/JENKINS-70906[JENKINS-70906].
+
+== Testing core and plugins
+
+As of Jenkins 2.404, a user experimental flag has been added to remove Prototype.
+The flag can be enabled or disabled on a per-user basis and removes Prototype from all Jenkins UI pages.
+The flag is intended to be used by core and plugin developers to do testing with Prototype removed.
+To enable the flag, go to the **Configure** page for your user in 2.404 or later, scroll to the **Experiments** section at the bottom, and enable the flag.
+
+As of Jenkins 2.404, most usages of Prototype have been removed from core, and even more will be removed by 2.405.
+We anticipate that all core usages of Prototype will be removed in a forthcoming weekly release.
+At that point, the focus will shift to removing Prototype usages from plugins.
+
+To test with Prototype removed, enable the user experimental flag and watch the browser console log for error messages as you exercise various pieces of JavaScript code.
+If an error occurs with Prototype removed but does not occur with Prototype present, you have found code that needs to be adapted.
+
+== Adapting plugins
+
+When adapting plugins, first ensure that the plugin is using plugin parent POM https://github.com/jenkinsci/plugin-pom/releases/tag/plugin-4.58[4.58] or greater.
+This contains an update to support the https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API[Fetch API] in the https://htmlunit.org/[HtmlUnit] browser used by the test harness.
+Without this, you will likely see errors concerning the Fetch API in HtmlUnit tests.
+
+The next thing to do is search for common Prototype usages and convert them to native JavaScript APIs.
+The following command attempts to search for some common usages in views:
+
+[source,shell]
+----
+find . -type f \( -name "*.groovy" -o -name "*.jelly" -o -name "*.js" \) -exec grep -HnE '\.each\(|Object\.toJSON|Prototype\.Selector|\$\$\(|\$\(|\$A|\$F|\.on\(|\.observe\(|\.fire\(|Form\.getInputs|Element\.stopObserving|\.getElementsBySelector\(|\.insert\(|\.removeClassName\(|\.addClassName\(|\.hasClassName\(|\.nextSiblings\(|\.firstDescendant\(|\.previous\(|\.up\(|\.down\(|\.next\(|\.childElements\(|\.escapeHTML\(|\.show\(\)|\.hide\(\)|\.getStyle\(|\.setStyle\(|\.setOpacity\(|\.getResponseHeader\(|Ajax\.Request|Ajax\.Updater|Ajax\.PeriodicalUpdater' {} \;
+----
+
+This is neither an exhaustive list, nor is it guaranteed to be free from false positives.
+But it is a good place to start.
+Below I will give some examples of common usages and their recommended replacements.
+When in doubt, consult the http://api.prototypejs.org/[Prototype API documentation] for information about the old usage,
+and consult the https://developer.mozilla.org/[Web Platform] documentation for information about recommended replacements.
+Keep in mind that script could find false positives as `$` is used in both prototype.js and jQuery.
+
+Once you have removed the usage of Prototype, test your plugin both with and without the user experimental flag enabled.
+If the line you have changed works with and without Prototype (as verified by stepping into the line with the browser's JavaScript debugger), then you are ready to merge and release the change.
+
+== Cheat sheet
+
+The following are my rough and unpolished notes from doing this conversion a few dozen times.
+This is a good place to start, but it is not an exhaustive list of changes that need to be made.
+
+=== General changes
+
+Replace any usages of `.each` with `.forEach`.
+
+If the argument to the Prototype $ function is a string, then replace it with `document.getElementById`.
+For example, replace $("my-id") with `document.getElementById("my-id")`.
+
+If the argument to the Prototype $ function is an https://developer.mozilla.org/en-US/docs/Web/API/Element[`Element`], then simply remove the call to the Prototype $ function.
+For example, replace $(element) with `element`.
+
+The Prototype double dollar-sign function should be replaced with either `document.querySelector` or `document.querySelectorAll`, depending on whether the first result or all results are required.
+Also be on the lookout for usages of `Prototype.Selector.find` and `Prototype.Selector.select`, which can also be replaced by query selectors.
+
+The Prototype $A function should be replaced with `Array.from`.
+
+=== Class names
+
+The next most common set of issues is regarding class names.
+
+* Replace e.g. `element.hasClassName("my-class")` with `element.classList.contains("my-class")`.
+* Similarly, replace e.g. `element.removeClassName("my-class")` with `element.classList.remove("my-class")`.
+* Similarly, replace e.g. `element.addClassName("my-class")` with `element.classList.add("my-class")`.
+
+One caveat here is that the Prototype versions of these functions can accept a space-separated string of multiple class names;
+the native JavaScript versions do not accept this and instead require you to iterate over each class name.
+
+=== Element manipulation
+
+The next most common set of issues is regarding element manipulation.
+
+* Replace e.g. `element.childElements()` with `element.children`.
+* Replace e.g. `element.down()` with `element.firstElementChild`.
+* Replace e.g. `element.firstDescendant()` with `element.firstElementChild`.
+* Replace e.g. `element.next()` with `element.nextElementSibling`.
+* Replace e.g. `element.previous()` with `element.previousElementSibling`.
+* Replace e.g. `element.setOpacity(0)` with `element.style.opacity = 0`.
+* Replace e.g. `element.setStyle({foo: bar})` with `element.style.foo = bar`.
+* Replace e.g. `element.show()` with `element.style.display = ""` and e.g. `element.hide()` with `element.style.display = "none"`.
+* Replace e.g. `element.up("div")` with `element.closest("div")`.
+* Replace e.g. `element.up()` with `element.parentNode`.
+* Replace Prototype-based element creation with `document.createElement`.
+* Replace e.g. `Element.getElementsBySelector` with `document.querySelector`.
+* Replace e.g. `Element.insert` with `element.appendChild`.
+* Replace e.g. `Element.getStyle` with `element.style`.
+
+=== Event handling
+
+Another common set of issues is regarding event handling.
+
+* Replace e.g. `Element.observe(element, "event", callback)` with `element.addEventListener("event", callback)`.
+* Replace e.g. `element.observe("event", callback)` with `element.addEventListener("event", callback)`.
+* Replace e.g. `Element.on(element, "event", callback)` with `element.addEventListener("event", callback)`.
+* Replace e.g. `element.on("event", callback)` with  `element.addEventListener("event", callback)`.
+* Replace e.g. `Element.stopObserving` with `document.removeEventListener`.
+* Replace e.g. `Event.fire(element, "event")` with `element.dispatchEvent(new Event("event"))`.
+* Replace e.g. `Event.on(element, "event", callback)` with `element.addEventListener("event", callback)`.
+
+=== JSON strings
+
+Calls to `Object.toJSON` are problematic.
+They need to be converted to `JSON.stringify` when Prototype is not present, but `JSON.stringify` is actually broken when Prototype is present.
+The recommendation is to use a conditional during the transition phase:
+
+[source,javascript]
+----
+// TODO simplify when Prototype.js is removed
+if (Object.toJSON) {
+  // Prototype.js
+  return Object.toJSON(obj);
+} else {
+  // Standard
+  return JSON.stringify(obj);
+}
+----
+
+=== Ajax requests
+
+Finally, the most difficult set of changes relates to Ajax requests.
+
+Anything that uses `Ajax.Request`, `Ajax.Updater`, or `Ajax.PeriodicalUpdater` should be converted to using the Fetch API.
+The best way to learn how to do this is to study the examples from recent core pull requests.
+
+Note that `Ajax.Request` defaults to POST requests, but the Fetch API defaults to GET requests.
+If the original code did not specify a method, ensure you are still doing a POST request.
+
+Also note that the Jenkins version of Prototype automatically adds a crumb to POST requests; this must be done explicitly when using the Fetch API by adding a `Crumb` header.
+Core features a `crumb.wrap()` method that takes an existing object (which may be empty) and adds the `Crumb` header to it.
+
+`application/x-www-form-urlencoded` parameters should be passed to the Fetch API in the body, but beware that HtmlUnit is not compatible with these.
+Search core for `objectToUrlFormEncoded` for a workaround.
+
+The Fetch API will return a response object.
+If the original Prototype code used `onSuccess`, you will need to check `response.ok` before doing the action;
+if the original Prototype code used `onCompletion`, you can skip this check.
+
+If you are checking the response for a header with `.getResponseHeader` in Prototype, this will need to be replaced with `.headers.get`.
+
+If you have read this far, congratulations and good luck!
