@@ -121,13 +121,10 @@ node('docker&&linux') {
             withCredentials([
                 string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'),
             ]) {
+                // Purge cache for pages which usually requires some time before being updated
                 sh '''
-                export FASTLY_SITE_ID=2gq2YvW3Ni9XeTTjr0pa0j
-                curl --fail --location --silent --show-error \
-                    --request POST \
-                    --header "Fastly-Key: ${FASTLY_API_TOKEN}" \
-                    --header "Accept: application/json" \
-                    "https://api.fastly.com/service/${FASTLY_SITE_ID}/purge_all"
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/css/jenkins.css
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/stylesheets/styles.css
                 '''
             }
         }
