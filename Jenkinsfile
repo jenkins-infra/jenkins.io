@@ -85,7 +85,22 @@ node('docker&&linux') {
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
     if (infra.isTrusted() && env.BRANCH_NAME == null) {
-        stage('Publish site') {
+        parallel 'Publish Site (new)': {
+            stage('Stash Site') {
+                stash includes: 'build/_site/**', name: 'site'
+            }
+            stage('Deploy Site') {
+                node('updatecenter') {
+                    unstash 'site'
+                    sh '''
+                    rsync --recursive --links --times -D --checksum --verbose \
+                        ./build/_site/ `# Source` \
+                        /data-storage-jenkins-io/www.jenkins.io/ `# Destination`
+                    '''
+                }
+            }
+        },
+        'Publish Site (old)': {
             try {
                 infra.withFileShareServicePrincipal([
                     servicePrincipalCredentialsId: 'trustedci_jenkinsio_fileshare_serviceprincipal_writer',
@@ -130,5 +145,4 @@ node('docker&&linux') {
         }
     }
 }
-
 // vim: ft=groovy
