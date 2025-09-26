@@ -85,51 +85,16 @@ node('docker&&linux') {
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
     if (infra.isTrusted() && env.BRANCH_NAME == null) {
-        parallel 'Publish Site (new)': {
-            stage('Stash Site') {
-                stash includes: 'build/_site/**', name: 'site'
-            }
-            stage('Deploy Site') {
-                node('updatecenter') {
-                    unstash 'site'
-                    sh '''
-                    rsync --recursive --links --times -D --checksum --verbose \
-                        ./build/_site/ `# Source` \
-                        /data-storage-jenkins-io/www.jenkins.io/ `# Destination`
-                    '''
-                }
-            }
-        },
-        'Publish Site (old)': {
-            try {
-                infra.withFileShareServicePrincipal([
-                    servicePrincipalCredentialsId: 'trustedci_jenkinsio_fileshare_serviceprincipal_writer',
-                    fileShare: 'jenkins-io',
-                    fileShareStorageAccount: 'jenkinsio'
-                ]) {
-                    sh '''
-                    # Don't output sensitive information
-                    set +x
-
-                    # Synchronize the File Share content
-                    azcopy sync \
-                        --skip-version-check \
-                        --recursive=true\
-                        --delete-destination=true \
-                        --compare-hash=MD5 \
-                        --put-md5 \
-                        --local-hash-storage-mode=HiddenFiles \
-                        ./build/_site/ "${FILESHARE_SIGNED_URL}"
-                    '''
-                }
-            } catch (err) {
-                currentBuild.result = 'FAILURE'
-                // Only collect azcopy log when the deployment fails, because it is an heavy one
+        stage('Publish Site') {
+            stash includes: 'build/_site/**', name: 'site'
+            
+            node('updatecenter') {
+                unstash 'site'
                 sh '''
-                # Retrieve azcopy logs to archive them
-                cat /home/jenkins/.azcopy/*.log > azcopy.log
+                rsync --recursive --links --times -D --checksum --verbose \
+                    ./build/_site/ `# Source` \
+                    /data-storage-jenkins-io/www.jenkins.io/ `# Destination`
                 '''
-                archiveArtifacts 'azcopy.log'
             }
         }
         stage('Purge pages on CDN') {
