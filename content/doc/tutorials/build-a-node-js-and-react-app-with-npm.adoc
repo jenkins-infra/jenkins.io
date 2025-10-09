@@ -364,6 +364,104 @@ The "Build", "Test" and "Deliver" stages you created above are the basis for bui
 
 Because Jenkins is extremely extensible, it can be modified and configured to handle practically any aspect of build orchestration and automation.
 
+=== Advanced Pipeline Features
+
+Now that you have a basic Pipeline working, here are some advanced features you can add:
+
+==== Adding Code Quality Checks
+
+[source,groovy]
+----
+stage('Code Quality') {
+    steps {
+        sh 'npm run lint'
+        sh 'npm run test:coverage'
+    }
+    post {
+        always {
+            publishCoverage adapters: [istanbulCoberturaAdapter('coverage/cobertura-coverage.xml')]
+        }
+    }
+}
+----
+
+==== Security Scanning
+
+[source,groovy]
+----
+stage('Security Scan') {
+    steps {
+        sh 'npm audit --audit-level=moderate'
+        // Or use OWASP Dependency Check
+        dependencyCheck additionalArguments: '--format XML --nvdValidForHours 24', odcInstallation: 'OWASP-DC'
+    }
+}
+----
+
+==== Parallel Testing
+
+[source,groovy]
+----
+stage('Test') {
+    parallel {
+        stage('Unit Tests') {
+            steps {
+                sh 'npm run test:unit'
+            }
+        }
+        stage('Integration Tests') {
+            steps {
+                sh 'npm run test:integration'
+            }
+        }
+        stage('E2E Tests') {
+            steps {
+                sh 'npm run test:e2e'
+            }
+        }
+    }
+}
+----
+
+==== Deployment to Multiple Environments
+
+[source,groovy]
+----
+stage('Deploy to Staging') {
+    when {
+        branch 'develop'
+    }
+    steps {
+        sh 'npm run deploy:staging'
+    }
+}
+
+stage('Deploy to Production') {
+    when {
+        branch 'main'
+    }
+    steps {
+        input message: 'Deploy to production?'
+        sh 'npm run deploy:production'
+    }
+}
+----
+
+=== Troubleshooting Common Issues
+
+* **Build fails with permission errors**: Ensure your Jenkins agent has proper permissions for npm operations
+* **npm install is slow**: Consider using `npm ci` for faster, reliable installs in CI environments
+* **Tests fail intermittently**: Check for race conditions or external dependencies in your tests
+* **Memory issues**: Increase heap size for Node.js processes if needed: `NODE_OPTIONS="--max-old-space-size=4096"`
+
+=== Best Practices for Node.js CI/CD
+
+* Use Node.js version managers like `nvm` for consistent environments
+* Cache `node_modules` between builds to improve performance
+* Run security audits regularly with `npm audit`
+* Use multi-stage Docker builds for efficient containerization
+* Implement proper error handling and rollback strategies
+
 To learn more about what Jenkins can do, check out:
 
 * The link:/doc/tutorials[Tutorials overview] page for other introductory
