@@ -54,7 +54,7 @@ node('docker&&linux') {
         */
         if (!infra.isTrusted() && env.BRANCH_NAME != null) {
             sh 'make check'
-            recordIssues(tools: [sarif(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')],
+            recordIssues(tools: [sarif(id: 'typos', name: 'Typos', pattern: 'typos.sarif')],
                          qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
         }
     }
@@ -85,45 +85,29 @@ node('docker&&linux') {
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
     if (infra.isTrusted() && env.BRANCH_NAME == null) {
-        stage('Publish site') {
-            try {
-                infra.withFileShareServicePrincipal([
-                    servicePrincipalCredentialsId: 'trustedci_jenkinsio_fileshare_serviceprincipal_writer',
-                    fileShare: 'jenkins-io',
-                    fileShareStorageAccount: 'jenkinsio'
-                ]) {
-                    sh '''
-                    # Don't output sensitive information
-                    set +x
-    
-                    # Synchronize the File Share content
-                    azcopy sync \
-                        --skip-version-check \
-                        --recursive=true\
-                        --delete-destination=true \
-                        --compare-hash=MD5 \
-                        --put-md5 \
-                        --local-hash-storage-mode=HiddenFiles \
-                        ./build/_site/ "${FILESHARE_SIGNED_URL}"
-                    '''
-                }
-            } catch (err) {
-                currentBuild.result = 'FAILURE'
-                // Only collect azcopy log when the deployment fails, because it is an heavy one
+        stage('Publish Site') {
+            stash includes: 'build/_site/**', name: 'site'
+            
+            node('updatecenter') {
+                unstash 'site'
                 sh '''
-                # Retrieve azcopy logs to archive them
-                cat /home/jenkins/.azcopy/*.log > azcopy.log
+                rsync --recursive --links --times -D --checksum --verbose \
+                    ./build/_site/ `# Source` \
+                    /data-storage-jenkins-io/www.jenkins.io/ `# Destination`
                 '''
-                archiveArtifacts 'azcopy.log'
             }
         }
-        stage('Purge cached CSS') {
-            sh '''
-            curl --request PURGE https://www.jenkins.io/css/jenkins.css
-            curl --request PURGE https://www.jenkins.io/stylesheets/styles.css
-            '''
+        stage('Purge pages on CDN') {
+            withCredentials([
+                string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'),
+            ]) {
+                // Purge cache for pages which usually requires some time before being updated
+                sh '''
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/css/jenkins.css
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/stylesheets/styles.css
+                '''
+            }
         }
     }
 }
-
 // vim: ft=groovy
