@@ -31,10 +31,11 @@ COPY --from=node /usr/src/jenkinsio/build/_site/css/fonts ./build/_site/css/font
 RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./build/_site/releases.rss
 RUN bundle exec ./scripts/fetch-external-resources
 RUN make real_generate
-
+RUN ./scripts/redirects.sh
 
 FROM nginx:1.25
 
 COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /tmp/jira-to-github-redirects.conf /etc/nginx/includes/jira-to-github-redirects.conf
