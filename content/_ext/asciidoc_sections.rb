@@ -59,7 +59,7 @@ module AsciidocSections
   #
   # @param [Asciidoctor::Section] section to discover subsections from
   # @param [Asciidoctor::Document] Document objection the section anchor
-  #   belongs to, this is necessary to ensure the document's settinsg are
+  #   belongs to, this is necessary to ensure the document's settings are
   #   used to provide the appropriate anchors
   # @return [Array] of subsection arrays
   def find_subsections_from(section, in_document)
@@ -89,7 +89,7 @@ module AsciidocSections
   #
   # @param [String] title of the section provided
   # @param [Asciidoctor::Document] Document object the section anchor
-  #   belongs to, this is necessary to ensure the document's settinsg are
+  #   belongs to, this is necessary to ensure the document's settings are
   #   used to provide the appropriate anchor
   # @return [String] Computed section anchor
   def section_anchor(title, in_document)
