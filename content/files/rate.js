@@ -86,7 +86,7 @@ function do_loaddata() {
       for (j = 3; j < information.length; j += 2) {issues.push({id: information[j], count: information[j + 1]})}
       issues.sort(function (a, b) {return b.count - a.count;});
       for (j = 0; j < issues.length; j++)
-        txt += issues[j].count + '&times;<a href="https://issues.jenkins.io/browse/JENKINS-' + issues[j].id + '">JENKINS-' + issues[j].id + '</a> ';
+        txt += issues[j].count + '&times;<a href="https://issue-redirect.jenkins.io/issue/' + issues[j].id + '">JENKINS-' + issues[j].id + '</a> ';
       txt += '</span>';
       div3.innerHTML = txt;
       owner.appendChild(div3);
