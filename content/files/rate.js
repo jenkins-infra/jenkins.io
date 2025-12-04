@@ -87,7 +87,7 @@ function do_loaddata() {
       issues.sort(function (a, b) {return b.count - a.count;});
       for (j = 0; j < issues.length; j++) {
         if (!isNaN(parseInt(issues[j].id))) {
-          txt += `${issues[j].count}&times;<a href="/issue/${issues[j].id}">JENKINS-${issues[j].id}</a> `;
+          txt += `${issues[j].count}&times;<a href="https://issue-redirect.jenkins.io/issue/${issues[j].id}">JENKINS-${issues[j].id}</a> `;
         } else {
           const text = issues[j].id.replace('https://github.com/jenkinsci/', '').replace('/issues/', '#');
           txt += `${issues[j].count}&times;<a href="${issues[j].id}">${text}</a> `;
