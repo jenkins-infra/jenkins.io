@@ -85,8 +85,15 @@ function do_loaddata() {
       var issues = [];
       for (j = 3; j < information.length; j += 2) {issues.push({id: information[j], count: information[j + 1]})}
       issues.sort(function (a, b) {return b.count - a.count;});
-      for (j = 0; j < issues.length; j++)
-        txt += issues[j].count + '&times;<a href="https://issues.jenkins.io/browse/JENKINS-' + issues[j].id + '">JENKINS-' + issues[j].id + '</a> ';
+      for (j = 0; j < issues.length; j++) {
+        if (!isNaN(parseInt(issues[j].id))) {
+          txt += `${issues[j].count}&times;<a href="https://issue-redirect.jenkins.io/issue/${issues[j].id}">JENKINS-${issues[j].id}</a> `;
+        } else {
+          const text = issues[j].id.replace('https://github.com/jenkinsci/', '').replace('/issues/', '#');
+          txt += `${issues[j].count}&times;<a href="${issues[j].id}">${text}</a> `;
+        }
+        
+      }
       txt += '</span>';
       div3.innerHTML = txt;
       owner.appendChild(div3);
@@ -97,7 +104,7 @@ function do_loaddata() {
 }
 
 function rate(version,rating) {
-  var issue = (rating <= 0) ? prompt('Please provide issue number from our JIRA causing trouble:','') : '';
+  var issue = (rating <= 0) ? prompt('Issue URL from GitHub causing trouble, e.g. https://github.com/jenkinsci/jenkins/issues/12345:','') : '';
   if (issue==null) return; // Cancelled
   if (rating <= 0 && issue == '') {
     issue = prompt('Are you sure you do not want to provide an issue reference? It really helps us improve Jenkins.\nEnter issue number, or leave empty to skip:', '');
