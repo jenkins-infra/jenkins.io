@@ -1,5 +1,5 @@
 ---
-name: Bumps the node docker images versions
+name: Bump NodeJS version (docker image) to follow packer-image infra version
 
 scms:
   default:
@@ -14,212 +14,71 @@ scms:
       branch: "{{ .github.branch }}"
 
 sources:
-  nodeLatestLTSVersionFromJson:
-    name: Get value from json
-    kind: json
+  getDeployedPackerImageVersion:
+    kind: file
+    name: Retrieve the current version of the Packer images used in production
     spec:
-      file: https://nodejs.org/dist/index.json
-      key: .(lts!=false).version
-    transformers:
-      - trimprefix: "v"
-
-  # Using the githubrelease allows us to retrieve the changelog information
-  # It will fail if the version mentioned by appVersion does not have an equivalent published
-  # GitHub release
-  nodeLatestVersion:
-    kind: githubrelease
-    name: Get latest nodejs version
-    dependson:
-      - nodeLatestLTSVersionFromJson
-    spec:
-      owner: "nodejs"
-      repository: "node"
-      token: "{{ requiredEnv .github.token }}"
-      username: "{{ .github.username }}"
-      versionfilter:
-        kind: semver
-        pattern: '{{ source "nodeLatestLTSVersionFromJson" }}'
-    transformers:
-      - trimprefix: "v"
-  alpineLatestVersion:
-    kind: githubrelease
-    name: "Get the latest Alpine Linux version"
-    spec:
-      owner: "alpinelinux"
-      repository: "aports" # Its release process follows Alpine's
-      token: "{{ requiredEnv .github.token }}"
-      username: "{{ .github.username }}"
-      versionfilter:
-        kind: semver
-        pattern: "~3"
+      file: https://raw.githubusercontent.com/jenkins-infra/kubernetes-management/refs/heads/main/config/jenkins_infra.ci.jenkins.io.yaml
+      matchpattern: 'galleryImageVersion:\s"(.*)"'
     transformers:
       - findsubmatch:
-          pattern: >-
-            v(.*)(\.\d+)
+          pattern: 'galleryImageVersion:\s"(.*)"'
+          captureindex: 1
+  getNodeVersionFromPackerImages:
+    kind: file
+    name: Get the NodeJS version set in packer-images
+    dependson:
+      - getDeployedPackerImageVersion
+    spec:
+      file: https://raw.githubusercontent.com/jenkins-infra/packer-images/{{ source "getDeployedPackerImageVersion" }}/provisioning/tools-versions.yml
+      matchpattern: 'node.*_version:\s(.*)'
+    transformers:
+      - findsubmatch:
+          pattern: 'node.*_version:\s(.*)'
           captureindex: 1
 
 conditions:
-  testNodeArg:
-    name: "Does the 'Hello World!' tutorial have a reference to the Node alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: content/doc/pipeline/tour/hello-world.adoc
-      matchpattern: >-
-        .*agent.*docker.*image.*node:.*
-  testNodeInAgentsDocumentation:
-    name: "Does the 'Defining execution environments' documentation have a reference to the Node alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: content/doc/pipeline/tour/agents.adoc
-      matchpattern: >-
-        .*docker.*image.*node:.*
-  testNodeInStyleGuideDocumentation:
-    name: "Does the 'Jenkins Documentation Style Guide' documentation have a reference to the Node alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: STYLEGUIDE.adoc
-      matchpattern: >-
-        .*docker.*image.*node:.*
-  testNodeInPipelineProjectCreationTutorial:
-    name: "Does the 'End-to-End Multibranch Pipeline Project Creation' documentation have a reference to the Node alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: content/doc/tutorials/build-a-multibranch-pipeline-project.adoc
-      matchpattern: >-
-        .*image.*node:.*
-  testNodeInBuildANodeJsAndReactAppWithNpmTutorial:
-    name: "Does the 'End-to-End Multibranch Pipeline Project Creation' documentation have a reference to the Node alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: content/doc/tutorials/build-a-node-js-and-react-app-with-npm.adoc
-      matchpattern: >-
-        .*image.*node:.*
-  testNodeInUsingDockerWithPipelineDocumentation:
-    name: "Does the 'Using Docker with Pipeline' documentation have a reference to the Node alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: content/doc/book/pipeline/docker.adoc
-      matchpattern: >-
-        .*image.*node:.*
-  testNodeAlpineImagePublished:
-    name: "Test node:<latest_version>-alpine<latest-version> docker image tag"
+  checkDockerImagePublished:
+    name: Test node:{{ source "getNodeVersionFromPackerImages" }} docker image tag
+    sourceid: getNodeVersionFromPackerImages
     kind: dockerimage
-    disablesourceinput: true
     spec:
       image: "node"
-      tag: '{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+      ## Tag from source
 
 targets:
-  updateHelloWorldTutorialNodePipeline:
-    name: "Update the value of the node docker image for pipelines in the 'Hello World!' tutorial"
+  setNodeImageVersion:
+    name: "Bump Node Image version in scripts/node"
     kind: file
-    sourceid: nodeLatestVersion
+    sourceid: getNodeVersionFromPackerImages
     spec:
-      file: content/doc/pipeline/tour/hello-world.adoc
-      matchpattern: >-
-        (.*agent.*docker.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+      file: scripts/node
+      matchpattern: 'CONTAINER_NAME=node:.*'
+      replacepattern: 'CONTAINER_NAME=node:{{ source "getNodeVersionFromPackerImages" }}'
     scmid: default
-  updateHelloWorldTutorialNodeScripted:
-    name: "Update the value of the node docker image for scripts in the 'Hello World!' tutorial"
+  setNodeVersionFile:
+    name: "Bump Node version in .node-version"
     kind: file
-    sourceid: nodeLatestVersion
+    sourceid: getNodeVersionFromPackerImages
     spec:
-      file: content/doc/pipeline/tour/hello-world.adoc
-      matchpattern: >-
-        (.*docker.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+      file: .node-version
     scmid: default
-  updateAgentsDocumentation:
-    name: "Update the value of the node docker image in the 'Defining execution environments' documentation"
+  setNodeImageVersionInDockerfile:
+    name: "Bump Node Image version in Dockerfile"
     kind: file
-    sourceid: nodeLatestVersion
+    sourceid: getNodeVersionFromPackerImages
     spec:
-      file: content/doc/pipeline/tour/agents.adoc
-      matchpattern: >-
-        (.*docker.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+      file: Dockerfile
+      matchpattern: 'FROM node:.*'
+      replacepattern: 'FROM node:{{ source "getNodeVersionFromPackerImages" }} as node'
     scmid: default
-  updateStyleGuideDocumentation:
-    name: "Update the value of the node docker image in the 'Jenkins Documentation Style Guide' documentation"
-    kind: file
-    sourceid: nodeLatestVersion
-    spec:
-      file: STYLEGUIDE.adoc
-      matchpattern: >-
-        (.*docker.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
-    scmid: default
-  updatePipelineProjectCreationTutorial:
-    name: "Update the value of the node docker image in the 'End-to-End Multibranch Pipeline Project Creation' tutorial"
-    kind: file
-    sourceid: nodeLatestVersion
-    spec:
-      file: content/doc/tutorials/build-a-multibranch-pipeline-project.adoc
-      matchpattern: >-
-        (.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
-    scmid: default
-  updateBuildANodeJsAndReactAppWithNpmTutorial:
-    name: "Update the value of the node docker image in the 'Build a Node.js and React app with npm' tutorial"
-    kind: file
-    sourceid: nodeLatestVersion
-    spec:
-      file: content/doc/tutorials/build-a-node-js-and-react-app-with-npm.adoc
-      matchpattern: >-
-        (.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
-    scmid: default
-  updateBuildANodeJsAndReactAppWithNpmDockerHubLinkTutorial:
-    name: "Update the value of the node docker image in the 'Build a Node.js and React app with npm' tutorial"
-    kind: file
-    sourceid: nodeLatestVersion
-    spec:
-      file: content/doc/tutorials/build-a-node-js-and-react-app-with-npm.adoc
-      matchpattern: >-
-        (https.*\`)node:(.*)(\`.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
-    scmid: default
-  updateUsingDockerWithPipelineDocumentation:
-    name: "Update the value of the node docker image in the 'Using Docker with Pipeline' documentation"
-    kind: file
-    sourceid: nodeLatestVersion
-    spec:
-      file: content/doc/book/pipeline/docker.adoc
-      matchpattern: >-
-        (.*image.*\')node:(.*)(\'.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
-    scmid: default
-  updateUsingDockerWithPipelineDocumentationDockerExample:
-    name: "Update the value of the node docker image in the 'Using Docker with Pipeline' documentation"
-    kind: file
-    sourceid: nodeLatestVersion
-    spec:
-      file: content/doc/book/pipeline/docker.adoc
-      matchpattern: >-
-        (FROM )node:(.*)(.*)
-      replacepattern: >-
-        ${1}node:{{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
-    scmid: default
+
 actions:
   default:
     kind: github/pullrequest
     scmid: default
-    title: '[Tutorials and Agents Docs] Bump node LTS alpine docker image version to {{ source "nodeLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+    title: Bump Node version to {{ source "getNodeVersionFromPackerImages" }} to match packer-images in production
     spec:
       labels:
         - dependencies
+        - nodejs

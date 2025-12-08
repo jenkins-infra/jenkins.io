@@ -31,6 +31,7 @@ Choose the technique that best meets your needs:
 * <<mod_proxy>>
 * <<mod_proxy with HTTPS>>
 * <<mod_rewrite>>
+* <<mod_proxy_unix_sockets>>
 
 This 6 minute tutorial from Darin Pope configures Apache httpd on Alma Linux as a reverse proxy with <<mod_proxy>>.
 
@@ -51,6 +52,9 @@ The following Apache modules must be installed :
 a2enmod proxy
 a2enmod proxy_http
 a2enmod headers
+# Required for websocket
+a2enmod proxy_wstunnel
+a2enmod rewrite
 ----
 
 A typical set up for mod_proxy would look like this:
@@ -61,6 +65,12 @@ ProxyPass         /jenkins  http://localhost:8081/jenkins nocanon
 ProxyPassReverse  /jenkins  http://localhost:8081/jenkins
 ProxyRequests     Off
 AllowEncodedSlashes NoDecode
+
+# Required for Jenkins websocket agents
+RewriteEngine on
+RewriteCond %{HTTP:Upgrade} websocket [NC]
+RewriteCond %{HTTP:Connection} upgrade [NC]
+RewriteRule ^/jenkins/?(.*) "ws://localhost:8081/jenkins/$1" [P,L]
 
 # Local reverse proxy authorization override
 # Most unix distribution deny proxy by default
@@ -212,7 +222,7 @@ RequestHeader set X-Forwarded-Port "443"
 
 in the HTTPS site configuration, as the Docker demo (below) does.
 (`+X-Forwarded-Port+` is not interpreted by Jenkins prior to
-https://issues.jenkins.io/browse/JENKINS-23294[JENKINS-23294] so it
+https://issue-redirect.jenkins.io/issue/23294[JENKINS-23294] so it
 may also be desirable to configure the servlet container to specify the
 originating port.)
 
@@ -242,6 +252,12 @@ NameVirtualHost *:443
     ProxyPassReverse  /  http://www.example.com/
     RequestHeader set X-Forwarded-Proto "https"
     RequestHeader set X-Forwarded-Port "443"
+
+    # Required for Jenkins websocket agents
+    RewriteEngine on
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/?(.*) "ws://localhost:8080/$1" [P,L]
 </VirtualHost>
 ----
 
@@ -256,17 +272,25 @@ The following Apache modules must be installed :
 a2enmod rewrite
 a2enmod proxy
 a2enmod proxy_http
+# Required for Jenkins websocket agents
+a2enmod proxy_wstunnel
 ----
 
 A typical mod_rewrite configuration would look like this:
 
 [source]
 ----
+# Required for Jenkins websocket agents
+RewriteCond %{HTTP:Upgrade} websocket [NC]
+RewriteCond %{HTTP:Connection} upgrade [NC]
+RewriteRule ^/jenkins/?(.*) "ws://localhost:8081/jenkins/$1" [P,L]
+
 # Use last flag because no more rewrite can be applied after proxy pass
 # NE makes sure slashes are not re-encoded.
 # Apache does not re-encode spaces though, we ask Apache to encode it again with the B flag
 # BNP tells apache to use %20 instead of + to re-encode the space
 RewriteRule       ^/jenkins(.*)$  http://localhost:8081/jenkins$1 [P,L,NE,B=\,BNP]
+
 ProxyPassReverse  /jenkins        http://localhost:8081/jenkins
 ProxyRequests     Off
 
@@ -294,13 +318,165 @@ The _ProxyRequests Off_ prevents Apache from functioning as a forward
 proxy server (except for _ProxyPass_), it is advised to include it
 unless the server should function as a proxy.
 
+== mod_proxy_unix_sockets
+
+Apache can be configured to proxy requests to Jenkins over a Unix domain socket instead of a TCP port. 
+This approach enhances security by eliminating network exposure of Jenkins, and is particularly useful 
+when Jenkins and Apache run on the same host.
+
+To avoid repetitive use of `sudo` in the commands below, switch to a root shell first by running:
+
+[source,bash]
+----
+sudo -i
+----
+
+=== Debian-Based Systems
+
+[source,bash]
+----
+# Enable the modules using `a2enmod`
+a2enmod proxy
+a2enmod proxy_http
+
+# Restart Apache to apply changes
+systemctl restart httpd
+
+# Allow HTTP and HTTPS traffic through the firewall
+ufw allow http
+ufw allow https
+ufw reload
+ufw status
+
+# Edit the Jenkins systemd service to disable TCP and enable a Unix socket
+systemctl edit jenkins
+
+# Add the following override
+[Service]
+ExecStart=
+# Set the new ExecStart with Unix socket
+ExecStart=/usr/bin/jenkins --pluginroot=/var/cache/jenkins/plugins --httpPort=-1 --httpUnixDomainPath=/var/run/jenkins/jenkins.socket
+
+# Reload and restart Jenkins
+systemctl daemon-reload
+systemctl restart jenkins
+
+# Verify the socket exists
+ls -l /var/run/jenkins/jenkins.socket
+
+# Ensure Apache can access the socket
+sudo chown jenkins:jenkins /var/run/jenkins/jenkins.socket
+sudo chmod 700 /var/run/jenkins/jenkins.socket
+
+# Create a new virtual host to proxy requests to the Unix socket
+nano /etc/apache2/sites-available/jenkins.conf
+
+# Add the following
+<VirtualHost *:80>
+    ServerName localhost
+
+    # Proxy to Unix domain socket
+    ProxyPass / unix:/var/run/jenkins/jenkins.socket|http://localhost/
+    ProxyPassReverse / unix:/var/run/jenkins/jenkins.socket|http://localhost/
+
+    # Preserve host header
+    ProxyPreserveHost On
+
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/jenkins_error.log
+    CustomLog ${APACHE_LOG_DIR}/jenkins_access.log combined
+</VirtualHost>
+
+# Enable the site and restart Apache
+a2ensite jenkins.conf
+systemctl restart apache2
+
+# If Apache needs to share socket access with Jenkins, update its user/group
+nano /etc/apache2/envvars
+# Modify:
+export APACHE_RUN_USER=jenkins
+export APACHE_RUN_GROUP=jenkins
+
+# Restart Apache
+systemctl restart apache2
+
+----
+
+=== RHEL-Based Systems
+
+The following video from Darin Pope provides a 16 minute tutorial on configuring Unix domain sockets with Apache HTTP Server and Jenkins running on AlmaLinux.
+
+.Configure Using Unix Domain Sockets With Apache HTTP Server and Jenkins
+video::KxFJh4184vk[youtube, width=640, height=360]
+
+[source,bash]
+----
+# Ensure the modules are loaded by editing the module configuration
+dnf install httpd -y  # Install Apache if not already present
+
+# Allow HTTP and HTTPS traffic through the firewall
+firewall-cmd --zone=public --add-service=http --permanent
+firewall-cmd --zone=public --add-service=https --permanent
+firewall-cmd --reload
+
+# Edit the Jenkins systemd service to disable TCP and enable a Unix socket
+systemctl edit jenkins
+
+# Add the following override
+[Service]
+ExecStart=/usr/lib/jenkins/jenkins --pluginroot=/var/cache/jenkins/plugins --httpPort=-1 --httpUnixDomainPath=/var/run/jenkins/jenkins.socket
+
+# Reload and restart Jenkins
+systemctl daemon-reload
+systemctl restart jenkins
+
+# Verify the socket exists
+ls -l /var/run/jenkins/jenkins.socket
+
+# Ensure Apache can access the socket
+sudo chown jenkins:jenkins /var/run/jenkins
+sudo chmod 700 /var/run/jenkins
+systemctl restart jenkins
+
+# Create a new virtual host to proxy requests to the Unix socket
+mv welcome.conf welcome.old
+vi /etc/httpd/conf.d/jenkins.conf
+
+# Add the following
+User jenkins
+Group jenkins
+ProxyPass / unix:/var/run/jenkins/jenkins.socket|http://localhost/ nocanon
+ProxyPassReverse / unix:/var/run/jenkins/jenkins.socket|http://localhost/
+
+# To allow SE linux to traffic allow to the socket
+chcon -t httpd_sys_rw_content_t /var/run/jenkins/jenkins.socket
+
+# Restart Apache
+systemctl restart apache2
+
+----
+
+Once you have finished your configuration, access `http://localhost/` in a browser.
+If you encounter any issues, check the logs for any errors with the corresponding commands:
+[source,bash]
+----
+tail -f /var/log/apache2/jenkins_error.log  #Debian
+tail -f /var/log/apache2/jenkins_access.log #Debian
+----
+
+[source,bash]
+----
+tail -f /var/log/httpd/jenkins_error.log  #RHEL
+tail -f /var/log/httpd/jenkins_access.log #RHEL
+----
+
 include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
 
 == Proxying CLI commands with the HTTP(S) transport
 
 Using the plain CLI protocol with the HTTP(S) transport to access
 Jenkins through an Apache reverse proxy does not work.
-See https://issues.jenkins.io/browse/JENKINS-47279[JENKINS-47279 - Full-duplex HTTP(S) transport with plain CLI protocol does not work with Apache reverse proxy]
+See https://issue-redirect.jenkins.io/issue/47279[JENKINS-47279 - Full-duplex HTTP(S) transport with plain CLI protocol does not work with Apache reverse proxy]
 for more details.
 As a workaround, you can use the link:/doc/book/managing/cli/#ssh[CLI over SSH].
 

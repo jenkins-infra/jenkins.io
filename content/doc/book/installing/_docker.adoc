@@ -2,11 +2,9 @@
 This file is only meant to be included as a snippet in other documents.
 There is a version of this file for the general 'Installing Jenkins' page
 (index.adoc) and another for tutorials (_run-jenkins-in-docker.adoc).
-This file is for the index.adoc page used in the general 'Installing Jenkins'
-page.
+This file is for the index.adoc page used in the general 'Installing Jenkins' page.
 If you update content on this page, please ensure the changes are reflected in
-the sibling file _docker-for-tutorials.adoc (used in
-_run-jenkins-in-docker.adoc).
+the sibling file _docker-for-tutorials.adoc (used in _run-jenkins-in-docker.adoc).
 ////
 
 
@@ -39,9 +37,9 @@ docker run \
 ----
 <1> ( _Optional_ ) Specifies the Docker container name to use for running the image.
 By default, Docker generates a unique name for the container.
-<2> ( _Optional_ ) Automatically removes the Docker container (the instance of the Docker image) when it is shut down.
+<2> ( _Optional_ ) Automatically removes the Docker container (the replica of the Docker image) when it is shut down.
 <3> ( _Optional_ ) Runs the Docker container in the background.
-You can stop this instance by running `docker stop jenkins-docker`.
+You can stop this process by running `docker stop jenkins-docker`.
 <4> Running Docker in Docker currently requires privileged access to function properly.
 This requirement may be relaxed with newer Linux kernel versions.
 // TODO: what versions of Linux?
@@ -59,6 +57,7 @@ This is useful for executing `docker` commands on the host machine to control th
 Download this image before running, by using the command: `docker image pull docker:dind`.
 <12> The storage driver for the Docker volume.
 Refer to the link:https://docs.docker.com/storage/storagedriver/select-storage-driver[Docker storage drivers] documentation for supported options.
+
 +
 NOTE: If you have problems copying and pasting the above command snippet, use the annotation-free version below:
 +
@@ -77,18 +76,19 @@ docker run --name jenkins-docker --rm --detach \
 +
 [source,subs="attributes+"]
 ----
-FROM jenkins/jenkins:{jenkins-stable}-jdk17
+FROM jenkins/jenkins:{jenkins-stable}-jdk21
 USER root
-RUN apt-get update && apt-get install -y lsb-release
-RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
-  https://download.docker.com/linux/debian/gpg
-RUN echo "deb [arch=$(dpkg --print-architecture) \
-  signed-by=/usr/share/keyrings/docker-archive-keyring.asc] \
-  https://download.docker.com/linux/debian \
-  $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
-RUN apt-get update && apt-get install -y docker-ce-cli
+RUN apt-get update && apt-get install -y lsb-release ca-certificates curl && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+    https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
+    | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && apt-get install -y docker-ce-cli && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 USER jenkins
-RUN jenkins-plugin-cli --plugins "blueocean docker-workflow"
+RUN jenkins-plugin-cli --plugins "blueocean docker-workflow json-path-api"
 ----
 .. Build a new docker image from this Dockerfile, and assign the image a meaningful name, such as "myjenkins-blueocean:{jenkins-stable}-1":
 +
@@ -142,6 +142,7 @@ NOTE: If you change the source volume or directory for this, the volume from the
 <9> Maps the `/certs/client` directory to the previously created `jenkins-docker-certs` volume.
 The client TLS certificates required to connect to the Docker daemon are now available in the path specified by the `DOCKER_CERT_PATH` environment variable.
 <10> The name of the Docker image, which you built in the previous step.
+
 +
 NOTE: If you have problems copying and pasting the command snippet, use the annotation-free version below:
 +
@@ -189,7 +190,7 @@ docker run --name jenkins-docker --rm --detach ^
 +
 [source,dockerfile,subs="attributes+"]
 ----
-FROM jenkins/jenkins:{jenkins-stable}-jdk17
+FROM jenkins/jenkins:{jenkins-stable}-jdk21
 USER root
 RUN apt-get update && apt-get install -y lsb-release
 RUN curl -fsSLo /usr/share/keyrings/docker-archive-keyring.asc \
@@ -200,7 +201,7 @@ RUN echo "deb [arch=$(dpkg --print-architecture) \
   $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
 RUN apt-get update && apt-get install -y docker-ce-cli
 USER jenkins
-RUN jenkins-plugin-cli --plugins "blueocean docker-workflow"
+RUN jenkins-plugin-cli --plugins "blueocean docker-workflow json-path-api"
 ----
 .. Build a new docker image from this Dockerfile and assign the image a meaningful name, e.g. "myjenkins-blueocean:{jenkins-stable}-1":
 +

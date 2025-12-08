@@ -320,9 +320,45 @@ Other plugins depending on your plugin can, too.
 
 Beware that Maven dependencies include _all transitive_ dependencies.
 This can lead to unexpected results when bundling libraries.
-For example, the POM for `com.yoyodyne.cloud:cloud-access-sdk` might declare that it needs `commons-net:commons-net:3.5`.
-Your plugin will thus wind up bundling `commons-net-3.5.jar` as well.
+For example, the POM for `com.yoyodyne.cloud:cloud-access-sdk` might declare that it needs `org.apache.commons:commons-lang3:3.18.0`.
+Your plugin will thus wind up bundling `commons-lang3-3.18.0.jar` as well.
 If you are not careful, `WEB-INF/lib/` may fill up with megabytes of stuff which is not actually used.
+For example, you may depend on a plugin which already provides that dependency, or the dependency may be provided by Jenkins core.
+
+### Build-time validation of bundled artifacts
+
+To avoid surprises, as long as you are using version 5.22 of the plugin parent POM or newer, you can set the `hpi.strictBundledArtifacts` property in your plugin's `pom.xml` to `true` to enable automatic build-time validation of bundled artifacts.
+When enabled, the `artifactId` of all bundled artifacts (including both direct and transitive dependencies) must be specified in the property `hpi.bundledArtifacts` as a sorted and comma-separated list.
+If the specified list does not match the actual list of bundled artifacts, the build will fail with an error message showing the mismatch.
+To resolve the build failure, you will need to review the actual list of bundled artifacts and decide whether to update `hpi.bundledArtifacts` to match, or to adjust the plugin's dependencies, for example by adding `exclusions`.
+
+Here is an example configuration:
+
+[source,xml]
+----
+<properties>
+    <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+    <hpi.bundledArtifacts>cloud-access-sdk,cloud-access-sdk-transitive-dep</hpi.bundledArtifacts>
+</properties>
+<dependencies>
+    <dependency>
+        <groupId>com.yoyodyne.cloud</groupId>
+        <artifactId>cloud-access-sdk</artifactId>
+        <version>1.0</version>
+        <exclusions>
+            <exclusion>
+                <!-- Picked up via plugin commons-lang3-api -->
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+    <dependency>
+        <groupId>io.jenkins.plugins</groupId>
+        <artifactId>commons-lang3-api</artifactId>
+    </dependency>
+</dependencies>
+----
 
 ### Using library wrapper plugins
 
@@ -374,7 +410,6 @@ Thus it is best reserved to libraries used purely by internal implementation.
 A more limited flag is `maskClasses`, which blocks only selected classes or packages from the parent loader, rather than everything.
 You must manually verify that the masked classes are complete under the transitive closure of the Java linker:
 for example, masking one package but not another from a library bundled in core could make classes in the masked package unresolvable.
-There is a related flag `globalMaskClasses` which adjusts the behavior of _every loaded plugin_ to essentially override a component of the Java Platform.
 
 If you did not understand any part of this section, do not use these options. Even if you did, think twice.
 

@@ -7,16 +7,12 @@ layout: developer
 
 From https://content-security-policy.com/[content-security-policy.com]:
 
-> _Content-Security-Policy_ is the name of a HTTP response header that modern browsers use to enhance the security of the document (or web page). The Content-Security-Policy header allows you to restrict how resources such as JavaScript, CSS, or pretty much anything that the browser loads.
+> _Content-Security-Policy_ is the name of a HTTP response header that modern browsers use to enhance the security of the document (or web page). The Content-Security-Policy header allows you to restrict which resources (such as JavaScript, CSS, Images, etc.) can be loaded, and the URLs that they can be loaded from.
 
-Using Content-Security-Policy (CSP), injection attacks like cross-site scripting can be prevented.
+Using Content-Security-Policy (CSP), injection attacks like link:/security/vulnerabilities/#xss[cross-site scripting (XSS)] can be prevented.
 
-// TODO Keep up to date with versions
-Unfortunately, as of Jenkins 2.372, the Jenkins classic UI is not yet compatible with the CSP directives that would allow preventing such injection attacks.
-
-This guide documents how to identify components that will be incompatible with CSP rules and how to write and adapt UI code in a manner that is expected to be compatible with future use of CSP directives on the Jenkins UI.
-
-NOTE: Most of this page focuses on problems caused by the `script-src` CSP directive as that is the most common issue across Jenkins plugins and non-compliant code is most likely to result in link:/blog/2020/07/15/xss-severity/[severe vulnerabilities].
+As of 2025, the Jenkins (core) UI is compatible with the CSP directives that would allow preventing such injection attacks, but many plugins are not.
+This guide documents how to identify components that will be incompatible with CSP rules and how to write and adapt UI code in a manner that is compatible with Jenkins enforcing CSP protections on its UI.
 
 
 == Statically Identifying Affected Code and Plugins
@@ -27,6 +23,8 @@ Inline `<script>` blocks::
 Referencing a file to load JavaScript from is fine, but inline block contents are not.
 All `<script>` tags without `src` are a problem.
 They will break without `'unsafe-inline'` in the `script-src` CSP directive.
+Standalone `st:bind` tags with disallowed `var` attribute::
+Only simple JavaScript identifiers are allowed for CSP-compliant `<st:bind>` tags.
 Inline event handler definitions::
 Any occurrence of `onclick`, `onload`, etc. in HTML files (e.g. Jelly and Groovy views) is a problem.
 Legacy `checkUrl` definitions::
@@ -36,15 +34,30 @@ You can easily identify them through their use of single quotes inside the doubl
 Use of `eval`::
 Check for the use of `eval` inside any JS resource files (potentially after applying fixes for the previously listed issues).
 This will break without `'unsafe-eval'` in the `script-src` CSP directive.
+Use of `setTimeout` and `setInterval` with string arguments::
+Check for the use of `setTimeout` and `setInterval` where the first argument is a string.
+This will break without `'unsafe-eval'` in the `script-src` CSP directive.
+Use of `FormApply#applyResponse`::
+This method expects as the argument a JavaScript snippet to be executed.
+Use of `script` HTTP response header in `f:validateButton` check URLs::
+This header is used to return JavaScript code to be executed on the client side.
+Resources loaded from other domains::
+Any images, scripts, styles, etc. loaded from other domains cause problems.
+Resources should be hosted by Jenkins.
 
 
 == Dynamically Identifying Plugins
 
 When running Jenkins, you can use the following techniques to identify broken features and the component that defines them:
 
-=== Content Security Policy Plugin
+=== Built-in CSP protection in Jenkins 2.539+
 
-link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
+Running Jenkins 2.539 or newer in development mode (e.g., `mvn hpi:run`) will have Content Security Policy protections enabled by default.
+link:/doc/book/security/csp/[Learn more.]
+
+=== Content Security Policy Plugin 1.x
+
+In Jenkins before version 2.539, link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] (1.x) lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
 It can operate both as enforcing and to only gather reports.
 Both modes can be useful with identifying broken functionality.
 
@@ -53,15 +66,12 @@ When set to only report issues but not enforce, the UI can be used as usual whil
 Afterwards, the reported violations can be reviewed and affected functionality identified this way.
 Navigate to _Manage Jenkins » Content-Security-Policy Report_ and review the violations there.
 
-NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins, so the list should very rarely be empty.
-If the list of violations remains empty after navigating several pages of the Jenkins UI, review your browser's console for errors related to reporting CSP violations.
+NOTE: Make sure to review your browser's console for errors related to reporting CSP violations if you experience problems on the UI, but the report is empty.
 For example, some browser extensions will disable CSP reporting.
 
 ==== Enforcing
 
 When set to enforce the rules, the UI will more readily break if functionality being accessed is impacted by the rules.
-
-NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins; so enforcing rules like `script-src` that do not allow `'unsafe-inline' 'unsafe-eval'` is expected to result in problems.
 
 === Enabling Jelly tracing
 
@@ -78,6 +88,8 @@ This property is documented on link:/doc/developer/views/[Views] and emits comme
 
 === Inline JavaScript blocks
 
+==== General advice
+
 Do not use inline JavaScript (JS) in the Jenkins GUI, i.e., JS embedded in HTML output.
 
 This is typically done with `<script>` tags, like so:
@@ -93,6 +105,24 @@ You can generally use https://github.com/jenkinsci/stapler/blob/master/docs/jell
 
 An example of this is https://github.com/jenkinsci/jenkins/pull/6849[jenkinsci/jenkins#6849].
 
+==== Inline `st:bind` tags
+
+If you're using `<st:bind>` tags inside inline JavaScript, add the `var` attribute to set the variable with the specified name, and reference that variable in your own scripts.
+Use a simple JavaScript identifier (complying with https://github.com/jenkinsci/stapler/blob/92458dd7afca3061956ccf92fedf1782a6e76e39/core/src/main/java/org/kohsuke/stapler/bind/BoundObjectTable.java#L59-L63[this regular expression]) as `var` value, rather than a more complex expression.
+
+Make sure to not reuse the same `var` value when extracting multiple or repeatedly executed `<st:bind/>` tags from inline JS.
+You can use `${h.generateId()}` to generate a unique value.
+
+An example of this is https://github.com/jenkinsci/warnings-ng-plugin/pull/1862[warnings-ng-plugin#1862].
+
+=== Standalone `st:bind` tags with disallowed `var` attribute
+
+`<st:bind>` generates different output depending on how it is invoked.
+See the previous section for advice on adding the `var` attribute for standalone use, rather than inside inline JS.
+
+In addition to adding the `var` attribute, its value must comply with https://github.com/jenkinsci/stapler/blob/92458dd7afca3061956ccf92fedf1782a6e76e39/core/src/main/java/org/kohsuke/stapler/bind/BoundObjectTable.java#L59-L63[this regular expression] to generate a CSP-compatible `<script>` tag.
+
+See https://github.com/jenkinsci/build-monitor-plugin/pull/830[build-monitor-plugin#830] for an example.
 
 === Inline event handlers
 
@@ -161,10 +191,54 @@ let callbackName = 'foo';
 /* invoke it with arguments */
 window[callbackName](args);
 
+=== `setTimeout` and `setInterval` with string arguments
+
+The first argument to `setTimeout` and `setInterval` should be a function, not a string.
+The following snippets show the correct usage.
+
+[source, javascript]
+/* If you don't need to pass arguments to the function: */
+setTimeout(functionName, 1000);
+/* Or, more generally: */
+setTimeout(function() {
+  // do something
+}, 1000);
+
+=== `FormApply#applyResponse` calls
+
+Use `FormApply#showNotification`, which was added in Jenkins 2.482.
+
+=== `script` HTTP response header for `f:validateButton` check URLs
+
+Depend on Jenkins 2.540 or newer and set the `X-Jenkins-ValidateButton-Callback` HTTP response header instead.
+See https://github.com/jenkinsci/jenkins/pull/20345[jenkinsci/jenkins#20345].
+
+=== Resources loaded from other domains
+
+Move images, scripts, and styles into the resources of your plugin.
+This will also make Jenkins work better in environments without, or only limited, internet connectivity.
+
+Any dynamically determined images (e.g., "avatar" images based on user configuration, like GitHub orgs or user avatars based on the configured security realm) can be handled in the following ways:
+
+* Have Jenkins request (and possibly cache) these images, serving them through a local URL.
+  For images, consider using `jenkins.scm.impl.avatars.AvatarCache` in plugin:scm-api[SCM API Plugin].
+  Otherwise, be careful to not allow parameterization of the URL serving the image such that it accepts arbitrary parameter values, resulting in arbitrary URLs being proxied.
+* For compatibility with Content Security Policy in Jenkins 2.539 and newer, implement `jenkins.security.csp.Contributor` (or `jenkins.security.csp.SimpleContributor` in simple cases).
+  This will allow Jenkins users' browsers to load images from a known safe domain.
+  In this case, make sure that only administrators can ultimately configure the domains that images can be loaded from.
+  For example, regular Jenkins users should not be able to, e.g., edit their user profile or configure a job in a certain way to allow a domain of their choice.
+
 == Testing
 
-link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
+=== In Jenkins 2.539 and newer
+
+Jenkins 2.539 and newer supports Content Security Policy out of the box.
+See the link:/doc/book/security/csp/[documentation] for information how to set it up.
+
+NOTE: Running Jenkins in development mode will by default enforce Content Security Policy, so plugin maintainers will likely encounter incompatibilities in their own testing.
+
+=== In older releases of Jenkins
+
+link:https://plugins.jenkins.io/csp/[Content Security Policy Plugin] (1.x) lets you define a Content-Security-Policy that gets applied to the Jenkins web UI.
 It can operate both as enforcing and to only gather reports.
 Both modes can be useful with identifying broken functionality.
-
-NOTE: As of Jenkins 2.372, functionality violating the plugin's default rule set is readily available in Jenkins, even without considering plugins; so enforcing rules like `script-src` that do not allow `'unsafe-inline' 'unsafe-eval'` is expected to result in problems with basic Jenkins UI use.

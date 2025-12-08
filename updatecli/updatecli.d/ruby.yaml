@@ -1,5 +1,5 @@
 ---
-name: Bumps the ruby docker images versions in the documentation
+name: Bump Ruby version (docker image) to follow packer-image infra version
 
 scms:
   default:
@@ -12,103 +12,64 @@ scms:
       token: "{{ requiredEnv .github.token }}"
       username: "{{ .github.username }}"
       branch: "{{ .github.branch }}"
-  ruby:
-    kind: github
-    spec:
-      user: "{{ .github.user }}"
-      email: "{{ .github.email }}"
-      owner: "ruby"
-      repository: "ruby"
-      token: "{{ requiredEnv .github.token }}"
-      username: "{{ .github.username }}"
-      branch: "{{ .github.branch }}"
 
 sources:
-  alpineLatestVersion:
-    kind: githubrelease
-    name: "Get the latest Alpine Linux version"
+  getDeployedPackerImageVersion:
+    kind: file
+    name: Retrieve the current version of the Packer images used in production
     spec:
-      owner: "alpinelinux"
-      repository: "aports" # Its release process follows Alpine's
-      token: "{{ requiredEnv .github.token }}"
-      username: "{{ .github.username }}"
-      versionfilter:
-        kind: semver
-        pattern: "~3"
+      file: https://raw.githubusercontent.com/jenkins-infra/kubernetes-management/refs/heads/main/config/jenkins_infra.ci.jenkins.io.yaml
+      matchpattern: 'galleryImageVersion:\s"(.*)"'
     transformers:
       - findsubmatch:
-          pattern: >-
-            v(.*)(\.\d+)
+          pattern: 'galleryImageVersion:\s"(.*)"'
           captureindex: 1
-  rubyDockerImageLatestVersion:
-    kind: dockerimage
-    name: "Get the latest Ruby version"
+  getRubyVersionFromPackerImages:
+    kind: file
+    name: Get the latest Maven version set in packer-images
+    dependson:
+      - getDeployedPackerImageVersion
     spec:
-      image: "ruby"
-      tagFilter: >-
-        \d\.\d\.\d$
-      versionfilter:
-        kind: regex
-        pattern: >-
-          \d\.\d\.\d$
-  rubyLatestVersion:
-    kind: gittag
-    name: "Get the latest Ruby version"
-    scmid: ruby
-    spec:
-      versionfilter:
-      kind: regex
-      pattern: >-
-        v3_\d+\d+$
+      file: https://raw.githubusercontent.com/jenkins-infra/packer-images/{{ source "getDeployedPackerImageVersion" }}/provisioning/tools-versions.yml
+      matchpattern: 'ruby_version:\s(.*)'
     transformers:
-      - removesuffix: "v"
+      - findsubmatch:
+          pattern: 'ruby_version:\s(.*)'
+          captureindex: 1
 
 conditions:
-  testRubyAlpineImagePublished:
-    name: "Test ruby:3.x.x-alpine-3.xx docker image tag"
+  checkDockerImagePublished:
+    name: Test ruby:{{ source "getRubyVersionFromPackerImages" }} docker image tag
+    sourceid: getRubyVersionFromPackerImages
     kind: dockerimage
-    disablesourceinput: true
     spec:
       image: "ruby"
-      tag: '{{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
-  testRubyAlpineArg:
-    name: "Does the 'Hello World!' tutorial have a reference to the ruby alpine image?"
-    kind: file
-    disablesourceinput: true
-    spec:
-      file: content/doc/pipeline/tour/hello-world.adoc
-      matchpattern: >-
-        .*agent.*docker.*image.*ruby:.*
+      ## Tag from source
 
 targets:
-  updateHelloWorldTutorialRubyPipeline:
-    name: "Update the value of the ruby docker image for pipelines in the 'Hello World!' tutorial"
+  setRubyImageVersion:
+    name: "Bump Ruby Image version in scripts ruby"
     kind: file
-    sourceid: rubyLatestVersion
+    sourceid: getRubyVersionFromPackerImages
     spec:
-      file: content/doc/pipeline/tour/hello-world.adoc
-      matchpattern: >-
-        (.*agent.*docker.*image.*\')ruby:(.*)(\'.*)
-      replacepattern: >-
-        ${1}ruby:{{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+      file: scripts/ruby
+      matchpattern: 'CONTAINER_NAME=ruby:.*'
+      replacepattern: 'CONTAINER_NAME=ruby:{{ source "getRubyVersionFromPackerImages" }}'
     scmid: default
-  updateHelloWorldTutorialRubyScripted:
-    name: "Update the value of the ruby docker image for scripts in the 'Hello World!' tutorial"
+  setRubyVersionFile:
+    name: "Bump Ruby version in .ruby-version"
     kind: file
-    sourceid: rubyLatestVersion
+    sourceid: getRubyVersionFromPackerImages
     spec:
-      file: content/doc/pipeline/tour/hello-world.adoc
-      matchpattern: >-
-        (.*docker.*image.*\')ruby:(.*)(\'.*)
-      replacepattern: >-
-        ${1}ruby:{{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+      file: .ruby-version
     scmid: default
 
 actions:
   default:
     kind: github/pullrequest
     scmid: default
-    title: '[Ruby Tutorial] Bump ruby alpine docker image version to {{ source "rubyDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+    title: Bump Ruby version in scripts/ruby and .ruby-version to {{ source "getRubyVersionFromPackerImages" }} the same as the packer-image in production
     spec:
       labels:
         - dependencies
+        - ruby

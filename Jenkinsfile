@@ -28,7 +28,6 @@ node('docker&&linux') {
         sh 'ls -lah'
     }
 
-
     stage('Checkout source') {
         /*
         * For a standalone workflow script, we would use the `git` step
@@ -43,7 +42,7 @@ node('docker&&linux') {
         * scm to check out sources matching Jenkinsfile with the SCM details from
         * the build that is executing this Jenkinsfile.
         *
-        * when not in multibranch: https://issues.jenkins.io/browse/JENKINS-31386
+        * when not in multibranch: https://issue-redirect.jenkins.io/issue/31386
         */
         checkout scm
     }
@@ -55,7 +54,7 @@ node('docker&&linux') {
         */
         if (!infra.isTrusted() && env.BRANCH_NAME != null) {
             sh 'make check'
-            recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')],
+            recordIssues(tools: [sarif(id: 'typos', name: 'Typos', pattern: 'typos.sarif')],
                          qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
         }
     }
@@ -86,14 +85,29 @@ node('docker&&linux') {
     /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
     if (infra.isTrusted() && env.BRANCH_NAME == null) {
-        stage('Publish on Azure') {
-            /* -> https://github.com/Azure/blobxfer
-            Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
-            withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
-                sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+        stage('Publish Site') {
+            stash includes: 'build/_site/**', name: 'site'
+            
+            node('updatecenter') {
+                unstash 'site'
+                sh '''
+                rsync --recursive --links --times -D --checksum --verbose \
+                    ./build/_site/ `# Source` \
+                    /data-storage-jenkins-io/www.jenkins.io/ `# Destination`
+                '''
+            }
+        }
+        stage('Purge pages on CDN') {
+            withCredentials([
+                string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'),
+            ]) {
+                // Purge cache for pages which usually requires some time before being updated
+                sh '''
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/css/jenkins.css
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/stylesheets/styles.css
+                '''
             }
         }
     }
 }
-
 // vim: ft=groovy

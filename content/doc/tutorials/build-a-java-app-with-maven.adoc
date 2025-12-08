@@ -16,19 +16,14 @@ This example Java application from a GitHub repository outputs the string "Hello
 The test results are saved to a JUnit XML report.
 
 *Duration:* This tutorial takes 20-40 minutes to complete, assuming you meet the below <<prerequisites,prerequisites>>.
-The exact duration will depend on the speed of your machine and whether or not you've already <<run-jenkins-in-docker,run Jenkins in Docker>> from link:..[another tutorial].
+The exact duration will depend on the speed of your machine and whether you've already installed `docker` and `docker compose`.
 
 You can stop this tutorial at any time and continue from where you left off.
 
-If you've already run through link:..[another tutorial], you can skip the <<prerequisites,Prerequisites>> and <<run-jenkins-in-docker,Run Jenkins in Docker>> sections below and proceed to <<fork-sample-repository,forking the sample repository>>.
 Make sure you have link:https://git-scm.com/downloads[Git] installed locally.
-If you need to restart Jenkins, simply follow the restart instructions in <<stopping-and-restarting-jenkins,Stopping and restarting Jenkins>>, and then proceed.
 
-include::doc/tutorials/_prerequisites.adoc[]
+include::doc/tutorials/_new_prerequisites.adoc[]
 ** link:https://git-scm.com/downloads[Git], and optionally link:https://desktop.github.com/[GitHub Desktop].
-
-include::doc/book/installing/_run-jenkins-in-docker.adoc[]
-
 
 [[fork-sample-repository]]
 [[fork-and-clone-the-sample-repository-on-github]]
@@ -59,104 +54,102 @@ To begin this process, do either of the following, where `<your-username>` is th
 git clone https://github.com/YOUR-GITHUB-ACCOUNT-NAME/simple-java-maven-app
 ----
 
+=== Start your Jenkins controller
+
+1. Obtain the latest Jenkins deployment, customized for this tutorial, by cloning the link:https://github.com/jenkins-docs/quickstart-tutorials.git[quickstart-tutorials repository].
+2. After cloning, navigate to the `quickstart-tutorials` directory, and execute the command
++
+----
+docker compose --profile maven up -d
+----
+to run the example.
+3. Once the containers are running successfully (you can verify this with `docker compose ps`), the controller can be accessed at http://localhost:8080.
+
+If you are unable to install `docker compose` on your machine for any reason, you can still run the example in the cloud for free using either:
+
+* *GitHub Codespaces* (Recommended): Click the *Code* button in the link:https://github.com/jenkins-docs/quickstart-tutorials[quickstart-tutorials repository], select *Codespaces*, then *Create codespace on master*.
+GitHub Codespaces provides link:https://docs.github.com/en/billing/managing-billing-for-github-codespaces/about-billing-for-github-codespaces[60 hours per month for free].
+Once the Codespace starts, the setup will run automatically, and you'll see a welcome message with instructions.
+
+* *GitPod*: Click on link:https://gitpod.io/?autostart=true#https://github.com/jenkins-docs/quickstart-tutorials[this link] to open a GitPod workspace.
+GitPod link:https://www.gitpod.io/pricing[provides 50 hours per month for free].
+You need to link it to your GitHub account.
+
+Now, log in using the `admin` username and `admin` password.
+
 === Create your Pipeline project in Jenkins
 
-. In Jenkins, sign in again if necessary, and select *create new jobs* under *Welcome to Jenkins!*.
-If your display is different, select *New Item* at the top left.
+. In Jenkins, select *New Item* under *Dashboard >* at the top left.
 . Enter your new Pipeline project name in *Enter an item name*.
-. Scroll down and select *Pipeline*, then select *OK* at the end of the page.
+. Scroll down if necessary and select *Pipeline*, then select *OK* at the end of the page.
 . (Optional) Enter a Pipeline *Description*.
 . Select *Pipeline* on the left pane.
-. Select *Definition*, and then select the *Pipeline script from SCM* option.
-This option instructs Jenkins to obtain your Pipeline from source control management (SCM), which is your locally cloned Git repository.
-. Select *Git* from the options in *SCM*.
-. Enter the directory path of your locally cloned repository <<fork-sample-repository,above>> in *Script Path*.
-This directory path from your user account/home directory on your host machine is mapped to the `/home` directory of the Jenkins container, according to your operating system, below:
-* For macOS - `/home/Documents/GitHub/simple-java-maven-app`
-* For Linux - `/home/GitHub/simple-java-maven-app`
-* For Windows - `/home/Documents/GitHub/simple-java-maven-app`
-. Select *Save* to save your new Pipeline project.
-You're now ready create a `Jenkinsfile` to check into your locally cloned Git repository.
+. Select *Definition*, and then choose the *Pipeline script from SCM* option.
+This option instructs Jenkins to obtain your Pipeline from the source control management (SCM), which is your forked Git repository.
+. Choose *Git* from the options in *SCM*.
+. Enter the URL of your repository in *Repositories/Repository URL*. This URL can be found when clicking on the green *Code* button in the main page of your GitHub repo.
+. Select *Save* at the end of the page.
+You're now ready to create a `Jenkinsfile` to check into your locally cloned Git repository.
 
 === Create your initial Pipeline as a Jenkinsfile
 
-You can now create a Pipeline that automates building your Java application with Maven in Jenkins.
+You can now create a Pipeline that automates the building of your Java application with Maven in Jenkins.
 
 Your Pipeline is created as a `Jenkinsfile`, which is committed to your locally cloned Git repository (`simple-java-maven-app`).
 
 This is the foundation of "Pipeline-as-Code", which treats the continuous delivery pipeline as a part of the application, to be versioned and reviewed like any other code.
 Read more about Pipeline and what a Jenkinsfile is in the link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using a Jenkinsfile] sections of the User Handbook.
 
-First, create an initial Pipeline to download a Maven Docker image and run it as a Docker container, which builds your Java application.
-Be sure to add a "Build" stage to the Pipeline that begins orchestrating this whole process.
+First, create an initial Pipeline to download a Maven Docker image and run it as a Docker container, which will build your Java application.
+Ensure you add a "Build" stage to the Pipeline that begins orchestrating this whole process.
 
-. Using your favorite text editor or IDE, create and save a new text file with the name `Jenkinsfile` at the root of your local `simple-java-maven-app` Git repository.
-. Copy the following Declarative Pipeline code and paste it into your empty `Jenkinsfile`:
+. Using your preferred text editor or IDE, create and save a new text file named `Jenkinsfile` at the root of your local `simple-java-maven-app` Git repository.
+. Copy the following Declarative Pipeline code and paste it into your newly created `Jenkinsfile`:
 +
 [source,groovy]
 ----
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.4-eclipse-temurin-17-alpine' // <1>
-            args '-v /root/.m2:/root/.m2' // <2>
-        }
-    }
+    agent any
     stages {
-        stage('Build') { // <3>
+        stage('Build') { // <1>
             steps {
-                sh 'mvn -B -DskipTests clean package' // <4>
+                sh 'mvn -B -DskipTests clean package' // <2>
             }
         }
     }
 }
 ----
-<1> This `image` parameter of the link:/doc/book/pipeline/syntax#agent[`agent`] section's `docker` parameter downloads the link:https://hub.docker.com/_/maven/[`maven:3.9.4-eclipse-temurin-17-alpine` Docker image], if not already available on your machine, and runs this image as a separate container.
-This means that:
-* You'll have separate Jenkins and Maven containers running locally in Docker.
-* The Maven container becomes the link:/doc/book/glossary/#agent[agent] that Jenkins uses to run your Pipeline project.
-However, this container is short-lived: for the duration of your Pipeline's execution.
-<2> This `args` parameter creates a reciprocal mapping between the `/root/.m2` directories in the short-lived Maven Docker container and that of your Docker host's filesystem.
-A fuller explanation is beyond the scope of this tutorial.
-You do this mainly to ensure that the artifacts for building your Java application, which Maven downloads while your Pipeline is being executed, are retained in the Maven repository after the Maven container is gone.
-This prevents Maven from downloading the same artifacts during successive Pipeline runs.
-NOTE: Unlike the Docker data volume created for `jenkins-data` <<download-and-run-jenkins-in-docker,above>>, the Docker host's filesystem is effectively cleared out each time Docker is restarted, so you lose the downloaded Maven repository artifacts each time Docker restarts.
-<3> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called `Build` that appears on the Jenkins UI.
-<4> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step runs the Maven command to cleanly build your Java application without running any tests.
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called `Build` that appears on the Jenkins UI.
+<2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step runs the Maven command to cleanly build your Java application without running any tests.
 . Save your edited `Jenkinsfile` and commit it to your local `simple-java-maven-app` Git repository.
 Within the `simple-java-maven-app` directory, run the commands:
 +
 .. `git add .`
 .. `git commit -m "Add initial Jenkinsfile"`
+.. `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
 
-. In Jenkins, sign in if necessary, and select *Open Blue Ocean* on the left pane.
-. Select *Run* from the *This job has not been run* options, then quickly select *OPEN* on the lower-right.
-If you cannot select *OPEN* in time, you can alternatively select the top row on the main Blue Ocean interface to display Jenkins running your project.
-You may need to wait several minutes for this first run to complete.
+. Now select *Build Now* on the left pane of your Pipeline project in Jenkins.
 After making a clone of your local `simple-java-maven-app` Git repository itself, Jenkins:
-.. Initially queues the project to be run on the agent.
-.. Downloads the Maven Docker image and runs it in a container on Docker.
-+
-[.boxshadow]
-image:tutorials/java-maven-01-downloading-maven-docker-image.png[alt="Downloading
-Maven Docker image",width=100%]
-.. Runs the `Build` stage defined in the `Jenkinsfile` on the Maven container.
-During this time, Maven downloads many artifacts necessary to build your Java application, which are ultimately stored in Jenkins' local Maven repository in the Docker host's filesystem.
-[.boxshadow]
-image:tutorials/java-maven-02-initial-pipeline-downloading-maven-artifacts.png[alt="Downloading
-Maven artifacts",width=100%]
 
-+
-The Blue Ocean interface displays green if Jenkins built your Java application successfully.
-[.boxshadow]
-image:tutorials/java-maven-03-initial-pipeline-runs-successfully.png[alt="Initial
-Pipeline runs successfully",width=100%]
-. Select the *X* at the top-right to return to the main Blue Ocean interface.
-+
-[.boxshadow]
-image:tutorials/java-maven-04-main-blue-ocean-interface.png[alt="Main Blue Ocean
-interface",width=100%]
+. Initially queues the project to be run on the agent.
+. Runs the `Build` stage defined in the `Jenkinsfile` on the agent.
 
+During this time, Maven downloads many artifacts necessary to build your Java application, which are ultimately stored in Jenkins' local Maven repository.
+[.boxshadow]
+image:tutorials/maven/maven-downloading-artefacts.png[alt="Downloading Maven artifacts",width=100%]
+
+You can now click on *#1* to see the details of the build.
+You will then see how much time the build took waiting in the queue, and how much time it took to run.
+
+[.boxshadow]
+image:tutorials/maven/first-build-details.png[alt="Initial Pipeline first run details",width=100%]
+On the left, you can click on *Pipeline Overview* to see the stages of the Pipeline.
+[.boxshadow]
+image:tutorials/maven/pipeline-overview.png[alt="Initial Pipeline runs successfully",width=100%]
+If you select the *Build* stage, you will see more information about the stage, including the output of the `mvn` command if you click on the green `maven` section.
+[.boxshadow]
+image:tutorials/maven/build-stage-overview.png[alt="Build stage overview",width=100%]
+You can now click on *Maven tutorial* (if that's the name you chose for your pipeline) on the top left to return to your pipeline main page.
 
 === Add a test stage to your Pipeline
 
@@ -181,12 +174,7 @@ so that you end up with:
 [source,groovy]
 ----
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.4-eclipse-temurin-17-alpine'
-            args '-v /root/.m2:/root/.m2'
-        }
-    }
+    agent any
     stages {
         stage('Build') {
             steps {
@@ -210,31 +198,33 @@ pipeline {
 <2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step executes the Maven command to run the unit test on your Java application.
 This command also generates a JUnit XML report, which is saved to the `target/surefire-reports` directory within the `/var/jenkins_home/workspace/simple-java-maven-app` directory in the Jenkins container.
 <3> This link:/doc/pipeline/steps/junit/#code-junit-code-archive-junit-formatted-test-results[`junit`] step (provided by the link:/doc/pipeline/steps/junit[JUnit Plugin]), archives the JUnit XML report generated by the `mvn test` command above, and displays the results through the Jenkins interface.
-In Blue Ocean, select *Tests* to access the Pipeline run test results.
 The link:/doc/book/pipeline/syntax/#post[`post`] section's `always` condition that contains this `junit` step ensures that the step is _always_ executed _at the completion_ of the `Test` stage, regardless of the stage's outcome.
 . Save your edited `Jenkinsfile` and commit it to your local `simple-java-maven-app` Git repository.
 Within the `simple-java-maven-app` directory, run the commands:
 +
 .. `git stage .`
 .. `git commit -m "Add 'Test' stage"`
+.. `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
 
-. In Jenkins, sign in if necessary, and access the Blue Ocean interface.
-. Select *Run* at the top left, then quickly select *OPEN*, which appears briefly at the lower-right, to display Jenkins running your updated Pipeline project.
-Alternatively, you can select the _top_ row on the Blue Ocean interface to display Jenkins running your updated Pipeline project.
+. In Jenkins, go back to *Dashboard* if necessary, then *Maven Tutorial* and launch another build thanks to *Build Now*.
+. After a while, a new column *Test* appear in the *Stage View*.
+
+[.boxshadow]
+image:tutorials/maven/test-stage-added.png[alt="Test stage runs successfully",width=100%]
+
+. You can click on *#2* or on the number representing your last build on the left, under *Build History*. You will then see the details of the build.
 +
-Note that Jenkins no longer needs to download the Maven Docker image.
-Instead, Jenkins runs a new container from the Maven image downloaded previously.
 If Docker has not restarted since you last ran the Pipeline <<create-your-initial-pipeline-as-a-jenkinsfile,above>>, then no Maven artifacts are downloaded during the "Build" stage.
 Therefore, running your Pipeline this subsequent time should be much faster.
 
-The Blue Ocean interface displays as below if a Pipeline runs successfully.
-Notice the additional "Test" stage.
-You can select the previous "Build" stage circle to access the output from that stage.
+You can now click on *Pipeline Overview* to see the stages of the Pipeline.
 [.boxshadow]
-image:tutorials/java-maven-11-test-stage-runs-successfully-with-output.png[alt="Test
-stage runs successfully (with output)",width=100%]
-. Select the *X* at the top-right to return to the main Blue Ocean interface.
+image:tutorials/maven/test-stage-visible-pipeline-overview.png[alt="Test stage runs successfully",width=100%]
 
+Notice the additional "Test" stage.
+You can select the "Test" stage checkmark to access the output from that stage.
+[.boxshadow]
+image:tutorials/maven/test-stage-output.png[alt="Test stage runs successfully (with output)",width=100%]
 
 === Add a final deliver stage to your Pipeline
 
@@ -254,12 +244,7 @@ Add a `skipStagesAfterUnstable` option, resulting in:
 [source,groovy]
 ----
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.4-eclipse-temurin-17-alpine'
-            args '-v /root/.m2:/root/.m2'
-        }
-    }
+    agent any
     options {
         skipStagesAfterUnstable()
     }
@@ -296,26 +281,24 @@ Maintaining your Pipeline code is easier this way.
 +
 .. `git stage .`
 .. `git commit -m "Add 'Deliver' stage"`
-. In Jenkins, sign in if necessary, and access Jenkins' Blue Ocean interface.
-. Select *Run* at the top left, then quickly select *OPEN*, which appears briefly at the lower-right, to display Jenkins running your updated Pipeline project.
-Alternatively, you can select the _top_ row on the Blue Ocean interface to display Jenkins running your updated Pipeline project.
-The Blue Ocean interface displays as below if a Pipeline runs successfully.
-Notice the additional "Deliver" stage.
-Select the previous "Test" and "Build" stage circles to access the outputs from those stages.
+.. `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. In Jenkins, sign in if necessary, and go back to the *Dashboard* and then *Maven tutorial* or go directly to *Maven tutorial* depending on where you're starting from.
+. Select *Build Now* on the left. You should see after a while a new column *Deliver* appear in the *Stage View*.
 +
 [.boxshadow]
-image:tutorials/java-maven-21-deliver-stage-runs-successfully.png[alt="Deliver
-stage runs successfully",width=100%]
+image:tutorials/maven/deliver-stage-added.png[alt="Deliver stage runs successfully",width=100%]
+
+. You can click on *#3* or on the number representing your last build on the left, under *Build History*. You will then see the details of the build.
 
 +
-The "Deliver" stage output should be something like below, showing you the execution results of your Java application at the end.
+You can now click on *Pipeline Overview* to see the stages of the Pipeline.
+Once you click on the *Deliver* green checkmark, and then on the first green section, the output should be something like below, showing you the execution results of your Java application at the end.
 [.boxshadow]
-image:tutorials/java-maven-22-deliver-stage-output-only.png[alt="Deliver stage
-output only",width=100%]
-. Select the *X* at the top-right to return to the main Blue Ocean interface, which lists your previous Pipeline runs in reverse chronological order.
+image:tutorials/maven/deliver-stage-output.png[alt="Deliver stage output only",width=100%]
+. You can now click on *Maven tutorial* on the top left, and then on *Stages* at the left. It will list your previous Pipeline runs in reverse chronological order.
 [.boxshadow]
-image:tutorials/java-maven-23-main-blue-ocean-interface-with-all-previous-runs-displayed.png[alt="Main
-Blue Ocean interface with all previous runs displayed",width=100%]
+image:tutorials/maven/pipeline-runs.png[alt="Pipeline overview interface with all previous runs displayed",width=100%]
 
 
 === Wrapping up
@@ -333,6 +316,26 @@ To learn more about what Jenkins can do, check out:
 * The link:/doc/book[User Handbook] for more detailed information about using Jenkins, such as link:/doc/book/pipeline[Pipelines] (in particular link:/doc/book/pipeline/syntax[Pipeline syntax]) and the link:/doc/book/blueocean[Blue Ocean] interface.
 * The link:/node[Jenkins blog] for the latest events, other tutorials and updates.
 
+=== Cleaning Up Your Environment
+
+After completing the tutorial, it's important to clean up your environment to prevent interference with other tutorials you might try later.
+
+To stop the containers and remove associated volumes:
+
+[source,bash]
+----
+docker compose --profile maven down -v --remove-orphans
+----
+
+This command ensures a clean slate for your next project.
+
+[NOTE]
+====
+The `--remove-orphans` option instructs Docker Compose to remove any containers that are not defined in the `docker-compose.yml` file but are labeled as belonging to the project.
+This helps in cleaning up any services that might have been started independently but are considered part of the project.
+====
+
+[[appendix]]
 
 '''
 ++++

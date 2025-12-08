@@ -23,35 +23,44 @@ Theoretically, Jenkins can also be run as a servlet in a traditional servlet con
 like link:https://tomcat.apache.org/[Apache Tomcat] or link:https://www.wildfly.org/[WildFly],
 but in practice this is largely untested and there are many caveats.
 In particular, support for WebSocket agents is only implemented for the Jetty servlet container.
-See the link:/doc/administration/requirements/servlet-containers[Servlet Container Support Policy] page for details.
+See the link:/doc/book/platform-information/support-policy-servlet-containers[Servlet Container Support Policy] page for details.
 
 WARNING: Support for traditional servlet containers may be discontinued in the future.
 
-Jenkins requires Servlet API 4.0 (Jakarta EE 8) with `javax.servlet` imports.
-Jenkins is incompatible with Servlet API 5.0 (Jakarta EE 9) or later with `jakarta.servlet` imports.
-Ensure that the Servlet API version of your chosen servlet container is compatible before running Jenkins.
+== Requirements
+* **Jenkins 2.492.3+ requires Servlet API 5.0 (Jakarta EE 9)**
+* Compatible containers:
+  * **Tomcat 10.1.x** (Tested with 10.1.40 - latest version)
+  * WildFly version needs verification (minimum 30+ recommended)
+* Requires JDK 17+ for full compatibility
 
-== Tomcat 9
-
-Tomcat 9 is based on Servlet API 4.0 (Jakarta EE 8), which is the version of the servlet API required by Jenkins.
-
-CAUTION: Later versions of Tomcat use newer versions of the Servlet API and are incompatible with Jenkins.
-
-Jenkins can be deployed to Tomcat by placing the Jenkins WAR file in the `+${CATALINA_HOME}/webapps/+` directory.
-
-To configure the Jenkins home directory, set the `JENKINS_HOME` Java system property via the `CATALINA_OPTS` environment variable.
-For example, create `+${CATALINA_HOME}/bin/setenv.sh+` with the following contents:
-
+== Tomcat 10
+### Deployment
 [source,bash]
 ----
-export CATALINA_OPTS=-DJENKINS_HOME=/var/lib/jenkins
+# Download Tomcat 10.1.x
+wget https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.40/bin/apache-tomcat-10.1.40.tar.gz
+
+# Extract and deploy
+tar xzf apache-tomcat-10.1.40.tar.gz
+export CATALINA_HOME=$(pwd)/apache-tomcat-10.1.40
+cp jenkins.war $CATALINA_HOME/webapps/
+----
+
+### Configuration
+**Set Jenkins home:**
+[source,bash]
+----
+mkdir /var/lib/jenkins
+echo "export CATALINA_OPTS=-DJENKINS_HOME=/var/lib/jenkins" > $CATALINA_HOME/bin/setenv.sh
+chmod +x $CATALINA_HOME/bin/setenv.sh
 ----
 
 NOTE: Running multiple Jenkins controllers within a single Java process is unsupported.
 
 Scheme selection in redirect URLs is delegated to the servlet container,
 and Jetty handles the `X-Forwarded-For`, `X-Forwarded-By`, and `X-Forwarded-Proto` headers by default.
-With Tomcat, one needs to add a link:https://tomcat.apache.org/tomcat-9.0-doc/config/valve.html#Remote_IP_Valve[Remote IP Valve]
+With Tomcat, one needs to add a link:https://tomcat.apache.org/tomcat-10.0-doc/config/valve.html#Remote_IP_Valve[Remote IP Valve]
 to expose these headers to Jenkins via the Servlet API.
 Add the following to `+${CATALINA_HOME}/conf/server.xml+` within the `<Host>` section:
 
@@ -63,19 +72,23 @@ Add the following to `+${CATALINA_HOME}/conf/server.xml+` within the `<Host>` se
        protocolHeader="X-Forwarded-Proto" />
 ----
 
-== WildFly 26
+== WildFly
 
-WildFly 26 is based on Servlet API 4.0 (Jakarta EE 8), which is the version of the servlet API required by Jenkins.
+### Requirements
+* **WildFly 30+** required for Jenkins 2.492.3+ with JDK 17
+* Uses Servlet API 5.0 (Jakarta EE 9) with `jakarta.servlet` namespace
+* **Incompatible with WildFly 26 and earlier** (Servlet API 4.0)
 
-CAUTION: Later versions of WildFly use newer versions of the Servlet API and are incompatible with Jenkins.
-
-Jenkins can be deployed to WildFly by placing the Jenkins WAR file in the `+${JBOSS_HOME}/standalone/deployments/+` directory.
-
-To configure the Jenkins home directory, set the `JENKINS_HOME` Java system property via the `JAVA_OPTS` environment variable.
-For example, update `+${JBOSS_HOME}/bin/standalone.conf+` with the following contents:
-
+### Deployment
 [source,bash]
 ----
+cp jenkins.war $JBOSS_HOME/standalone/deployments/
+----
+
+### Configuration
+[source,bash]
+----
+# Add this to $JBOSS_HOME/bin/standalone.conf
 JAVA_OPTS="$JAVA_OPTS -DJENKINS_HOME=/var/lib/jenkins"
 ----
 

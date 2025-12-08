@@ -3,7 +3,7 @@ title: Source Code Hosting
 layout: developersection
 ---
 
-The Jenkins project only publishes free and open source plugins distributed under an link:https://opensource.org/licenses/[OSI-approved] license.
+The Jenkins project only publishes free and open source plugins distributed under an link:https://opensource.org/licenses/[OSI-approved] or link:https://en.wikipedia.org/wiki/Public-domain-equivalent_license[public-domain-equivalent] license or dedicated to the public domain.
 
 The canonical source code repository is in the `jenkinsci` GitHub organization to ensure source code access and project continuity in case previous maintainers move on.
 Some plugins we distribute are currently maintained outside the `jenkinsci` GitHub organization for historical reasons, but this is discouraged.
@@ -16,6 +16,7 @@ This table shows the permissions currently granted to contributors in the `jenki
 ////
 Testing changes to the script below locally without major changes is difficult due to CORS set up on reports.jenkins.io to only allow access from jenkins.io.
 Starting Chrome with the arguments --disable-web-security --user-data-dir=<some dir> seems to be the easiest option.
+Another workaround is to use https://raw.githubusercontent.com/lemeurherve/jenkins.io/refs/heads/maintainers-json/maintainers.json as source url (no CORS).
 ////
 ++++
     <style type="text/css">
@@ -23,29 +24,41 @@ Starting Chrome with the arguments --disable-web-security --user-data-dir=<some 
     </style>
     <script type="text/javascript" src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript">
-$(document).ready(function() {
-    $('#permissions').DataTable( {
-        ajax: {
-            url: 'https://reports.jenkins.io/github-jenkinsci-permissions-report.json',
-            dataSrc: ''
-        },
-        columns: [
-            { 
-                title: "Repository",
-                render: function(data, type, row, metadata) {
-                    return '<a href="https://github.com/jenkinsci/' + data + '" target="_blank" rel="noreferrer noopener">' + data + '</a>';
-                }
-            },
-            { 
-                title: "User",
-                render: function(data, type, row, metadata) {
-                    return '<a href="https://github.com/' + data + '" target="_blank" rel="noreferrer noopener">' + data + '</a>';
-                }
-            },
-            { title: "Access" }
-        ]
-    } );
-} );
+        $(document).ready(function() {
+            // Add a search input to each footer cell
+            $('#permissions tfoot th').each(function() {
+                var columnName = $('#permissions thead th').eq($(this).index()).text();
+                $(this).html('<input type="text" id="filter' + columnName + '" placeholder="Filter ' + columnName + '" title="Filter the table on ' + columnName + ' (support regular expressions)" />');
+            });
+
+            $('#permissions').DataTable({
+                ajax: {
+                    url: 'https://reports.jenkins.io/github-jenkinsci-permissions-report.json',
+                    dataSrc: ''
+                },
+                columns: [
+                    {
+                        title: "Repository",
+                        render: function(data, type, row, metadata) {
+                            return '<a href="https://github.com/jenkinsci/' + data + '" target="_blank" rel="noreferrer noopener">' + data + '</a>';
+                        }
+                    },
+                    {
+                        title: "User",
+                        render: function(data, type, row, metadata) {
+                            return '<a href="https://github.com/' + data + '" target="_blank" rel="noreferrer noopener">' + data + '</a>';
+                        }
+                    },
+                    { title: "Access" }
+                ]
+            }).columns().every(function() {
+                var column = this;
+                // Regexp search in the column on every input
+                $('input', this.footer()).on('keyup change', function() {
+                    column.search(this.value, true).draw();
+                });
+            });
+        });
     </script>
     <table id="permissions" class="display" cellspacing="0" width="100%">
       <thead>
