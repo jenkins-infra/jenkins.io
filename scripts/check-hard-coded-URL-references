@@ -14,26 +14,33 @@
 # Returns 2 if one or more adoc files include https://jenkins.io
 # Returns 3 if both https://www.jenkins.io and https://jenkins.io are found
 
+if [[ "${JENKINS_URL}" == *"trusted.ci.jenkins.io"* ]];then
+        exit 0
+fi
+
 return_code=0
 
-files=$(git grep -l https://www.jenkins.io -- content/[a-zA-Z]**/*.adoc)
-if [ "$files" != "" ]; then
-        echo "ERROR: incorrectly used https://www.jenkins.io in ${files}"
-        echo
-        echo "See https://github.com/jenkins-infra/jenkins.io/issues/5718"
-        echo "See also https://github.com/jenkins-infra/jenkins.io/pull/5715"
-        echo
-        return_code=1
-fi
+# Exclude the _data directory, redirects, Pipeline comments, and source examples
+excluded_patterns='content/_data|/redirect/|// https://|jenkins.io[+]|https://jenkins.io/$'
 
-files=$(git grep -l https://jenkins.io -- content/[a-zA-Z]**/*.adoc)
-if [ "$files" != "" ]; then
-        echo "ERROR: incorrectly used https://jenkins.io in ${files}"
-        echo
-        echo "See https://github.com/jenkins-infra/jenkins.io/issues/5718"
-        echo "See also https://github.com/jenkins-infra/jenkins.io/pull/5715"
-        echo
-        return_code=$(( return_code + 2 ))
-fi
+# Relies on 'grep -n' output format with file name followed by ':<line-number>:'
+file_name_pattern='content/.*[.]adoc:[1-9][0-9]*:'
+
+for url in https://jenkins.io https://www.jenkins.io  ; do
+        files=$(git grep -n ${url} -- content/ | grep -v -E "${excluded_patterns}" | grep -E "${file_name_pattern}")
+        if [ "$files" != "" ]; then
+                echo "ERROR: incorrectly used ${url} in:"
+                echo ${files}
+                echo
+                echo "See https://github.com/jenkins-infra/jenkins.io/issues/5718"
+                echo "See also https://github.com/jenkins-infra/jenkins.io/pull/5715"
+                echo
+                # Remember prior return code, add a failure
+                return_code=$(( 0x1 | return_code << 1 ))
+        else
+                # Remember prior return code, add a success
+                return_code=$(( 0x0 | return_code << 1 ))
+        fi
+done
 
 exit $return_code
