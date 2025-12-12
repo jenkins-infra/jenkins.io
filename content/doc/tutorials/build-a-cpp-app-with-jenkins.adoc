@@ -1,0 +1,383 @@
+---
+layout: documentation
+title: Build a C++ app with Jenkins
+section: doc
+---
+
+:toc:
+:toclevels: 3
+:imagesdir: ../../book/resources
+
+This tutorial shows you how to use Jenkins to build a simple C++ application, specifically a **Casino Number Guessing Game**. The application generates a random number based on the selected difficulty level, and the player wins a prize if they guess the correct number.
+
+If you are a C++ developer who is new to CI/CD concepts, or you might be familiar with these concepts but don't know how to implement building your application using Jenkins, then this tutorial is for you.
+
+*Duration:* This tutorial takes 20-40 minutes to complete (assuming you've already met the <<prerequisites,prerequisites>> below). The exact duration will depend on the speed of your machine and whether you've already installed `docker` and `docker compose`.
+
+You can stop this tutorial at any point in time and continue from where you left off.
+
+include::doc/tutorials/_new_prerequisites.adoc[]
+** link:https://git-scm.com/downloads[Git], and optionally link:https://desktop.github.com/[GitHub Desktop].
+
+[[fork-sample-repository]]
+=== Fork and clone the sample repository
+
+Get the **Casino Number Guessing Game** C++ application from GitHub by forking the sample repository of the application's source code into your own GitHub account and then cloning this fork locally.
+
+. Ensure you are signed in to your GitHub account. If you don't yet have a GitHub account, sign up for free on the https://github.com/[GitHub website].
+. Fork the https://github.com/biru-codeastromer/casino-number-guessing-game[`casino-number-guessing-game`] repository on GitHub into your local GitHub account. If you need help with this process, refer to the https://help.github.com/articles/fork-a-repo/[repository forking instructions] on the GitHub website for more information.
+. Clone your forked `casino-number-guessing-game` repository from GitHub to your local machine. To begin this process, do either of the following (where `<your-username>` is the name of your user account on your operating system):
+** If you have the link:https://github.com/apps/desktop[GitHub Desktop] app installed on your machine:
+.. In GitHub, select the green *Clone or download* button on your forked repository, then select *Open in Desktop*.
+.. In GitHub Desktop, before selecting *Clone* on the *Clone a Repository* dialog box, confirm the *Local Path* for your operating system:
+*** macOS is `/Users/<your-username>/Documents/GitHub/casino-number-guessing-game`
+*** Linux is `/home/<your-username>/GitHub/casino-number-guessing-game`
+*** Windows is `C:\Users\<your-username>\Documents\GitHub\casino-number-guessing-game`
+** Otherwise:
+.. Open up a terminal/command line prompt and `cd` to the appropriate directory on:
+*** macOS - `/Users/<your-username>/Documents/GitHub/`
+*** Linux - `/home/<your-username>/GitHub/`
+*** Windows - `C:\Users\<your-username>\Documents\GitHub\` (Use a Git bash command line window as opposed to the usual Microsoft command prompt)
+.. Run the following command to clone your forked repo, replacing `YOUR-GITHUB-ACCOUNT-NAME` with the name of your GitHub account:
++
+----
+git clone https://github.com/YOUR-GITHUB-ACCOUNT-NAME/casino-number-guessing-game
+----
+
+=== Start your Jenkins controller
+
+1. Obtain the latest Jenkins deployment, customized for this tutorial, by cloning the link:https://github.com/jenkins-docs/quickstart-tutorials.git[quickstart-tutorials repository].
+2. After cloning, navigate to the `quickstart-tutorials` directory and execute the command
++
+----
+docker compose --profile cpp up -d
+----
+to run the example.
+3. Once the containers are running successfully (you can verify this with `docker compose ps`), the controller can be accessed at http://localhost:8080.
+
+If you are unable to install `docker compose` on your machine for any reason, you can still run the example in the cloud for free using either:
+
+* *GitHub Codespaces* (Recommended): Click the *Code* button in the link:https://github.com/jenkins-docs/quickstart-tutorials[quickstart-tutorials repository], select *Codespaces*, then *Create codespace on master*.
+GitHub Codespaces provides link:https://docs.github.com/en/billing/managing-billing-for-github-codespaces/about-billing-for-github-codespaces[60 hours per month for free].
+Once the Codespace starts, the setup will run automatically, and you'll see a welcome message with instructions.
+
+* *GitPod*: Click on link:https://gitpod.io/?autostart=true#https://github.com/jenkins-docs/quickstart-tutorials[this link] to open a GitPod workspace.
+GitPod link:https://www.gitpod.io/pricing[provides 50 hours per month for free].
+You need to link it to your GitHub account.
+
+Now, log in using the `admin` username and `admin` password.
+
+=== Create your Pipeline project in Jenkins
+
+. In Jenkins, select *New Item* under *Dashboard >* at the top left.
+. Enter your new Pipeline project name, such as `casino-number-guessing-game`, in *Enter an item name*.
+. Scroll down if necessary and select *Pipeline*, then select *OK* at the end of the page.
+. (Optional) Enter a Pipeline *Description*.
+. Select *Pipeline* on the left pane.
+. Select *Definition* and then choose the *Pipeline script from SCM* option. This option instructs Jenkins to obtain your Pipeline from the source control management (SCM), which is your forked Git repository.
+. Choose *Git* from the options in *SCM*.
+. Enter the URL of your repository in *Repositories/Repository URL*. This URL can be found when selecting the green *Code* button in the main page of your GitHub repo.
+. In _Branches to build_, enter `*/main`
+. In _Script Path_, set the script path to `Jenkinsfile`.
+. Select *Save* at the end of the page. You're now ready to create a `Jenkinsfile` to check into your locally cloned Git repository.
+
+=== Create your initial Pipeline as a Jenkinsfile
+
+You're now ready to create your Pipeline that will automate building your C++ application in Jenkins. Your Pipeline is created as a `Jenkinsfile`, which is committed to your locally cloned Git repository (`casino-number-guessing-game`).
+
+This is the foundation of "Pipeline-as-Code", which treats the continuous delivery pipeline as a part of the application to be versioned and reviewed like any other code. Read more about Pipeline and what a Jenkinsfile is in the link:/doc/book/pipeline[Pipeline] and link:/doc/book/pipeline/jenkinsfile[Using a Jenkinsfile] sections of the User Handbook.
+
+First, create an initial Pipeline to build your C++ application. Add a "Build" stage to the Pipeline that begins orchestrating this whole process.
+
+. As you forked our sample repo, you already have an empty `Jenkinsfile`.
+. Copy the following Declarative Pipeline code and paste it into your empty `Jenkinsfile`:
++
+[source,groovy,subs="attributes+"]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Build') { // <1>
+            steps {
+                sh 'rm -rf build'
+                sh 'cmake -B build -S .' // <2>
+                sh 'cmake --build build'
+            }
+        }
+    }
+}
+----
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called `Build` that appears on the Jenkins UI.
+<2> The second link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step executes the `cmake` command to build your C++ application.
+
+. Save your edited `Jenkinsfile` and commit it to your local `casino-number-guessing-game` Git repository. Within the `casino-number-guessing-game` directory, run the commands: +
+  `git add Jenkinsfile` +
+  then +
+  `git commit -m "Add initial Jenkinsfile"` +
+  and finally +
+  `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. Now select *Build Now* on the left pane of your Pipeline project in Jenkins. After making a clone of your local `casino-number-guessing-game` Git repository itself, Jenkins:
+
+  . Initially queues the project to be run on the agent.
+  . Runs the `Build` stage defined in the `Jenkinsfile` on the agent.
+
+During this time, CMake configures the necessary build files for your C++ application, builds, and links your application.
+You can now select *#1* to see the details of the build. On the job status page, you can see how much time the build spent waiting in the queue and how much time it took to run.
+
+[.boxshadow]
+image:tutorials/cpp/build-stage-status.png[alt="Build details",width=100%]
+
+In the left navigation pane, you can select *Pipeline Overview* to see the stages of the Pipeline.
+
+[.boxshadow]
+image:tutorials/cpp/pipeline-overview-build-stage.png[alt="Pipeline overview",width=100%]
+
+Selecting the *Build* stage will provide more information about the stage, including the output of the `cmake` command if you select the green `cmake` section.
+
+[.boxshadow]
+image:tutorials/cpp/pipeline-console-build-stage.png[alt="Build stage",width=100%]
+
+You can now select *casino-number-guessing-game* (if that's the name you chose for your pipeline) on the top left to return to your pipeline main page.
+
+=== Add a test stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the `Build` stage:
++
+[source,groovy]
+----
+        stage('Test') {
+            steps {
+                sh './build/casino_game'
+                sh './build/test_game'
+            }
+        }
+----
+so that you end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'rm -rf build'
+                sh 'cmake -B build -S .'
+                sh 'cmake --build build'
+            }
+        }
+        stage('Test') { // <1>
+            steps {
+                sh './build/casino_game' // <2>
+                sh './build/test_game'
+            }
+        }
+    }
+}
+----
+<1> Defines a link:/doc/book/pipeline/syntax/#stage[`stage`] (directive) called `Test` that appears on the Jenkins UI.
+<2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step runs the game and unit tests to ensure the application works as expected.
+
+. Save your edited `Jenkinsfile` and commit it to your local `casino-number-guessing-game` Git repository. Within the `casino-number-guessing-game` directory, run the commands: +
+  `git add Jenkinsfile` +
+  then +
+  `git commit -m "Add 'Test' stage"` +
+  and finally +
+  `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. In Jenkins, go back to your *Dashboard* if necessary, then select *casino-number-guessing-game* and launch another build thanks to *Build Now*.
+. After a while, a new column titled *Test* will appear in the *Stage View*.
+
+[.boxshadow]
+image:tutorials/cpp/test-stage-overview.png[alt="Test stage",width=100%]
+
+You can select *#2*, or on the number representing your last build on the left, under *Build History* to see the details of the build.
+
+[.boxshadow]
+image:tutorials/cpp/test-stage-status.png[alt="Test stage",width=100%]
+
+You can now select *Pipeline Overview* to see the stages of the Pipeline.
+
+[.boxshadow]
+image:tutorials/cpp/pipeline-overview-test-stage.png[alt="Pipeline overview with Test stage",width=100%]
+
+The newly added "Test" stage is visible here. Selecting the "Test" stage checkmark displays the stage output.
+
+[.boxshadow]
+image:tutorials/cpp/pipeline-output-test-stage.png[alt="Test stage output",width=100%]
+
+==== Viewing the results
+
+During the **Test** stage, the `casino_game` executable runs and displays output similar to the following in the Jenkins console:
+
+[source,bash]
+----
+Welcome to the Casino Number Guessing Game!
+Running in non-interactive mode. Using default values.
+Generated random number: 8 // <1>
+Generated random number: 4
+Generated number: 4 // <2>
+Wrong guess! Try again. // <3>
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Wrong guess! Try again.
+Congratulations! You guessed the number! // <4>
+You won $5! // <5>
+Total winnings: $5 // <6>
+----
+This output confirms that the application is working as expected. Here’s what each part of the output means:
+<1> **`Generated random number`**: This line shows the random number generated by the game. In non-interactive mode, the game generates multiple random numbers to simulate guesses until it finds the correct one.
+<2> **`Generated number`**: This is the secret number the game is trying to guess.
+<3> **`Wrong guess! Try again.`**: This indicates that the game made an incorrect guess. In non-interactive mode, the game continues guessing until it finds the correct number.
+<4> **`Congratulations! You guessed the number!`**: This indicates that the game successfully guessed the correct number.
+<5> **`You won $5!`**: This shows the prize awarded based on the number of attempts and the difficulty level.
+<6> **`Total winnings: $5`**: This displays the total winnings accumulated during the game.
+
+The `test_game` executable also runs during the **Test** stage and display output similar to the following:
+
+[source,bash]
+----
+Generated random number: 8
+Generated random number: 4
+Generated random number: 3
+All tests passed!
+----
+
+This output confirms that the unit tests for the game logic have passed successfully.
+
+For reference, this is an example of how the output renders: 
+
+[.boxshadow]
+image:tutorials/cpp/pipeline-output-test-stage.png[alt="Test stage output",width=100%]
+
+=== Add a final delivery stage to your Pipeline
+
+. Go back to your text editor/IDE and ensure your `Jenkinsfile` is open.
+. Copy and paste the following Declarative Pipeline syntax immediately under the `Test` stage of your `Jenkinsfile`:
++
+[source,groovy]
+----
+        stage('Deliver') {
+            steps {
+                sh 'tar -czf casino_game.tar.gz build/casino_game'
+                archiveArtifacts artifacts: 'casino_game.tar.gz', fingerprint: true
+            }
+        }
+----
+so that you will end up with:
++
+[source,groovy]
+----
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'rm -rf build'
+                sh 'cmake -B build -S .'
+                sh 'cmake --build build'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh './build/casino_game'
+                sh './build/test_game'
+            }
+        }
+        stage('Deliver') { // <1>
+            steps {
+                sh 'tar -czf casino_game.tar.gz build/casino_game' // <2>
+                archiveArtifacts artifacts: 'casino_game.tar.gz', fingerprint: true // <3>
+            }
+        }
+    }
+}
+----
+<1> Defines a new stage called `Deliver` that appears on the Jenkins UI.
+<2> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-sh-code-shell-script[`sh`] step packages the executable into a `.tar.gz` file.
+<3> This link:/doc/pipeline/steps/workflow-durable-task-step/#code-archiveartifacts-code-archive-the-artifacts[`archiveArtifacts`] step archives the `.tar.gz` file as a build artifact.
+
+. Save your edited `Jenkinsfile` and commit it to your local `casino-number-guessing-game` Git repository. Within the `casino-number-guessing-game` directory, run the commands: +
+  `git add Jenkinsfile` +
+  then +
+  `git commit -m "Add 'Deliver' stage"` +
+  and finally +
+  `git push` to push your changes to your forked repository on GitHub, so it can be picked up by Jenkins.
+
+. In Jenkins, sign in if necessary, go back to the *Dashboard*, and then navigate to *casino-number-guessing-game*. Alternatively, you can go directly to *casino-number-guessing-game* depending on where you're starting from.
+. Select *Build Now* on the left. After a while, a new column titled *Deliver* will appear in the *Stage View*.
++
+[.boxshadow]
+image:tutorials/cpp/deliver-overview.png[alt="Deliver stage",width=100%]
+
+. Select *#3*, or on the number representing your last build on the left, under *Build History*. 
++
+[.boxshadow]
+image:tutorials/cpp/deliver-overview-status.png[alt="Deliver stage",width=100%]
+
+. Select *Pipeline Overview* to see the stages of the Pipeline.
++
+[.boxshadow]
+image:tutorials/cpp/pipeline-overview-deliver-stage.png[alt="Pipeline overview with Deliver stage",width=100%]
+
+. Select the *Deliver* stage. You will then see a green part displaying *tar -czf casino_game.tar.gz build/casino_game*, which represents the successful execution of the `tar` command.
++
+[.boxshadow]
+image:tutorials/cpp/pipeline-console-deliver-stage.png[alt="Deliver stage output",width=100%]
+
+. You can see the full stage view by clicking on the "Full Stage View" in the left menu.
++
+[.boxshadow]
+image:tutorials/cpp/full-stage-view.png[alt="Deliver stage output",width=100%]
+
+=== Wrapping up
+
+Well done! You've just used Jenkins to build a C++ application!
+
+The "Build", "Test", and "Deliver" stages you created above are the basis for building more complex C++ applications in Jenkins, as well as C++ applications that integrate with other technology stacks.
+
+Because Jenkins is extremely extensible, it can be modified and configured to handle practically any aspect of build orchestration and automation.
+
+To learn more about what Jenkins can do, check out:
+
+* The link:/doc/tutorials[Tutorials overview] page for other introductory tutorials.
+* The link:/doc/book[User Handbook] for more detailed information about using Jenkins, such as link:/doc/book/pipeline[Pipelines] (in particular link:/doc/book/pipeline/syntax[Pipeline syntax]) and the link:/doc/book/blueocean[Blue Ocean] interface.
+* The link:/node[Jenkins blog] for the latest events, other tutorials and updates.
+
+=== Cleaning Up Your Environment
+
+After completing the tutorial, it's important to clean up your environment to prevent interference with other tutorials you might try later.
+
+To stop the containers and remove associated volumes:
+
+[source,bash]
+----
+docker compose --profile cpp down -v --remove-orphans
+----
+
+This command ensures a clean slate for your next project.
+
+[NOTE]
+====
+The `--remove-orphans` option instructs Docker Compose to remove any containers that are not defined in the `docker-compose.yml` file but are labeled as belonging to the project. This helps in cleaning up any services that might have been started independently but are considered part of the project.
+====
+
+'''
+++++
+include::_partials/_feedback-footer.html[]
+++++

@@ -43,12 +43,12 @@ We choose to use the `/data` directory. This directory will contain our Jenkins 
 
 *We will create a volume which is called jenkins-pv:*
 
-. Paste the content from link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-volume.yaml[https://raw.githubusercontent.com/installing-jenkins-on-kubernetes/jenkins-volume.yaml] into a YAML formatted file called `jenkins-volume.yaml`.
+. Paste the content from the link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-01-volume.yaml[persistent volume file] into a YAML formatted file called `jenkins-01-volume.yaml`.
 . Run the following command to apply the spec:
 +
 [source,bash]
 ----
-kubectl apply -f jenkins-volume.yaml
+kubectl apply -f jenkins-01-volume.yaml
 ----
 
 NOTE: It’s worth noting that, in the above spec, hostPath uses the /data/jenkins-volume/ of your node to emulate network-attached storage.
@@ -96,14 +96,14 @@ A RoleBinding may reference any Role in the same namespace.
 Alternatively, a RoleBinding can reference a ClusterRole and bind that ClusterRole to the namespace of the RoleBinding.
 To bind a ClusterRole to all the namespaces in our cluster, we use a ClusterRoleBinding.
 
-. Paste the content from link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-sa.yaml[https://raw.githubusercontent.com/installing-jenkins-on-kubernetes/jenkins-sa.yaml] into a YAML formatted file called
-`jenkins-sa.yaml`.
+. Paste the content from the link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-02-sa.yaml[service account file] into a YAML formatted file called
+`jenkins-02-sa.yaml`.
 +
 . Run the following command to apply the spec:
 +
 [source,bash]
 ----
-kubectl apply -f jenkins-sa.yaml
+kubectl apply -f jenkins-02-sa.yaml
 ----
 
 === Install Jenkins
@@ -128,7 +128,7 @@ The `jenkins-values.yaml` is used as a template to provide values that are neces
 storageClass: jenkins-pv
 ----
 
-    * serviceAccount: the serviceAccount section of the jenkins-values.yaml file should look like this:
+    * serviceAccount: the serviceAccount section of the `jenkins-values.yaml` file should look like this:
 +
 [source,yaml]
 ----
@@ -190,7 +190,7 @@ NODE_IP=$(kubectl get nodes -n jenkins -o jsonpath=$jsonpath)
 echo http://$NODE_IP:$NODE_PORT/login
 ----
 3. Login with the password from step 1 and the username: admin
-4. Use Jenkins Configuration as Code by specifying configScripts in your values.yaml file.
+4. Use Jenkins Configuration as Code by specifying configScripts in your adaptation of the values.yaml file.
    See the plugin:configuration-as-code[configuration as code documentation] and  https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos[examples].
 
 Visit the link:https://cloud.google.com/solutions/jenkins-on-container-engine[Jenkins on Kubernetes solutions page] for more information on running Jenkins on Kubernetes.
@@ -282,12 +282,16 @@ The YAML files are easily tracked, edited, and can be reused indefinitely.
 
 === Create Jenkins deployment file
 
-Copy the contents link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-deployment.yaml[here] into your preferred text editor and create a jenkins-deployment.yaml file in the “jenkins” namespace we created in this link:/doc/book/installing/kubernetes/#create-a-namespace[section] above.
+Copy the contents from link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-03-deployment.yaml[this file] into your preferred text editor and create a jenkins-03-deployment.yaml file in the “jenkins” namespace we created in the link:/doc/book/installing/kubernetes/#create-a-namespace[above section].
 
-* This link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-deployment.yaml[deployment file] is defining a Deployment as indicated by the `kind` field.
+* This link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-03-deployment.yaml[deployment file] is defining a Deployment as indicated by the `kind` field.
 * The Deployment specifies a single replica. This ensures one and only one instance
 will be maintained by the Replication Controller in the event of failure.
-* The container image name is jenkins and version is 2.32.2
+* The container image name is `jenkins` and version is a floating tag `lts-jdk21`
+(for determinism, you may want a specific version tag like `2.32.2` instead -- but
+then you would have to update and re-apply it with iterations of this file).
+Note you may have to set up an `imagePullPolicy: Always` to pull new images according
+to changes of the floating tag (e.g. when new LTS is released).
 * The list of ports specified within the spec are a list of ports to expose from
 the container on the Pods IP address.
 ** Jenkins running on (http) port 8080.
@@ -306,7 +310,7 @@ To create the deployment execute:
 
 [source,bash]
 ----
-kubectl create -f jenkins-deployment.yaml -n jenkins
+kubectl create -f jenkins-03-deployment.yaml -n jenkins
 ----
 
 The command also instructs the system to install Jenkins within the jenkins namespace.
@@ -330,9 +334,9 @@ It allows us to maintain a persistent connection to the pod regardless of the ch
 With a local deployment, this means creating a NodePort service type.
 A NodePort service type exposes a service on a port on each node in the cluster.
 The service is accessed through the Node IP address and the service nodePort.
-A simple service is defined link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-service.yaml[here]:
+A simple service is defined link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-04-service.yaml[in this file]:
 
-* This link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-service.yaml[service file] is defining a Service as
+* This link:https://raw.githubusercontent.com/jenkins-infra/jenkins.io/master/content/doc/tutorials/kubernetes/installing-jenkins-on-kubernetes/jenkins-04-service.yaml[service file] is defining a Service as
 indicated by the `kind` field.
 * The Service is of type NodePort. Other options are ClusterIP (only accessible within the cluster) and LoadBalancer (IP address assigned by a cloud provider e.g. AWS Elastic IP).
 * The list of ports specified within the spec is a list of ports exposed by this service.
@@ -344,7 +348,7 @@ To create the service execute:
 
 [source,bash]
 ----
-kubectl create -f jenkins-service.yaml -n jenkins
+kubectl create -f jenkins-04-service.yaml -n jenkins
 ----
 
 To validate that creating the service was successful you can run:
