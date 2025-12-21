@@ -21,24 +21,48 @@ While this page covers the basics of utilizing Docker from within a `Jenkinsfile
 
 == Prerequisites
 
-To use the agent of type `docker` with Jenkins Pipeline, you must have the following:
+To use the `docker` agent type in your Pipeline (as shown in the examples below), you need:
 
-* link:https://plugins.jenkins.io/docker-workflow/[Docker Pipeline plugin] installed on your Jenkins instance
-* Docker installed and accessible on the Jenkins agent(s) where your Pipeline will run
-* The Jenkins agent user must have permissions to execute Docker commands (typically by being a member of the `docker` group on Linux systems or having appropriate access on Windows)
+* link:https://plugins.jenkins.io/docker-workflow/[Docker Pipeline plugin] installed on your Jenkins controller
+* At least one Jenkins agent with:
+** Docker Engine installed and running
+** The agent process user having permissions to execute Docker commands (on Linux, this typically means adding the user to the `docker` group; on Windows, ensuring appropriate access rights)
+** A label (e.g., `docker`) configured in the agent's settings to identify it as Docker-capable
 
 [NOTE]
 ====
-Without the Docker Pipeline plugin installed, you will see an error: `Invalid agent type "docker" specified. Must be one of [any, label, none]`
+Without the Docker Pipeline plugin, you will see the error: `Invalid agent type "docker" specified. Must be one of [any, label, none]`
 ====
 
 [IMPORTANT]
 ====
-*Running Jenkins Agents Inside Docker*
+*Understanding how the `docker` agent type works*
 
-If your Jenkins agents are running inside Docker containers and you want to use the `docker` agent type in your Pipeline, you will be attempting Docker-in-Docker, which poses security risks and operational challenges.
+When you specify `agent { docker { ... } }` in your Pipeline:
 
-For production environments, it is strongly recommended to use Jenkins agents that are not themselves running in containers but have Docker installed directly on the host system. This allows the agent to safely create and manage Docker containers for your Pipeline without the complexities and security concerns of Docker-in-Docker.
+1. The Jenkins controller instructs an available agent (with the label `docker` by default) to execute the Pipeline steps
+2. The agent pulls the specified Docker image (if not already cached)
+3. The agent starts a container from that image
+4. The agent executes your Pipeline steps inside that container
+
+The controller itself does not interact with Docker directly. All Docker operations happen on the agent.
+
+*Security consideration for containerized agents*
+
+If your Jenkins agents are themselves running as Docker containers, using the `docker` agent type creates a Docker-in-Docker scenario. This approach has significant security implications because it typically requires:
+
+* Mounting the host's Docker socket into the agent container (`/var/run/docker.sock`), which gives the container full control over the host's Docker daemon and all its containers - effectively root access to the host system
+* Running the agent container in privileged mode, which disables security isolation
+
+*Recommended setup*
+
+For production use, configure Jenkins agents that run directly on physical or virtual machines (not as containers) with Docker installed. This architecture:
+
+* Avoids Docker-in-Docker security risks
+* Provides better performance and stability
+* Simplifies troubleshooting and maintenance
+
+If you must use containerized agents (e.g., Kubernetes-based agents), use link:/doc/book/using/using-agents/[native container orchestration features] rather than the Docker socket mounting approach.
 ====
 
 
