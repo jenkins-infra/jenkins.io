@@ -721,52 +721,54 @@ Pipeline's more advanced features.
 Groovy string interpolation should [red]*never* be used with credentials.
 ======
 
-Groovy string interpolation can leak sensitive environment variables (i.e. credentials, see: <<Handling credentials>>).
-This is because the sensitive environment variable will be interpolated during Groovy evaluation, and the environment variable's value could be made available earlier than intended, resulting in sensitive data leaking in various contexts.
+Groovy GStrings (double-quoted or triple-double-quoted strings) expand `+${TOKEN}+` before the command is sent to the agent.
+When that happens, the secret is copied into the process arguments (visible via tooling such as `ps`) and any shell metacharacters inside the secret or user-controlled value are executed immediately.
+Always send a literal command string to `sh`, `bat`, `powershell`, or `pwsh` and let the shell read secrets from its environment, which `withCredentials` or the `environment` block have already populated.
 
-For example, consider a sensitive environment variable passed to the `sh` step.
-
+.Bad example — Groovy injects the secret directly into the command line
 [pipeline]
 ----
 // Declarative //
 pipeline {
     agent any
     environment {
-        EXAMPLE_CREDS = credentials('example-credentials-id')
+        API_TOKEN = credentials('example-token-id')
     }
     stages {
         stage('Example') {
             steps {
-                /* WRONG! */
-                sh("curl -u ${EXAMPLE_CREDS_USR}:${EXAMPLE_CREDS_PSW} https://example.com/")
+                /* WRONG */
+                    sh "curl -H 'Authorization: Bearer ${API_TOKEN}' https://example.com"
+                """
             }
         }
     }
 }
 // Script //
 ----
-Should Groovy perform the interpolation, the sensitive value will be injected directly into the arguments of the `sh` step, which among other issues, means that the literal value will be visible as an argument to the `sh` process on the agent in OS process listings.
-Using single-quotes instead of double-quotes when referencing these sensitive environment variables prevents this type of leaking.
 
+.Good example — shell expands the secret from its environment
 [pipeline]
 ----
 // Declarative //
 pipeline {
     agent any
     environment {
-        EXAMPLE_CREDS = credentials('example-credentials-id')
+        API_TOKEN = credentials('example-token-id')
     }
     stages {
         stage('Example') {
             steps {
                 /* CORRECT */
-                sh('curl -u $EXAMPLE_CREDS_USR:$EXAMPLE_CREDS_PSW https://example.com/')
+                sh 'curl -H "Authorization: Bearer ${API_TOKEN}" https://example.com'
             }
         }
     }
 }
 // Script //
 ----
+
+Any Groovy construct that avoids interpolation (for example, `sh(script: 'curl ... $API_TOKEN', label: 'call API')`) is safe; the key is keeping secrets out of GStrings so only the shell expands them.
 
 
 ==== Injection via interpolation
