@@ -1,0 +1,190 @@
+---
+title: Content Security Policy
+layout: documentation
+---
+ifdef::backend-html5[]
+:toc: left
+endif::[]
+
+This page describes the restrictions that can be applied to the general Jenkins UI since Jenkins 2.539.
+
+== Motivation
+
+Content Security Policy (CSP) is a standard implemented in all modern web browsers.
+It allows web sites to restrict features and functionality that can be used on web pages.
+Using CSP, the impact of web vulnerabilities like link:/security/vulnerabilities/#xss[cross-site scripting (XSS)] is largely, or entirely, mitigated.
+
+NOTE: This page discusses configuration and customization of Content Security Policy for the general Jenkins UI.
+See link:/doc/book/security/configuring-content-security-policy/[Content Security Policy] for documentation on Content Security Policy for user generated files, like files in workspaces, archived artifacts, or file parameters, on controllers not using the link:/redirect/resource-root-url[Resource Root URL] feature.
+
+NOTE: Using Jenkins older than 2.539?
+plugin:csp[Content Security Policy Plugin] 1.x provides similar functionality.
+
+// TODO Remove this once LTS with this is in common use.
+
+== Getting started
+
+By default, CSP enforcement on Jenkins UI pages is disabled, but administrators can enable it to protect their Jenkins instance.
+
+=== Recommended enablement process
+
+Following the steps below should ensure a smooth introduction of Content Security Policy enforcement on your controller.
+
+Upgrade Jenkins to 2.539+::
+  As a first step, keep enforcement disabled after upgrading.
+  Jenkins collects reports of violations encountered by users' browsers even while enforcement is disabled.
+  This allows administrators to identify incompatible plugins and configurations on their controllers.
+  Make sure you update installed plugins to their latest versions to benefit from recent fixes.
+  This will lower the number of already fixed findings reported in the next step.
+Identify incompatibilities in your setup::
++
+--
+This step consists of two parallel activities:
+
+* _Compare installed plugins with list of plugins with known incompatibilities._ +
+  See the section link:#compatibility[Compatibility] below for known incompatibilities in Jenkins plugins.
+  Compare the plugins you have installed with the list of known incompatible plugins.
+  Review the issues reported for those plugins to understand the potential impact.
+  Not all incompatibilities affect all use cases.
+  If unsure about the impact, set up a test controller with Content Security Policy enforcement enabled to test functionality of affected plugins.
+* _Monitor and address violations reported by your users' browsers._ +
+  See the section link:#identifying[Identifying incompatibilities in your setup] below for instructions on how to monitor reports of violations submitted by your users' web browsers.
+  If violations are reported, identify the responsible plugin(s) and functionality.
+  If the source of violations is not listed in the link:#compatibility[list of known incompatibilities] linked above, link:#reporting[report] the issue to the responsible plugin and let the maintainers of the list know.
+
+For each violation or known incompatibility, understand its impact on your controller.
+It's possible you can adapt the configuration, work around the problem using plugin:csp[CSP Plugin] relaxing rules, or upgrade the plugin.
+--
+Start enforcing::
+  Once all known incompatibilities and reported violations have been addressed, are deemed tolerable, or can be worked around through use of the plugin:csp[CSP plugin], it's time to start enforcing Content Security Policy.
+  See the next sections for details about that.
+  Still keep an eye on the violation reports -- now they are for functionality that is actually broken.
+
+== Setting up
+
+Among the more than 2000 Jenkins plugins distributed by the Jenkins project, many use features that are prohibited by the default CSP rule set.
+As a result, the UI provided by these plugins would break.
+
+To give plugin maintainers time to adapt their plugins, and Jenkins administrators time to migrate away from unmaintained, incompatible plugins, CSP protection is disabled by default as of Jenkins 2.539.
+
+=== Using the UI
+
+To enable CSP in Jenkins, navigate to _Manage Jenkins » Security_, and look for the section _Content Security Policy_.
+By default, it links to a separate page explaining why this functionality is disabled by default.
+On that page, select _Set up now_.
+Back on _Manage Jenkins » Security_, select the checkbox labeled _Enforce Content Security Policy_ and save the configuration.
+
+NOTE: In certain environments, this configuration will not be available.
+This includes controllers whose CSP enforcement is controlled by the Java system property link:/doc/book/managing/system-properties/#jenkins-security-csp-cspheader-headername[`jenkins.security.csp.CspHeader.headerName`], as well as during Jenkins core and plugin development.
+See below for more information how CSP enforcement is controlled in those environments.
+
+IMPORTANT: Jenkins serves user-generated content from the same domain by default.
+The link:/doc/book/security/configuring-content-security-policy/[Content Security Policy for user generated files, like files in workspaces and archived artifacts] does not prevent attackers able to define these files from using them as part of an XSS vulnerability on the classic Jenkins UI.
+Set up a link:/redirect/resource-root-url[Resource Root URL] for more complete protection.
+
+=== Using Configuration as Code
+
+The following YAML snippet for plugin:configuration-as-code[Configuration as Code] sets up CSP enforcement.
+
+```yaml
+security:
+  contentSecurityPolicy:
+    enforce: true
+```
+
+=== Using a Java system property
+
+You can set the Java system property link:/doc/book/managing/system-properties/#jenkins-security-csp-cspheader-headername[`jenkins.security.csp.CspHeader.headerName`] to enforce CSP.
+This prevents configuration through the UI.
+
+* The value `Content-Security-Policy` will enforce CSP and prevent administrators from configuring it.
+* The value `Content-Security-Policy-Report-Only` will disable enforcement, as well as prevent administrators from configuring CSP.
+
+All other values will be treated as if the Java system property is undefined.
+
+=== During development
+
+During development, CSP is always enabled by default, and cannot be disabled through the UI.
+To disable enforcement during development, set the Java system property `jenkins.security.csp.impl.DevelopmentHeaderDecider.DISABLED` to `true`.
+//You can also run the script `jenkins.security.csp.impl.DevelopmentHeaderDecider.DISABLED = true` in the link:/doc/book/managing/script-console/[Script Console].
+
+== Advanced configuration
+
+Jenkins does not include advanced configuration out of the box.
+Additional options are available if plugin:csp[Content Security Policy Plugin] 2.x is installed.
+See that plugin's documentation for more details.
+
+== Compatibility
+// Linked to by /redirect/csp-compatibility
+
+=== Known compatible and incompatible plugins
+
+Plugin compatibility is tracked in https://issue-redirect.jenkins.io/issue/60865[JENKINS-60865].
+https://docs.google.com/spreadsheets/d/1uYrNE5a9SHJdqknkqwXh4F4onk6xwYYDsLJ_588rsnE/edit[This spreadsheet] provides an assessment of their compatibility for most popular plugins.
+
+==== Notable plugins with functionality restricted by CSP
+
+This section highlights plugins that provide functionality that is inherently restricted by CSP.
+Individual plugins may implement workarounds or additional configuration options to mitigate these restrictions, but as of November 2025, some functionality in some configurations is affected.
+If you use these plugins, plugin:csp[Content Security Policy Plugin] 2.x can be used to customize the CSP directives enforced on a Jenkins controller for many of these cases.
+
+plugin:anything-goes-formatter[Anything Goes Formatter]::
+  This plugin allows users to specify arbitrary HTML, CSS, and JavaScript in description fields across the Jenkins UI.
+  Administrators must ensure that the provided (and trusted) descriptions are compatible with the CSP directives enforced on their Jenkins controller.
+plugin:badge[Badge]::
+  This plugin allows build badges to include images from external URLs.
+  Administrators are advised to allow specific, known safe domains for the `img-src` directive.
+  Compatibility discussion is in https://github.com/jenkinsci/badge-plugin/issues/316[#316].
+plugin:dashboard-view[Dashboard View]::
+  This plugin provides the "Iframe Portlet" and "Image" portlets.
+  These will only work if the `frame-src` and `img-src` directives respectively are set up to allow the specified URLs.
+  Compatibility discussion is in https://github.com/jenkinsci/dashboard-view-plugin/issues/437[#437].
+plugin:login-theme[Login Theme]::
+  This plugin allows administrators to specify arbitrary snippets of HTML, CSS, and JavaScript to customize the login page.
+  Administrators must ensure that the provided snippets are compatible with the CSP directives enforced on their Jenkins controller.
+  Compatibility discussion is in https://github.com/jenkinsci/login-theme-plugin/issues/161[#161].
+plugin:simple-theme-plugin[Simple Theme]::
+  This plugin allows administrators to specify arbitrary URLs for JavaScript files to customize the Jenkins UI.
+  Administrators must ensure that the provided URLs are compatible with the CSP directives enforced on their Jenkins controller.
+  Compatibility discussion is in https://github.com/jenkinsci/simple-theme-plugin/issues/280[#280].
+
+
+==== Notable plugins with known incompatibilities
+
+This section highlight plugins that match all of the following criteria:
+
+* The plugin is installed on 5+% of Jenkins controllers.
+* The plugin is not marked as deprecated.
+* The plugin is not (fully) compatible with CSP as of November 2025.
+
+// TODO Time sensitive, periodically review and remove outdated entries.
+
+plugin:artifactory[Artifactory]::
+https://github.com/jfrog/jenkins-artifactory-plugin/pull/952#issuecomment-3401172294[This plugin is abandoned].
+Installations requiring this plugin cannot enforce CSP protection without breaking its functionality.
+plugin:build-pipeline-plugin[Build Pipeline]::
+This plugin is looking for new maintainers and has unresolved security vulnerabilities.
+Installations requiring this plugin cannot enforce CSP protection without breaking its functionality.
+plugin:dashboard-view[Dashboard View]::
+The plugin does not periodically reload agent information in the "Agent statistics" portlet (https://github.com/jenkinsci/dashboard-view-plugin/issues/435[#435]).
+
+[#identifying]
+=== Identifying incompatibilities in your setup
+
+Jenkins collects reports of violations encountered by users' browsers even while enforcement is disabled, allowing administrators to identify incompatible plugins and configurations.
+Administrators can view them in two different ways:
+
+* link:/redirect/log-recorders/[Set up a log recorder] for the logger `jenkins.security.csp.impl.LoggingReceiver` on `FINE` (for reports by authenticated users) or `FINEST` (for reports by all users).
+* Install plugin:csp[Content Security Policy Plugin] 2.x and navigate to _Manage Jenkins » Content Security Policy Report_, which provides an overview of reports received by Jenkins.
+
+[#reporting]
+=== Reporting incompatibilities
+
+Please report problems with CSP compatibility encountered in the latest versions of Jenkins and plugins to the affected component's issue tracker.
+
+NOTE: It may be difficult to identify the responsible component, e.g., when there's a view provided by one plugin, with additions by another plugin (e.g., `cloudbees-folder` configuration forms for multibranch pipelines hosting components from many other plugins, like `workflow-cps` or `branch-api`).
+
+[#fixing]
+=== Fixing incompatible plugins
+
+See link:/doc/developer/security/csp/[the developer documentation].
