@@ -150,4 +150,120 @@ backend jenkins
 
 ----
 
+== Unix Domain Sockets
+
+HAProxy can be configured to proxy requests to Jenkins over a Unix domain socket instead of a TCP port.
+This approach enhances security by eliminating network exposure of Jenkins, and is particularly useful when Jenkins and HAProxy run on the same host.
+
+=== Configure Jenkins for Unix Domain Sockets
+
+First, configure Jenkins to listen on a Unix domain socket instead of a TCP port.
+
+Edit the Jenkins systemd service to disable TCP and enable a Unix socket:
+
+[source,bash]
+----
+systemctl edit jenkins
+----
+
+Add the following override:
+
+[source,ini]
+----
+[Service]
+Environment="JENKINS_PORT=-1"
+Environment="JENKINS_UNIX_DOMAIN_PATH=/run/jenkins/jenkins.socket"
+----
+
+Reload and restart Jenkins:
+
+[source,bash]
+----
+systemctl daemon-reload
+systemctl restart jenkins
+----
+
+Verify the socket exists:
+
+[source,bash]
+----
+ls -l /run/jenkins/jenkins.socket
+----
+
+=== Configure HAProxy for Unix Domain Socket
+
+Using HAProxy 2.6.7 or later, here is an example HAProxy.cfg to proxy requests to Jenkins over a Unix domain socket:
+
+[source,haproxy]
+----
+# If you already have an haproxy.cfg file, you can probably leave the
+# global and defaults section as-is, but you might need to increase the
+# timeouts so that long-running CLI commands will work.
+
+global
+    maxconn 4096
+    log stdout local0 debug
+
+defaults
+   log global
+   option httplog
+   option dontlognull
+   option forwardfor
+   maxconn 20
+   timeout connect 5s
+   timeout client 5m
+   timeout server 5m
+
+frontend http-in
+  log stdout format raw local0 debug
+  bind *:80
+  bind *:443 ssl crt /usr/local/etc/haproxy/ssl/server.pem
+  mode http
+  acl prefixed-with-jenkins  path_beg /jenkins
+  http-request redirect code 301 prefix /jenkins unless prefixed-with-jenkins
+  redirect scheme https if !{ ssl_fc } # Redirect http requests to https
+  use_backend jenkins if prefixed-with-jenkins
+
+backend jenkins
+  log stdout format raw  local0 debug
+  mode http
+  # Connect to Jenkins via Unix domain socket
+  server jenkins1 /run/jenkins/jenkins.socket check
+  http-request replace-path /jenkins(/)?(.*) /\2
+  http-request set-header X-Forwarded-Port %[dst_port]
+  http-request add-header X-Forwarded-Proto https if { ssl_fc }
+  http-request set-header X-Forwarded-Host %[req.hdr(Host)]
+----
+
+The key difference from the TCP configuration is the `server` directive, which now points to the Unix socket path instead of `127.0.0.1:8080`.
+
+=== Permissions
+
+Ensure HAProxy can access the Jenkins Unix socket.
+The socket is created with the `jenkins` user and group.
+You may need to add the HAProxy user to the `jenkins` group:
+
+[source,bash]
+----
+usermod -aG jenkins haproxy
+systemctl restart haproxy
+----
+
+Alternatively, adjust the socket permissions in the Jenkins systemd service:
+
+[source,bash]
+----
+systemctl edit jenkins
+----
+
+Add:
+
+[source,ini]
+----
+[Service]
+Environment="JENKINS_UNIX_DOMAIN_PATH_PERMS=0666"
+----
+
+NOTE: Using `0666` permissions makes the socket world-readable/writable. For better security, prefer adding HAProxy to the jenkins group.
+
 include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
