@@ -2,10 +2,13 @@
 set -euo pipefail
 
 dir="${1:-./content/blog/}"
-
 if [[ -z "$dir" ]]; then
   echo "Usage: $0 <directory>"
   exit 2
+fi
+
+if [[ "$dir" != "/" ]]; then
+  dir="${dir%/}"
 fi
 
 if [[ ! -d "$dir" ]]; then
@@ -15,17 +18,31 @@ fi
 
 # Valid basename pattern: 4 digits-2 digits-2 digits, optionally followed by '-' or '.' and the rest
 # Examples: 2026-01-31, 2026-01-31-title.md, 2026-01-31.md
-regex=".*/[0-9]{4}-[0-9]{2}-[0-9]{2}([-.].*)?"
+regex='^[0-9]{4}-[0-9]{2}-[0-9]{2}([-.].*)?$'
 
-# Find all files recursively, exclude any directory named 'authors' and files named 'index.html.haml',
-# and print relative paths that DO NOT match the pattern
-mapfile -t non_matching < <(find "$dir" \( -type d -name authors -prune \) -o \( -type f -name 'index.html.haml' -prune -o -type f -regextype posix-extended ! -regex "$regex" -printf '%P\n' \))
+# Walk files portably (BSD/GNU find) then validate within bash.
+non_matching=()
+while IFS= read -r -d '' file; do
+  base_name="${file##*/}"
+  [[ "$base_name" == "index.html.haml" ]] && continue
+
+  rel_path="$file"
+  if [[ "$dir" != "." && "$rel_path" == "$dir"/* ]]; then
+    rel_path="${rel_path#"$dir"/}"
+  elif [[ "$dir" == "." && "$rel_path" == ./* ]]; then
+    rel_path="${rel_path#./}"
+  fi
+
+  if [[ ! "$base_name" =~ $regex ]]; then
+    non_matching+=("$rel_path")
+  fi
+done < <(find "$dir" \( -type d -name authors -prune \) -o -type f -print0)
 
 if (( ${#non_matching[@]} )); then
   echo "ERROR: non-matching files:"
   printf '%s\n' "${non_matching[@]}"
   exit 1
-else
-  echo "OK: all file names match"
-  exit 0
 fi
+
+echo "OK: all file names match"
+exit 0
