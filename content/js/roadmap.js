@@ -5,10 +5,10 @@ function filterRoadmap() {
     var filters = [];
     var filterInitiatives = false;
     for (i = 0; i < selectors.length; i++) {
-        var selector = selectors[i]
+        var selector = selectors[i];
         if (selector.checked == true){
-            filters.push(selector.id)
-            filterInitiatives = true
+            filters.push(selector.id);
+            filterInitiatives = true;
         }
     }
 
@@ -18,7 +18,7 @@ function filterRoadmap() {
     
   for (var categoryId = 0; categoryId < categoryInitiatives.length; categoryId++) {
     var initiatives = categoryInitiatives[categoryId].getElementsByClassName("initiative");
-    var hasInitiativesToDisplay = false
+    var hasInitiativesToDisplay = false;
 
     // Loop through all table rows, and hide those who don't match the search query
     for (i = 0; i < initiatives.length; i++) {
@@ -26,12 +26,12 @@ function filterRoadmap() {
       var display = !filterInitiatives;
       for (var j = 0; j < filters.length; j++) {
         if (initiative.classList.contains(filters[j])) {
-            display = true
-            break
+            display = true;
+            break;
         }
       }
       if (display) {
-        hasInitiativesToDisplay = true
+        hasInitiativesToDisplay = true;
         initiative.style.display = "";
       } else {
         initiative.style.display = "none";
@@ -51,4 +51,4 @@ window.addEventListener("load", function() {
   var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
-})
+});
