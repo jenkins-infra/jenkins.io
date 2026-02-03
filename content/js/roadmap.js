@@ -1,11 +1,11 @@
 function filterRoadmap() {
     // Declare variables
     var input, filter, table, tr, td, i, txtValue;
-    selectors = document.getElementsByClassName("initiative-selector");
-    filters = []
-    filterInitiatives = false
+    var selectors = document.getElementsByClassName("initiative-selector");
+    var filters = [];
+    var filterInitiatives = false;
     for (i = 0; i < selectors.length; i++) {
-        selector = selectors[i]
+        var selector = selectors[i]
         if (selector.checked == true){
             filters.push(selector.id)
             filterInitiatives = true
@@ -13,18 +13,18 @@ function filterRoadmap() {
     }
 
   //table = document.getElementsByClassName("roadmap-table");
-  categoryHeaders = document.getElementsByClassName("status-category")
-  categoryInitiatives = document.getElementsByClassName("category-initiatives")
+  var categoryHeaders = document.getElementsByClassName("status-category");
+  var categoryInitiatives = document.getElementsByClassName("category-initiatives");
     
-  for (categoryId = 0; categoryId < categoryInitiatives.length; categoryId++) {
-    initiatives = categoryInitiatives[categoryId].getElementsByClassName("initiative");
-    hasInitiativesToDisplay = false
+  for (var categoryId = 0; categoryId < categoryInitiatives.length; categoryId++) {
+    var initiatives = categoryInitiatives[categoryId].getElementsByClassName("initiative");
+    var hasInitiativesToDisplay = false
 
     // Loop through all table rows, and hide those who don't match the search query
     for (i = 0; i < initiatives.length; i++) {
-      initiative = initiatives[i];
-      display = !filterInitiatives
-      for (j = 0; j < filters.length; j++) {
+      var initiative = initiatives[i];
+      var display = !filterInitiatives;
+      for (var j = 0; j < filters.length; j++) {
         if (initiative.classList.contains(filters[j])) {
             display = true
             break
