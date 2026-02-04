@@ -118,8 +118,13 @@ class Validator
     # Look for patterns like %button, %a with only ion-icon or svg inside
     icon_only_pattern = /(%button|%a)(\{[^}]*\})?[^%\n]*(%ion-icon|<svg|<ion-icon)/i
     
-    page.content.scan(icon_only_pattern).each do |match|
-      element_line = page.content[page.content.index(match[0])..page.content.index(match[0]) + 150]
+    page.content.scan(icon_only_pattern) do |match|
+      # Get position of match in content
+      match_pos = Regexp.last_match.begin(0)
+      next unless match_pos
+      
+      # Extract surrounding context for validation
+      element_line = page.content[match_pos, 150]
       
       # Check if there's an aria-label or aria-labelledby
       unless element_line.match(/aria-label|aria-labelledby/i)
