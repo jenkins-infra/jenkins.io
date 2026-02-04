@@ -5,14 +5,67 @@ set -o nounset
 set -o pipefail
 
 TYPOS_VERSION=v1.40.0
+VERBOSE=0
+
+# Simple help text
+show_help() {
+    cat << EOF
+Usage: ./scripts/check-typos [OPTIONS]
+
+Check for typos in the repository.
+
+OPTIONS:
+    -h, --help      Show this help message
+    -v, --verbose   Show detailed output
+
+EXAMPLES:
+    ./scripts/check-typos
+    ./scripts/check-typos --verbose
+
+EOF
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -v|--verbose)
+            VERBOSE=1
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Download typos binary
+if [[ $VERBOSE -eq 1 ]]; then
+    echo "Downloading typos ${TYPOS_VERSION}..."
+fi
 
 if [[ $OSTYPE == darwin* ]] ; then
     curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-x86_64-apple-darwin.tar.gz" | tar xzf - ./typos
 else
     curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar xzf - ./typos
 fi
+
+# Run typos with appropriate output format
 if [[ -v CI ]] ; then
+    if [[ $VERBOSE -eq 1 ]]; then
+        echo "Running in CI mode..."
+    fi
     ./typos --format sarif > typos.sarif || true
 else
-    ./typos
+    if [[ $VERBOSE -eq 1 ]]; then
+        echo "Checking for typos..."
+        ./typos --format long
+    else
+        ./typos
+    fi
 fi
