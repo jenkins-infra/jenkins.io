@@ -1,13 +1,26 @@
 #!/usr/bin/env bash
+#
+# Script to check for typos in the Jenkins.io repository using the typos tool.
+#
+# This script supports the following options:
+#   --help, -h      Display usage information and examples
+#   --verbose, -v   Enable detailed output during typo checking
+#
+# Without any options, the script runs silently and only displays found typos.
+#
+# Usage examples:
+#   ./scripts/check-typos              # Basic usage (silent mode)
+#   ./scripts/check-typos --help       # Show help message
+#   ./scripts/check-typos --verbose    # Show detailed progress
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
 TYPOS_VERSION=v1.40.0
-VERBOSE=0
+VERBOSE=0  # Set to 1 when --verbose flag is used
 
-# Simple help text
+# Display help message with usage information and examples
 show_help() {
     cat << EOF
 Usage: ./scripts/check-typos [OPTIONS]
@@ -25,18 +38,22 @@ EXAMPLES:
 EOF
 }
 
-# Parse arguments
+# Parse command-line arguments
+# Supports --help/-h to display usage and --verbose/-v for detailed output
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
+            # Display help message and exit
             show_help
             exit 0
             ;;
         -v|--verbose)
+            # Enable verbose mode for detailed progress messages
             VERBOSE=1
             shift
             ;;
         *)
+            # Handle unknown options gracefully
             echo "Unknown option: $1"
             echo "Use --help for usage information"
             exit 1
@@ -44,7 +61,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Download typos binary
+# Download the typos binary from GitHub releases
+# In verbose mode, shows a progress message during download
 if [[ $VERBOSE -eq 1 ]]; then
     echo "Downloading typos ${TYPOS_VERSION}..."
 fi
@@ -55,7 +73,11 @@ else
     curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar xzf - ./typos
 fi
 
-# Run typos with appropriate output format
+# Run typos with the appropriate output format
+# In CI environments, generates a SARIF report for integration with GitHub's code scanning
+# In local development:
+#   - Verbose mode: Shows progress and uses detailed output format
+#   - Normal mode: Runs silently, only showing typos if found
 if [[ -v CI ]] ; then
     if [[ $VERBOSE -eq 1 ]]; then
         echo "Running in CI mode..."
@@ -64,8 +86,8 @@ if [[ -v CI ]] ; then
 else
     if [[ $VERBOSE -eq 1 ]]; then
         echo "Checking for typos..."
-        ./typos --format long
+        ./typos --format long  # Long format shows file paths and context
     else
-        ./typos
+        ./typos  # Brief format for quick checks
     fi
 fi
