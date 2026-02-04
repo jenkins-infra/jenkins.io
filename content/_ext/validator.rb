@@ -8,6 +8,7 @@ class Validator
          warning "Missing layout for #{page.output_path}"
       elsif page.layout != "redirect" && page.layout != "refresh"
          validate_title page
+         validate_accessibility page
       end
     end
 
@@ -75,6 +76,55 @@ class Validator
     full = "#{File.dirname(__FILE__)}/..#{path}"
     if !File.file?(full)
       warning "Invalid file path #{path} for #{context}"
+    end
+  end
+
+  # Validate accessibility requirements for pages
+  # Checks for WCAG 2.1 Level A compliance
+  def validate_accessibility(page)
+    return unless page.content
+    
+    # Check for images without alt text
+    check_image_alt_text(page)
+    
+    # Check for buttons and links that might need ARIA labels
+    check_aria_labels(page)
+  end
+
+  def check_image_alt_text(page)
+    # Find all img tags - both HAML and HTML
+    img_pattern = /%img\{[^}]*\}|<img[^>]*>/i
+    page.content.scan(img_pattern).each do |img_tag|
+      # Check if alt attribute is missing
+      unless img_tag.match(/:alt\s*=>|alt\s*=/i)
+        warning "Missing alt text on image in #{page.output_path}: #{img_tag.strip[0..80]}"
+      else
+        # Check for generic/poor alt text
+        alt_match = img_tag.match(/:alt\s*=>\s*['"](.*?)['"]|alt\s*=\s*['"](.*?)['"]/i)
+        if alt_match
+          alt_text = (alt_match[1] || alt_match[2]).to_s.strip.downcase
+          generic_terms = ['image', 'img', 'logo', 'icon', 'picture', 'photo']
+          
+          if generic_terms.include?(alt_text)
+            warning "Generic alt text '#{alt_text}' in #{page.output_path} - should be more descriptive"
+          end
+        end
+      end
+    end
+  end
+
+  def check_aria_labels(page)
+    # Find buttons and links with only icons (no text content)
+    # Look for patterns like %button, %a with only ion-icon or svg inside
+    icon_only_pattern = /(%button|%a)(\{[^}]*\})?[^%\n]*(%ion-icon|<svg|<ion-icon)/i
+    
+    page.content.scan(icon_only_pattern).each do |match|
+      element_line = page.content[page.content.index(match[0])..page.content.index(match[0]) + 150]
+      
+      # Check if there's an aria-label or aria-labelledby
+      unless element_line.match(/aria-label|aria-labelledby/i)
+        warning "Interactive element with icon needs aria-label in #{page.output_path}"
+      end
     end
   end
 
