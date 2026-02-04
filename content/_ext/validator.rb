@@ -96,13 +96,15 @@ class Validator
     img_pattern = /%img\{[^}]*\}|<img[^>]*>/i
     page.content.scan(img_pattern).each do |img_tag|
       # Check if alt attribute is missing
-      unless img_tag.match(/:alt\s*=>|alt\s*=/i)
+      # Supports: :alt => "text", alt: "text", and alt="text"
+      unless img_tag.match(/:alt\s*=>|alt\s*[:=]/i)
         warning "Missing alt text on image in #{page.output_path}: #{img_tag.strip[0..80]}"
       else
         # Check for generic/poor alt text
-        alt_match = img_tag.match(/:alt\s*=>\s*['"](.*?)['"]|alt\s*=\s*['"](.*?)['"]/i)
+        # Matches: :alt => "text", alt: "text", or alt="text"
+        alt_match = img_tag.match(/:alt\s*=>\s*['"](.*?)['"]|alt\s*:\s*['"](.*?)['"]|alt\s*=\s*['"](.*?)['"]/i)
         if alt_match
-          alt_text = (alt_match[1] || alt_match[2]).to_s.strip.downcase
+          alt_text = (alt_match[1] || alt_match[2] || alt_match[3]).to_s.strip.downcase
           generic_terms = ['image', 'img', 'logo', 'icon', 'picture', 'photo']
           
           if generic_terms.include?(alt_text)
