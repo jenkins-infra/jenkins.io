@@ -100,15 +100,17 @@ class Validator
       unless img_tag.match(/:alt\s*=>|alt\s*[:=]/i)
         warning "Missing alt text on image in #{page.output_path}: #{img_tag.strip[0..80]}"
       else
-        # Check for generic/poor alt text
+        # Check for obviously poor alt text (most egregious cases only)
+        # Allows "logo", "icon" etc which can be legitimate in context
         # Matches: :alt => "text", alt: "text", or alt="text"
         alt_match = img_tag.match(/:alt\s*=>\s*['"](.*?)['"]|alt\s*:\s*['"](.*?)['"]|alt\s*=\s*['"](.*?)['"]/i)
         if alt_match
           alt_text = (alt_match[1] || alt_match[2] || alt_match[3]).to_s.strip.downcase
-          generic_terms = ['image', 'img', 'logo', 'icon', 'picture', 'photo']
+          # Only flag the most problematic generic terms
+          worst_terms = ['image', 'img', 'picture', 'photo']
           
-          if generic_terms.include?(alt_text)
-            warning "Generic alt text '#{alt_text}' in #{page.output_path} - should be more descriptive"
+          if worst_terms.include?(alt_text)
+            warning "Poor alt text '#{alt_text}' in #{page.output_path} - should describe the image content"
           end
         end
       end
