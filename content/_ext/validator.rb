@@ -34,10 +34,10 @@ class Validator
       end
       if !logo['url_256'] && !logo['vector']
          warning "Either vector image or 256px preview must be defined for logo #{id}"
-      check_file("/images/#{logo['url']}", "`url` of the logo #{id}")
+      end
+      check_file("/images/#{logo['url']}", "`url` of the logo #{id}") if logo['url']
       check_file("/images/#{logo['url_256']}", "`url_256` of the logo #{id}") unless logo['url_256'].nil?
       check_file("/images/#{logo['vector']}", "`vector` of the logo #{id}") unless logo['vector'].nil?
-      end
     end
 
     if @warnings > 0
