@@ -1,0 +1,211 @@
+---
+layout: post
+title: Advancing the Jenkins Tekton Client Plugin through CRD Generation, JUnit 5 Modernization, and Automated CI
+tags:
+- gsoc
+- gsoc2025
+- jenkins
+- tekton
+- kubernetes
+- cicd
+- plugin
+- testing
+- crd
+authors:
+- maeveho25
+links:
+  discourse: true
+---
+
+image:/images/post-images/2025/08/31/gsoc-maeveho-tekton.png[Advancing the Jenkins Tekton Plugin]
+
+The Jenkins Tekton Client Plugin bridges Jenkins and Kubernetes-native Tekton pipelines, allowing Jenkins users to trigger and manage Tekton resources directly from their existing CI/CD workflows. Over the course of Google Summer of Code 2025, significant progress was made in modernizing, stabilizing, and extending the plugin’s capabilities.
+
+This project introduced end-to-end CI automation, migrated tests to JUnit 5, implemented large-scale CRD-to-Java and UI generation systems, and improved Jenkins–Tekton interoperability.
+
+---
+
+=== Project Overview
+
+The Jenkins Tekton Client Plugin enables Jenkins jobs to interact with Tekton resources such as Pipelines, PipelineRuns, and Tasks running on Kubernetes clusters. The goal of this GSoC project was to:
+
+* Modernize the build and testing infrastructure
+* Improve test coverage and reliability
+* Automate the generation of Java POJOs and Jenkins UI elements from Tekton Custom Resource Definitions (CRDs)
+* Strengthen the CI/CD integration between Jenkins and Tekton
+
+All work was completed in close collaboration with the Jenkins community through public pull requests, reviews, and test deployments.
+
+---
+
+=== Continuous Integration and Build Automation
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/391[#391 – Add GitHub Actions]**
+
+A new GitHub Actions configuration was added to automate the build and testing process.  
+Two workflows, `test.yml` and `build.yml`, now ensure that `mvn clean verify` and full build validation are executed on every commit.  
+This CI layer ensures early detection of build issues and maintains consistent testing across environments.
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/393[#393 – Update Jenkinsfile for Linux JDK 17]**
+
+The Jenkinsfile was upgraded to use modern Linux agents and JDK 17, aligning the plugin with current Jenkins core requirements. This transition improves build consistency, performance, and future compatibility.
+
+---
+
+=== Documentation and Developer Experience
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/416[#416 – Update README with comprehensive plugin documentation]**
+
+The README file was rewritten to include installation guidance, usage examples, and CI/CD architecture explanations.  
+A clear breakdown of supported Jenkins versions, Tekton compatibility, and build prerequisites was added, making the plugin more accessible for new contributors.
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/423[#423 – Rename default branch to main]**
+
+The default branch was renamed from `master` to `main` to follow modern repository standards.  
+All workflow and build references were updated accordingly.
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/427[#427 – Remove Windows support for CI]**
+
+Windows testing environments were deprecated to streamline CI execution and reduce maintenance complexity.
+
+---
+
+=== Test Modernization and Migration to JUnit 5
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/421[#421 – Migrate and Refactor Tests to JUnit 5]**
+
+A full migration from JUnit 4 to JUnit 5 was completed. The modernized test suite enhances readability, reliability, and extensibility.
+
+Highlights include:
+* Migration of `CreateRawTest` and `CreateRawMockServerTest` to JUnit 5  
+* Partial migration and modernization of `JenkinsFreestyleTest` and `JenkinsPipelineTest`  
+* Reactivation of disabled tests  
+* Adoption of parameterized and assertion-based testing features available in JUnit 5  
+
+This upgrade ensures the plugin aligns with the current Jenkins testing ecosystem.
+
+---
+
+=== Integration and End-to-End Testing
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/433[#433 – Add Jenkins Build End-to-End Tests and JaCoCo Integration]**
+
+Comprehensive end-to-end tests were introduced to validate interactions between Jenkins jobs and Tekton pipelines.
+
+The following scenarios were implemented:
+* Freestyle builds with Jenkins environment variables  
+* Parameterized pipeline builds with Tekton resources  
+* Tekton pipeline execution from file-based definitions  
+* Jenkins Pipeline integration using Tekton APIs  
+
+JaCoCo was also integrated to automatically measure test coverage.  
+These tests ensure reliable behavior across Jenkins–Tekton workflows and serve as regression guards for future changes.
+
+---
+
+=== Bug Fixes and Functional Improvements
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/446[#446 – Fix Duplicate @Symbol Annotation in tektonCreateRaw]**
+
+Resolved a long-standing UI issue where the “Create Resource (Raw)” step was missing from the Jenkins interface due to duplicate `@Symbol` annotations.  
+The fix restored visibility and configurability of Tekton resource creation within the Jenkins UI.
+
+---
+
+=== CRD to Java POJO Generation System
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/450[#450 – Add CRD to Java POJO Generation at Maven Build Time]**
+
+This was the core deliverable of the GSoC project.  
+A new system was designed to automatically generate Java classes from Tekton CRDs at build time. This feature allows the plugin to stay in sync with evolving Tekton APIs without manual intervention.
+
+Key components:
+* `CrdJavaGenerator` – integrates CRD generation into the Maven lifecycle  
+* `EnhancedCrdProcessor` – parses CRD schemas and converts them into Java classes using `jsonschema2pojo`  
+* Maven profile `download-binaries` – downloads Tekton CRD definitions during build  
+* Generated POJOs include `@DataBoundConstructor` and extend Jenkins `BaseStep` for UI integration  
+
+The system now supports multiple Tekton API versions (`v1`, `v1beta1`, `v1alpha1`) and produces over one thousand Java classes that reflect the CRD specifications.
+
+This automation significantly reduces maintenance burden and enables Jenkins to support new Tekton resources dynamically.
+
+---
+
+=== Unit Testing for the Generation System
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/480[#480 – Unit Tests for CRD Generation System]**
+
+An extensive test suite was implemented to validate the CRD-to-POJO generator.  
+Tests cover:
+* Multi-version CRD compatibility  
+* Field-level mapping and schema inheritance  
+* Generated code compilation and JSON serialization  
+* Integration between generated POJOs and existing Jenkins steps  
+
+Over fifty unit and integration tests ensure the generator behaves deterministically and maintains correctness across Tekton versions.
+
+---
+
+=== CRD to Jenkins UI Auto-Generation
+
+**PR: link:https://github.com/jenkinsci/tekton-client-plugin/pull/484[#484 – Add CRD to Jenkins UI Auto-Generation System]**
+
+The second major feature developed during the project extends the generation pipeline to the Jenkins front-end.  
+This system automatically converts Tekton CRDs into functional Jenkins configuration forms.
+
+Core modules:
+* `TektonCrdToJavaProcessor.java`
+* `AdvancedJellyConfigGenerator.java`
+* `JellyConfigGenerator.java`
+* `TektonPojoGenerator.java`
+
+The process transforms CRD definitions into structured Jenkins forms, automatically detecting data types and grouping configuration fields into logical sections such as metadata, spec, and parameters.
+
+This lays the groundwork for dynamic UI generation in future Jenkins releases, allowing new Tekton APIs to appear automatically in the Jenkins interface without manual XML or Jelly coding.
+
+---
+
+=== Technical Takeaways
+
+The project brought together multiple aspects of Jenkins plugin development, including CI automation, test modernization, and large-scale code generation.  
+The most challenging aspect was maintaining compatibility between Jenkins’ job-based architecture and Tekton’s Kubernetes-native workflow model.
+
+Key results:
+* JUnit 5 migration modernized the testing infrastructure.  
+* Automated CRD and UI generation established a maintainable path for future Tekton API integration.  
+* End-to-end testing improved confidence in Jenkins–Tekton interoperability.  
+
+---
+
+=== Future Work
+
+Next steps for the Jenkins Tekton Client Plugin include:
+* Expanding UI testing and validation for auto-generated Jelly forms  
+* Extending support to Tekton Chains, Triggers, and Results  
+* Increasing coverage and reducing build time for large CRD sets  
+* Integrating the generator directly into Jenkins release workflows  
+
+---
+
+=== Acknowledgements
+
+I would like to thank my mentors and the Jenkins community for their support and detailed feedback throughout this project.  
+Working on the Jenkins Tekton Client Plugin during Google Summer of Code 2025 has provided invaluable experience in large-scale open source development and continuous integration architecture.
+
+---
+
+=== Links
+
+* Project repository: link:https://github.com/jenkinsci/tekton-client-plugin[jenkinsci/tekton-client-plugin]
+* Pull requests: 
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/391[#391],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/393[#393],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/416[#416],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/421[#421],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/423[#423],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/427[#427],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/433[#433],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/446[#446],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/450[#450],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/480[#480],
+link:https://github.com/jenkinsci/tekton-client-plugin/pull/484[#484]

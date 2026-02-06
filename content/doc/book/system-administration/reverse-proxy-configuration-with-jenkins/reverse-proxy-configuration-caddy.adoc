@@ -1,0 +1,111 @@
+---
+layout: subsection
+---
+
+ifdef::backend-html5[]
+ifndef::env-github[:imagesdir: ../../../resources/managing]
+:notitle:
+:description:
+:author:
+:email: jenkinsci-users@googlegroups.com
+:sectanchors:
+:toc: left
+endif::[]
+
+[[running-jenkins-behind-apache]]
+= Reverse proxy - Caddy 
+
+This sets up Jenkins behind Caddy as an HTTPS reverse proxy using Docker Compose.
+
+== Prerequisites
+* DNS for your domain pointing to the Docker host
+* Ports 80/443 open to the internet
+* (Optional, for sub-path) Decide your Jenkins context path (e.g., `/jenkins`)
+
+== Files
+Create these two files in the same directory.
+
+=== docker-compose.yml
+[source,yaml]
+----
+version: "3.9"
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: jenkins
+    restart: unless-stopped
+    # If you want Jenkins on a sub-path like /jenkins, uncomment the next line
+    # environment:
+    #   - JENKINS_OPTS=--prefix=/jenkins
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    expose:
+      - "8080"     # internal to the compose network
+      # - "50000"  # optional: classic JNLP agents (WebSocket usually removes the need)
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    depends_on:
+      - jenkins
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  jenkins_home:
+  caddy_data:
+  caddy_config:
+----
+
+=== Caddyfile (subdomain)
+[source,caddy]
+----
+# Replace with your real domain
+jenkins.example.com {
+    encode zstd gzip
+    reverse_proxy jenkins:8080
+}
+----
+
+=== Caddyfile (sub-path `/jenkins`)
+[source,caddy]
+----
+# Replace with your real domain
+example.com {
+    encode zstd gzip
+
+    @jenkins path /jenkins*
+    handle @jenkins {
+        handle_path /jenkins* {
+            reverse_proxy jenkins:8080
+        }
+    }
+}
+----
+
+== Run
+[source,shell]
+----
+docker compose up -d
+----
+
+== Jenkins URL
+After startup, set the Jenkins URL under *Manage Jenkins → System → Jenkins Location* to either:
+
+* `https://jenkins.example.com/`  (subdomain)
+* `https://example.com/jenkins/`  (sub-path; ensure `JENKINS_OPTS=--prefix=/jenkins` is set as shown above)

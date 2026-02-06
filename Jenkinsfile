@@ -42,7 +42,7 @@ node('docker&&linux') {
         * scm to check out sources matching Jenkinsfile with the SCM details from
         * the build that is executing this Jenkinsfile.
         *
-        * when not in multibranch: https://issues.jenkins.io/browse/JENKINS-31386
+        * when not in multibranch: https://issue-redirect.jenkins.io/issue/31386
         */
         checkout scm
     }
