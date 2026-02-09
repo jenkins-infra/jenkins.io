@@ -8,14 +8,16 @@ module ActiveNav
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    [site.base_url, relative_url.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/').sub(%r{^/}, '')].join('/')
+    base = site.base_url.sub(%r{\/$}, '')
+    [base, relative_url.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/').sub(%r{^/}, '')].join('/')
   end
 
   def expand_link(relative_url)
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    link = [URI(site.base_url).path, relative_url.sub(%r{^/}, '')].join('/')
+    base = URI(site.base_url).path.sub(%r{\/$}, '')
+    link = [base, relative_url.sub(%r{^/}, '')].join('/')
     # if it has a file extension its a file and shouldn't get a / added, same for anchor links with '#'
     link = link + '/' if File.extname(link).empty? and not link.include? '#'
     # strip double slashes on the end
@@ -48,6 +50,6 @@ module ActiveNav
 
   def tooltip_href(url, title)
     tooltip = {'data-bs-toggle' => 'tooltip', 'data-bs-placement' => 'top', 'title' => title}
-    url != null ? tooltip.merge({:href => url}) : tooltip
+    url != nil ? tooltip.merge({:href => url}) : tooltip
   end
 end
