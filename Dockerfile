@@ -11,11 +11,18 @@ COPY scripts ./scripts
 RUN npm install
 RUN make assets
 
-FROM ruby:3.4.7 as builder
+FROM ruby:3.4.8 as builder
 ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
 RUN bundle config --global frozen 1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g @mermaid-js/mermaid-cli \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/jenkinsio
 

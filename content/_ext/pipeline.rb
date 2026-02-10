@@ -1,6 +1,7 @@
 require 'awestruct/extensions/data_dir'
 require 'awestruct/extensions/partial'
 require 'asciidoctor/jenkins/extensions'
+require 'asciidoctor-diagram'
 
 Dir[File.join(File.dirname(__FILE__), '*.rb')].each do |extension|
   next if extension == __FILE__
