@@ -17,13 +17,6 @@ ENV USE_LOCAL_RUBY=true
 # throw errors if Gemfile has been modified since Gemfile.lock
 RUN bundle config --global frozen 1
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g @mermaid-js/mermaid-cli \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /usr/src/jenkinsio
 
 COPY Makefile Gemfile Gemfile.lock ./
@@ -33,6 +26,11 @@ COPY scripts scripts
 COPY content content
 
 RUN mkdir -p ./build/_site
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/bin/npm /usr/local/bin/npm
+COPY --from=node /usr/local/bin/npx /usr/local/bin/npx
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node /usr/src/jenkinsio/node_modules ./node_modules
 COPY --from=node /usr/src/jenkinsio/build/_site/assets/bower ./build/_site/assets/bower
 COPY --from=node /usr/src/jenkinsio/build/_site/css/fonts ./build/_site/css/fonts
 RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./build/_site/releases.rss
