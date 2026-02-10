@@ -52,12 +52,17 @@ Protecting from these attacks requires that form validation methods with side ef
 
 ==== Checking permissions
 
-To check for global permissions like `Administer`, add a call to `Jenkins#checkPermission`. Note that Overall/Read permission is always implied (unless you specifically implement jenkinsdoc:UnprotectedRootAction[]).
+To check for global permissions like `Administer`, prefer `Jenkins#hasPermission` and return `FormValidation.ok()` when the permission is missing.
+Calling `checkPermission` can trigger an authentication redirect when the user lacks the permission.
+This is especially problematic for users with extended read permissions (for example, `Jenkins.SYSTEM_READ` or `Item.EXTENDED_READ`), as it can make configuration pages unusable.
+Note that Overall/Read permission is always implied (unless you specifically implement jenkinsdoc:UnprotectedRootAction[]).
 
 [source, java]
 ----
 public FormValidation doCheckFoo(@QueryParameter String value) {
-  Jenkins.get().checkPermission(Jenkins.ADMINISTER); // or Jenkins.getInstance() on older core baselines
+  if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) { // or Jenkins.getInstance() on older core baselines
+    return FormValidation.ok();
+  }
   if (Util.fixEmptyAndTrim(value) == null) {
     return FormValidation.error("foo cannot be empty");
   }
@@ -73,7 +78,9 @@ public FormValidation doCheckFoo(@QueryParameter String value, @AncestorInPath I
   if (item == null) { // no context
     return FormValidation.ok();
   }
-  item.checkPermission(Item.CONFIGURE);
+  if (!item.hasPermission(Item.CONFIGURE)) {
+    return FormValidation.ok();
+  }
 
   if (Util.fixEmptyAndTrim(value) == null) {
     return FormValidation.error("foo cannot be empty");
