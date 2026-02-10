@@ -1,4 +1,5 @@
 FROM node:22.22.0 as node
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
@@ -16,6 +17,9 @@ ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
 RUN bundle config --global frozen 1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/jenkinsio
 
