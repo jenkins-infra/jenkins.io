@@ -30,7 +30,7 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/bin/npm /usr/local/bin/npm
 COPY --from=node /usr/local/bin/npx /usr/local/bin/npx
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
-COPY --from=node /usr/src/jenkinsio/node_modules ./node_modules
+COPY --from=node /usr/src/jenkinsio/build/_site/node_modules ./node_modules
 COPY --from=node /usr/src/jenkinsio/build/_site/assets/bower ./build/_site/assets/bower
 COPY --from=node /usr/src/jenkinsio/build/_site/css/fonts ./build/_site/css/fonts
 RUN bundle exec ./scripts/release.rss.rb 'https://updates.jenkins.io/release-history.json' > ./build/_site/releases.rss
