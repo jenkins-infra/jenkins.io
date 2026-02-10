@@ -24,7 +24,7 @@ RUN apt-get update \
 WORKDIR /usr/src/jenkinsio
 
 COPY Makefile Gemfile Gemfile.lock ./
-RUN bundle install
+RUN BUNDLE_FULL_INDEX=true bundle install
 
 COPY scripts scripts
 COPY content content

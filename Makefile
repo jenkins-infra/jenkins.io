@@ -75,7 +75,7 @@ update: clean depends
 $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 	./scripts/ruby pull
 	./scripts/ruby bundle config set --local path 'vendor/gems'
-	./scripts/ruby bundle install
+	BUNDLE_FULL_INDEX=true ./scripts/ruby bundle install
 	@touch $(BUILD_DIR)/ruby
 
 # When we pull dependencies, also pull docker image.
