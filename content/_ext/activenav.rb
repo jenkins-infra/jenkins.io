@@ -10,7 +10,7 @@ module ActiveNav
     # Join the base and relative URLs
     link = [site.base_url.to_s.chomp('/'), relative_url.gsub(%r{/index\.html$}, '/').sub(%r{^/}, '')].join('/')
     
-    # Keep gsub for safety per reviewer feedback
+    # keep gsub for safety per reviewer feedback
     link.gsub(%r{/+}, '/')
   end
 
