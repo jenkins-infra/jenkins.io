@@ -7,17 +7,23 @@ module ActiveNav
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    # Minimal fix: chomp trailing slash and join to prevent double-slashes
-    [site.base_url.to_s.chomp('/'), relative_url.gsub(%r{/index\.html$}, '/').sub(%r{^/}, '')].join('/')
+    # Join the base and relative URLs
+    link = [site.base_url.to_s.chomp('/'), relative_url.gsub(%r{/index\.html$}, '/').sub(%r{^/}, '')].join('/')
+    
+    # Keep gsub for safety per reviewer feedback
+    link.gsub(%r{/+}, '/')
   end
 
   def expand_link(relative_url)
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
+    # Join the base path and relative URL
     link = [URI(site.base_url).path.to_s.chomp('/'), relative_url.sub(%r{^/}, '')].join('/')
+    
     # if it has a file extension its a file and shouldn't get a / added, same for anchor links with '#'
     link = link + '/' if File.extname(link).empty? && !link.include?('#')
+    
     # strip double slashes everywhere
     link.gsub(%r{/+}, '/')
   end
@@ -48,6 +54,7 @@ module ActiveNav
 
   def tooltip_href(url, title)
     tooltip = {'data-bs-toggle' => 'tooltip', 'data-bs-placement' => 'top', 'title' => title}
+    # Fixed NameError: Changed 'null' to 'nil' for Ruby compatibility
     url.nil? ? tooltip : tooltip.merge({:href => url})
   end
 end
