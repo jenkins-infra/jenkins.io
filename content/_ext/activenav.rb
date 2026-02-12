@@ -7,7 +7,6 @@ module ActiveNav
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    # Minimal fix: chomp trailing slash and join to prevent double-slashes
     [site.base_url.to_s.chomp('/'), relative_url.gsub(%r{/index\.html$}, '/').sub(%r{^/}, '')].join('/')
   end
 
