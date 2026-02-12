@@ -14,7 +14,6 @@ module ActiveNav
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    # Minimal fix: chomp trailing slash and join to satisfy 'Ditto' feedback
     link = [URI(site.base_url).path.to_s.chomp('/'), relative_url.sub(%r{^/}, '')].join('/')
     # if it has a file extension its a file and shouldn't get a / added, same for anchor links with '#'
     link = link + '/' if File.extname(link).empty? && !link.include?('#')
