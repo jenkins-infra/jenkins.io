@@ -48,7 +48,6 @@ module ActiveNav
 
   def tooltip_href(url, title)
     tooltip = {'data-bs-toggle' => 'tooltip', 'data-bs-placement' => 'top', 'title' => title}
-    # Fixed NameError: Changed 'null' to 'nil' for Ruby compatibility
     url.nil? ? tooltip : tooltip.merge({:href => url})
   end
 end
