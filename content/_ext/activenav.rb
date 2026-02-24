@@ -1,4 +1,3 @@
-
 module ActiveNav
   def active_link?(section_name, options={:css_class => 'active'})
     return options[:css_class] if page.section == section_name
@@ -8,18 +7,25 @@ module ActiveNav
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    [site.base_url, relative_url.gsub(%r{/index.html$}, '/').gsub(%r{/(/)+}, '/').sub(%r{^/}, '')].join('/')
+    # join the base and relative URLs
+    link = [site.base_url.to_s.chomp('/'), relative_url.gsub(%r{/index\.html$}, '/').sub(%r{^/}, '')].join('/')
+    
+    # keep gsub for safety per reviewer feedback
+    link.gsub(%r{/+}, '/')
   end
 
   def expand_link(relative_url)
     # if it is a full url with a schema, then can't do anything with it
     return relative_url if relative_url.start_with?('https://', 'http://')
 
-    link = [URI(site.base_url).path, relative_url.sub(%r{^/}, '')].join('/')
+    # join the base path and relative URL
+    link = [URI(site.base_url).path.to_s.chomp('/'), relative_url.sub(%r{^/}, '')].join('/')
+    
     # if it has a file extension its a file and shouldn't get a / added, same for anchor links with '#'
-    link = link + '/' if File.extname(link).empty? and not link.include? '#'
-    # strip double slashes on the end
-    link.gsub(/\/(\/)+/, '/')
+    link = link + '/' if File.extname(link).empty? && !link.include?('#')
+    
+    # strip double slashes everywhere
+    link.gsub(%r{/+}, '/')
   end
 
   def active_href(relative_url, text, options={:class => nil})
@@ -48,6 +54,6 @@ module ActiveNav
 
   def tooltip_href(url, title)
     tooltip = {'data-bs-toggle' => 'tooltip', 'data-bs-placement' => 'top', 'title' => title}
-    url != null ? tooltip.merge({:href => url}) : tooltip
+    url.nil? ? tooltip : tooltip.merge({:href => url})
   end
 end
