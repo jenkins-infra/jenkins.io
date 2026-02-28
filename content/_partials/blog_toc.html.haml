@@ -1,53 +1,47 @@
--# This partial builds a table-of-contents for blog posts by scanning headings
--# within the rendered content. It is included from the post layout and only
--# generates markup when a `.blog-content` element is present (i.e. on blog
--# article pages). The actual HTML list is inserted into the `.app-post-wrapper`.
+-# Builds a left-side Table of Contents for blog posts.
+-# Scans rendered headings inside the blog article and populates
+-# the existing .blog-toc container.
 
 :javascript
-  document.addEventListener('DOMContentLoaded', function() {
-    var content = document.querySelector('.blog-content');
-    if (!content) return;
+  document.addEventListener('DOMContentLoaded', function () {
+    // Prefer explicit blog-content wrapper, fallback to app-post-page
+    var content =
+      document.querySelector('.blog-content') ||
+      document.querySelector('.app-post-page');
 
+    if (!content) {
+      return;
+    }
+
+    // Collect major headings
     var headings = content.querySelectorAll('h2, h3, h4');
-    if (headings.length === 0) return;
-
-    // try to reuse an existing placeholder if present
-    var toc = document.querySelector('.blog-toc');
-    if (!toc) {
-      toc = document.createElement('aside');
-      toc.className = 'blog-toc';
-      toc.setAttribute('aria-label', 'Table of contents');
-      var nav = document.createElement('nav');
-      var title = document.createElement('h2');
-      title.textContent = 'Table of contents';
-      nav.appendChild(title);
-      var newUl = document.createElement('ul');
-      newUl.id = 'blog-toc-list';
-      nav.appendChild(newUl);
-      toc.appendChild(nav);
+    if (headings.length === 0) {
+      return;
     }
 
-    var list = toc.querySelector('#blog-toc-list');
+    // Use existing ToC list container
+    var list = document.querySelector('#blog-toc-list');
     if (!list) {
-      list = document.createElement('ul');
-      list.id = 'blog-toc-list';
-      toc.appendChild(list);
+      return;
     }
+
+    // Clear existing items (prevents duplicates on hot reload)
     list.innerHTML = '';
 
-    headings.forEach(function(h) {
-      if (!h.id) return;
+    headings.forEach(function (heading) {
+      // Skip headings without ID
+      if (!heading.id) {
+        return;
+      }
+
       var li = document.createElement('li');
-      li.className = 'toc-' + h.tagName.toLowerCase();
-      var a = document.createElement('a');
-      a.href = '#' + h.id;
-      a.textContent = h.textContent;
-      li.appendChild(a);
+      li.className = 'toc-' + heading.tagName.toLowerCase();
+
+      var anchor = document.createElement('a');
+      anchor.href = '#' + heading.id;
+      anchor.textContent = heading.textContent;
+
+      li.appendChild(anchor);
       list.appendChild(li);
     });
-
-    var wrapper = document.querySelector('.app-post-wrapper');
-    if (wrapper && !wrapper.contains(toc)) {
-      wrapper.insertBefore(toc, wrapper.firstChild);
-    }
   });
