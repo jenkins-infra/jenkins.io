@@ -1,0 +1,417 @@
+---
+layout: section
+title: Custom CA Certificates
+---
+ifdef::backend-html5[]
+:description:
+:author:
+:sectanchors:
+:toc:
+:toclevels: 4
+:hide-uri-scheme:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+endif::[]
+
+= Custom CA Certificates
+
+If your Jenkins instance needs to trust custom root CA certificates (for corporate proxies, internal services, or self-signed certificates), you have several options to configure this securely.
+
+[IMPORTANT]
+====
+The system truststore (`$JAVA_HOME/lib/security/cacerts`) in the official Jenkins Docker images is owned by root and should remain immutable for security reasons. The approaches below maintain this security posture while allowing custom certificate trust.
+====
+
+== Option 1: Docker Compose with Init Container (Recommended for Docker)
+
+This approach uses an init container to prepare a custom truststore before Jenkins starts.
+
+=== How It Works
+
+1. An init container runs as root
+2. Copies the system truststore to a shared volume
+3. Imports your custom certificates into the copy
+4. Jenkins container uses the prepared truststore (read-only)
+5. System truststore remains untouched
+
+=== Example: Docker Compose
+
+Create a `docker-compose.yml`:
+
+[source,yaml]
+----
+version: '3.8'
+
+services:
+  # Init container: prepares truststore with custom CA certificates
+  cert-init:
+    image: jenkins/jenkins:lts-jdk21
+    user: root
+    volumes:
+      - ./custom-certs:/certs:ro
+      - jenkins-cacerts:/cacerts-volume
+    command: >
+      bash -c '
+        cp "$${JAVA_HOME}/lib/security/cacerts" /cacerts-volume/cacerts &&
+        for cert in /certs/*.crt /certs/*.pem; do
+          [ -f "$$cert" ] || continue;
+          alias="custom-$$(basename "$${cert%.*}")";
+          "$${JAVA_HOME}/bin/keytool" -importcert -noprompt \
+            -keystore /cacerts-volume/cacerts \
+            -storepass changeit \
+            -alias "$$alias" \
+            -file "$$cert" || true;
+        done &&
+        echo "Custom CA certificates imported successfully"
+      '
+
+  # Main Jenkins container
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - jenkins-cacerts:/cacerts:ro
+    environment:
+      JAVA_OPTS: "-Djavax.net.ssl.trustStore=/cacerts/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
+
+volumes:
+  jenkins_home:
+  jenkins-cacerts:
+----
+
+=== Usage
+
+1. Create a directory named `custom-certs` in the same location as your `docker-compose.yml`
+2. Place your `.crt` or `.pem` certificate files in `custom-certs/`
+3. Run:
+
+[source,bash]
+----
+docker compose up -d
+----
+
+The init container will import all certificates from `custom-certs/` into a shared truststore, then Jenkins will start with those certificates trusted.
+
+=== Validation
+
+Verify the certificates were imported:
+
+[source,bash]
+----
+docker compose exec jenkins \
+  "${JAVA_HOME}/bin/keytool" -list \
+  -keystore /cacerts/cacerts \
+  -storepass changeit | grep custom-
+----
+
+== Option 2: Kubernetes with Init Container
+
+For Kubernetes deployments, use an init container in your Pod specification.
+
+=== Using the Official Helm Chart
+
+The link:https://github.com/jenkinsci/helm-charts[official Jenkins Helm chart] supports custom init containers via the `controller.initContainers` parameter.
+
+Create a `values.yaml`:
+
+[source,yaml]
+----
+controller:
+  # Mount custom certificates as a ConfigMap or Secret
+  additionalExistingSecrets:
+    - name: custom-ca-certs
+      keyName: certs
+
+  # Init container to prepare truststore
+  initContainers:
+    - name: prepare-truststore
+      image: "jenkins/jenkins:lts-jdk21"
+      imagePullPolicy: Always
+      securityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+      command:
+        - sh
+        - -c
+        - |
+          cp "${JAVA_HOME}/lib/security/cacerts" /cacerts-volume/cacerts
+          for cert in /custom-certs/*.crt /custom-certs/*.pem; do
+            [ -f "$cert" ] || continue
+            alias="custom-$(basename "${cert%.*}")"
+            "${JAVA_HOME}/bin/keytool" -importcert -noprompt \
+              -keystore /cacerts-volume/cacerts \
+              -storepass changeit \
+              -alias "$alias" \
+              -file "$cert" || true
+          done
+          echo "Custom CA certificates imported"
+      volumeMounts:
+        - name: cacerts-volume
+          mountPath: /cacerts-volume
+        - name: custom-ca-certs
+          mountPath: /custom-certs
+          readOnly: true
+
+  # Additional volume mounts for the main Jenkins container
+  additionalVolumeMounts:
+    - name: cacerts-volume
+      mountPath: /cacerts
+      readOnly: true
+
+  # Java options to use custom truststore
+  javaOpts: >-
+    -Djavax.net.ssl.trustStore=/cacerts/cacerts
+    -Djavax.net.ssl.trustStorePassword=changeit
+
+  # Additional volumes
+  additionalVolumes:
+    - name: cacerts-volume
+      emptyDir: {}
+    - name: custom-ca-certs
+      secret:
+        secretName: custom-ca-certs
+----
+
+=== Create the Secret
+
+First, create a Kubernetes secret with your certificates:
+
+[source,bash]
+----
+kubectl create secret generic custom-ca-certs \
+  --from-file=ca1.crt=./path/to/your/cert1.crt \
+  --from-file=ca2.crt=./path/to/your/cert2.crt \
+  --namespace jenkins
+----
+
+=== Deploy Jenkins
+
+[source,bash]
+----
+helm repo add jenkinsci https://charts.jenkins.io
+helm repo update
+helm install jenkins jenkinsci/jenkins -f values.yaml --namespace jenkins
+----
+
+=== Plain Kubernetes Manifest
+
+If you're not using Helm, here's a Pod spec example:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jenkins
+spec:
+  initContainers:
+    - name: prepare-truststore
+      image: jenkins/jenkins:lts-jdk21
+      securityContext:
+        runAsUser: 0
+      command:
+        - sh
+        - -c
+        - |
+          cp "${JAVA_HOME}/lib/security/cacerts" /cacerts-volume/cacerts
+          for cert in /custom-certs/*.crt; do
+            [ -f "$cert" ] || continue
+            alias="custom-$(basename "${cert%.*}")"
+            "${JAVA_HOME}/bin/keytool" -importcert -noprompt \
+              -keystore /cacerts-volume/cacerts \
+              -storepass changeit \
+              -alias "$alias" \
+              -file "$cert"
+          done
+      volumeMounts:
+        - name: cacerts-volume
+          mountPath: /cacerts-volume
+        - name: custom-ca-certs
+          mountPath: /custom-certs
+          readOnly: true
+
+  containers:
+    - name: jenkins
+      image: jenkins/jenkins:lts-jdk21
+      env:
+        - name: JAVA_OPTS
+          value: "-Djavax.net.ssl.trustStore=/cacerts/cacerts"
+      volumeMounts:
+        - name: cacerts-volume
+          mountPath: /cacerts
+          readOnly: true
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+
+  volumes:
+    - name: cacerts-volume
+      emptyDir: {}
+    - name: custom-ca-certs
+      secret:
+        secretName: custom-ca-certs
+    - name: jenkins-home
+      persistentVolumeClaim:
+        claimName: jenkins-home-pvc
+----
+
+== Option 3: Custom Docker Image
+
+For static certificate requirements, build a custom image with certificates baked in.
+
+=== Example Dockerfile
+
+Create a `Dockerfile`:
+
+[source,dockerfile]
+----
+FROM jenkins/jenkins:lts-jdk21
+
+# Switch to root to modify truststore
+USER root
+
+# Copy your custom CA certificates
+COPY custom-certs/*.crt /usr/local/share/ca-certificates/
+
+# Import certificates into Java truststore
+RUN for cert in /usr/local/share/ca-certificates/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      alias="custom-$(basename "${cert%.*}")"; \
+      keytool -importcert -noprompt \
+        -keystore "${JAVA_HOME}/lib/security/cacerts" \
+        -storepass changeit \
+        -alias "$alias" \
+        -file "$cert"; \
+    done
+
+# Switch back to jenkins user
+USER jenkins
+----
+
+=== Build and Run
+
+[source,bash]
+----
+# Build the custom image
+docker build -t my-jenkins:lts-jdk21 .
+
+# Run the container
+docker run -d -p 8080:8080 -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  my-jenkins:lts-jdk21
+----
+
+[TIP]
+====
+This approach is suitable when:
+
+* Certificates rarely change
+* You have a CI/CD pipeline for building custom images
+* You want the simplest runtime configuration
+====
+
+== Certificate Format Requirements
+
+=== Supported Formats
+
+* **PEM format** (`.pem`): Text file with `-----BEGIN CERTIFICATE-----` header
+* **DER/CRT format** (`.crt`, `.cer`): Binary or PEM-encoded certificate
+
+=== Converting Certificates
+
+If you have a certificate in a different format:
+
+**From DER to PEM:**
+[source,bash]
+----
+openssl x509 -inform der -in certificate.cer -out certificate.pem
+----
+
+**From P7B/PKCS#7 to PEM:**
+[source,bash]
+----
+openssl pkcs7 -print_certs -in certificate.p7b -out certificate.pem
+----
+
+**Extract from JKS keystore:**
+[source,bash]
+----
+keytool -exportcert -alias myalias -keystore keystore.jks \
+  -rfc -file certificate.pem
+----
+
+== Troubleshooting
+
+=== Verify Certificate Import
+
+Check if your certificate was imported successfully:
+
+[source,bash]
+----
+# Docker
+docker exec jenkins ${JAVA_HOME}/bin/keytool -list \
+  -keystore /cacerts/cacerts \
+  -storepass changeit | grep custom-
+
+# Kubernetes
+kubectl exec jenkins-0 -- ${JAVA_HOME}/bin/keytool -list \
+  -keystore /cacerts/cacerts \
+  -storepass changeit | grep custom-
+----
+
+=== Test SSL Connection
+
+Test if Jenkins can connect to your internal service:
+
+[source,bash]
+----
+docker exec jenkins curl -v https://your-internal-service.example.com
+----
+
+=== Common Issues
+
+**Issue:** `PKIX path building failed: unable to find valid certification path`
+
+*Solution:* The CA certificate wasn't imported correctly. Verify:
+
+1. Certificate is in PEM or DER format
+2. Certificate file has `.crt` or `.pem` extension
+3. Init container completed successfully
+4. `JAVA_OPTS` includes `-Djavax.net.ssl.trustStore=/cacerts/cacerts`
+
+**Issue:** Init container fails with "keytool error: Invalid keystore format"
+
+*Solution:* The cacerts file is corrupted. Ensure the init container copies the original truststore before modifying it.
+
+**Issue:** Certificates import successfully but Jenkins still doesn't trust the connection
+
+*Solution:* Verify the Java truststore path:
+
+[source,bash]
+----
+docker exec jenkins bash -c 'echo $JAVA_OPTS'
+# Should include: -Djavax.net.ssl.trustStore=/cacerts/cacerts
+----
+
+== Security Considerations
+
+[WARNING]
+====
+* **Never run the main Jenkins container as root**
+* **Always mount the custom truststore as read-only (`:ro`)** in the main container
+* **Keep the system truststore immutable** - only modify copies
+* **Regularly update CA certificates** as they expire or are rotated
+* **Limit certificate access** - use Kubernetes secrets with RBAC, not ConfigMaps
+====
+
+== See Also
+
+* link:https://github.com/jenkinsci/docker[Official Jenkins Docker Images]
+* link:https://github.com/jenkinsci/helm-charts[Official Jenkins Helm Chart]
+* link:https://www.jenkins.io/doc/book/installing/docker/[Installing Jenkins with Docker]
+* link:https://www.jenkins.io/doc/book/installing/kubernetes/[Installing Jenkins on Kubernetes]
