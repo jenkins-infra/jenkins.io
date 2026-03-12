@@ -121,6 +121,7 @@ archive: generate
 check:
 	scripts/check-hard-coded-URL-references
 	scripts/check-typos
+	scripts/check-filename
 
 # Miscellaneous tasks
 #-----------------------------------------------------#

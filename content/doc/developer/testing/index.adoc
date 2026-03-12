@@ -2,10 +2,6 @@
 title: Testing
 layout: developerchapter
 references:
-- url: https://wiki.jenkins.io/display/JENKINS/Mocking+in+Unit+Tests
-  title: "Wiki: Mocking in Unit Tests"
-- url: https://wiki.jenkins.io/display/JENKINS/Unit+Test+on+Windows
-  title: "Wiki: Unit Testing on Windows"
 - url: https://javadoc.jenkins.io/component/jenkins-test-harness/
   title: "Jenkins Test Harness Javadoc"
 - url: https://github.com/jenkinsci/acceptance-test-harness
@@ -79,7 +75,10 @@ The following list covers typical integration tests:
 </dependency>
 ----
 
-(You will also need to specify ``<version>``s, unless you are using the link:https://github.com/jenkinsci/bom/blob/master/README.md[BOM].)
+To avoid manually managing dependency versions and to prevent conflicts between Jenkins components, it is recommended to use the Jenkins plugin Bill of Materials (BOM).
+The BOM aligns compatible versions across the Jenkins ecosystem and is the standard approach for Jenkins plugin development.
+
+Details on configuring and using the Jenkins plugin BOM are documented in the link:/doc/developer/tutorial-improve/use-plugin-bill-of-materials/[Use the plugin BOM] section of the Improve a plugin tutorial.
 
 ==== Depending on Other Plugins
 Any Jenkins plugins that you add as dependencies to your POM with `<scope>test</scope>` will be available in the Jenkins installations created while running test cases, or when using link:/doc/developer/tutorial/run/[`mvn hpi:run`].
@@ -283,7 +282,10 @@ Sometimes a test should be skipped because it is only relevant for one type of o
 Tests can be skipped based on conditionals evaluated by link:https://www.baeldung.com/junit-conditional-assume[JUnit Assume].
 Use  `assumeFalse()` to disable a test on Windows systems in combination with `Functions.isWindows()`:
 
-`assumeFalse("TODO: Implement this test on Windows", Functions.isWindows());`
+[source,java]
+----
+assumeFalse("TODO: Implement this test on Windows", Functions.isWindows());
+----
 
 The test will be skipped on Windows.
 
@@ -570,9 +572,11 @@ If you need a security realm for testing you can use a `MockAuthorizationStrateg
 ----
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 
-import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertEquals;
+
 
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
@@ -599,12 +603,13 @@ public class MyTest {
     // alice can discover project
     JenkinsRule.WebClient alice = j.createWebClient().login("alice");
     FailingHttpStatusCodeException e = assertThrows(FailingHttpStatusCodeException.class, () -> alice.goTo("bypass/myproject"));
-    Assert.assertEquals("alice can discover", 403, e.getStatusCode());
+    assertEquals("alice can discover", 403, e.getStatusCode());
 
     // bob can read project
     JenkinsRule.WebClient bob = j.createWebClient().login("bob");
     bob.goTo("bypass/myproject"); // success    
   }
+}
 ----
 
 === Verifying Logs
