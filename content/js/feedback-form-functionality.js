@@ -3,13 +3,11 @@
 // browser's local storage.
 
 if (typeof feedbackForm === 'undefined') {
-  console.log('No "feedbackForm" with "formKey" and "start" functions has been defined in the HTML file that imports this "feedback-form-functionality.js" file.');
   var feedbackForm = { start : function() {} };
 }
 else {
   feedbackForm.start = function(currentUrl) {
     var ref = document.getElementById('current-url');
-    // console.log('Value of "start" function is:' + currentUrl);
     ref.value = currentUrl;
     localStorage.setItem("feedbackPageUrl",ref.value);
   };
@@ -34,7 +32,6 @@ $(document).ready(function() {
 
  ssForm.submit(function(evt){
   if($('#'+testField).val() == answer){
-   // console.log('Value of "feedbackForm.formKey" function is:' + feedbackForm.formKey);
    ssForm.attr({'action' : 'https://docs.google.com/forms/d/' + feedbackForm.formKey + '/formResponse'});
    return true;
   }else{
