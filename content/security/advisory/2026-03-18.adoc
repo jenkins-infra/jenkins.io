@@ -1,0 +1,89 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2026-03-18
+kind: core and plugin
+core:
+  lts:
+    previous: 2.541.2
+    fixed: 2.541.3
+  weekly:
+    previous: '2.554'
+    fixed: '2.555'
+issues:
+- id: SECURITY-3657
+  reporter: Nguyen Ngoc Quang Bach aka maysbachs (https://www.linkedin.com/in/quang-bach-ngoc-nguyen-59b2b7304/);
+    and, independently, Elie Metahri (Airbus Protect Offensive Security Team); and
+    Vitaly Simonovich, Senior Security Researcher, Cato Networks
+  title: Link following vulnerability allows arbitrary file creation
+  cve: CVE-2026-33001
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins 2.554 and earlier, LTS 2.541.2 and earlier does not safely handle symbolic links during the extraction of `.tar` and `.tar.gz` archives.
+    This allows crafted archives to write files to arbitrary locations on the filesystem, restricted only by file system access permissions of the user running Jenkins.
+    For archives extracted on the controller, this can result in code execution by, e.g., writing malicious scripts to the `JENKINS_HOME/init.groovy.d/` directory (link:/doc/book/managing/groovy-hook-scripts/#post-initialization-script-init-hook[feature documentation]), or deploying plugins to `JENKINS_HOME/plugins/`.
+
+    A number of features and plugins use the affected functionality, most prominently the "Archive the artifacts" post-build action, and the `archiveArtifacts` and `archive` Pipeline steps, when using the standard artifact manager (i.e., archiving artifacts on the controller file system).
+    This allows attackers with Item/Configure permission, or able to control agent processes, to exploit this vulnerability.
+
+    Jenkins 2.555, LTS 2.541.3 refuses to extract files from `.tar` and `.tar.gz` archives whose real path is outside the target directory, and prevents extraction through symbolic links in the path or at the target location.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3674
+  reporter: TallowX92, and, independently, Babauca
+  title: DNS rebinding vulnerability in WebSocket CLI origin validation
+  cve: CVE-2026-33002
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins has a built-in link:/doc/book/managing/cli/[command line interface (CLI)] to access Jenkins from a script or shell environment.
+    Since Jenkins 2.217 and LTS 2.222.1, one of the ways to communicate with the CLI is through a WebSocket endpoint.
+    This endpoint relies on the default Jenkins web request authentication functionality, like HTTP Basic authentication with API tokens, or session cookies.
+    This endpoint is enabled when running on a version of Jetty for which Jenkins supports WebSockets.
+    This is the case when using the provided native installers, packages, or the Docker containers, as well as when running Jenkins with the command `java -jar jenkins.war`.
+
+    Jenkins 2.442 and LTS 2.426.3 introduced origin validation of requests made through the CLI WebSocket endpoint to prevent cross-site WebSocket hijacking (CSWSH) attacks (link:/security/advisory/2024-01-24/#SECURITY-3315[SECURITY-3315 in the 2024-01-24 security advisory]).
+    This validation is intended to ensure that only requests from the Jenkins web interface itself can access the CLI WebSocket endpoint, preventing malicious websites from establishing connections.
+
+    Jenkins 2.442 through 2.554 (both inclusive), LTS 2.426.3 through LTS 2.541.2 (both inclusive) performs this origin validation by computing the expected origin for comparison using the `Host` or `X-Forwarded-Host` HTTP request headers.
+    This allows attackers to bypass the origin validation using DNS rebinding attacks.
+    By causing a victim to visit a malicious website that uses DNS rebinding to resolve to the Jenkins controller's IP address, attackers can establish a WebSocket connection to the CLI endpoint from an untrusted origin and execute CLI commands as the anonymous user.
+
+    This is impactful when Jenkins controllers are deployed on private networks with the anonymous user granted permissions.
+
+    Exploitation requires all of the following conditions:
+
+    * Jenkins is accessible over plain HTTP (not HTTPS).
+    * The CLI WebSocket endpoint is accessible.
+
+    The impact depends on the permissions of the anonymous user.
+    With an authorization strategy like "Anyone can do anything", or when the anonymous user has explicitly been granted additional permissions, attackers can execute the CLI commands that these permissions allow using, up to and including Groovy scripting capabilities (`groovy` and `groovysh` commands) resulting in arbitrary code execution.
+
+    If the anonymous user has no permissions, attackers can execute the `who-am-i` CLI command, obtaining limited information about the anonymous user in Jenkins.
+
+    Jenkins 2.555, LTS 2.541.3 uses the configured Jenkins URL (from _Manage Jenkins » System_) rather than HTTP request headers to compute the expected origin for comparison, and refuses CLI WebSocket connections if they don't match or the Jenkins URL is not configured.
+
+    In case of problems with this fix, you can revert to the previous behavior by setting the link:/doc/book/managing/system-properties/#hudson-cli-cliaction-accept_url_from_request[Java system property `hudson.cli.CLIAction.ACCEPT_URL_FROM_REQUEST`] to `true`.
+
+    Administrators unable to update to these releases of Jenkins (or newer) are advised to set up authentication for their Jenkins controller and remove permissions from the anonymous user.
+- id: SECURITY-3642
+  reporter: Adam Jordan
+  title: API keys stored and displayed in plain text by PLUGIN_NAME
+  cve: CVE-2026-33003 (storage), CVE-2026-33004 (masking)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME 2.1 and earlier stores LoadNinja API keys unencrypted in job `config.xml` files on the Jenkins controller as part of its configuration.
+
+    These API keys can be viewed by users with Item/Extended Read permission or access to the Jenkins controller file system.
+
+    Additionally, the job configuration form does not mask these API keys, increasing the potential for attackers to observe and capture them.
+
+    PLUGIN_NAME 2.2 stores LoadNinja API keys encrypted and masks them on the job configuration form.
+  plugins:
+  - name: loadninja
+    previous: '2.1'
+    fixed: '2.2'
