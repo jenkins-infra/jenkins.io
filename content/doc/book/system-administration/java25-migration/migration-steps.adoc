@@ -1,0 +1,88 @@
+---
+layout: subsection
+title: Java 25 Migration Steps
+---
+
+This page describes a staged migration for Jenkins controllers and agents.
+
+== Migration strategy
+
+Use a phased rollout:
+
+. Validate Java 25 in a staging controller cloned from production data.
+. Upgrade controller runtime.
+. Upgrade agents and reconnect in batches.
+. Monitor logs, queue health, and pipeline outcomes.
+. Promote to production after validation gates pass.
+
+== Step 1: Prepare and back up
+
+. Back up `JENKINS_HOME` including `jobs/`, `plugins/`, `secrets/`, and `nodes/`.
+. Save a copy of startup parameters and service definitions.
+. Capture baseline data from Manage Jenkins -> System Information.
+. Confirm plugin updates are applied and Jenkins restart completed.
+
+== Step 2: Upgrade controller runtime
+
+=== Linux service installations
+
+. Stop Jenkins: `systemctl stop jenkins`
+. Install Java 25 from your approved distribution.
+. Confirm runtime: `java -version`
+. Update `JAVA_HOME` or `JENKINS_JAVA_CMD` if needed.
+. Restart Jenkins: `systemctl start jenkins`
+
+=== WAR-file installations
+
+. Stop the running process.
+. Confirm Java runtime: `java -version`
+. Start Jenkins with Java 25 and your existing startup flags.
+. Verify startup completion and successful plugin initialization.
+
+=== Windows service installations
+
+. Install Java 25.
+. Update Jenkins service Java path or `JAVA_HOME`.
+. Restart the Jenkins service.
+. Confirm Java version in System Information.
+
+=== macOS installations
+
+. Install Java 25 (for example Temurin package).
+. Confirm the shell and service environment resolve Java 25.
+. Restart Jenkins and validate startup logs.
+
+== Step 3: Upgrade agents
+
+Because controller and agent Java versions must match, migrate all agents to Java 25.
+
+. Upgrade Java on each agent host.
+. Confirm `java -version` on each host.
+. Disconnect and reconnect each agent.
+. Verify no remoting protocol or class version errors in agent logs.
+
+For large fleets:
+
+* Migrate non-critical agents first.
+* Keep a canary set running representative jobs.
+* Expand rollout when canary agents remain stable.
+
+== Step 4: Post-migration validation
+
+Validate after controller and agent cutover:
+
+. Run representative freestyle and pipeline jobs.
+. Validate SCM checkout, credentials usage, and artifact archiving.
+. Validate test report and coverage publishing.
+. Check queue processing and executor stability.
+. Check controller and agent logs for warnings or errors.
+
+== Rollback trigger examples
+
+Trigger rollback when:
+
+* Critical pipelines fail due to Java runtime incompatibility.
+* Controllers or agents show persistent startup/runtime exceptions.
+* Plugin regressions block core delivery workflows.
+
+Rollback procedure is documented in link:troubleshooting-and-rollback/[Troubleshooting and rollback].
