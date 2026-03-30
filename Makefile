@@ -44,7 +44,7 @@ $(BUILD_DIR)/fetch: $(BUILD_DIR)/ruby scripts/release.rss.rb scripts/fetch-exter
 # chmod only runs on these scripts during fresh build or when one of these scripts changes.
 scripts-permission: $(BUILD_DIR)/scripts-permission
 
-$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
+$(BUILD_DIR)/scripts-permission: ./scripts/ruby ./scripts/node ./scripts/awestruct ./scripts/antora ./scripts/release.rss.rb ./scripts/fetch-external-resources ./scripts/check-broken-links | $(OUTPUT_DIR)
 	chmod u+x $?
 	@touch $(BUILD_DIR)/scripts-permission
 
@@ -117,6 +117,24 @@ archive: generate
 		zip --quiet -r archives/jenkins.io-$(VERSION).zip jenkins.io-$(VERSION))
 #-----------------------------------------------------#
 
+## Generate static website files using Antora (replaces Awestruct).
+antora-generate: scripts-permission $(BUILD_DIR)/node
+	mkdir -p $(BUILD_DIR)/antora-site
+	ln -sfn ../../content/images $(BUILD_DIR)/antora-site/images
+	./scripts/node npx antora antora-playbook.yml
+
+## Generate with strict error checking (for CI).
+antora-generate-strict: scripts-permission $(BUILD_DIR)/node
+	mkdir -p $(BUILD_DIR)/antora-site
+	ln -sfn ../../content/images $(BUILD_DIR)/antora-site/images
+	./scripts/antora antora-playbook.yml
+
+## Run Antora with --fetch to update remote content sources.
+antora-fetch: scripts-permission $(BUILD_DIR)/node
+	mkdir -p $(BUILD_DIR)/antora-site
+	ln -sfn ../../content/images $(BUILD_DIR)/antora-site/images
+	./scripts/node npx antora --fetch antora-playbook.yml
+
 ## Check for typos.
 check:
 	scripts/check-hard-coded-URL-references
@@ -140,4 +158,5 @@ help:
 #-----------------------------------------------------#
 
 .PHONY: all archive assets clean depends \
-		fetch fetch-reset generate prepare run update help
+		fetch fetch-reset generate prepare run update help \
+		antora-generate antora-generate-strict antora-fetch
