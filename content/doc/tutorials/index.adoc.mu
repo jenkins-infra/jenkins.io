@@ -1,5 +1,6 @@
 ---
-layout: documentation
+lay
+.out: documentation
 title: Tutorials overview
 section: doc
 ---
