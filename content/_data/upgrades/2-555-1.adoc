@@ -1,0 +1,63 @@
+==== Require Java 21
+
+Beginning with Jenkins 2.555.1, Jenkins requires Java 21 or Java 25 on both the controller JVM and agent JVMs.
+
+Therefore, it is critical to upgrade both the controller _and_ agents to Java 21 or Java 25 prior to upgrading Jenkins to 2.555.1.
+Use the link:https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin to verify that agents are running a compatible version of Java.
+In addition to upgrading your controller and agents, you must ensure that all plugins have been updated both *before and after* upgrading.
+This ensures up-to-date plugins that remain compatible.
+If plugins are not updated both before and after the upgrade, compatibility issues may arise.
+
+The official Jenkins Docker images for link:https://hub.docker.com/r/jenkins/jenkins/[the controller] and link:https://hub.docker.com/r/jenkins/inbound-agent/[agents] have been based on Java 21 for several months, while also supporting Java 25 as an alternative.
+With the release of Jenkins 2.555.1, the Java 17 images have been retired.
+Users of the official Docker images do not need to install or configure Java on their own, as it comes preinstalled in the Docker images.
+
+If your application build still requires Java 8, 11, or 17, and you are using a Docker image to run the agent Java process `remoting.jar` simultaneously, you must provide a Java 21 or Java 25 runtime for the Jenkins agent process and a Java 8, 11, or 17 environment for your application build.
+
+Users of the official Jenkins OS packages for Debian, Red Hat, and SUSE Linux distributions must use their own Java package.
+These users may install Java 21 or Java 25 from their Linux distribution, as described on the package download site:
+
+* link:https://pkg.jenkins.io/debian-stable/[Debian Linux and derivatives like Ubuntu and Mint]
+* link:https://pkg.jenkins.io/rpm-stable/[RPM based distributions like Red Hat Enterprise Linux, Amazon Linux, Rocky Linux, AlmaLinux, Fedora, and openSUSE]
+
+The above downloads do not require any custom repositories, so this is the simplest method, and has been tested by the Jenkins project.
+However, the above method does not give the user a high degree of control over the Java runtime environment.
+The official Jenkins Docker images and the Jenkins infrastructure project use Eclipse Temurin (R).
+Enthusiastic users can install Java from Eclipse Temurin or another vendor.
+Eclipse Temurin provides Linux installation packages, as described in link:https://blog.adoptium.net/2021/12/eclipse-temurin-linux-installers-available/[a blog post by George Adams].
+The choice of Java vendor is up to you, as long as that vendor provides Java 21 or Java 25.
+Refer to your chosen Java vendor for installation instructions.
+
+Once you have installed a suitable version of Java, configure Jenkins to use that Java runtime.
+The most straightforward way is to configure that version of Java as the default version, at the operating system (OS) level:
+
+Debian:: `update-alternatives --config java`
+Red Hat:: `alternatives --config java`
+SUSE:: `update-alternatives --config java`
+
+Alternatively, users who do not wish to change the default version of Java can customize the `JAVA_HOME` or `JENKINS_JAVA_CMD` environment variable as part of the Jenkins `systemd(1)` service unit.
+Refer to the link:/doc/book/system-administration/systemd-services/[Managing systemd services] documentation for more information.
+
+If you are using the Environment Injector plugin and receive a `WARNING: An illegal reflective access operation has occurred` message, there are two workarounds for affected users:
+
+If you only need to update an existing environment variable (such as PATH), but do not need to add or remove environment variables, upgrade to link:https://github.com/jenkinsci/envinject-plugin/releases/tag/2.919.v009a_a_1067cd0[version 2.919.v009a_a_1067cd0] of the plugin:envinject[Environment Injector plugin].
+
+If you need to add (set) or remove (unset) environment variables, consider unchecking *Prepare jobs environment* or *Unset System Environment Variables* in the plugin:envinject[Environment Injector plugin], to reduce or eliminate usage of this plugin..
+Instead, implement by starting the agent process (the process started by running java -jar agent.jar [...) in the desired environment (clearing the environment and defining FOO with env - FOO=BAR java -jar agent.jar [...) in your shell.
+Mutating environment variables in a Unix process can be problematic, so it is recommended that you start the process with the desired environment, rather than changing the environment later.
+Changing the environment after a Unix process has started often results in race conditions, and the Environment Injector plugin is no exception.
+
+If you need to add (set) or remove (unset) environment variables and must do this using the plugin:envinject[Environment Injector] plugin, then use Java 21 for the controller and the agents and specify the --add-opens JVM option for your agent:
+
+For outbound agents that connect via SSH, you must specify the JVM options on the agent configuration page:
+
+image::/images/post-images/2024/10/jvm-options-ssh.png[Specifying the JVM options for your agent that connects via SSH.]
+
+For inbound agents, you must also add the argument to the JVM on the agent configuration page.
+For example:
+[source,bash]
+----
+java --add-opens java.base/java.lang=ALL-UNNAMED --add-
+opens=java.base/java.lang.reflect=ALL-UNNAMED -jar agent.jar -url
+http://localhost:9090/ -secret <secret> -name inbound -workDir <workdir>
+----
