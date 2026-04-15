@@ -45,7 +45,7 @@ function copyShaForButton(button) {
     );
 }
 
-window.addEventListener("load", function () {
+function initializeDownloadPageInteractions() {
     var tooltipNodes = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     Array.prototype.forEach.call(tooltipNodes, function (node) {
         new bootstrap.Tooltip(node);
@@ -60,4 +60,11 @@ window.addEventListener("load", function () {
         event.preventDefault();
         copyShaForButton(button);
     });
-});
+}
+
+// Initialize when DOM is ready to ensure buttons are functional immediately
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeDownloadPageInteractions);
+} else {
+    initializeDownloadPageInteractions();
+}
