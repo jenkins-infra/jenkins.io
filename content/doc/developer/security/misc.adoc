@@ -58,7 +58,23 @@ NOTE: Permission checks done in `StaplerProxy#getTarget` to control Stapler rout
 For `@ExportedBean` annotated types, it may therefore be necessary to implement permission checks both in `StaplerProxy`, as well as on getters returning this type.
 
 
-=== Update sites and certificates
+=== Serving User Content and Content Security Policy
+
+When serving user-provided content (comparable to files in the workspace, archived artifacts, or similar), prefer using jenkinsdoc:hudson.model.DirectoryBrowserSupport[`DirectoryBrowserSupport`].
+Doing otherwise undermines link:/doc/book/security/csp[Content Security Policy protections in Jenkins 2.539+] even with restrictive Content Security Policy headers set, as only `DirectoryBrowserSupport` will serve files from the link:/redirect/resource-root-url[resource root URL].
+The only exceptions to this are files served with content types that will not allow their use as part of an XSS attack, like `image/*`, `text/plain`, or `application/octet-stream`.
+
+// SECURITY-3588, SECURITY-3322, SECURITY-1811, SECURITY-2863, SECURITY-2865, etc.
+Do not programmatically disable the Content Security Policy applied to files served by `DirectoryBrowserSupport`.
+It is up to administrators to set up Jenkins so that reports and similar output can be viewed correctly and safely.
+You can document any requirements for correct rendering of reports in your plugin documentation (e.g., administrators needing to configure the link:/redirect/resource-root-url[resource root URL], or setting a link:/doc/book/security/configuring-content-security-policy[custom Content Security Policy for `DirectoryBrowserSupport`]).
+
+Do not set custom Content Security Policy headers (overriding values set by Jenkins 2.539+) unless absolutely necessary.
+If you must do this, e.g., for a custom servlet, be sure to only allow what is strictly necessary.
+In particular, do not allow `unsafe-inline` or `unsafe-eval` for `script-src` (or equivalent).
+
+
+=== Update Sites and Certificates
 
 Plugins distributed by the Jenkins project must adhere to these rules:
 
@@ -145,6 +161,9 @@ Many Jenkins plugins allow the use of Groovy to extend their capabilities.
 For example, the plugin:email-ext[Email Extension Plugin] allows executing a script to determine whether an email should be sent.
 
 All such functionality, if available to users without Overall/Administer, must integrate with plugin:script-security[Script Security Plugin].
+
+Make sure to not add potentially unsafe methods to the Script Security sandbox allowlist.
+It may be easier than restructuring your code to avoid allowing such methods, but it increases the attack surface of the entire Jenkins controller.
 
 ==== `org.codehaus.groovy.transform.ASTTransformation`
 
