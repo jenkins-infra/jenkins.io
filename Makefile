@@ -83,7 +83,7 @@ $(BUILD_DIR)/ruby: Gemfile Gemfile.lock scripts/ruby vendor/gems | $(OUTPUT_DIR)
 # If the dev deletes node_modules independent of other changes, the build reinstalls it.
 $(BUILD_DIR)/node: package.json package-lock.json scripts/node node_modules | $(OUTPUT_DIR)
 	./scripts/node pull
-	./scripts/node npm install
+	./scripts/node npm ci
 	@touch $(BUILD_DIR)/node
 
 assets: $(BUILD_DIR)/assets
