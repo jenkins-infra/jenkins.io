@@ -8,7 +8,7 @@ ENV FONTS_DIR=/usr/src/jenkinsio/build/_site/css/fonts
 COPY Makefile package* ./
 COPY scripts ./scripts
 
-RUN npm install
+RUN npm ci
 RUN make assets
 
 FROM ruby:3.4.8 AS builder
