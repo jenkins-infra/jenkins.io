@@ -1,0 +1,137 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2026-06-10
+kind: core
+core:
+  lts:
+    previous: 2.555.2
+    fixed: 2.555.3
+  weekly:
+    previous: '2.567'
+    fixed: '2.568'
+issues:
+- id: SECURITY-3707
+  reporter: dqh1
+  title: Deserialization vulnerability
+  cve: CVE-2026-53435
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses serialization and deserialization in multiple places, like agent/controller communication (the Remoting library) and to load and save configuration and build data (using XStream).
+    To protect from common deserialization vulnerabilities, Jenkins uses a custom deserialization filter that only allows deserialization of types defined in Jenkins core or plugins, or explicitly allowed types (https://jenkins.io/jep/200[JEP-200]).
+    These vulnerabilities generally rely on behavior defined in `#readResolve` methods that are executed during deserialization.
+
+    Jenkins uses the Stapler web framework for HTTP request handling.
+    Stapler's basic premise is that it uses reflective access to code elements matching its naming conventions.
+    Since 2018, Jenkins limits request routing to only types defined in Jenkins core or plugins, and can only access fields and methods that have (return) types, parameters, or annotations related to HTTP request handling.
+
+    In Jenkins 2.567 and earlier, LTS 2.555.2 and earlier, it is possible for attackers to have Jenkins deserialize arbitrary types defined in Jenkins core or plugins from an attacker-controlled `config.xml` submission in a way that allows them to handle HTTP requests afterwards.
+    To do this, attackers need to have Overall/Read permission, and at least one of the following:
+
+    * a user account (i.e., cannot be anonymous)
+    * any set of permissions allowing them to `POST config.xml` (e.g., Item/Configure, View/Configure, Agent/Configure).
+
+    This vulnerability can be exploited in multiple ways:
+
+    * Attackers can impersonate any user and send HTTP requests on their behalf, up to and including use of the Script Console to run arbitrary code.
+    * Attackers can read arbitrary files from the Jenkins controller (link:/security/vulnerabilities/#reading[see Reading Files]).
+
+    There are likely other ways to exploit this vulnerability, and the above list is not exhaustive.
+
+    Jenkins 2.568, LTS 2.555.3 restricts the types allowed in the affected deserialization to expected types.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3711+3755
+  reporter: An anonymous reporter (SECURITY-3711); Fushuling@secsys from Fudan University
+    and RacerZ@secsys from Fudan University; and, independently, Michael Blunt (SECURITY-3755)
+  title: Open redirect vulnerability
+  cve: CVE-2026-53436 (leading period), CVE-2026-53437 (tab or newline characters)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins 2.567 and earlier, LTS 2.555.2 and earlier improperly determines whether a URL is safe to redirect to in the default login flow:
+
+    * A URL containing relative path segments (`./` or `../`) is validated before the servlet container collapses those segments into a protocol-relative URL starting with `//`, which browsers interpret as a scheme-relative URL, allowing redirection to an attacker-controlled domain (SECURITY-3711 / CVE-2026-53436).
+    * Tab or newline characters are not ignored when checking for the presence of `//` at the start of the URL, allowing redirection to an attacker-controlled domain by including a tab or newline between `//` (SECURITY-3755 / CVE-2026-53437).
+
+    Jenkins 2.568, LTS 2.555.3 strips tab and newline characters before validation and rejects URLs containing `//` anywhere.
+
+    NOTE: SECURITY-3711 has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3712
+  reporter: sam91281; and, independently, Aries441
+  title: Missing permission check allows canceling queue items
+  cve: CVE-2026-53438
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins 2.567 and earlier, LTS 2.555.2 and earlier does not perform an Item/Read permission check in an HTTP endpoint.
+
+    This allows attackers with Item/Cancel permission, but lacking Item/Read permission, to cancel queue items they do not have permission to view.
+
+    NOTE: This is due to an incomplete fix of link:/security/advisory/2021-06-30/#SECURITY-2278[SECURITY-2278 in the 2021-06-30 security advisory].
+
+    Jenkins 2.568, LTS 2.555.3 performs an Item/Read permission check in the affected endpoint.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3713
+  reporter: sam91281
+  title: Missing permission checks allow obtaining limited user profile information
+  cve: CVE-2026-53439
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    Jenkins 2.567 and earlier, LTS 2.555.2 and earlier does not perform permission checks in HTTP endpoints.
+
+    This allows attackers with Overall/Read permission to determine other users' configured timezone and to enumerate view names of other users' "My Views".
+
+    Jenkins 2.568, LTS 2.555.3 performs permission checks in the affected endpoints.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3721
+  reporter: Kartik T Nair (@k0w4lzk1) from Team bi0s
+  title: Open redirect vulnerability in "Delegate to servlet container" security realm
+  cve: CVE-2026-53440
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins 2.567 and earlier, LTS 2.555.2 and earlier does not ensure that the "from" parameter in the "Delegate to servlet container" security realm is safe to redirect to after login.
+
+    This allows attackers to perform phishing attacks by redirecting users to an attacker-controlled domain.
+
+    Jenkins 2.568, LTS 2.555.3 ensures that the "from" parameter in the "Delegate to servlet container" security realm is safe to redirect to after login.
+- id: SECURITY-3731
+  reporter: wooseokdotkim
+  title: Stored XSS vulnerability in node offline cause description
+  cve: CVE-2026-53441
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    Since Jenkins 2.483, the description of the reason why a node is offline (the "offline cause") is defined as containing HTML and rendered as such.
+
+    Jenkins 2.567 and earlier, LTS 2.555.2 and earlier does not escape the user-provided description of a generic offline cause that could be set through the `POST config.xml` API.
+
+    This results in a stored cross-site scripting (XSS) vulnerability exploitable by attackers with Agent/Configure permission.
+
+    Jenkins 2.568, LTS 2.555.3 redefines all offline cause descriptions rendered through the default UI as plain text.
+
+    TIP: On Jenkins 2.539 and newer, LTS 2.541.1 and newer, enforcing link:/doc/book/security/csp/[Content Security Policy protection] mitigates this vulnerability.
+
+    NOTE: This vulnerability is due to an incomplete fix of link:/security/advisory/2026-02-18/#SECURITY-3669[SECURITY-3669 in the 2026-02-18 security advisory].
+- id: SECURITY-3744
+  reporter: quannn and vstxckr
+  title: Plaintext secrets persisted and served by config.xml endpoints
+  cve: CVE-2026-53442
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    In Jenkins 2.567 and earlier, LTS 2.555.2 and earlier, `POST config.xml` submissions are written to disk as-is once their content can be successfully deserialized, while `GET config.xml` responses are served directly from those files.
+    As a result, plaintext secrets in a `POST config.xml` submission persist on disk and reappear in subsequent `GET config.xml` responses, exposing them to users with Item/Extended Read permission.
+
+    Jenkins 2.568, LTS 2.555.3 first confirms that the `POST config.xml` submission can be loaded successfully, then serializes the item to disk, so that secrets are encrypted.
