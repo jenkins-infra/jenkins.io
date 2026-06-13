@@ -11,6 +11,8 @@ gem 'webrick', '~> 1.8.1'
 gem 'sassc'
 gem 'rouge'
 gem 'iconv'
+gem 'syslog'
+gem 'ostruct'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.2.0'
