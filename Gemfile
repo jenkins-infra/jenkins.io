@@ -5,12 +5,14 @@ gem 'base64' # needed since ruby 3.4 https://github.com/igrigorik/em-websocket/p
 gem 'awestruct', '~> 0.6.7'
 gem 'naturally', '~> 2.2.1'
 gem 'asciidoctor', '~> 2.0.18'
-gem 'asciidoctor-jenkins-extensions', '~> 0.9.0'
+gem 'asciidoctor-jenkins-extensions', '~> 0.10.0'
 gem 'webrick', '~> 1.8.1'
 
 gem 'sassc'
 gem 'rouge'
 gem 'iconv'
+gem 'syslog'
+gem 'ostruct'
 
 # Support for various template engines we use
 gem 'haml', '~> 5.2.0'
