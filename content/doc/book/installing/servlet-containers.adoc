@@ -30,7 +30,7 @@ WARNING: Support for traditional servlet containers may be discontinued in the f
 == Requirements
 * **Jenkins 2.492.3+ requires Servlet API 5.0 (Jakarta EE 9)**
 * Compatible containers:
-  * **Tomcat 10.1.x** (Tested with 10.1.40 - latest version)
+  * **Tomcat 10.1.x** (Tested with 10.1.55)
   * WildFly version needs verification (minimum 30+ recommended)
 * Requires JDK 17+ for full compatibility
 
@@ -38,12 +38,12 @@ WARNING: Support for traditional servlet containers may be discontinued in the f
 ### Deployment
 [source,bash]
 ----
-# Download Tomcat 10.1.x
-wget https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.40/bin/apache-tomcat-10.1.40.tar.gz
+# Download Tomcat 10.1.x (use the latest 10.1.x release)
+wget https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.55/bin/apache-tomcat-10.1.55.tar.gz
 
 # Extract and deploy
-tar xzf apache-tomcat-10.1.40.tar.gz
-export CATALINA_HOME=$(pwd)/apache-tomcat-10.1.40
+tar xzf apache-tomcat-10.1.55.tar.gz
+export CATALINA_HOME=$(pwd)/apache-tomcat-10.1.55
 cp jenkins.war $CATALINA_HOME/webapps/
 ----
 
@@ -56,11 +56,38 @@ echo "export CATALINA_OPTS=-DJENKINS_HOME=/var/lib/jenkins" > $CATALINA_HOME/bin
 chmod +x $CATALINA_HOME/bin/setenv.sh
 ----
 
+**Allow URL-encoded slashes:**
+
+Tomcat 10.1.x rejects URL-encoded forward slashes (`%2F`) in request paths by default.
+Jenkins requires encoded slashes to function correctly (e.g., for multibranch pipeline branch names containing `/` and for internal distributed monitoring URLs).
+Without this configuration, the Jenkins `ReverseProxySetupMonitor` will fail and certain features will not work.
+
+Edit `+${CATALINA_HOME}/conf/server.xml+` and add the `encodedSolidusHandling` attribute to the `<Connector>` element:
+
+[source,xml]
+----
+<Connector port="8080" protocol="HTTP/1.1"
+           encodedSolidusHandling="passthrough"
+           connectionTimeout="20000"
+           redirectPort="8443" />
+----
+
+Refer to the link:https://tomcat.apache.org/tomcat-10.1-doc/config/http.html[Tomcat HTTP Connector documentation] for details on the `encodedSolidusHandling` attribute.
+
+**Configure the Jenkins URL:**
+
+When deployed as a WAR file in Tomcat, Jenkins is served under a context path (e.g., `/jenkins/`).
+After completing the Jenkins setup wizard, navigate to **Manage Jenkins → System** and set the **Jenkins URL** to include the context path:
+
+`+http://your-host:8080/jenkins/+`
+
+If the Jenkins URL is not configured correctly, Jenkins will display a warning that the reverse proxy setup is broken.
+
 NOTE: Running multiple Jenkins controllers within a single Java process is unsupported.
 
 Scheme selection in redirect URLs is delegated to the servlet container,
 and Jetty handles the `X-Forwarded-For`, `X-Forwarded-By`, and `X-Forwarded-Proto` headers by default.
-With Tomcat, one needs to add a link:https://tomcat.apache.org/tomcat-10.0-doc/config/valve.html#Remote_IP_Valve[Remote IP Valve]
+With Tomcat, one needs to add a link:https://tomcat.apache.org/tomcat-10.1-doc/config/valve.html#Remote_IP_Valve[Remote IP Valve]
 to expose these headers to Jenkins via the Servlet API.
 Add the following to `+${CATALINA_HOME}/conf/server.xml+` within the `<Host>` section:
 
