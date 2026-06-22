@@ -31,7 +31,7 @@ group :fetcher do
   gem 'csv', '~> 3.3.2'
 end
 
-gem "concurrent-ruby", "~> 1.1"
+gem "concurrent-ruby", "~> 1.3"
 
 # for releases.rss.ruby
 gem 'rss'
