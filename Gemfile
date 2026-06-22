@@ -21,7 +21,7 @@ gem 'kramdown', '~> 2.5.0'
 
 # Gems necessary for running scripts/fetch-external-resources
 group :fetcher do
-  gem 'faraday', '~> 2.14.2'
+  gem 'faraday', '~> 2.14.3'
   gem 'faraday-follow_redirects', '~> 0.3.0'
   gem 'rubyzip', '~> 2.3.2'
   # dependencies for faraday 2.12.1
@@ -31,7 +31,7 @@ group :fetcher do
   gem 'csv', '~> 3.3.2'
 end
 
-gem "concurrent-ruby", "~> 1.1"
+gem "concurrent-ruby", "~> 1.3"
 
 # for releases.rss.ruby
 gem 'rss'
