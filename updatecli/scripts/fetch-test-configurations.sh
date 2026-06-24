@@ -22,11 +22,13 @@ CORE_JDKS=$(echo "$CORE_JF" | grep -oP "jdks:\s*\[.*?\]" | head -1 | grep -oP "[
 ATH_JDKS=$(echo "$ATH_JF" | grep -oP "jdks:\s*\[.*?\]" | head -1 | grep -oP "[0-9]+" | sort -un)
 ALL_JDKS=$(echo -e "${CORE_JDKS}\n${ATH_JDKS}" | sort -un | grep -v '^$')
 
-# The packaging repo builds deb, rpm, and msi — parse from the Makefile's 'package' target
+# The packaging repo builds deb, rpm, msi, and war
 ALL_PACKAGES=$(echo "$PKG_MK" | grep -oP '^package:\s*\K.*' | tr ' ' '\n' | sort -u | grep -v '^$')
+# MSI is built separately (not in the Makefile 'package' target), so we always include it
+ALL_PACKAGES=$(echo -e "${ALL_PACKAGES}\nmsi" | sort -u | grep -v '^$')
 # Fallback if the grep didn't find anything
 if [ -z "$ALL_PACKAGES" ]; then
-  ALL_PACKAGES=$(printf "deb\nrpm\nwar")
+  ALL_PACKAGES=$(printf "deb\nmsi\nrpm\nwar")
 fi
 
 case "$MODE" in
