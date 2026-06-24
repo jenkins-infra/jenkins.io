@@ -1,0 +1,87 @@
+---
+# Pulls tested platforms, JDKs, and package types from Jenkins CI repos
+# and injects them into the changelog YAML files.
+# Related: https://github.com/jenkins-infra/jenkins.io/issues/6453
+name: Update tested configurations in changelogs
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  testedPlatforms:
+    name: Get tested platforms from CI Jenkinsfiles
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/fetch-test-configurations.sh platforms
+
+  testedJdks:
+    name: Get tested JDK versions from CI Jenkinsfiles
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/fetch-test-configurations.sh jdks
+
+  testedPackages:
+    name: Get package types from packaging repo
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/fetch-test-configurations.sh packages
+
+# Make sure we actually got something back before trying to update anything
+conditions:
+  checkPlatformsNotEmpty:
+    kind: shell
+    sourceid: testedPlatforms
+    spec:
+      command: 'test -n "{{ source "testedPlatforms" }}"'
+
+  checkJdksNotEmpty:
+    kind: shell
+    sourceid: testedJdks
+    spec:
+      command: 'test -n "{{ source "testedJdks" }}"'
+
+targets:
+  updateWeeklyChangelog:
+    kind: shell
+    name: Inject tested configurations into weekly changelog
+    sourceid: testedPlatforms
+    scmid: default
+    spec:
+      command: >-
+        bash ./updatecli/scripts/inject-test-configurations.sh
+        content/_data/changelogs/weekly.yml
+        "{{ source "testedPlatforms" }}"
+        "{{ source "testedJdks" }}"
+        "{{ source "testedPackages" }}"
+
+  updateLtsChangelog:
+    kind: shell
+    name: Inject tested configurations into LTS changelog
+    sourceid: testedPlatforms
+    scmid: default
+    spec:
+      command: >-
+        bash ./updatecli/scripts/inject-test-configurations.sh
+        content/_data/changelogs/lts.yml
+        "{{ source "testedPlatforms" }}"
+        "{{ source "testedJdks" }}"
+        "{{ source "testedPackages" }}"
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: "Update tested configurations in changelogs"
+    spec:
+      labels:
+        - dependencies
+        - documentation
