@@ -17,16 +17,22 @@ actions:
     - if Gem::Version.new(release.version) <= Gem::Version.new(site.jenkins.stable)
       %div
         = partial('../_partials/release-header.html.haml', :release => release, :url => 'changelog-stable')
-        - if release.tested_configurations
-          %div.app-releases__tested-configs
-            %span.app-releases__tested-configs__label Tested Configurations:
-            - if release.tested_configurations['platforms']
-              Platforms:
-              = release.tested_configurations['platforms'].map { |p| p.to_s.capitalize }.join(', ')
-              &#8212;
-            - if release.tested_configurations['jdks']
-              JDKs:
-              = release.tested_configurations['jdks'].map { |j| j.to_s }.join(', ')
+        - tc = site.changelogs[:tested_configurations]
+        - if tc && tc['lts']
+          - release_version = Gem::Version.new(release.version)
+          - platforms = tc['lts']['platforms'].select { |p| release_version >= Gem::Version.new(p['from']) && (p['to'].nil? || release_version <= Gem::Version.new(p['to'])) }.map { |p| p['value'] }
+          - jdks = tc['lts']['jdks'].select { |j| release_version >= Gem::Version.new(j['from']) && (j['to'].nil? || release_version <= Gem::Version.new(j['to'])) }.map { |j| j['value'] }
+          - if !platforms.empty? || !jdks.empty?
+            %div.app-releases__tested-configs
+              %span.app-releases__tested-configs__label Tested Configurations:
+              - if !platforms.empty?
+                Platforms:
+                = platforms.join(', ')
+                - if !jdks.empty?
+                  &#8212;
+              - if !jdks.empty?
+                JDKs:
+                = jdks.join(', ')
         - if release.changes && release.lts_changes && release.lts_baseline
           .app-releases__notable-changes{:style => "margin-top: 15px"}
             = "Changes since #{release.lts_baseline}"
