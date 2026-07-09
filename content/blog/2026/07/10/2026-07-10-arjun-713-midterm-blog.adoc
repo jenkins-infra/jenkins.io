@@ -1,0 +1,105 @@
+---
+layout: post
+title: "GSoC 2026 Midterm Update: Improving Evaluation and Retrieval for the Jenkins AI Chatbot"
+tags:
+- gsoc
+- gsoc2026
+- jenkins
+- ai
+- chatbot
+- rag
+- jenkins-plugin
+- open-source
+authors:
+- arjun-713
+opengraph:
+  image: /images/gsoc/opengraph.png
+discourse: true
+---
+
+Hello everyone!
+
+I'm Mallikarjun G D, and this is my midterm update for my GSoC 2026 project,
+link:/projects/gsoc/2026/projects/continue-ai-powered-chatbot-for-quick-access-to-jenkins-resources/[Continue AI-Powered Chatbot for Quick Access to Jenkins Resources].
+
+In my link:/blog/2026/05/26/mallikarjun-gd-gsoc-community-bonding-blog-post/[community bonding blog], I outlined three main areas for the coding period: an LLM-as-Judge evaluation pipeline, GraphRAG-based retrieval, and a Build Failure Diagnosis Agent.
+At the midterm point, the first major piece is now in place: the *LLM-as-Judge CI pipeline*.
+
+The first half of GSoC mainly focused on the evaluation side of the chatbot.
+This is not the most visible part of the project from a user's point of view, but it is the base that makes future chatbot improvements safer to build and review.
+Before adding more retrieval or diagnosis features, the project needs a reliable way to check whether chatbot changes are actually improving answer quality.
+
+== LLM-as-Judge CI Pipeline
+
+The LLM-as-Judge pipeline evaluates chatbot changes using a fixed golden dataset, generated chatbot responses, and DeepEval judge metrics.
+Each run uses the same set of questions, expected answers, and supporting retrieval context, which makes comparisons across pull requests more consistent.
+
+The workflow starts by checking whether retrieval artifacts are already available.
+If they are cached, the pipeline skips rebuilding them and directly continues to response generation.
+If they are not available, it builds the retrieval artifacts first.
+The chatbot then generates responses for the golden dataset, and DeepEval evaluates those responses using the selected metrics.
+
+The evaluation currently uses three main metrics: *Faithfulness*, *Answer Relevancy*, and *Contextual Recall*.
+Together, these help identify whether a failure comes from weak retrieval, unsupported generation, or an unfocused answer.
+At midterm, the scores are above the 0.85 benchmark, with contextual recall around 0.92 and faithfulness and answer relevancy around 0.88.
+
+Getting this to work in GitHub Actions was one of the main engineering challenges.
+Running local models inside CI meant dealing with runner limits, timeouts, logs, artifacts, and repeated work across jobs.
+Job splitting, matrix builds, artifact reuse, and better logging made the workflow practical for pull request review.
+
+== What I Learned in the First Half
+
+This first half was more research-heavy than I expected.
+I spent a lot of time comparing approaches, understanding evaluation behavior, planning the CI flow, and thinking about how maintainers would use the results during review.
+
+It also changed how I think about building software.
+Most of my earlier experience was with personal projects, side projects, or hackathon-style builds, where the goal is usually to make the feature work and move fast.
+In a project like Jenkins, the code also has to fit the existing architecture, reuse existing utilities where possible, and remain maintainable after the contributor moves on.
+
+Planning became much more important.
+Breaking work into smaller phases, pull request splits, or commit-level milestones made it easier to keep moving when something unexpected came up.
+Mentor discussions also helped me look at blockers from different directions, especially around evaluation behavior and faithfulness scores.
+
+== Current Work: GraphRAG Hybrid Retrieval
+
+My current focus is GraphRAG for hybrid retrieval.
+The existing retrieval system works well for normal documentation-style questions, but some Jenkins questions are more relationship-based.
+For example, a user may ask about plugin dependencies, related plugins, or how one Jenkins resource connects to another.
+In those cases, normal vector retrieval may not always be enough because the answer depends on relationships between entities.
+
+image::/images/post-images/2026/07/10/graphrag-hybrid-retrieval.png[GraphRAG Hybrid Retrieval, role=center]
+
+GraphRAG is being added as an additional retrieval path, not as a replacement for the existing retriever.
+The entity gate checks whether a query needs GraphRAG.
+If it does, the chatbot can combine normal FAISS-based retrieval with graph-based evidence from plugin relationships.
+The goal is to improve relationship-heavy questions without hurting normal documentation-style questions.
+
+== What Comes Next: Build Failure Diagnosis Agent
+
+After GraphRAG, the next major feature is the Build Failure Diagnosis Agent.
+Jenkins build logs can become very large, especially for complex pipelines, and users may not immediately know which part of the log actually caused the failure.
+The goal of this feature is to reduce that noise by identifying the relevant failure section, stripping the log down to useful context, sanitizing sensitive values, and then passing only safe and focused context to the LLM for explanation.
+
+The planned Jenkins UI entry point is a Jelly button on failed builds.
+When a user triggers it, the diagnosis flow should analyze the failed build log, extract the likely error section, mask secrets and environment values, and generate a focused explanation of what went wrong.
+This should make the chatbot more useful in debugging workflows, where users need help understanding the cause of a failure rather than only being pointed to general documentation.
+
+This feature also needs to be careful from a safety and privacy perspective. Build logs can contain environment variables, credentials, tokens, URLs, or other sensitive values. Because of that, the sanitizer step is an important part of the design, not an optional cleanup step. The LLM should receive only the minimum useful log context needed to explain the failure.
+
+== Closing Thoughts
+
+At the midterm point, the biggest completed piece is the LLM-as-Judge CI pipeline.
+It is a foundational capability for the project because it makes future chatbot improvements measurable, reviewable, and easier to validate with confidence.
+
+This first half taught me that improving an AI-powered developer tool is not only about making responses better.
+It is also about building the systems that help the community measure quality, catch regressions, and review changes with confidence.
+
+Thank you to my mentors — V. Sreenivas, Bervianto Leo Pratama, and Giovanni Vaccarino — for their reviews, guidance, and suggestions throughout the first half.
+
+I am looking forward to continuing with GraphRAG hybrid retrieval and the Build Failure Diagnosis Agent in the second half of GSoC.
+
+== Follow Along
+
+* *Repository:* link:https://github.com/jenkinsci/resources-ai-chatbot-plugin[jenkinsci/resources-ai-chatbot-plugin]
+* *GitHub:* link:https://github.com/arjun-713[@arjun-713]
+* *LinkedIn:* link:https://www.linkedin.com/in/mallikarjun-g-d-97ab8020a/[Mallikarjun G D]
