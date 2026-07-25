@@ -26,7 +26,7 @@ group :fetcher do
   gem 'rubyzip', '~> 2.3.2'
   # dependencies for faraday 2.12.1
   gem 'faraday-net_http', '~> 3.4'
-  gem 'json', '~> 2.9'
+  gem 'json', '~> 2.19'
   gem 'logger', '~> 1.6', '>= 1.6.3'
   gem 'csv', '~> 3.3.2'
 end
