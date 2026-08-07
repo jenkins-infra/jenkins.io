@@ -209,6 +209,8 @@ While the markup for these features is intentionally similar to what you would w
 for Groovy code to simplify maintenance, keep in mind that the version tokens are
 handled by the plugin before it would load libraries and compile the pipeline script.
 
+==== library@${BRANCH_NAME}
+
 One addressed use-case regards loading of "same version of library as the version of
 Pipeline script from SCM" by specifying literally +`${BRANCH_NAME}`+ as the library
 version in the pipeline script, e.g.:
@@ -229,18 +231,26 @@ This was verified to work for:
 * Pipelines backed by a single SCM source with a "Branch Specifier" like `*/main`;
 * "In-line" Pipelines not backed by an SCM (just fall back to default version).
 
+An additional option can enable handling of pull requests, where Jenkins sets the
+`BRANCH_NAME` to something like `PR-1234`, and use of actual branch names of the PR
+source (`CHANGE_BRANCH`) or destination (`CHANGE_TARGET`) is preferred.
+
+==== library@${env.VARNAME}
+
 Another addressed use-case regards loading of some version of library specified by
 an environment variable value defined when the job starts (e.g. coming from Global
-Jenkins configuration or injected by a plugin):
+Jenkins configuration, built-in node properties (via settings or coming from Jenkins
+controller JVM environment variables), injected by a plugin or even build parameters):
 
 [source,groovy]
 ----
 @Library('my-shared-library@${env.CUSTOM_VAR_NAME}') _
 ----
 
-The plugin would try to get the `CUSTOM_VAR_NAME` from environment, and if it exists --
-check if such "version" is accepted by SCM source of the library, and fall back to
-default version if not.
+The plugin would try to get the `CUSTOM_VAR_NAME` from environment resolved by the
+`Run` context of currently evaluated build, and if it exists -- it would check if
+such "version" value is accepted by SCM source of the library, and use it or fall
+back to default version if not.
 
 Note that pipeline sources before inclusion of `@Library` sources are parsed by the
 "built-in" build agent, so configuration of separate build agents should not matter
@@ -251,6 +261,58 @@ be useful to balance different implementations for different build farms and too
 (in-house proprietary for supported product vs. reference recipes for open source
 community), or different preferences to progress through dev/qa/staging/production
 separate environments.
+
+==== Security concerns for dynamically resolved library revisions
+
+Please be careful when allowing either of these options, as depending on other
+circumstances of your setup this can introduce security weaknesses. Some things
+to avoid are discussed below. A little hygiene can go a long way...
+
+To recap, the library code is checked out from an SCM source specified in the
+Jenkins Global configuration. Statically or dynamically resolved revisions are
+matched against this source. The pipeline code is checked out from another SCM
+source, typically constrained to a particular branch for a single job configuration,
+as specified in the job configuration (or its parent like an Organization Folder
+or Multi-branch pipeline). 
+
+As elsewhere, you should secure the pipeline code evaluation -- in case of pull
+requests, run the `Jenkinsfile` variant from the target branch, not from the PR
+source (there are separate options to allow trusted users or groups like repository
+maintainers to bypass this). Likewise, the "replay" ability should be constrained.
+Among other things, these precautions limit the choice of library revisions that
+can be used (so the attacker can not cause a completely arbitrary library version
+to be loaded).
+
+Unlike pipeline scripts, the library SCM source configuration should never allow
+pull request evaluation options. In case of Git, SCM platforms serve PR sources
+from the target repository as ephemeral ref namespaces like `refs/pull/1234/head`
+and you do not want them to be evaluated as valid checkout sources outside your
+control. That can especially be a problem with smaller projects where both the
+pipeline script and the library code are in the same repository, so a pull request
+with malicious library code from an attacker against such a repository with enabled
+pull request evaluation could create resolvable ephemeral sources for both parts --
+even if the miscreant does not have write access to this repository.
+
+Of course, as with other trusted code, you would also want to restrict who may write
+into these repositories. For example, some teams could share a repository in a way
+that production branches are well-protected and can only be updated by maintainers
+after review, but feature branches may be iterated by a larger team -- and it may
+be or not be wise to allow jobs using such branches with random-quality sources for
+the library.
+
+For the `${env.VARNAME}` also note that there are multiple sources of system or
+Jenkins data points which can end up in the build's set of environment variables,
+including build parameters. While you may want to allow using those to quickly
+choose a variant of your library code -- after all, that's one of reasons why you
+might want to enable this option -- you may also want to restrict the choice by
+using a drop-down with a few pre-defined branch names.
+
+Last but not least, configuration options for this feature include a regular
+expression for allowed dynamically resolved library revisions. If your project
+only anticipates a few valid branch naming patterns that can match up between
+pipeline and library code, you can specify them. Any mismatches (or an invalid
+regular expression itself) would end up checking out the default revision that
+you configured for the library.
 
 === Loading libraries dynamically
 
