@@ -27,6 +27,10 @@ real_generate:
 check-broken-links: generate
 	./scripts/check-broken-links | tee build/check-broken-links.txt | (! grep BROKEN)
 
+## Checks for internal broken links.
+check-links: generate
+	./scripts/check-broken-links --internal-only | tee build/check-broken-links.txt | (! grep BROKEN)
+
 # Fetching and generating content from external sources
 # NOTE: Fetch only runs once until flag is reset
 fetch: $(BUILD_DIR)/fetch
@@ -139,5 +143,5 @@ help:
 
 #-----------------------------------------------------#
 
-.PHONY: all archive assets clean depends \
+.PHONY: all archive assets check check-links check-broken-links clean depends \
 		fetch fetch-reset generate prepare run update help
