@@ -1,0 +1,107 @@
+---
+layout: post
+title: GSoC 2026 Final Update - Jenkins Email Notifications using Outlook SMTP with OAuth
+tags:
+  - gsoc
+  - gsoc2026
+  - jenkins.io
+  - email
+  - oauth
+  - security
+authors:
+  - Faheem12005
+opengraph:
+  image: /images/gsoc/opengraph.png
+sig:
+  - gsoc
+---
+Hey everyone!
+
+This post marks the end of my Google Summer of Code 2026 project, link:/projects/gsoc/2026/projects/jenkins-email-notifications-using-outlook-smtp-with-oath/[Jenkins email notifications using Outlook SMTP with OAuth]. It's been a great few months working across the `email-ext`, `oauth-credentials`, and `entra-oauth` plugins with my mentors author:slide_o_mix[Alex Earl] and author:krisstern[Kris Stern]. If you want the first half of the story, my link:/blog/2026/07/09/mohammed-faheem-gsoc-midterm-update-blog-post/[midterm update] has it.
+
+== Table of Contents
+
+. <<About the Project>>
+. <<Recap: Where Things Stood at Midterm>>
+. <<Progress After Midterm>>
+. <<What Still Needs Fixing>>
+. <<All the PRs>>
+. <<What I've Learned>>
+. <<Acknowledgements>>
+. <<Follow Along>>
+
+== About the Project
+
+`email-ext` only supported username/password-based SMTP authentication, which doesn't work for Google Workspace or Microsoft Entra environments that require OAuth 2.0. This project adds OAuth 2.0 SMTP authentication support to `email-ext`, alongside the existing username/password flow.
+
+== Recap: Where Things Stood at Midterm
+
+By midterm, OAuth 2.0 SMTP auth was working end-to-end, validated using Google Workspace in `email-ext`, alongside the existing username/password flow. We'd also just gotten maintainer rights on `oauth-credentials-plugin`, which let us fix a design issue regarding scope requirements.
+
+The existing design had ScopeRequirement objects defined locally within each OAuth provider plugin. This meant the consumer had to add the corresponding provider plugin as a development dependency simply to construct and use its ScopeRequirement object. This made it difficult to build provider-agnostic functionality. Our work in oauth-credentials-plugin addressed this by providing a resolver API that could operate on these requirements without requiring consumers to depend directly on a provider plugin.
+
+== Progress After Midterm
+
+=== The Capability & Scope Resolver
+
+This was the main feature for this half. Up to this point, if a plugin like `email-ext` wanted to request OAuth scopes through `oauth-credentials`, it had to hard-depend on each concrete provider plugin (Google, Entra, etc) just to build an `OAuth2ScopeRequirement`. That works fine for one provider, but it doesn't scale if a plugin wants to support multiple providers.
+
+link:https://github.com/jenkinsci/oauth-credentials-plugin/pull/47[PR #47] adds a capability & scope resolver API to `oauth-credentials-plugin`. Instead of asking for a concrete requirement type, a consuming plugin now just asks for a capability like `"send email"` as a plain string, and each provider supplies its own resolver class that maps that string to whatever scopes it actually needs under the hood. `email-ext` doesn't need to know any scope-specific information regarding OAuth providers anymore.
+
+The Entra implementation of this is in link:https://github.com/jenkinsci/entra-oauth-plugin/pull/21[entra-oauth-plugin #21], which implements the resolver for Entra so it plugs into the new API.
+
+Alongside that, link:https://github.com/jenkinsci/email-ext-plugin/pull/1600[PR #1600] adds a test-email button to the mail account section of the system configuration page, so admins can check their SMTP setup actually works without saving the config and configuring a real build to trigger a notification.
+
+== What Still Needs Fixing
+
+So far, OAuth flow has only been validated end to end against a real Google Workspace environment - I haven't had the chance to run it against a real Entra environment, so that's still an open gap before I'd call the Entra path equally proven out. Another thing that could warrant further discussion is the  `getAccessToken()` function signature from the `oauth-credentials-plugin`. It returns `null` in failure cases instead of surfacing an error, which makes debugging a broken credential difficult from the provider side.
+
+== All the PRs
+
+Here's everything from this GSoC period organised by repo for a paper trail.
+
+*email-ext-plugin*
+
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1600[#1600] - Add test email feature
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1593[#1593] - Unit tests for the authenticator and OAuth retry logic
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1592[#1592] - Handle authentication failures more explicitly instead of swallowing them
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1590[#1590] - Tests for `ExtendedEmailPublisherDescriptor`
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1589[#1589] - Single-attempt retry logic added to the authenticator
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1587[#1587] - Modified the authenticator to actually support OAuth2 credentials
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1586[#1586] - Report errors properly even when not in debug mode
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1583[#1583] - Added a Test OAuth2 Credentials class for unit/integration tests
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1581[#1581] - Added OAuth2 credential selection to the MailAccount dropdown
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1579[#1579] - Restored `ACL.SYSTEM` for credential lookup on the config page
+* link:https://github.com/jenkinsci/email-ext-plugin/pull/1557[#1557] - Expanded tests to verify multipart structure and body content
+
+*oauth-credentials-plugin*
+
+* link:https://github.com/jenkinsci/oauth-credentials-plugin/pull/47[#47] - Capability & scope resolver API (the big one, see above)
+
+*entra-oauth-plugin*
+
+* link:https://github.com/jenkinsci/entra-oauth-plugin/pull/21[#21] - Entra capability-based scope resolver for provider-agnostic OAuth handling
+* link:https://github.com/jenkinsci/entra-oauth-plugin/pull/15[#15] - Display Entra errors in `doTestConnection` in the UI
+* link:https://github.com/jenkinsci/entra-oauth-plugin/pull/8[#8] - Add scope validation before calling the endpoint
+
+== What I've Learned
+
+Working across email-ext, oauth-credentials, and entra-oauth gave me hands-on experience with OAuth 2.0, SMTP authentication, API design, testing, and error handling.
+
+Beyond the technical side, working with my mentors and the Jenkins community helped me improve how I approach problems, respond to code reviews, and think about long-term maintainability rather than just making something work.
+
+Overall, this experience made me a more confident developer and open source contributor, while giving me a much better understanding of how large open source projects are designed and maintained.
+
+== Acknowledgements
+
+Thanks again to my mentors, author:slide_o_mix[Alex Earl] and author:krisstern[Kris Stern], for their guidance through both halves of this project, and to the Jenkins community for being so welcoming to a first-time contributor.
+
+== Follow Along
+
+You can reach me here:
+
+* https://github.com/Faheem12005[GitHub]
+* https://www.linkedin.com/in/mohdfaheem2005/[LinkedIn]
+* mailto:mohdfaheem.1205@gmail.com[Gmail]
+
+Thanks for reading along this summer!
