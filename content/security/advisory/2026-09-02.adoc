@@ -1,0 +1,588 @@
+---
+layout: advisory
+title: Jenkins Security Advisory 2026-09-02
+kind: core and plugins
+core:
+  lts:
+    previous: 2.568.2
+    fixed: 2.568.3
+  weekly:
+    previous: '2.579'
+    fixed: '2.580'
+issues:
+- id: SECURITY-3972
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Deserialization vulnerability
+  cve: CVE-2026-84645
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses serialization and deserialization to load and save configuration and build data (using XStream).
+    Types storing their configuration in their own files (usually `config.xml` or `build.xml`), like agents, items, or builds, are indicated as such by implementing the Java interface `PersistenceRoot`.
+    To protect from common deserialization vulnerabilities, Jenkins uses a custom deserialization filter that only allows deserialization of types defined in Jenkins core or plugins, or explicitly allowed types (https://jenkins.io/jep/200[JEP-200]).
+
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's basic premise is that it uses reflective access to code elements matching its naming conventions.
+    Since 2018, Jenkins limits request routing to only types defined in Jenkins core or plugins, and can only access fields and methods that have (return) types, parameters, or annotations related to HTTP request handling.
+
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, serialized objects of types marked as storing their configuration in independent top-level configuration files can appear as nested field values in user-submitted `config.xml` documents and subsequently handle HTTP requests via Stapler.
+    A crafted combination of such objects can result in attackers getting access to an improperly protected link:/doc/book/managing/script-console/[Script Console], resulting in remote code execution.
+
+    Jenkins 2.580, LTS 2.568.3 prevents objects of types marked as storing their configuration in independent top-level configuration files in Jenkins from being deserialized as nested field values in other objects.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3908
+  reporter: Jangha Kim
+  title: Lack of type restriction in deserialization allows creating user objects
+  cve: CVE-2026-84646
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, user objects can appear as nested field values in other deserialized XML objects, allowing attackers with Overall/Read permission to create user objects by submitting crafted XML.
+
+    NOTE: These user objects are not actual Jenkins accounts and cannot be used to log in.
+    They are similar to the objects Jenkins creates from SCM changelogs to associate commits with their authors.
+
+    Jenkins 2.580, LTS 2.568.3 declares user objects to be of a type stored in an independent top-level file in Jenkins, which, combined with the fix for link:#SECURITY-3972[SECURITY-3972], prevents them from being deserialized as nested field values in other objects.
+- id: SECURITY-3915
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz), and, independently, Gia
+    Bui (@yabeow) from Calif.io
+  title: Instantiation of any types related to configuration
+  cve: CVE-2026-84647
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's form data binding instantiates configuration objects of types specified in form submissions.
+
+    In Stapler 2107.v8dfcb_e8ed317 and earlier, except 2088.2093.vd7c3e58008a_6, included in Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, Stapler does not restrict the types of objects that can be instantiated via form submissions to those compatible with the expected field type, allowing attackers with Overall/Read permission to instantiate types related to configuration for which that field type was not intended.
+
+    The Stapler web framework in Jenkins 2.580, LTS 2.568.3 restricts the types that can be instantiated via form data binding to those compatible with the expected field type.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3967
+  reporter: Murat Yilmazlar of DUBALAR, and, independently, Hamza Sakhi https://www.linkedin.com/in/hamza-sakhi-20231523b/
+  title: Stored XSS vulnerability in system log viewer
+  cve: CVE-2026-84648
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, the system log viewer does not escape log record metadata (source, level, and timestamp) resulting in a stored cross-site scripting (XSS) vulnerability exploitable by attackers in control of agent processes.
+
+    TIP: On Jenkins 2.539 and newer, LTS 2.541.1 and newer, enforcing link:/doc/book/security/csp/[Content Security Policy protection] mitigates this vulnerability.
+
+    Jenkins 2.580, LTS 2.568.3 escapes log record metadata (source, level, and timestamp) before rendering it.
+- id: SECURITY-3878
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Cross-origin exposure of CSRF token
+  cve: CVE-2026-84649
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler provides an HTTP endpoint serving dynamically generated JavaScript resources.
+
+    In Stapler 1839.ved17667b_a_eb_5 through 2107.v8dfcb_e8ed317 (both inclusive), except 2088.2093.vd7c3e58008a_6, included in Jenkins 2.447 through 2.579 (both inclusive), LTS 2.452.1 through 2.568.2 (both inclusive), these dynamically generated JavaScript resources embed the user's cross-site request forgery (CSRF) token (crumb) as a string literal in their response.
+
+    These resources can be loaded as a script by a page hosted on the same site as Jenkins, such as a sibling subdomain  (e.g., `other-service.example.org` when Jenkins is at `jenkins.example.org`), allowing attackers to obtain a valid crumb for the targeted user's session and perform actions on their behalf.
+
+    IMPORTANT: This vulnerability is particularly impactful when the link:/redirect/resource-root-url[Resource Root URL] is configured on the same site as the Jenkins URL (e.g., `jenkins-assets.example.org` and `jenkins.example.org`).
+
+    The Stapler web framework in Jenkins 2.580, LTS 2.568.3 no longer embeds the crumb as a string literal in dynamically generated JavaScript resources.
+    Instead, a JavaScript expression is embedded that reads the crumb value from the page's DOM at runtime.
+
+    NOTE: Administrators unable to immediately update Jenkins should disable the link:/redirect/resource-root-url[Resource Root URL] feature, or configure it on a different domain than Jenkins (e.g., `jenkins-assets.example.com` and `jenkins.example.org`).
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-4032
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Unsafe deserialization allows overwriting configuration objects
+  cve: CVE-2026-84650
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    In Jenkins, fields declared transient are excluded from serialization but are still read back during deserialization for backward compatibility with existing configuration files.
+
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, transient fields cannot be excluded from deserialization, allowing attackers able to submit configuration updates to specify the values of transient fields that will be deserialized, the impact depending on how those fields are used.
+
+    Jenkins 2.580, LTS 2.568.3 adds a way to indicate whether transient fields should participate in deserialization.
+    Transient fields marked as not being deserializable will be ignored, preventing unintended behavior after deserialization.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-4025
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Unsafe deserialization allows overwriting other agents
+  cve: CVE-2026-84651
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
+  description: |-
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, the REST API and CLI endpoints for updating agent configuration do not prevent a submitted configuration from overwriting a different agent by specifying that agent's name in the submitted XML document.
+
+    This allows attackers with Agent/Configure permission on one agent to take over a different agent, gaining control of its configuration, obtaining access to its inbound agent secret and environment variables.
+
+    Jenkins 2.580, LTS 2.568.3 prevents agent configuration updates from overwriting a different existing agent.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-4016
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Session fixation vulnerability
+  cve: CVE-2026-84652
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins's "Keep me signed in" feature uses a persistent cookie, known as the "remember me" cookie, to re-authenticate users without requiring them to enter credentials again.
+
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, Jenkins does not rotate the session when a user is authenticated via the "remember me" cookie, resulting in a session fixation vulnerability.
+
+    This allows attackers able to serve content on the same site as Jenkins, such as a sibling subdomain (e.g., `evil.example.org` when Jenkins is at `jenkins.example.org`), to set a known session cookie in the victim's browser, which after the victim authenticates via the "remember me" cookie, grants the attacker access to Jenkins as that user.
+
+    NOTE: This cannot be exploited from an unrelated domain (e.g., `evil.example.com` targeting Jenkins at `jenkins.example.org`).
+
+    Jenkins 2.580, LTS 2.568.3 invalidates the existing session when authenticating a user via the "remember me" cookie.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3981
+  reporter: Patrick White & ByClaude.net
+  title: Incorrect permission check in Appearance configuration page
+  cve: CVE-2026-84653
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:H/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins 2.421 through 2.579 (both inclusive), LTS 2.426.1 through 2.568.2 (both inclusive) does not correctly perform permission checks in the Appearance configuration page added in Jenkins 2.421.
+
+    This allows attackers with Overall/Manage permission to modify Appearance configuration options they should not have access to.
+
+    NOTE: The impact of this vulnerability depends on installed plugins. For example, plugin:simple-theme-plugin[Simple Theme Plugin] allows specifying URLs for JavaScript resources served on every Jenkins page, which can result in a cross-site scripting (XSS) vulnerability.
+
+    Jenkins 2.580, LTS 2.568.3 ensures that each Appearance configuration option is only accessible to users with the required permission for that option.
+- id: SECURITY-3926
+  reporter: Vitaly Simonovich (https://www.vitalysim.com)
+  title: Form submission data binding can set static fields
+  cve: CVE-2026-84654
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+
+    In Stapler 2107.v8dfcb_e8ed317 and earlier, except 2088.2093.vd7c3e58008a_6, included in Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, form data binding allows setting public static fields of the bound configuration object.
+
+    This allows attackers who can submit configuration forms to modify public static fields of the configuration objects those forms are bound to, resulting in changes that apply globally to the Jenkins instance.
+
+    The Stapler web framework in Jenkins 2.580, LTS 2.568.3 no longer allows form data binding to set public static fields of configuration objects.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3879
+  title: Injection vulnerability in REST API
+  cve: CVE-2026-84655
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins 2.579 and earlier, LTS 2.568.2 and earlier does not escape map keys when serializing objects as JSON and Python through its REST API.
+
+    This allows attackers able to control map property names to inject arbitrary fields into JSON and Python API responses.
+
+    Jenkins 2.580, LTS 2.568.3 escapes map keys when serializing objects as JSON and Python through its REST API.
+- id: SECURITY-4006
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Missing permission check allows reading build parameters
+  cve: CVE-2026-84656
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    Jenkins 2.579 and earlier, LTS 2.568.2 and earlier does not perform an Item/Read permission check in an HTTP endpoint.
+
+    This allows attackers with Item/Read permission on at least one job to read build parameter names and values of jobs they have no access to.
+
+    Jenkins 2.580, LTS 2.568.3 performs an Item/Read permission check in the affected endpoint.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-4015
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Missing permission check allows canceling builds
+  cve: CVE-2026-84657
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:L/A:L
+  description: |-
+    The `build` command of the Jenkins CLI can be invoked with the `-s` flag to wait for a triggered build to complete, canceling the build when the CLI client is interrupted.
+
+    Jenkins merges multiple requests to build the same job with the same parameters into a single queue item.
+
+    In Jenkins 2.579 and earlier, LTS 2.568.2 and earlier, the `build` CLI command does not check the Item/Cancel permission when canceling a build this way.
+
+    This allows attackers with Item/Build permission to cancel builds started by other users by triggering a build that merges with an existing queue item, then interrupting the CLI command.
+
+    Jenkins 2.580, LTS 2.568.3 requires Item/Cancel permission when using the `build` CLI command with the `-s` flag to wait for build completion.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+- id: SECURITY-3986
+  reporter: Vitaly Simonovich (https://www.vitalysim.com)
+  title: Improper access control in PLUGIN_NAME
+  cve: CVE-2026-84658 (script approval), CVE-2026-84659 (Groovy sandbox)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor`, binding submitted data to their arguments, and setting additional properties through methods annotated with `@DataBoundSetter`.
+
+    PLUGIN_NAME 1412.v7737b_3405f86 and earlier uses the `@DataBoundConstructor` annotation on a constructor that loads script approval configuration, allowing attackers able to submit certain forms to read that configuration.
+
+    Additionally, it does not enforce a permission check in a `@DataBoundSetter` annotated method, allowing attackers to invoke it to disable the "Force the use of the sandbox globally in the system" setting.
+
+    PLUGIN_NAME 1415.v9a_f9b_3a_c253d removes the `@DataBoundConstructor` annotation from the constructor that loads script approval configuration as it is not intended to be invoked by users.
+    It also adds a permission check to the `@DataBoundSetter` method that controls the "Force the use of the sandbox globally in the system" setting.
+  plugins:
+  - name: script-security
+    previous: 1412.v7737b_3405f86
+    fixed: 1415.v9a_f9b_3a_c253d
+- id: SECURITY-3870
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: Missing permission check in PLUGIN_NAME allows canceling downstream builds
+  cve: CVE-2026-84660 (build step), CVE-2026-84661 (waitForBuild step)
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:L
+  description: |-
+    Builds in Jenkins are associated with an authentication that controls the permissions that the build has to interact with other elements in Jenkins.
+    By default, builds run as SYSTEM and are unconstrained unless plugins implement specific additional permission checks.
+    Plugins like plugin:authorize-project[Authorize Project Plugin] allow changing the authentication associated with a build.
+
+    Canceling a Pipeline using the `build` step causes the triggered downstream build to be canceled. The same applies to the `waitForBuild` step when the `propagateAbort` parameter is set to `true`.
+
+    PLUGIN_NAME 599.v4b_67ea_11b_152 and earlier does not check Item/Cancel permission on the downstream job before canceling those builds in these cases.
+
+    This causes downstream builds to be canceled even when the build's authentication lacks Item/Cancel permission on the downstream job.
+
+    PLUGIN_NAME 601.v6d4c6d1a_9dc7 requires Item/Cancel permission on the downstream job before canceling those builds.
+  plugins:
+  - name: pipeline-build-step
+    previous: 599.v4b_67ea_11b_152
+    fixed: 601.v6d4c6d1a_9dc7
+- id: SECURITY-3678
+  reporter: Alex Laboirie (@pazu); and, independently, Samy Medjahed (Ap4sh) & Eliott
+    Laurie (Ethicxz)
+  title: Improper access control in PLUGIN_NAME allows SSRF
+  cve: CVE-2026-84662
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor` and binding submitted data to their arguments.
+
+    PLUGIN_NAME 807.809.vd3a_4e5e4ec98 and earlier uses the `@DataBoundConstructor` annotation on a constructor that connects to a specified URL.
+
+    This allows attackers able to submit certain forms to connect to an attacker-specified URL without the required permission.
+
+    PLUGIN_NAME 825.v2fca_37dd5b_cb_ confirms that the user has Overall/Administer permission before connecting to a URL in the `@DataBoundConstructor`-annotated constructor.
+  plugins:
+  - name: ldap
+    previous: 807.809.vd3a_4e5e4ec98
+    fixed: 825.v2fca_37dd5b_cb_
+- id: SECURITY-3815
+  reporter: Samy Medjahed (Ap4sh) & Eliott Laurie (Ethicxz)
+  title: CSRF vulnerability in PLUGIN_NAME
+  cve: CVE-2026-84663
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:L
+  description: |-
+    PLUGIN_NAME 798.v5cc688825312 and earlier does not require POST requests for an HTTP endpoint, resulting in a cross-site request forgery (CSRF) vulnerability.
+
+    This vulnerability allows attackers to delete shared library caches.
+
+    PLUGIN_NAME 805.va_fc79344957d requires POST requests for the affected HTTP endpoint.
+
+    NOTE: This vulnerability has been reported through the link:/blog/2025/12/10/jenkins-bug-bounty-program-yeswehack-european-commission/[Jenkins Bug Bounty Program sponsored by the European Commission].
+  plugins:
+  - name: pipeline-groovy-lib
+    previous: 798.v5cc688825312
+    fixed: 805.va_fc79344957d
+- id: SECURITY-4097
+  reporter: Emilio Galle
+  title: Improper access control in PLUGIN_NAME allows SSRF
+  cve: CVE-2026-84664
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor`, binding submitted data to their arguments, and setting additional properties through methods annotated with `@DataBoundSetter`.
+
+    PLUGIN_NAME 1.9.16 and earlier uses the `@DataBoundConstructor` annotation on a constructor, enabling Stapler to invoke `@DataBoundSetter` annotated methods that overwrite the global GitLab connection configuration.
+
+    This allows attackers able to submit certain forms to connect to an attacker-specified URL using GitLab API tokens already configured by administrators.
+
+    PLUGIN_NAME 1.9.182144.vc1c369226a_52 removes the `@DataBoundConstructor` annotation from the constructor for the global GitLab connection configuration as it is not intended to be invoked by users.
+  plugins:
+  - name: gitlab-plugin
+    previous: 1.9.16
+    fixed: 1.9.182144.vc1c369226a_52
+- id: SECURITY-3989
+  reporter: Han, JunGyu
+  title: Stored XSS vulnerability in PLUGIN_NAME
+  cve: CVE-2026-84665
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME 2.18.3 and earlier does not limit URL schemes for the dashboard links it creates based on SonarQube scanner results, allowing the `javascript:` scheme.
+
+    This results in a stored cross-site scripting (XSS) vulnerability exploitable by attackers with Item/Configure permission.
+
+    TIP: On Jenkins 2.539 and newer, LTS 2.541.1 and newer, enforcing link:/doc/book/security/csp/[Content Security Policy protection] mitigates this vulnerability.
+
+    PLUGIN_NAME 2.19.0 limits URL schemes for the dashboard links it creates based on SonarQube scanner results to `http` and `https`.
+
+    Additionally, existing persisted dashboard URLs with disallowed URL schemes are no longer rendered.
+  plugins:
+  - name: sonar
+    previous: 2.18.3
+    fixed: 2.19.0
+- id: SECURITY-4098
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Improper access control in PLUGIN_NAME
+  cve: CVE-2026-84666
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor`, binding submitted data to their arguments, and setting additional properties through methods annotated with `@DataBoundSetter`.
+
+    PLUGIN_NAME 1367.vc8fa_b_15101dc and earlier uses the `@DataBoundConstructor` annotation on a constructor, enabling Stapler to invoke `@DataBoundSetter` annotated methods that manage the plugin's history recording configuration.
+
+    This allows attackers able to submit certain forms to redirect history storage to an attacker-specified directory and modify history recording settings.
+
+    PLUGIN_NAME 1380.v762185b_9a_793 removes the `@DataBoundConstructor` annotation from the constructor for the plugin's global configuration as it is not intended to be invoked by users.
+  plugins:
+  - name: jobConfigHistory
+    previous: 1367.vc8fa_b_15101dc
+    fixed: 1380.v762185b_9a_793
+- id: SECURITY-4099
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Improper access control in PLUGIN_NAME
+  cve: CVE-2026-84667
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:N
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor`, binding submitted data to their arguments, and setting additional properties through methods annotated with `@DataBoundSetter`.
+
+    PLUGIN_NAME 2.1.4 and earlier uses the `@DataBoundConstructor` annotation on a constructor, enabling Stapler to invoke `@DataBoundSetter` annotated methods that manage the plugin's backup configuration.
+
+    This allows attackers able to submit certain forms to redirect backup writes to an attacker-specified directory and to include arbitrary files from the Jenkins controller file system in backups.
+
+    PLUGIN_NAME 2.1.5 removes the `@DataBoundConstructor` annotation from the constructor for the plugin's global configuration as it is not intended to be invoked by users.
+  plugins:
+  - name: thinBackup
+    previous: 2.1.4
+    fixed: 2.1.5
+- id: SECURITY-4065
+  reporter: Bun (@bunmamd4cb13t)
+  title: Improper access control in PLUGIN_NAME
+  cve: CVE-2026-84668
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor` and binding submitted data to their arguments.
+
+    PLUGIN_NAME 4.618.v441a_27fa_46d2 and earlier uses the `@DataBoundConstructor` annotation on a constructor that writes the SAML identity provider metadata file to the Jenkins controller file system.
+
+    This allows attackers able to submit certain forms to overwrite the SAML identity provider metadata with attacker-controlled content without the required permission, allowing them to authenticate as any user.
+
+    PLUGIN_NAME 4.623.v7875d61cd9f5 requires Overall/Administer permission in the `@DataBoundConstructor` annotated constructor.
+  plugins:
+  - name: saml
+    previous: 4.618.v441a_27fa_46d2
+    fixed: 4.623.v7875d61cd9f5
+- id: SECURITY-3645
+  reporter: Daniel Beck, CloudBees, Inc.; and, independently, hai27ii2o; and 0xOJ
+  title: Path traversal vulnerability in PLUGIN_NAME
+  cve: CVE-2026-84669
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME 2.35.2 and earlier does not correctly validate file paths when serving Allure report results.
+
+    This allows attackers with Item/Read permission on jobs that publish Allure report results to read arbitrary files on the Jenkins controller's file system.
+
+    PLUGIN_NAME 2.36.0 validates that file paths served from Allure report results are within the report directory.
+  plugins:
+  - name: allure-jenkins-plugin
+    previous: 2.35.2
+    fixed: 2.36.0
+- id: SECURITY-4026
+  reporter: Bun (@bunmamd4cb13t)
+  title: Deserialization of untrusted data vulnerability in PLUGIN_NAME
+  cve: CVE-2026-84670
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME uses Java serialization to cache performance reports in the build directory.
+
+    PLUGIN_NAME 1015.v09ca_52b_3370e and earlier does not restrict the classes that can be instantiated when deserializing cached performance reports stored in the build directory on the Jenkins controller.
+
+    This allows attackers with Item/Configure permission to execute arbitrary code on the Jenkins controller.
+
+    PLUGIN_NAME 1017.v9e9f7b_b_b_c5e7 no longer deserializes cached performance reports.
+  plugins:
+  - name: performance
+    previous: 1015.v09ca_52b_3370e
+    fixed: 1017.v9e9f7b_b_b_c5e7
+- id: SECURITY-4093
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Path traversal vulnerability in PLUGIN_NAME can lead to RCE
+  cve: CVE-2026-84671
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor` and binding submitted data to their arguments.
+
+    PLUGIN_NAME validates parameter names when creating build parameter definitions to ensure they are safe to use as file name components.
+
+    PLUGIN_NAME 425.v3fa_801681b_5e and earlier uses the `@DataBoundConstructor` annotation on a constructor that stores uploaded files using the parameter name as a path without this validation.
+
+    This allows attackers able to submit certain forms to write files to arbitrary locations on the Jenkins controller file system, link:/security/vulnerabilities/#writing-files[which can lead to remote code execution].
+
+    PLUGIN_NAME 433.va_0b_80359d54d applies the same parameter name validation in the `@DataBoundConstructor` annotated constructor.
+  plugins:
+  - name: file-parameters
+    previous: 425.v3fa_801681b_5e
+    fixed: 433.va_0b_80359d54d
+- id: SECURITY-3935
+  reporter: BoGeun Jang
+  title: Privilege escalation in PLUGIN_NAME
+  cve: CVE-2026-84672
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    PLUGIN_NAME 710.v0b_ff8e9cc2d2 and earlier grants Entra group permissions using both the group's unique object ID (GUID) and its display name. Entra group display names are not globally unique, and unless the tenant restricts it, any tenant member can create a group with an arbitrary display name.
+
+    This allows attackers who can create an Entra group with a display name matching that of a group with a privileged Jenkins permission grant to gain those permissions, even when the grant was configured using the group's object ID.
+
+    PLUGIN_NAME 711.v34046f788fd7 only grants Entra group permissions using the group's unique object ID (GUID).
+
+    NOTE: Administrators who previously relied on display-name-based group grants may lose access to Jenkins after upgrading. Setting the Java system property `com.microsoft.jenkins.azuread.ObjId2FullSidMap.enableDisplayNameAuthorization` to `true` restores the previous behavior.
+    This is insecure and should only be used as a short-term migration aid.
+  plugins:
+  - name: azure-ad
+    previous: 710.v0b_ff8e9cc2d2
+    fixed: 711.v34046f788fd7
+- id: SECURITY-4104
+  reporter: Daniel Beck, CloudBees, Inc.
+  title: Improper access control in PLUGIN_NAME leads to XSS
+  cve: CVE-2026-84673
+  cvss:
+    severity: High
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H
+  description: |-
+    Jenkins uses the https://github.com/jenkinsci/stapler[Stapler web framework] for HTTP request handling.
+    Stapler's data-binding mechanism instantiates objects by invoking constructors annotated with `@DataBoundConstructor`, binding submitted data to their arguments, and setting additional properties through methods annotated with `@DataBoundSetter`.
+
+    PLUGIN_NAME 295.v2544b_ca_19b_97 and earlier uses the `@DataBoundConstructor` annotation on a constructor, enabling Stapler to invoke `@DataBoundSetter` annotated methods that manage the plugin's appearance configuration.
+
+    This allows attackers able to submit certain forms to configure a custom SVG icon containing inline JavaScript, resulting in a stored cross-site scripting (XSS) vulnerability.
+
+    PLUGIN_NAME 330.v8a_8d87511ea_1 removes the `@DataBoundConstructor` annotation from the constructor for the plugin's global configuration as it is not intended to be invoked by users.
+  plugins:
+  - name: customizable-header
+    previous: 295.v2544b_ca_19b_97
+    fixed: 330.v8a_8d87511ea_1
+- id: SECURITY-3948
+  reporter: Kai Aizen, SnailSploit
+  title: Missing permission checks in PLUGIN_NAME allow enumerating credentials IDs
+  cve: CVE-2026-84674
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME 26.1.0 and earlier does not perform permission checks in several HTTP endpoints.
+
+    This allows attackers with Overall/Read permission to enumerate credentials IDs of credentials stored in Jenkins.
+    Those can be used as part of an attack to capture the credentials using another vulnerability.
+
+    An enumeration of credentials IDs in PLUGIN_NAME 26.3.0 requires the appropriate permissions.
+  plugins:
+  - name: deployit-plugin
+    previous: 26.1.0
+    fixed: 26.3.0
+- id: SECURITY-3987
+  reporter: Ta Duc Thien of NTCS
+  title: OS command injection vulnerability on agents in PLUGIN_NAME
+  cve: CVE-2026-84675
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
+  description: |-
+    PLUGIN_NAME 2025.1.1 and earlier does not correctly escape build environment variable values when constructing the OS command it executes.
+
+    This allows attackers able to control build environment variable values to execute arbitrary commands on the agent running the build.
+
+    PLUGIN_NAME 2026.1.0 correctly escapes build environment variable values when constructing the OS command it executes.
+  plugins:
+  - name: tics
+    previous: 2025.1.1
+    fixed: 2026.1.0
+- id: SECURITY-3800
+  reporter: dyingman1 (https://github.com/dyingman1, redpoc Offensive Security Team)
+  title: Tokens stored in plain text by PLUGIN_NAME
+  cve: CVE-2026-84676
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: |-
+    PLUGIN_NAME 3.2.2 and earlier stores tokens unencrypted in job `config.xml` files on the Jenkins controller as part of its configuration.
+
+    These tokens can be viewed by users with Item/Extended Read permission or access to the Jenkins controller file system.
+
+    As of publication of this advisory, there is no fix.
+    link:/security/plugins/#unresolved[Learn why we announce this.]
+  plugins:
+  - name: Parameterized-Remote-Trigger
+    previous: 3.2.2
+- id: SECURITY-4038
+  reporter: Yeonoh Park, SeoulTech CIS Lab (@owen050724)
+  title: Stored XSS vulnerability in update-center2
+  cve: CVE-2026-84677
+  cvss:
+    severity: Medium
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N
+  description: |-
+    https://github.com/jenkins-infra/update-center2/[Update-center2] is the tool used to generate the Jenkins update sites hosted on `updates.jenkins.io`.
+
+    NOTE: While it is designed for use by the Jenkins project for this purpose, others may be using it to operate their own self-hosted update sites.
+
+    update-center2 3.18.3 and earlier does not escape plugin-provided values (plugin names, descriptions, and version metadata) when rendering plugin download index pages, resulting in a stored cross-site scripting (XSS) vulnerability exploitable by attackers able to provide a plugin for hosting.
+
+    NOTE: As of publication of this advisory, the Jenkins security team is not aware of any plugin having been released with malicious content exploiting this vulnerability.
+
+    update-center2 3.18.4 escapes plugin-provided values (plugin names, descriptions, and version metadata) when rendering plugin download index pages.
+
+    NOTE: Users hosting their own update sites using update-center2 or a fork thereof are advised to update it.
+  components:
+  - name: update-center2
+    title: update-center2
+    previous: 3.18.3
+    fixed: 3.18.4
