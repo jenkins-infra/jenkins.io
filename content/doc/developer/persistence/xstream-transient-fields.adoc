@@ -1,0 +1,43 @@
+---
+title: XStream and Transient Fields
+summary: How to control transient field deserialization safely when using XStream persistence.
+layout: developersection
+---
+
+Jenkins uses XStream for persistence.
+By default, `transient` fields are unmarshaled to support data migration from other versions of Jenkins or the plugin defining the class.
+This can in some cases result in unexpected and even unsafe behavior when fields are populated from user input (e.g., using the `POST config.xml` APIs on various model objects in Jenkins).
+Since Jenkins 2.580, developers have additional control over how to handle `transient` fields during deserialization.
+
+NOTE: These annotations are also available in Jenkins 2.568.3, but developers are advised to declare a dependency on Jenkins 2.580 or later, or define their own copies, to avoid potential issues for users on Jenkins 2.569-2.579.
+
+== Controlling deserialization of transient fields
+
+Since Jenkins 2.580, two annotations let plugin developers declare whether a `transient` field should participate in XStream deserialization.
+
+* The annotation `@XStreamNotDeserializable` marks a `transient` field as *not* participating in XStream deserialization.
+* The annotation `@XStreamDeserializable` marks a `transient` field as participating in XStream deserialization (e.g., for migration of configuration to different fields as part of `#readResolve`).
+
+By default, Jenkins allows fields lacking these annotations to be deserialized (i.e., `@XStreamDeserializable` has no effect), but a future version of Jenkins is expected to invert this default so that transient fields are skipped unless opted in.
+Administrators can set the Java system property `hudson.util.RobustReflectionConverter.TRANSIENT_FIELD_STRICT_MODE` to `true` to invert the default behavior.
+This will break potential backward compatibility support code processing `transient` fields not already annotated with `@XStreamDeserializable`.
+
+=== Plugin compatibility (simple-name matching)
+
+While these annotations are not yet available in LTS releases, Jenkins also recognizes the annotations by their *simple name only*, so plugins can define their own copies without updating their core dependency:
+
+[source,java]
+----
+// In your plugin: com.example.myplugin.XStreamNotDeserializable
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface XStreamNotDeserializable {}
+
+// In your plugin: com.example.myplugin.MyConfig
+public class MyConfig {
+    @XStreamNotDeserializable
+    private transient String runtimeComputedValue;
+}
+----
+
+This is temporary and will be removed once the annotations have been available in LTS releases for a while, so plugin developers should switch to the official annotations as soon as practical.
