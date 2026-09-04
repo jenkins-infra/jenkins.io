@@ -16,7 +16,7 @@ opengraph:
 
 Your Jenkins setup represents a decade of institutional knowledge: countless custom pipelines, shared libraries, and specialized build agents.
 Yet when platform engineering enters the conversation, most IDP demos ignore this investment entirely.
-This article is for platform engineers and DevOps leads who run Jenkins at scale and are being asked to evaluate an internal developer platform.
+This article is for platform engineers and DevOps leads who run Jenkins at scale and are evaluating an internal developer platform.
 It lays out a different path: add one stage to your pipeline, and keep everything else exactly where it is – along with a clear model of the CI/platform boundary, a Jenkinsfile stage you can copy directly, and an honest account of what the trade costs.
 
 The most common misconception about platform engineering is that adopting an IDP means throwing away your CI tooling.
@@ -24,9 +24,9 @@ It doesn’t have to.
 Here is where OpenChoreo can help with your workflow without altering your CI habits.
 OpenChoreo's external CI integration lets teams keep their Jenkins pipelines, plugin ecosystem, and institutional knowledge, while layering on environment management, self-service workflows, multi-cluster deployment, and observability – all via a single API call at the end of the build stage.
 
-== The argument
+== The Argument
 
-CI is part of the platform experience.
+CI is a core part of the platform experience.
 But the real question is whether the platform should be tightly coupled to one specific CI implementation, and the answer is no.
 With the right abstraction at the integration point, teams keep Jenkins or run something else entirely, and the developer experience the platform delivers stays the same.
 
@@ -38,7 +38,7 @@ Everything after it is the platform's half.
 From there, "adopt an IDP" no longer means "replace your CI".
 It means only one thing: add one stage to your pipeline.
 
-== What Jenkins teams are afraid of and why
+== What Jenkins Teams Fear (and Why)
 
 The concern is real: when a platform team standardises on an IDP, what the Jenkins user hears is that hundreds of pipelines, the shared libraries, agents, etc. that took a long time to design and implement, are about to be thrown away.
 
@@ -46,9 +46,9 @@ That fear comes from how these platforms are usually demoed.
 Almost every IDP demo starts at `git push` and ends at "running in production", which puts CI inside the platform the entire length of the demo.
 That's an accurate description of the experience for a team starting from scratch using the platform's built-in CI.
 It is not, however, an architectural requirement of the platform.
-The two can be decoupled, and decoupling them is the point of this article.
+The two systems can be decoupled, and establishing that decoupling is the core focus of this article.
 
-== The boundary
+== The Boundary
 
 So if the platform does not take over CI, where exactly does CI end and the platform begin?
 Here is the split.
@@ -175,9 +175,9 @@ EOF
 }
 ----
 
-=== With the OpenChoreo CLI
+=== Using the OpenChoreo CLI
 
-Alternatively, the `occ` CLI (the OpenChoreo CLI) does the same registration in five commands.
+Alternatively, the OpenChoreo CLI (`occ`) completes registration in five commands.
 `occ apply` checks whether the workload exists and creates or updates it, so the 409 fallback disappears; API errors come back as readable messages with a non-zero exit code, so no `jq` is needed; and the CLI reads its credentials from environment variables and never prints the token, so the `set +x` guard is unnecessary.
 This sequence was verified on the same Jenkins instance:
 
@@ -208,17 +208,23 @@ The exact image Jenkins built, promoted unchanged through development → stagin
 .Component Deployment View in OpenChoreo Backstage Portal.
 image::/images/post-images/2026/09/openchoreo-component-deployment-view.png[alt="The Deploy tab of the OpenChoreo Backstage portal showing the jenkins-greeter component active in Development, Staging, and Production, each marked as promoted."]
 
-Promotion is a platform action, not a pipeline stage: a developer or release manager promotes the component from the portal, or with one CLI command (`occ component deploy <component> --to staging`).
+Promotion becomes a platform-level operation rather than a pipeline stage.
+Engineers or release managers promote components through the UI portal or via a single CLI command:
+
+[source,shell]
+----
+occ component deploy <component> --to staging
+----
 The exact build Jenkins produced was promoted through all three environments and served the same content in each, with Jenkins uninvolved after the registration call.
 
 Build-once, promote-many works because the line sits where it does: promotion has its own access control and doesn’t inherit from Jenkins.
 Deploy the pipeline to each environment directly instead, and you're left with two options: rebuild per environment, or teach Jenkins your organization's entire promotion policy.
 
-== What this costs you
+== The Trade-Offs
 
-* Jenkins now needs a service account and network access to the platform API: one more credential to rotate, one more dependency in the build path.
-* The deployment state no longer lives in the pipeline. For teams whose mental model is "the Jenkins job is the deploy", that’s an organisational and conceptual change.
-* Rollback changes the shape: re-running the job rebuilds and re-registers; rolling back is a platform action against a previous release.
+* **Access and Security:** Jenkins requires a service account and network access to the platform API, introducing a new credential to manage and an additional dependency in the build path.
+* **Shift in Deployment State:** Operational state shifts away from the pipeline. For teams accustomed to viewing "the Jenkins job as the deploy," this represents a structural shift in workflow tracking.
+* **Rollback Mechanics:** Re-running a Jenkins job builds and registers a new artifact. Rollbacks are executed as platform actions targeting previously validated releases.
 
 The migration is incremental by design: one component, one extra stage, one pipeline you don't otherwise touch.
 Nothing about it is a cutover.
