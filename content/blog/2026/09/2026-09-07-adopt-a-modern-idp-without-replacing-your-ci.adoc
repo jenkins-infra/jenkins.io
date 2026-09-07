@@ -95,7 +95,41 @@ Here’s what that looks like with OpenChoreo as the platform.
 
 === One-time setup
 
-On the platform side, create a service account – an OAuth2 client with the `client_credentials` grant, scoped so it can only register workloads. Then store three values as ordinary Jenkins credentials:
+On the platform side, create a service account – an OAuth2 client with the `client_credentials` grant, scoped so it can only register workloads.
+
+If you are following the link:https://openchoreo.dev/docs/getting-started/quick-start-guide/[quick start], that account already exists. The installer registers a *Workload Publisher* client in the bundled Thunder identity provider and binds it to a `workload-publisher` role. The defaults are:
+
+[cols="1,1",options="header"]
+|===
+|Value
+|Default on a quick-start install
+
+|Thunder token endpoint
+|`http://thunder.openchoreo.localhost:8080/oauth2/token`
+
+|OpenChoreo API
+|`http://api.openchoreo.localhost:8080`
+
+|Client ID
+|`openchoreo-workload-publisher-client`
+
+|Client secret
+|`openchoreo-workload-publisher-secret`
+|===
+
+Confirm it works before wiring up Jenkins — this should return an access token:
+
+[source,shell]
+----
+curl -X POST "http://thunder.openchoreo.localhost:8080/oauth2/token" \
+  --data-urlencode "grant_type=client_credentials" \
+  --data-urlencode "client_id=openchoreo-workload-publisher-client" \
+  --data-urlencode "client_secret=openchoreo-workload-publisher-secret"
+----
+
+This is a shared development credential — it is the same account OpenChoreo's own in-cluster build workflow authenticates as — so it is fine for a local trial and nothing more. For anything shared, create your own client in the Thunder console (`http://thunder.openchoreo.localhost:8080/console`, `admin` / `admin`) as a *Backend Service* application, then bind it to a role with a `ClusterAuthzRoleBinding`: the shipped binding matches the default client's `sub` claim, so a new client inherits nothing. The link:https://openchoreo.dev/docs/platform-engineer-guide/workflows/workflow-workload-configuration/[Workload Publishing Credentials] guide covers that setup, and link:https://openchoreo.dev/docs/platform-engineer-guide/authorization/[Authorization] lists the shipped roles and bindings.
+
+Then store three values as ordinary Jenkins credentials:
 
 * `workflows-credentials` — the client ID and secret
 * `thunder-url` — the token endpoint of the identity provider (Thunder ships with OpenChoreo, but any OAuth2 IDP works)
@@ -104,6 +138,7 @@ On the platform side, create a service account – an OAuth2 client with the `cl
 The link:https://openchoreo.dev/docs/platform-engineer-guide/workflows/external-ci/[external-CI docs] cover this step by step; we'll walk through the complete setup in the next post in this series.
 
 Worth knowing before you file the security review: the service account’s `workload-publisher` role grants exactly `workload:create`, `workload:update`, `workload:view`, `workflowrun:view`, and `workflowrun:update` and nothing else.
+The two `workflowrun` actions are there for OpenChoreo's built-in build workflow, which annotates its own run - an external pipeline never needs them, so a dedicated client can be bound to a workload-only role.
 If the Jenkins credential ever leaks, the blast radius is "can register an image for this component’s workload".
 It cannot promote anything, touch environment configuration, or reach the clusters.
 We verified this the direct way: the same token that had just registered our workload got an HTTP 403 when it tried to create a staging release binding.
