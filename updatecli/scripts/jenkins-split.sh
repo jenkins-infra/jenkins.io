@@ -1,24 +1,39 @@
 #!/bin/bash
 
-# Define a variable to hold the URL
-# This is where we're getting our data from.
-# For this file, assume that the entries are in increasing order and get the second column (which is the last pre-split version)
-# TODO Figure out a way to obtain this content differently, this is terrible
+# Print the newest Jenkins core release at which a plugin was split out of core.
+#
+# Consumed by updatecli/updatecli.d/jenkins-lts.yaml (source "JenkinsLastSplit"), which
+# keeps "a dependency on Jenkins versions newer than X" current in
+# content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+#
+# split-plugins.txt columns are: plugin ID, last core release still containing the
+# plugin's functionality, implied plugin version. We want the highest value in column 2.
+#
+# This is the same file the documentation links readers to, and there is no published API
+# for it, so it is read straight from the branch. The checks below exist so that a rename
+# or a move upstream fails the run instead of writing a garbage value into the docs.
+
+set -euo pipefail
+
 url="https://raw.githubusercontent.com/jenkinsci/jenkins/master/core/src/main/resources/jenkins/split-plugins.txt"
 
-# Fetch the file from the URL, get the last line, and print the second field
-# Let's break it down:
+# --fail makes an HTTP error exit non-zero instead of handing us a body that parses as
+# data: GitHub answers a missing raw file with "404: Not Found", which is three
+# whitespace-separated fields and so survives a plain column-count check.
+#
+# The awk filter skips comments and blank lines, keeps only three-column rows, and
+# requires column 2 to look like a version. sort --version-sort then orders the releases
+# numerically, so the answer no longer depends on the file staying in increasing order.
+version="$(
+  curl --silent --show-error --fail --location "$url" |
+    awk '$1 !~ /^#/ && NF == 3 && $2 ~ /^[0-9]+(\.[0-9]+)+$/ { print $2 }' |
+    sort --version-sort |
+    tail -n 1
+)"
 
-# curl -s $url: This part of the command fetches the file from the URL stored in the 'url' variable.
-# The '-s' option tells curl to do this silently, i.e., without showing progress or error messages.
+if [ -z "${version}" ]; then
+  echo "ERROR: no split version found in ${url}" >&2
+  exit 1
+fi
 
-# | (pipe): This is a pipe. In Unix-like operating systems, pipe is a method for inter-process communication.
-# Using '|' causes the standard output (stdout) from the command on the left
-# to be passed as standard input (stdin) to the command on the right.
-
-# awk 'END{print $2}': 'awk' is a programming language that is designed for text processing and typically used as a data extraction and reporting tool.
-# 'END' is a special pattern that matches the end of the input, so this part of the command is executed after all the input has been read.
-# In other words, it operates on the last line of the input.
-# '{print $2}' tells awk to print the second field of the line. By default, awk splits the line into fields based on whitespace,
-# so this will print the part of the line between the first and second space.
-curl --silent --location $url | awk 'END{print $2}'
+printf '%s\n' "${version}"
