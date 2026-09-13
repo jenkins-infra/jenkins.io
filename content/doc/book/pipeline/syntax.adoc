@@ -2092,6 +2092,124 @@ In order to provide _durability_, which means that running Pipelines can survive
 Due to this design requirement, some Groovy idioms such as `collection.each { item -> /* perform operation */ }` are not fully supported.
 Refer to https://issue-redirect.jenkins.io/issue/27421[JENKINS-27421] and https://issue-redirect.jenkins.io/issue/26481[JENKINS-26481] for more information.
 
+[[working-with-json-in-pipeline]]
+== Working with JSON in Pipeline
+
+Jenkins Pipeline supports several approaches for generating and modifying JSON.
+The best option depends on the complexity of the transformation and the tooling available on your agents.
+
+=== Using Pipeline Utility Steps (`readJSON` / `writeJSON`)
+
+For many pipelines, link:/doc/pipeline/steps/pipeline-utility-steps/[Pipeline Utility Steps] provide the simplest solution.
+
+[source,groovy]
+----
+def data = readJSON file: 'input.json'
+data.name = params.USERNAME
+writeJSON file: 'output.json', json: data, pretty: 4
+----
+
+Advantages:
+
+* Simple and easy to read.
+* No external command line tools required.
+* Good for common CI JSON edits.
+
+Tradeoffs:
+
+* Logic is coupled to Jenkins Pipeline steps.
+* Harder to run and test outside Jenkins.
+
+=== Using `jq` on an Agent
+
+`jq` is a powerful command line JSON processor and is often the best choice for complex transformations.
+
+[source,bash]
+----
+jq '.name = env.USERNAME' input.json > output.json
+----
+
+In a Pipeline:
+
+[source,groovy]
+----
+sh '''
+jq ".user = \"$USERNAME\"" config.json > updated.json
+'''
+----
+
+Advantages:
+
+* Very powerful query and transformation language.
+* Easy to test outside Jenkins.
+* Runs on the agent, reducing controller load.
+
+Tradeoffs:
+
+* Requires `jq` to be installed on the agent.
+
+=== Using `envsubst` for Simple Templates
+
+For simple substitution-only templates, `envsubst` can be enough.
+
+Template file:
+
+[source,json]
+----
+{
+    "name": "$USERNAME",
+    "env": "$ENV"
+}
+----
+
+In a Pipeline:
+
+[source,groovy]
+----
+sh '''
+envsubst < template.json > output.json
+'''
+----
+
+Advantages:
+
+* Very simple for environment-variable templating.
+* Good for straightforward configuration templates.
+
+Tradeoffs:
+
+* No JSON-aware parsing or validation.
+* Only performs string replacement.
+
+=== Using Groovy (`JsonSlurper` / `JsonOutput`)
+
+You can parse and generate JSON directly in Groovy.
+
+[source,groovy]
+----
+def json = readFile('config.json')
+def data = new groovy.json.JsonSlurper().parseText(json)
+data.key = params.INPUT
+writeFile file: 'updated.json', text: groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(data))
+----
+
+Advantages:
+
+* Full programmatic control.
+* Can work without additional CLI tools.
+
+Tradeoffs:
+
+* May increase controller memory and CPU usage for larger files.
+* Complex Groovy logic in `Jenkinsfile` can be harder to maintain.
+
+In general:
+
+* Use `readJSON`/`writeJSON` for simple JSON edits.
+* Use `jq` for powerful transformations.
+* Use `envsubst` for basic templating.
+* Use Groovy when you need full programmatic control.
+
 [[compare]]
 == Syntax Comparison
 
