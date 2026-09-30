@@ -187,17 +187,15 @@ Caused by: java.io.IOException: Premature EOF
 Nginx can be configured to proxy requests to Jenkins over a Unix domain socket instead of a TCP port.
 This approach enhances security by eliminating network exposure of Jenkins, and is particularly useful when Jenkins and Nginx run on the same host.
 
-NOTE: Unix domain socket support for Jenkins requires a systemd-based installation (for example, Linux package installations).
-This configuration is not applicable to Jenkins WAR or the official Jenkins Docker image, as they do not rely on systemd.
+NOTE: Unix domain socket support is built into Jenkins and its embedded Winstone servlet container via the `--httpPort=-1` and `--httpUnixDomainPath=<path>` launch options.
+The `JENKINS_PORT` and `JENKINS_UNIX_DOMAIN_PATH` environment variables shown in this section are specific to Linux package installations managed by systemd.
+For standalone WAR or containerized deployments, pass the command-line options directly (for example via `JENKINS_OPTS`) instead.
 
 === Configure Jenkins for Unix Domain Sockets
 
 First, configure Jenkins to listen on a Unix domain socket instead of a TCP port.
 
-This section applies only to Jenkins installations managed by systemd (for example, Linux package installations).
-For Jenkins WAR or Docker-based installations, refer to the Jenkins initial configuration documentation.
-
-Edit the Jenkins systemd service to disable TCP and enable a Unix socket:
+For Jenkins package installations managed by systemd, edit the systemd service to disable TCP and enable a Unix socket:
 
 [source,bash]
 ----
@@ -211,6 +209,7 @@ Add the following override:
 [Service]
 Environment="JENKINS_PORT=-1"
 Environment="JENKINS_UNIX_DOMAIN_PATH=/run/jenkins/jenkins.socket"
+UMask=0007
 ----
 
 Reload and restart Jenkins:
@@ -226,6 +225,15 @@ Verify the socket exists:
 [source,bash]
 ----
 ls -l /run/jenkins/jenkins.socket
+----
+
+NOTE: Setting `UMask=0007` (or `UMask=0002`) in the systemd override is critical. The package's default systemd umask is `0022`, under which Jetty creates the Unix socket with permissions `0755` (non group-writable). Setting `UMask=0007` ensures the socket is created with group read and write permissions (`0770`), allowing the web server user in the `jenkins` group to communicate through the socket.
+
+For standalone WAR or container installations, pass the `--httpPort` and `--httpUnixDomainPath` options directly at startup:
+
+[source,bash]
+----
+java -jar jenkins.war --httpPort=-1 --httpUnixDomainPath=/run/jenkins/jenkins.socket
 ----
 
 === Configure Nginx for Unix Domain Socket
@@ -311,7 +319,7 @@ The primary difference from the TCP configuration is the `server` directive in t
 === Permissions
 
 Ensure Nginx has permission to access the Jenkins Unix socket.
-The socket is created with the `jenkins` user and group permissions.
+Because the socket is created with `UMask=0007`, members of the `jenkins` group have read and write permissions to the socket file.
 Add the Nginx user to the `jenkins` group to grant socket access:
 
 On Debian / Ubuntu systems:
@@ -329,4 +337,7 @@ On RHEL / AlmaLinux / Rocky Linux systems:
 usermod -aG jenkins nginx
 systemctl restart nginx
 ----
+
+NOTE: On systems with SELinux enforcing (such as RHEL or AlmaLinux), you may also need to configure SELinux permissions or set the boolean `setsebool -P httpd_can_network_connect 1` to allow Nginx to connect to the upstream socket if policy restrictions prevent reverse-proxying.
+
 
