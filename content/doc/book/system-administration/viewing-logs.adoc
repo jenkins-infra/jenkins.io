@@ -107,3 +107,92 @@ java.util.logging.ConsoleHandler.level = ALL
 # High verbosity for a dedicated package com.myplugin.*
 com.myplugin.level = ALL
 ----
+
+
+== HTTP access logging
+
+Jenkins uses the embedded Winstone servlet engine by default to handle incoming HTTP/HTTPS requests.
+To log details of each HTTP request (such as client IP address, timestamp, request URL, HTTP status code, and user agent), you can enable Winstone's access logger using command line options.
+
+The access logger writes standard NCSA access logs, making it straightforward to analyze traffic with tools like Logstash, GoAccess, or Graylog.
+
+=== Enabling access logging
+
+Access logging is configured by passing Winstone command line arguments to the Jenkins runtime:
+
+`--accessLoggerClassName=winstone.accesslog.SimpleAccessLogger`::
+Specifies the logger implementation class.
+
+`--simpleAccessLogger.format=combined`::
+Specifies the log format. Supported formats include `combined` (the default recommended NCSA combined log format including referer and user-agent headers) and `common` (NCSA common log format).
+
+`--simpleAccessLogger.file=<path>`::
+Specifies the destination file path for access log entries.
+
+==== Linux (systemd)
+
+On modern Linux distributions using systemd (Ubuntu, Debian, Red Hat, AlmaLinux, Rocky Linux):
+
+1. Run `systemctl edit jenkins` to create a service override.
+2. Add the access logger arguments to the `JENKINS_OPTS` environment variable:
++
+[source,ini]
+----
+[Service]
+Environment="JENKINS_OPTS=--accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file=/var/log/jenkins/access.log"
+----
+3. Restart the Jenkins service:
++
+[source,bash]
+----
+sudo systemctl restart jenkins
+----
+
+==== Linux log rotation
+
+To automatically rotate access logs alongside system logs, edit `/etc/logrotate.d/jenkins` to include all `.log` files:
+
+[source]
+----
+/var/log/jenkins/*.log {
+    weekly
+    missingok
+    rotate 52
+    compress
+    delaycompress
+    notifempty
+    create 640 jenkins jenkins
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl try-restart jenkins > /dev/null 2>&1 || true
+    endscript
+}
+----
+
+==== Windows service (jenkins.xml)
+
+If running Jenkins as a Windows service:
+
+1. Open `%JENKINS_HOME%\jenkins.xml` in a text editor with administrative privileges.
+2. Add the access logger arguments to the `<arguments>` tag:
++
+[source,xml]
+----
+<arguments>-Xrs -Xmx3072m -Dhudson.lifecycle=hudson.lifecycle.WindowsServiceLifecycle -jar "%BASE%\jenkins.war" --httpPort=8080 --webroot="%BASE%\war" --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file="%BASE%/logs/access.log"</arguments>
+----
+3. Restart the Jenkins Windows service from the Services console or via command prompt:
++
+[source,cmd]
+----
+net stop jenkins
+net start jenkins
+----
+
+==== Standalone executable WAR
+
+When running the Jenkins WAR file directly from the command line:
+
+[source,bash]
+----
+java -jar jenkins.war --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file=access.log
+----
