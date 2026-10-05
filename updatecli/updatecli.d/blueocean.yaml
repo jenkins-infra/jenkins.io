@@ -1,0 +1,61 @@
+---
+name: Bumps the BlueOcean plugin version
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  blueoceanLatestVersion:
+    kind: githubrelease
+    name: "Get the latest BlueOcean plugin version"
+    spec:
+      owner: "jenkinsci"
+      repository: "blueocean-plugin" # Its release process follows Alpine's
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versionfilter:
+        kind: regex
+        pattern: 'blueocean-parent-1.(\d+).(\d+)$'
+    transformers:
+      - trimprefix: "blueocean-parent-"
+
+conditions:
+  testDockerTutorialForBlueOceanArg:
+    name: "Does the Docker tutorial have a reference to the BlueOcean plugin?"
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: content/doc/book/installing/_docker-for-tutorials.adoc
+      matchpattern: '.*blueocean:.*'
+      #matchpattern: '.*jenkins-plugin-cli.*--plugins.*".*blueocean:.*'
+
+targets:
+  updateDockerTutorialForBlueOcean:
+    name: "Update the value of the BlueOcean plugin in the Docker tutorial"
+    kind: file
+    sourceid: blueoceanLatestVersion
+    spec:
+      file: content/doc/book/installing/_docker-for-tutorials.adoc
+      matchpattern: >-
+        (.*)jenkins-plugin-cli(.*)blueocean:(.*?) (.*)\"
+      replacepattern: >-
+        ${1}jenkins-plugin-cli${2}blueocean:{{ source "blueoceanLatestVersion" }} ${4}"
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: '[Docker Tutorial] Bump BlueOcean Plugin Version to {{ source "blueoceanLatestVersion" }}'
+    spec:
+      labels:
+        - dependencies
