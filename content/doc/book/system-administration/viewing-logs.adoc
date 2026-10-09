@@ -134,7 +134,8 @@ Specifies the destination file path for access log entries.
 On modern Linux distributions using systemd (Ubuntu, Debian, Red Hat, AlmaLinux, Rocky Linux):
 
 1. Run `systemctl edit jenkins` to create a service override.
-2. Add the access logger arguments to the `JENKINS_OPTS` environment variable:
+2. Add the access logger arguments to the `JENKINS_OPTS` environment variable.
+An `Environment="JENKINS_OPTS=..."` line replaces any existing value, so if your service already sets `JENKINS_OPTS` (for example, `--prefix=/jenkins`), append the access logger arguments to that existing value rather than adding a separate line:
 +
 [source,ini]
 ----
@@ -150,22 +151,19 @@ sudo systemctl restart jenkins
 
 ==== Linux log rotation
 
-To automatically rotate access logs alongside system logs, edit `/etc/logrotate.d/jenkins` to include all `.log` files:
+To automatically rotate access logs alongside system logs, edit `/etc/logrotate.d/jenkins` to include all `.log` files.
+Because the access logger keeps the log file open, use `copytruncate` (as the official Jenkins packages do) so that the logs can be rotated without restarting Jenkins:
 
 [source]
 ----
 /var/log/jenkins/*.log {
     weekly
+    copytruncate
     missingok
     rotate 52
     compress
     delaycompress
     notifempty
-    create 640 jenkins jenkins
-    sharedscripts
-    postrotate
-        /usr/bin/systemctl try-restart jenkins > /dev/null 2>&1 || true
-    endscript
 }
 ----
 
@@ -173,7 +171,7 @@ To automatically rotate access logs alongside system logs, edit `/etc/logrotate.
 
 If running Jenkins as a Windows service:
 
-1. Open `%JENKINS_HOME%\jenkins.xml` in a text editor with administrative privileges.
+1. Open the `jenkins.xml` file in the Jenkins installation directory (for example, `%INSTALL_PATH%\jenkins\jenkins.xml`) in a text editor with administrative privileges.
 2. Add the access logger arguments to the `<arguments>` tag:
 +
 [source,xml]
@@ -194,5 +192,5 @@ When running the Jenkins WAR file directly from the command line:
 
 [source,bash]
 ----
-java -jar jenkins.war --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file=access.log
+java -jar jenkins.war --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file=./access.log
 ----
