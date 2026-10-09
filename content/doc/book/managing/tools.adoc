@@ -32,7 +32,8 @@ When configuring a tool in Jenkins, administrators typically choose between two 
 Pre-installed Tools::
 The tool is manually or automatically installed on the agent operating system (or built into the container image) prior to running builds.
 The administrator defines the tool in Jenkins by providing the filesystem path to the tool directory (for example, `/usr/lib/jvm/temurin-21` or `C:\Program Files\Git`).
-Alternatively, if the tool executable resides on the agent system `PATH`, configuring the command name directly (such as `git`) suffices.
+Some tool providers, such as Git, also accept an executable name instead of a directory: if the executable resides on the agent system `PATH`, configuring the command name directly (such as `git`) suffices.
+Tool types that expect an installation directory, such as JDK, Maven, and Ant, require the path to that directory; entering a command name like `java` or `mvn` results in an invalid tool home.
 
 Tool Auto-Installation::
 Jenkins downloads, unpacks, or compiles the tool on-demand directly on the agent when a build requiring that tool executes.
@@ -51,7 +52,8 @@ When an agent starts a build requiring a tool:
 1. Jenkins checks whether the tool is already present and cached in the agent tool directory (by default located at `<remote-fs-root>/tools/<tool-type>/<tool-name>`).
 2. If the tool is missing or its configuration has changed, Jenkins initiates the configured installer on the agent.
 3. The installer downloads and unpacks the tool package or executes the specified installation commands.
-4. Once completed, Jenkins sets the appropriate environment variables (such as `PATH`, `JAVA_HOME`, or `M2_HOME`) for the build process, pointing to the newly installed tool directory.
+4. Once completed, Jenkins resolves the tool home to the newly installed tool directory.
+Whether environment variables (such as `PATH`, `JAVA_HOME`, or `M2_HOME`) are then set depends on how the tool is referenced: the Declarative Pipeline `tools` directive and tool-aware build steps or wrappers set them, while the Scripted Pipeline `tool` step only returns the tool home (see <<Scripted Pipeline>>).
 5. Subsequent builds on the same agent that reference the same tool reuse the cached installation without re-downloading.
 
 [NOTE]
@@ -73,7 +75,8 @@ The JDK tool provider configures Java development environments for jobs and buil
 * **Install automatically**: When enabled, Jenkins can automatically download and unpack JDK releases.
 Common options include extracting a compressed archive (`.tar.gz` or `.zip`) from an official OpenJDK distribution (such as link:https://adoptium.net/[Eclipse Temurin]) or running custom provisioning scripts.
 
-When a build references a configured JDK, Jenkins sets the `JAVA_HOME` environment variable and prepends `$JAVA_HOME/bin` (or `%JAVA_HOME%\bin` on Windows) to the execution `PATH`.
+When a JDK is referenced through the Declarative `tools` directive or selected in a Freestyle job, Jenkins sets the `JAVA_HOME` environment variable and prepends `$JAVA_HOME/bin` (or `%JAVA_HOME%\bin` on Windows) to the execution `PATH`.
+The Scripted Pipeline `tool` step only returns the JDK home, so these variables must be set explicitly (for example, with `withEnv`).
 
 === Git
 
@@ -94,7 +97,8 @@ The Maven tool provider manages link:https://maven.apache.org/[Apache Maven] ins
 * **Install automatically**: When selected, administrators can choose to **Install from Apache**, which presents a dropdown of official Apache Maven versions.
 Jenkins automatically downloads the official release binaries from Apache mirrors and unpacks them on the agent.
 
-During build execution, Jenkins sets `M2_HOME` and `MAVEN_HOME` and adds the Maven `bin` directory to `PATH`.
+When Maven is referenced through the Declarative `tools` directive or a Maven build step, Jenkins sets `M2_HOME` and `MAVEN_HOME` and adds the Maven `bin` directory to `PATH`.
+With the Scripted Pipeline `tool` step, only the Maven home is returned, as shown in the <<Scripted Pipeline>> example below.
 
 === Ant
 
