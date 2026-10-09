@@ -23,7 +23,7 @@ gem 'kramdown', '~> 2.5.0'
 group :fetcher do
   gem 'faraday', '~> 2.14.3'
   gem 'faraday-follow_redirects', '~> 0.3.0'
-  gem 'rubyzip', '~> 2.3.2'
+  gem 'rubyzip', '~> 3.4.0'
   # dependencies for faraday 2.12.1
   gem 'faraday-net_http', '~> 3.4'
   gem 'json', '~> 2.19'
