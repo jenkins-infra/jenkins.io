@@ -31,7 +31,7 @@ When configuring a tool in Jenkins, administrators typically choose between two 
 
 Pre-installed Tools::
 The tool is manually or automatically installed on the agent operating system (or built into the container image) prior to running builds.
-The administrator defines the tool in Jenkins by providing the filesystem path to the tool directory (for example, `/usr/lib/jvm/temurin-21` or `C:\Program Files\Git`).
+The administrator defines the tool in Jenkins by providing the filesystem path to the tool directory (for example, `/usr/lib/jvm/temurin-21` or `C:\Program Files\Eclipse Adoptium\jdk-21`).
 Some tool providers, such as Git, also accept an executable name instead of a directory: if the executable resides on the agent system `PATH`, configuring the command name directly (such as `git`) suffices.
 Tool types that expect an installation directory, such as JDK, Maven, and Ant, require the path to that directory; entering a command name like `java` or `mvn` results in an invalid tool home.
 
@@ -53,6 +53,7 @@ When an agent starts a build requiring a tool:
 2. If the tool is missing or its configuration has changed, Jenkins initiates the configured installer on the agent.
 3. The installer downloads and unpacks the tool package or executes the specified installation commands.
 4. Once completed, Jenkins resolves the tool home to the newly installed tool directory.
++
 Whether environment variables (such as `PATH`, `JAVA_HOME`, or `M2_HOME`) are then set depends on how the tool is referenced: the Declarative Pipeline `tools` directive and tool-aware build steps or wrappers set them, while the Scripted Pipeline `tool` step only returns the tool home (see <<Scripted Pipeline>>).
 5. Subsequent builds on the same agent that reference the same tool reuse the cached installation without re-downloading.
 
@@ -62,9 +63,11 @@ Automatic tool installation requires outgoing network access from the agent mach
 If agents operate in an isolated network environment without direct internet access, configure an internal HTTP proxy or mirror repository for installer downloads.
 ====
 
-== Built-in Tool Providers
+== Common Tool Providers
 
-Jenkins core bundles several tool providers out of the box. Additional tool types (such as NodeJS, Go, Rust, or Gradle) are made available by installing their respective plugins.
+Jenkins core provides the JDK and Maven tool types.
+Other tool types are contributed by plugins: the Git tool type comes from the link:https://plugins.jenkins.io/git-client/[Git client plugin], and the Ant tool type comes from the link:https://plugins.jenkins.io/ant/[Ant plugin].
+Additional tool types (such as NodeJS, Go, Rust, or Gradle) are likewise made available by installing their respective plugins.
 
 === JDK (Java Development Kit)
 
@@ -80,7 +83,7 @@ The Scripted Pipeline `tool` step only returns the JDK home, so these variables 
 
 === Git
 
-The Git tool provider manages Git client binaries used for source code checkouts:
+The Git tool provider, contributed by the link:https://plugins.jenkins.io/git-client/[Git client plugin], manages Git client binaries used for source code checkouts:
 
 * **Name**: The logical identifier (such as `Default` or `Git 2.45`).
 * **Path to Git executable**: The command name (such as `git` if available on the system `PATH`) or an absolute path (such as `/usr/local/bin/git` or `C:\Program Files\Git\bin\git.exe`).
@@ -102,7 +105,7 @@ With the Scripted Pipeline `tool` step, only the Maven home is returned, as show
 
 === Ant
 
-The Ant tool provider manages link:https://ant.apache.org/[Apache Ant] installations:
+The Ant tool provider, contributed by the link:https://plugins.jenkins.io/ant/[Ant plugin], manages link:https://ant.apache.org/[Apache Ant] installations:
 
 * **Name**: The logical identifier (for example, `Ant 1.10`).
 * **ANT_HOME**: The filesystem path to an existing Ant installation directory.
@@ -139,11 +142,11 @@ Shell and batch installers are useful when tool installation requires registerin
 
 In heterogeneous environments containing different operating systems and CPU architectures (such as Linux x86_64, Linux ARM64, Windows, and macOS), a single binary archive or shell script cannot run across all nodes.
 
-To address this, Jenkins allows attaching multiple installers to a single tool definition and filtering each installer using **Label** expressions:
+To address this, Jenkins allows attaching multiple installers to a single tool definition and restricting each installer with a label expression:
 
 1. Click **Add Installer** under the tool definition.
-2. Under the installer configuration, select **Label expression**.
-3. Specify the label that target agents must match (for example, `linux && x86_64`, `windows`, or `macos`).
+2. In the installer configuration, locate the **Label** field (for the **Extract *.zip/*.tar.gz** installer, it is under the advanced options).
+3. Enter the label expression that target agents must match (for example, `linux && x86_64`, `windows`, or `macos`).
 4. Add another installer under the same tool with a different label expression (for example, `linux && arm64`) pointing to the corresponding architecture-specific package.
 
 When an agent executes a build requiring that tool, Jenkins evaluates the labels of that specific agent and runs only the matching installer.
@@ -195,8 +198,8 @@ node('linux') {
 
 In Freestyle jobs, configured tools appear in configuration dropdown menus:
 
-* In the **Build Environment** section, select **Provide Tools and Ant tasks to the build environment** or configure a specific JDK from the **JDK** dropdown.
-* In build steps like **Invoke top-level Maven targets** or **Invoke Ant**, select the desired tool version from the **Maven Version** or **Ant Version** dropdown.
+* In the **Build Environment** section, select **With Ant** (provided by the link:https://plugins.jenkins.io/ant/[Ant plugin]) to set up the environment variables of the selected Ant installation, and optionally a JDK, for the build, or configure a specific JDK from the **JDK** dropdown.
+* In build steps like **Invoke top-level Maven targets** or **Invoke Ant** (Ant plugin), select the desired tool version from the **Maven Version** or **Ant Version** dropdown.
 
 == Best Practices and Operational Considerations
 
