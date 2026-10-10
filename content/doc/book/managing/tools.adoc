@@ -23,7 +23,8 @@ A **Tool** in Jenkins represents an external build executable or SDK—such as a
 Jenkins manages tools through a centralized configuration located under **Manage Jenkins** > **Tools** (historically named *Global Tool Configuration*).
 This page allows administrators to define available tools once and reference them across any number of Pipeline scripts or Freestyle jobs by name.
 
-By decoupling tool declarations from local agent filesystem paths, Jenkins ensures that jobs remain portable across different agents and operating systems in the Jenkins environment.
+Because jobs refer to tools by name rather than by local filesystem path, the same job can run on different agents and operating systems.
+Each agent still needs a valid location for the tool: either an auto-installer provisions it, or a pre-installed tool's home is correct for that agent, overridden per agent where necessary (see <<Overriding Tool Locations per Agent>>).
 
 == Tool Configuration Approaches
 
@@ -34,6 +35,7 @@ The tool is manually or automatically installed on the agent operating system (o
 The administrator defines the tool in Jenkins by providing the filesystem path to the tool directory (for example, `/usr/lib/jvm/temurin-21` or `C:\Program Files\Eclipse Adoptium\jdk-21`).
 Some tool providers, such as Git, also accept an executable name instead of a directory: if the executable resides on the agent system `PATH`, configuring the command name directly (such as `git`) suffices.
 Tool types that expect an installation directory, such as JDK, Maven, and Ant, require the path to that directory; entering a command name like `java` or `mvn` results in an invalid tool home.
+The home configured under **Manage Jenkins** > **Tools** is a default used on every agent; agents where the tool is installed elsewhere (for example, Windows agents alongside Linux agents) need a per-agent **Tool Locations** override.
 
 Tool Auto-Installation::
 Jenkins downloads, unpacks, or compiles the tool on-demand directly on the agent when a build requiring that tool executes.
@@ -49,7 +51,8 @@ Rather than requiring system administrators to pre-configure identical tool chai
 Tool auto-installation runs *lazily* when a build step or Pipeline references the tool, not when an agent first connects to the controller.
 When an agent starts a build requiring a tool:
 
-1. Jenkins checks whether the tool is already present and cached in the agent tool directory (by default located at `<remote-fs-root>/tools/<tool-type>/<tool-name>`).
+1. If the agent defines a **Tool Locations** override for the tool (see <<Overriding Tool Locations per Agent>>), Jenkins uses that home and does not run the installer.
+Otherwise, Jenkins checks whether the tool is already present and cached in the agent tool directory (by default located at `<remote-fs-root>/tools/<tool-type>/<tool-name>`).
 2. If the tool is missing or its configuration has changed, Jenkins initiates the configured installer on the agent.
 3. The installer downloads and unpacks the tool package or executes the specified installation commands.
 4. Once completed, Jenkins resolves the tool home to the newly installed tool directory.
@@ -150,6 +153,23 @@ To address this, Jenkins allows attaching multiple installers to a single tool d
 4. Add another installer under the same tool with a different label expression (for example, `linux && arm64`) pointing to the corresponding architecture-specific package.
 
 When an agent executes a build requiring that tool, Jenkins evaluates the labels of that specific agent and runs only the matching installer.
+
+Label-restricted installers cover auto-installed tools.
+For pre-installed tools whose path differs between agents, use the per-agent **Tool Locations** property described below instead.
+
+== Overriding Tool Locations per Agent
+
+The home configured for a pre-installed tool under **Manage Jenkins** > **Tools** is a single default path.
+When an agent has the tool installed at a different location, override the home for that agent:
+
+1. Navigate to **Manage Jenkins** > **Nodes**, select the agent, and click **Configure**.
+2. Under **Node Properties**, check **Tool Locations**.
+3. Click **Add**, select the tool from the **Name** dropdown (listed as the tool type followed by the tool name), and enter the tool home on that agent in the **Home** field (for example, `C:\Program Files\Eclipse Adoptium\jdk-21`).
+4. Save the agent configuration.
+
+Builds on that agent then resolve the tool to the overridden home, while other agents continue to use the default.
+An override also takes precedence over any configured installers for that tool on that agent.
+**Tool Locations** is configured on individual agents only; it is not available for the built-in node or as a global node property.
 
 == Using Tools in Pipelines and Jobs
 
