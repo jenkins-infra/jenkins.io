@@ -172,11 +172,29 @@ Because the access logger keeps the log file open, use `copytruncate` (as the of
 If running Jenkins as a Windows service:
 
 1. Open the `jenkins.xml` file in the Jenkins installation directory (for example, `%INSTALL_PATH%\jenkins\jenkins.xml`) in a text editor with administrative privileges.
-2. Add the access logger arguments to the `<arguments>` tag:
+2. Locate the `<arguments>` element inside the `<service>` element and append the access logger arguments to the end of its existing value, separated by a space.
+Keep the other arguments and elements as they are; the values written by the installer (Java path, memory settings, port, and paths) may differ from this example:
++
+[source]
+----
+--accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file="%BASE%/logs/access.log"
+----
++
+The updated `jenkins.xml` file looks similar to this:
 +
 [source,xml]
 ----
-<arguments>-Xrs -Xmx3072m -Dhudson.lifecycle=hudson.lifecycle.WindowsServiceLifecycle -jar "%BASE%\jenkins.war" --httpPort=8080 --webroot="%BASE%\war" --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file="%BASE%/logs/access.log"</arguments>
+<service>
+  <id>jenkins</id>
+  <name>Jenkins</name>
+  <description>This service runs Jenkins automation server.</description>
+  <env name="JENKINS_HOME" value="%BASE%"/>
+  <executable>java</executable>
+  <arguments>-Xrs -Xmx256m -Dhudson.lifecycle=hudson.lifecycle.WindowsServiceLifecycle -jar "%BASE%\jenkins.war" --httpPort=8080 --webroot="%BASE%\war" --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file="%BASE%/logs/access.log"</arguments>
+  <logmode>rotate</logmode>
+  <onfailure action="restart" />
+  <!-- Keep the remaining elements, such as <extensions>, unchanged. -->
+</service>
 ----
 3. Restart the Jenkins Windows service from the Services console or via command prompt:
 +
@@ -185,6 +203,9 @@ If running Jenkins as a Windows service:
 net stop jenkins
 net start jenkins
 ----
++
+Access log entries are written to `%BASE%/logs/access.log`, where `%BASE%` is the directory that contains `jenkins.xml`.
+The access logger appends to this file, so existing entries are kept when the service restarts.
 
 ==== Standalone executable WAR
 
