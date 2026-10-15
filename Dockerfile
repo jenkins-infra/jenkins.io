@@ -11,7 +11,7 @@ COPY scripts ./scripts
 RUN npm ci
 RUN make assets
 
-FROM ruby:3.4.8 AS builder
+FROM ruby:3.4.11 AS builder
 ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
