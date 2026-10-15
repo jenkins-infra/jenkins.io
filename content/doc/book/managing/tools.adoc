@@ -38,7 +38,7 @@ Tool types that expect an installation directory, such as JDK, Maven, and Ant, r
 The home configured under **Manage Jenkins** > **Tools** is a default used on every agent; agents where the tool is installed elsewhere (for example, Windows agents alongside Linux agents) need a per-agent **Tool Locations** override.
 
 Tool Auto-Installation::
-Jenkins downloads, unpacks, or compiles the tool on-demand directly on the agent when a build requiring that tool executes.
+Jenkins provisions the tool on demand, on the agent, when a build requiring that tool executes, either by downloading and unpacking an archive or by running an installation command.
 Administrators enable this by selecting the **Install automatically** checkbox for the tool.
 
 == How Tool Auto-Installation Works
@@ -52,18 +52,25 @@ Tool auto-installation runs *lazily* when a build step or Pipeline references th
 When an agent starts a build requiring a tool:
 
 1. If the agent defines a **Tool Locations** override for the tool (see <<Overriding Tool Locations per Agent>>), Jenkins uses that home and does not run the installer.
-Otherwise, Jenkins checks whether the tool is already present and cached in the agent tool directory (by default located at `<remote-fs-root>/tools/<tool-type>/<tool-name>`).
-2. If the tool is missing or its configuration has changed, Jenkins initiates the configured installer on the agent.
-3. The installer downloads and unpacks the tool package or executes the specified installation commands.
+Otherwise, Jenkins goes through the installers configured for the tool (see <<Restricting Installers to Specific Agents>>) and runs the first one that applies to the agent.
+2. The installer works in the agent tool directory (by default located at `<remote-fs-root>/tools/<tool-type>/<tool-name>`).
+3. How much work the installer repeats depends on its type:
+** The **Extract *.zip/*.tar.gz** installer downloads and unpacks the archive only when needed.
+It sends a conditional request using the timestamp or ETag stored from the previous installation, and skips the download if the archive is unchanged.
+If the download location cannot be reached but the tool directory already exists, Jenkins keeps the existing installation.
+** The **Run Shell Command** and **Run Batch Command** installers have no such check.
+Jenkins runs the command every time the tool is resolved, so write these scripts to be idempotent (for example, by testing whether the tool is already present before installing it).
 4. Once completed, Jenkins resolves the tool home to the newly installed tool directory.
 +
 Whether environment variables (such as `PATH`, `JAVA_HOME`, or `M2_HOME`) are then set depends on how the tool is referenced: the Declarative Pipeline `tools` directive and tool-aware build steps or wrappers set them, while the Scripted Pipeline `tool` step only returns the tool home (see <<Scripted Pipeline>>).
-5. Subsequent builds on the same agent that reference the same tool reuse the cached installation without re-downloading.
+5. Subsequent builds on the same agent that reference the same tool reuse an unchanged archive installation without unpacking it again; command installers run again, as described above.
 
 [NOTE]
 ====
-Automatic tool installation requires outgoing network access from the agent machine to the download location (such as vendor mirrors or internal enterprise repository managers).
-If agents operate in an isolated network environment without direct internet access, configure an internal HTTP proxy or mirror repository for installer downloads.
+Archive installers need network access to the download location (such as vendor mirrors or internal enterprise repository managers).
+Jenkins first tries to download the archive from the agent machine.
+If that fails, it downloads the archive on the controller and transfers it to the agent, so the controller also needs access to the download location.
+If your environment has no direct internet access, configure an internal HTTP proxy or mirror repository for installer downloads.
 ====
 
 == Common Tool Providers
@@ -152,7 +159,11 @@ To address this, Jenkins allows attaching multiple installers to a single tool d
 3. Enter the label expression that target agents must match (for example, `linux && x86_64`, `windows`, or `macos`).
 4. Add another installer under the same tool with a different label expression (for example, `linux && arm64`) pointing to the corresponding architecture-specific package.
 
-When an agent executes a build requiring that tool, Jenkins evaluates the labels of that specific agent and runs only the matching installer.
+When an agent executes a build requiring that tool, Jenkins evaluates the installers in the order they are listed, and runs only the first installer that applies to that agent.
+An installer applies if it has no label, or if its label expression matches the agent.
+Later installers are not run, even if they also match.
+Because of this, place more specific label expressions before general ones, and put an installer without a label last, as a fallback.
+If no installer applies, Jenkins logs that the tool cannot be installed on that agent.
 
 Label-restricted installers cover auto-installed tools.
 For pre-installed tools whose path differs between agents, use the per-agent **Tool Locations** property described below instead.
@@ -234,4 +245,5 @@ When using dynamic, ephemeral agents (such as containers created via the Kuberne
 For containerized builds, it is generally recommended to bake required tools directly into the custom agent container image and register them as pre-installed tools to minimize build startup overhead.
 
 Proxy and Mirror Configuration::
-If your build agents do not have direct internet access, ensure an HTTP proxy is configured for agents, or host tool archives on an internal web server or binary repository manager.
+If neither your build agents nor the controller have direct internet access, ensure an HTTP proxy is configured, or host tool archives on an internal web server or binary repository manager.
+Jenkins downloads archives on the agent when it can, and otherwise on the controller, so both should be able to reach the mirror.
