@@ -53,9 +53,11 @@ When an agent starts a build requiring a tool:
 
 1. If the agent defines a **Tool Locations** override for the tool (see <<Overriding Tool Locations per Agent>>), Jenkins uses that home and does not run the installer.
 Otherwise, Jenkins goes through the installers configured for the tool (see <<Restricting Installers to Specific Agents>>) and runs the first one that applies to the agent.
-2. The installer works in the agent tool directory (by default located at `<remote-fs-root>/tools/<tool-type>/<tool-name>`).
+2. The installer works in a directory under `<remote-fs-root>/tools/` on the agent.
+If the tool's home field is left empty, this is `tools/<tool-type-id>/<tool-name>`, with characters other than letters, digits, `.`, `+_+`, and `-` replaced by `+_+` (for example, `tools/hudson.tasks.Maven_MavenInstallation/Maven_3.9.6`).
+If a home is entered while **Install automatically** is selected, the installer uses that path instead, resolving a relative path against the `tools` directory.
 3. How much work the installer repeats depends on its type:
-** The **Extract *.zip/*.tar.gz** installer downloads and unpacks the archive only when needed.
+** The **Extract {asterisk}.zip/{asterisk}.tar.gz** installer downloads and unpacks the archive only when needed.
 It sends a conditional request using the timestamp or ETag stored from the previous installation, and skips the download if the archive is unchanged.
 If the download location cannot be reached but the tool directory already exists, Jenkins keeps the existing installation.
 ** The **Run Shell Command** and **Run Batch Command** installers have no such check.
@@ -86,7 +88,8 @@ The JDK tool provider configures Java development environments for jobs and buil
 * **Name**: The logical identifier used in Pipelines (for example, `JDK 21` or `temurin-17`).
 * **JAVA_HOME**: The filesystem path to the Java installation directory on agents where Java is pre-installed.
 * **Install automatically**: When enabled, Jenkins can automatically download and unpack JDK releases.
-Common options include extracting a compressed archive (`.tar.gz` or `.zip`) from an official OpenJDK distribution (such as link:https://adoptium.net/[Eclipse Temurin]) or running custom provisioning scripts.
+Jenkins core does not include a JDK-specific downloader.
+Install the link:https://plugins.jenkins.io/adoptopenjdk/[Eclipse Temurin installer plugin] to get the **Install from adoptium.net** installer, or use the generic installers described in <<Custom Installers and Techniques>>, for example to extract a JDK archive (`.tar.gz` or `.zip`) from an internal repository.
 
 When a JDK is referenced through the Declarative `tools` directive or selected in a Freestyle job, Jenkins sets the `JAVA_HOME` environment variable and prepends `$JAVA_HOME/bin` (or `%JAVA_HOME%\bin` on Windows) to the execution `PATH`.
 The Scripted Pipeline `tool` step only returns the JDK home, so these variables must be set explicitly (for example, with `withEnv`).
@@ -97,7 +100,7 @@ The Git tool provider, contributed by the link:https://plugins.jenkins.io/git-cl
 
 * **Name**: The logical identifier (such as `Default` or `Git 2.45`).
 * **Path to Git executable**: The command name (such as `git` if available on the system `PATH`) or an absolute path (such as `/usr/local/bin/git` or `C:\Program Files\Git\bin\git.exe`).
-* **Install automatically**: Enables downloading portable Git packages or executing installation scripts for agent environments that lack a pre-installed Git client.
+* **Install automatically**: The Git client plugin does not provide a Git-specific downloader, so use the generic installers described in <<Custom Installers and Techniques>> (for example, extracting a MinGit `.zip` archive on Windows agents) for agent environments that lack a pre-installed Git client.
 
 The Jenkins link:https://plugins.jenkins.io/git/[Git plugin] automatically uses the selected Git tool for repository cloning and fetch operations.
 
@@ -143,6 +146,17 @@ This installer executes a command or script directly on the agent to install or 
 * **Run Shell Command**: Runs a shell script on POSIX-compliant agents (Linux, macOS, Unix).
 * **Run Batch Command**: Runs a Windows batch script on Windows agents.
 
+Both installers have the same fields:
+
+* **Command**: The script to run.
+It runs with the tool directory (see <<On-Demand Execution>>) as its working directory, and a non-zero exit status fails the installation.
+* **Tool Home**: The directory, relative to the tool directory, that the command leaves the tool in.
+Jenkins uses this as the tool home.
+* **Label**: The agents this installer applies to (see <<Restricting Installers to Specific Agents>>).
+
+Jenkins does not limit these installers to an operating system by itself.
+An unlabeled **Run Shell Command** installer also applies to Windows agents, where it fails, so give each command installer a label that matches only the agents it supports.
+
 [TIP]
 ====
 Shell and batch installers are useful when tool installation requires registering system dependencies, compiling from source, or calling system package managers (for example, `apt-get`, `dnf`, or `brew`).
@@ -155,7 +169,7 @@ In heterogeneous environments containing different operating systems and CPU arc
 To address this, Jenkins allows attaching multiple installers to a single tool definition and restricting each installer with a label expression:
 
 1. Click **Add Installer** under the tool definition.
-2. In the installer configuration, locate the **Label** field (for the **Extract *.zip/*.tar.gz** installer, it is under the advanced options).
+2. In the installer configuration, locate the **Label** field (for the **Extract {asterisk}.zip/{asterisk}.tar.gz** installer, it is under the advanced options).
 3. Enter the label expression that target agents must match (for example, `linux && x86_64`, `windows`, or `macos`).
 4. Add another installer under the same tool with a different label expression (for example, `linux && arm64`) pointing to the corresponding architecture-specific package.
 
@@ -230,7 +244,9 @@ node('linux') {
 
 In Freestyle jobs, configured tools appear in configuration dropdown menus:
 
-* In the **Build Environment** section, select **With Ant** (provided by the link:https://plugins.jenkins.io/ant/[Ant plugin]) to set up the environment variables of the selected Ant installation, and optionally a JDK, for the build, or configure a specific JDK from the **JDK** dropdown.
+* In the **General** section, select a JDK for the project from the **JDK** dropdown.
+This dropdown appears only when more than one JDK is configured; with a single JDK, Jenkins always uses it.
+* In the **Build Environment** section, select **With Ant** (provided by the link:https://plugins.jenkins.io/ant/[Ant plugin]) to set up the environment variables of the selected Ant installation, and optionally a JDK, for the build.
 * In build steps like **Invoke top-level Maven targets** or **Invoke Ant** (Ant plugin), select the desired tool version from the **Maven Version** or **Ant Version** dropdown.
 
 == Best Practices and Operational Considerations
