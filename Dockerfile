@@ -11,7 +11,7 @@ COPY scripts ./scripts
 RUN npm ci
 RUN make assets
 
-FROM ruby:3.4.8 AS builder
+FROM ruby:3.4.11 AS builder
 ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
@@ -33,7 +33,7 @@ RUN bundle exec ./scripts/fetch-external-resources
 RUN make real_generate
 
 
-FROM nginx:1.25
+FROM nginx:1.31
 
 COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 
