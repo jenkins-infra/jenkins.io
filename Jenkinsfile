@@ -51,6 +51,12 @@ node('docker&&linux') {
         }
     }
 
+    stage('Check links') {
+        if (!infra.isTrusted() && env.BRANCH_NAME != null) {
+            sh 'make check-links'
+        }
+    }
+
     stage('Build site') {
         /* If the agent can't gather resources and build the site in 60 minutes,
         * something is very wrong
