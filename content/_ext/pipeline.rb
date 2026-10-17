@@ -60,7 +60,6 @@ Awestruct::Extensions::Pipeline.new do
   extension ChangelogReleases.new(:lts, 'changelog', 'stable')
   extension ChangelogReleases.new(:weekly, 'changelog', 'latest')
 
-  transformer VersionSwitcher.new
 
   extension Validator.new
 
@@ -68,7 +67,6 @@ Awestruct::Extensions::Pipeline.new do
   helper ActiveNav
   helper IdGenerator
   helper Authorship
-  helper Legacy
   helper AsciidocRender
   helper GetPlugins
 
