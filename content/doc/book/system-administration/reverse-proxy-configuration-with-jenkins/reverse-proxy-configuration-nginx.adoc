@@ -181,3 +181,98 @@ Caused by: java.io.IOException: Premature EOF
     at java.io.DataInputStream.readInt(DataInputStream.java:387)
     at hudson.cli.PlainCLIProtocol$EitherSide$Reader.run(PlainCLIProtocol.java:111)
 ----
+
+== Unix Domain Sockets
+
+Nginx can proxy requests to Jenkins over a Unix domain socket instead of a TCP port.
+This removes the network listener from Jenkins entirely and is useful when Jenkins and Nginx run on the same host.
+
+NOTE: This section applies to Jenkins Linux package installations managed by systemd, which provide the `JENKINS_UNIX_DOMAIN_PATH` setting and the `/run/jenkins` runtime directory.
+Other installation types can enable the same feature by passing `--httpPort=-1 --httpUnixDomainPath=<path>` to Jenkins at startup.
+
+=== Configure Jenkins
+
+Edit the Jenkins systemd service:
+
+[source,bash]
+----
+systemctl edit jenkins
+----
+
+Add the following override to disable the TCP listener and enable the Unix socket:
+
+[source,ini]
+----
+[Service]
+Environment="JENKINS_PORT=-1"
+Environment="JENKINS_UNIX_DOMAIN_PATH=/run/jenkins/jenkins.socket"
+UMask=0007
+----
+
+`UMask=0007` (or `UMask=0002`) is required.
+Jenkins creates the socket using the service umask, and with the usual default of `0022` the socket is not group-writable, so Nginx fails with `Permission denied` when connecting.
+
+`UMask` applies to every file the Jenkins service creates, not only the socket.
+`0007` removes all access for other users and gives the Jenkins service group read and write access, so do not add Nginx to the `jenkins` group.
+Use the dedicated group described in <<uds-permissions>> instead.
+
+=== Configure Nginx
+
+Use the same configuration as the TCP example above, changing only the `server` directive in the `upstream` block:
+
+[source]
+----
+upstream jenkins {
+  keepalive 32; # keepalive connections
+  server unix:/run/jenkins/jenkins.socket; # jenkins unix domain socket
+}
+----
+
+The `map`, `server`, and `location /` blocks stay unchanged.
+If you do not grant Nginx read access to the Jenkins web root and `JENKINS_HOME`, remove the `root` directive, the `/static/` rewrite, and the `/userContent` location so that Jenkins serves those files through the socket.
+
+[[uds-permissions]]
+=== Permissions
+
+The packages create `/run/jenkins` with mode `0770`, owned by the `jenkins` user and group.
+To give Nginx access to the socket without granting it access to Jenkins data, create a dedicated group that owns only this directory.
+The setgid bit (`2`) makes the socket inherit the directory's group.
+
+[source,bash]
+----
+groupadd --system jenkins-socket
+echo 'D /run/jenkins 2750 jenkins jenkins-socket -' > /etc/tmpfiles.d/jenkins.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/jenkins.conf
+systemctl restart jenkins
+----
+
+The file in `/etc/tmpfiles.d/` overrides the one shipped by the package, so the setting persists across reboots.
+
+Add the Nginx service user to the `jenkins-socket` group, then restart Nginx so the new group membership takes effect.
+
+On Debian and Ubuntu, Nginx runs as `www-data`:
+
+[source,bash]
+----
+usermod -aG jenkins-socket www-data
+systemctl restart nginx
+----
+
+On Red Hat Enterprise Linux and derivatives (such as AlmaLinux, Rocky Linux, and Fedora), Nginx runs as `nginx`:
+
+[source,bash]
+----
+usermod -aG jenkins-socket nginx
+systemctl restart nginx
+----
+
+Verify that the socket has the expected group and permissions:
+
+[source,bash]
+----
+ls -l /run/jenkins/jenkins.socket
+# srwxrwx--- 1 jenkins jenkins-socket 0 ... /run/jenkins/jenkins.socket
+----
+
+NOTE: On systems with SELinux in enforcing mode, the policy may block Nginx from connecting to the socket even when file permissions are correct.
+If Nginx logs `Permission denied` with correct permissions, check for denials with `ausearch -m avc -ts recent` and create a local policy module with `audit2allow` if needed.
