@@ -10,8 +10,7 @@ class VersionSwitcher
 
   def transform(site, page, rendered)
     if legacy? && page.legacy == false
-      puts page.inspect
-      return '<html><head><meta http-equiv="refresh" content="0;/"/>'
+      return '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;/"/></head><body></body></html>'
     end
     return rendered
   end
