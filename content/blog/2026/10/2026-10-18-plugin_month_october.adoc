@@ -1,0 +1,91 @@
+---
+layout: post
+title: "Plugin of the Month – October 2026: Kubernetes Plugin"
+tags:
+- plugins
+- community
+- kubernetes
+- plugin-of-the-month
+authors:
+- stefan_spieker
+description: "Plugin of the Month – October 2026: Kubernetes Plugin"
+opengraph:
+  image: /images/post-images/2026/10/plugin_of_the_month_october_2026_kubernetes.png
+---
+
+Welcome back to the **Plugin of the Month** series, where we highlight useful and impactful tools from the Jenkins ecosystem.
+
+As Halloween approaches, Jenkins builds don't need to haunt a fleet of idle agents.
+This October, we're featuring the link:https://plugins.jenkins.io/kubernetes/[Kubernetes Plugin], which conjures build agents as pods in a Kubernetes cluster whenever a pipeline needs them.
+Teams can tailor each pod's containers to the work at hand, then let the agents disappear when the build is done.
+
+== What is the Kubernetes Plugin?
+
+Jenkins uses a controller-and-agent architecture: the controller schedules work, and agents run builds.
+The Kubernetes Plugin connects a Jenkins controller to a Kubernetes cluster and uses pod templates to provision agents when jobs need them.
+
+A pod can contain multiple containers, so a pipeline can use the tools it needs, such as Maven, Node.js, or a deployment client, without installing every tool on a single shared agent.
+When a build finishes, its agent pod can be removed, freeing cluster resources for other workloads.
+
+The plugin provisions *build agents*; it does not install or manage the Jenkins controller or the Kubernetes cluster.
+
+== Why Use It?
+
+=== Agents on demand
+
+The plugin creates agent pods as jobs require them, making it easier to scale build capacity with available cluster resources.
+Teams can avoid keeping as many idle, always-on build machines.
+
+=== Build environments in containers
+
+Pod templates define the containers and other Kubernetes pod settings used by an agent.
+Different pipelines can use different images and configurations, while the cluster handles scheduling those pods.
+
+=== Pipeline-defined agents
+
+Pod configuration can live alongside pipeline code, making it easier to review and version changes to a build environment.
+
+== A Pipeline Example
+
+The following scripted Pipeline defines a pod with a Maven container, checks out the project, and runs the build in that container:
+
+[source,groovy]
+----
+podTemplate(yaml: '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: maven
+    image: maven:3.9.9-eclipse-temurin-17
+    command:
+    - cat
+    tty: true
+''') {
+    node(POD_LABEL) {
+        checkout scm
+        container('maven') {
+            sh 'mvn -B verify'
+        }
+    }
+}
+----
+
+The Kubernetes Plugin provides the Jenkins agent connection for the pod.
+The `container` step selects where the build command runs; other pipeline steps, such as `checkout`, can run in the agent's default container.
+
+== Getting Started
+
+1. Install the Kubernetes Plugin from *Manage Jenkins* -> *Plugins*.
+2. Configure a Kubernetes cloud under *Manage Jenkins* -> *Clouds*, including cluster access and the connection between agents and the Jenkins controller.
+3. Define pod templates in Jenkins or in your pipeline, and use them to run a test job.
+
+For setup details and configuration options, see the link:/doc/book/scaling/scaling-jenkins-on-kubernetes/[Jenkins documentation on scaling Jenkins on Kubernetes] and the link:https://plugins.jenkins.io/kubernetes/[Kubernetes Plugin page].
+
+== Plan for Your Cluster
+
+The plugin creates pods, but the cluster still needs enough capacity to schedule them.
+Configure resource requests and limits for build containers, and make sure the agent images and cluster networking suit your environment.
+Also, give Jenkins only the Kubernetes permissions it needs, ideally scoped to a dedicated namespace.
+
+If you want build agents that are created when needed and use containerized toolchains, the Kubernetes Plugin is a practical way to connect Jenkins pipelines to the resources and scheduling capabilities of your cluster.
