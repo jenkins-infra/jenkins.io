@@ -9,13 +9,16 @@ functionalities.
 Currently, it provides data in three flavors:
 
 . XML
-. JSON with JSONP support
+. JSON
 . Python-compatible JSON variant
 
-Remote access API is offered in a REST-like style. 
-That is, there is no single entry point for all features, 
-and instead they are available under the `+".../api/"+` 
-URL where `+"..."+` portion is the data that it acts on.
+JSONP is not available when security is enabled.
+Requests with a `jsonp` query parameter are rejected unless a plugin explicitly allows them.
+
+Remote access API is offered in a REST-like style.
+That is, there is no single entry point for all features,
+and instead they are available under the `+.../api/+`
+URL where `+...+` portion is the data that it acts on.
 
 For example, if your Jenkins installation sits at https://ci.jenkins.io,
 visiting https://ci.jenkins.io/api/ will show just the top-level API
@@ -43,6 +46,14 @@ Remote API can be used to do things like these:
 You merely need to perform an HTTP POST on
 `+JENKINS_URL/job/JOBNAME/build+`.
 
+[source,sh]
+----
+curl -X POST JENKINS_URL/job/JOB_NAME/build \
+  --user USER:TOKEN
+----
+
+The `Location` header of the response points to the queue item of the new build.
+
 This also works for Multibranch Pipelines and Organization Folders. It would trigger a scan.
 
 *Jobs with parameters*
@@ -61,13 +72,13 @@ Another example - sending a "File Parameter":
 [source,sh]
 ----
 curl JENKINS_URL/job/JOB_NAME/buildWithParameters \
-  --user USER:PASSWORD \
+  --user USER:TOKEN \
   --form FILE_LOCATION_AS_SET_IN_JENKINS=@PATH_TO_FILE
 ----
 
-The symbol '@' is important in this example. 
-Also, the path to the file is absolute path.
-In order to make this command work, 
+The symbol '@' is important in this example.
+It tells curl to upload the content of the file at `PATH_TO_FILE` instead of sending the path as text.
+In order to make this command work,
 you need to configure your Jenkins job to take a file parameter
 and match the *File location* field in the Jenkins job configuration with the key in the `--form` option.
 
@@ -80,16 +91,41 @@ See link:/doc/book/system-administration/authenticating-scripted-clients/[Authen
 [[RemoteaccessAPI-CSRFProtection]]
 == CSRF Protection
 
-*Note*: API tokens are preferred instead of crumbs for CSRF protection.
+`POST` requests authenticated with an API token do not need a CSRF crumb.
+Requests authenticated with a username and password need a crumb and the session cookie from the request that obtained the crumb.
+Use an API token for scripted clients whenever possible.
+See link:/doc/book/security/csrf-protection/#working-with-scripted-clients[CSRF Protection] for more details.
+
+[[RemoteaccessAPI-Treeselection]]
+== Tree selection
+
+Use the `tree` query parameter to choose exactly which fields are returned.
+This works for all three flavors and is usually faster than requesting the full response.
+Nested fields go in square brackets:
+
+[source,sh]
+----
+curl --user USER:TOKEN \
+  'JENKINS_URL/api/json?tree=jobs[name,color]'
+----
+
+When `tree` is specified, the `depth` parameter is ignored.
+See `+.../api/+` on your Jenkins server for more up-to-date details.
 
 [[RemoteaccessAPI-XPathselection]]
 == XPath selection
 
-The XML API supports a selection by XPath by using the query parameter 'xpath'. 
+The XML API supports a selection by XPath by using the query parameter 'xpath'.
 This is convenient for extracting information in environments
-where XML manipulation is tedious (such as shell script.) 
-See https://issue-redirect.jenkins.io/issue/626[issue #626] for an
-example of how to use this. +
+where XML manipulation is tedious (such as shell script.)
+For example, `+JENKINS_URL/job/JOB_NAME/api/xml?xpath=/*/displayName+` returns the `displayName` element of the job.
+
+If the expression matches more than one node, add the `wrapper` query parameter to wrap the results in an element with that name.
+Without it, the request fails.
+For example, `+JENKINS_URL/api/xml?xpath=/*/job/name&wrapper=names+` returns the names of all top-level jobs.
+
+When security is enabled, XPath expressions that return plain text, such as `text()` or `count()`, are rejected.
+Select elements instead. +
 See `+.../api/+` on your Jenkins server for more up-to-date details.
 
 [[RemoteaccessAPI-XPathexclusion]]
@@ -125,19 +161,22 @@ Because of the algorithm,
 this works in such a way that the data returned by a bigger depth value
 includes all the data returned by smaller depth value.
 
+Large depth values can return a lot of data and put load on the controller.
+Prefer the <<RemoteaccessAPI-Treeselection,`tree` parameter>> to request only the fields you need.
+
 See `+.../api/+` on your Jenkins server for more up-to-date details.
 
 [[RemoteaccessAPI-PythonAPIwrappers]]
 == Python API wrappers
 
-https://pypi.python.org/pypi/jenkinsapi[JenkinsAPI],
-https://pypi.python.org/pypi/python-jenkins/[Python-Jenkins],
+https://pypi.org/project/jenkinsapi/[JenkinsAPI],
+https://pypi.org/project/python-jenkins/[Python-Jenkins],
 https://pypi.org/project/api4jenkins/[api4jenkins],
 https://pypi.org/project/aiojenkins/[aiojenkins] are
-object-oriented python wrappers for the Python REST API which aim to
-provide a more conventionally pythonic way of controlling a Jenkins server. 
-It provides a higher-level API containing a number of convenience functions. 
-Services offered currently include:
+object-oriented Python wrappers for the Jenkins remote access API which aim to
+provide a more conventionally pythonic way of controlling a Jenkins server.
+They provide higher-level APIs containing a number of convenience functions.
+For example, JenkinsAPI offers:
 
 * Query the test-results of a completed build
 * Get objects representing the latest builds of a job
@@ -220,5 +259,5 @@ date of writing.
 
 To check the version of Jenkins, load the top page or any
 `+.../api/*+` page and check for the `+X-Jenkins+` response header.
-This contains the version number of Jenkins, like "1.404" This is also a
-good way to check if an URL is a Jenkins URL.
+This contains the version number of Jenkins, like "2.479.3". This is also a
+good way to check if a URL is a Jenkins URL.
