@@ -112,4 +112,28 @@ Caused by: sun.security.provider.certpath.SunCertPathBuilderException:
 You may be able to avoid that message with the `-noCertificateCheck` argument to `agent.jar`.
 That will disable server certificate checking from the agent.
 
+== Unix domain sockets
+
+Jenkins can listen on a Unix domain socket instead of a TCP port, which some reverse proxies use to connect to it, such as link:/doc/book/system-administration/reverse-proxy-configuration-with-jenkins/reverse-proxy-configuration-apache/#mod_proxy_unix_sockets[Apache] and link:/doc/book/system-administration/reverse-proxy-configuration-with-jenkins/reverse-proxy-configuration-haproxy/#unix-domain-sockets[HAProxy].
+Squid can't connect to Jenkins this way.
+Squid forwards requests to a `cache_peer`, which is always addressed by a host name and an HTTP port (`cache_peer hostname type http-port icp-port [options]`), and Squid has no option to reach a peer through a Unix domain socket.
+
+When Jenkins is behind Squid, keep Jenkins listening on a TCP port, as in the example above.
+If Squid and Jenkins run on the same host, you can still keep Jenkins off the network by listening on the loopback address only.
+With the Linux packages, set `JENKINS_LISTEN_ADDRESS` with `systemctl edit jenkins`:
+
+[source]
+----
+[Service]
+Environment="JENKINS_LISTEN_ADDRESS=127.0.0.1"
+----
+
+This passes `--httpListenAddress=127.0.0.1` to Jenkins.
+Then point Squid at the same address instead of `localhost`, which may resolve to the IPv6 address `::1`:
+
+[source]
+----
+cache_peer 127.0.0.1 parent 8080 0 originserver name=myAccel
+----
+
 include::doc/book/system-administration/reverse-proxy-configuration-with-jenkins/_context_path.adoc[]
