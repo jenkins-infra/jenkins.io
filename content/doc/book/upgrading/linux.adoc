@@ -1,0 +1,144 @@
+---
+layout: section
+title: Linux
+---
+ifdef::backend-html5[]
+:description:
+:author:
+:sectanchors:
+:toc:
+:toclevels: 4
+:hide-uri-scheme:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+endif::[]
+
+This page explains how to upgrade Jenkins installed from the Jenkins Linux packages, as described in link:/doc/book/installing/linux/[Installing Jenkins on Linux].
+Follow the steps in link:/doc/book/upgrading/#before-upgrading[Before upgrading] first.
+
+== Use the package manager
+
+Upgrade a package installation with the package manager of your operating system (`apt`, `dnf`, or `yum`).
+Do not replace the `jenkins.war` file with a downloaded copy.
+
+The Jenkins package installs `jenkins.war` as `/usr/share/java/jenkins.war`, and that file belongs to the package.
+If you replace it, the package manager still reports the old version, and the next package upgrade overwrites your copy.
+The package also installs the files that start Jenkins, such as the `jenkins` systemd service, and upgrades them together with `jenkins.war`.
+
+When the package is upgraded, the package manager restarts Jenkins if it is running.
+
+== Update the repository signing key
+
+The Jenkins package repositories are signed with a key that is replaced before it expires, every 3 years.
+If your system still has a previous key, the package manager refuses to read the repository, and Jenkins is not upgraded.
+On Debian and Ubuntu, `apt-get update` reports an error like this:
+
+[source]
+----
+W: GPG error: https://pkg.jenkins.io/debian-stable binary/ Release:
+    The following signatures couldn't be verified because the public key is not available:
+        NO_PUBKEY 7198F4B714ABFC68
+E: The repository 'https://pkg.jenkins.io/debian-stable binary/ Release' is not signed.
+----
+
+Install the current key before upgrading.
+The commands below use the key introduced in Jenkins 2.543 and 2.541.1, as announced in link:/blog/2025/12/23/repository-signing-keys-changing/[New Linux Repository Signing Keys].
+The link:/doc/book/installing/linux/[installation guide] always shows the current key.
+
+[#debian-ubuntu-key]
+=== Debian/Ubuntu
+
+The `signed-by` option in `/etc/apt/sources.list.d/jenkins.list` names the key file that `apt` uses for the Jenkins repository.
+Depending on when Jenkins was installed, this is `/etc/apt/keyrings/jenkins-keyring.asc` or `/usr/share/keyrings/jenkins-keyring.asc`.
+Find it with:
+
+[source,bash]
+----
+grep -o 'signed-by=[^] ]*' /etc/apt/sources.list.d/jenkins.list
+----
+
+Then download the current key to that file.
+For example, if the file is `/etc/apt/keyrings/jenkins-keyring.asc` and you use the LTS release:
+
+[source,bash]
+----
+sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+----
+
+For the weekly release, download the key from `https://pkg.jenkins.io/debian/jenkins.io-2026.key` instead.
+
+[#rpm-key]
+=== Fedora, Red Hat Enterprise Linux, and derivatives
+
+Import the current key for the LTS release:
+
+[source,bash]
+----
+sudo rpm --import https://pkg.jenkins.io/rpm-stable/jenkins.io-2026.key
+----
+
+For the weekly release, import `https://pkg.jenkins.io/rpm/jenkins.io-2026.key` instead.
+
+== Upgrade Jenkins
+
+=== Debian/Ubuntu
+
+[source,bash]
+----
+sudo apt-get update
+sudo apt-get install --only-upgrade jenkins
+----
+
+=== Fedora
+
+[source,bash]
+----
+sudo dnf upgrade jenkins
+----
+
+=== Red Hat Enterprise Linux and derivatives
+
+[source,bash]
+----
+sudo yum upgrade jenkins
+----
+
+=== Upgrading to a specific version
+
+These commands upgrade to the newest version in the repository.
+To upgrade to a particular newer version instead, such as an LTS release that is not the newest one, name the version:
+
+[source,bash]
+----
+# Debian/Ubuntu
+sudo apt-get install jenkins=2.580.2
+# Fedora
+sudo dnf install jenkins-2.580.2
+# Red Hat Enterprise Linux and derivatives
+sudo yum install jenkins-2.580.2
+----
+
+The repository you configured determines which versions are available: the LTS repository contains LTS releases, and the weekly repository contains weekly releases.
+To move from one release line to the other, see link:/download/lts/#switching-between-release-lines[Switching Between Release Lines].
+
+== Verify the upgrade
+
+Check that Jenkins is running:
+
+[source,bash]
+----
+sudo systemctl status jenkins
+----
+
+Check the installed package version:
+
+[source,bash]
+----
+# Debian/Ubuntu
+dpkg-query --show jenkins
+# Fedora, Red Hat Enterprise Linux, and derivatives
+rpm -q jenkins
+----
+
+Then follow the steps in link:/doc/book/upgrading/#after-upgrading[After upgrading].
