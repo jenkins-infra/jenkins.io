@@ -125,8 +125,14 @@ def checks(path, spec):
     else:
         size = f"{video['width']}x{video['height']}"
         yield 'frame size', None if size == spec.size else f'{size}, expected {spec.size}'
-        fps = Fraction(video['avg_frame_rate'])
-        yield 'frame rate', None if fps == spec.fps else f'{float(fps):g} fps, expected {float(spec.fps):g}'
+        rate = video.get('avg_frame_rate', '0/0')
+        try:
+            fps = Fraction(rate)
+        except (ValueError, ZeroDivisionError):
+            # ffprobe reports 0/0 when the rate is unknown, e.g. for cover art in an audio file
+            yield 'frame rate', f'unknown ({rate}), expected {float(spec.fps):g}'
+        else:
+            yield 'frame rate', None if fps == spec.fps else f'{float(fps):g} fps, expected {float(spec.fps):g}'
 
     if audio is None:
         yield 'audio stream', 'no audio stream'
