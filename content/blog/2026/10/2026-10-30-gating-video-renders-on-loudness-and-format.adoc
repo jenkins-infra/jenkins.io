@@ -102,9 +102,21 @@ def loudness(path):
     return json.loads(err[err.rindex('{'):err.rindex('}') + 1])
 
 
+def reason(error):
+    """The last line ffprobe or ffmpeg wrote to stderr, or the Python error."""
+    lines = (getattr(error, 'stderr', None) or '').strip().splitlines()
+    return lines[-1] if lines else str(error)
+
+
 def checks(path, spec):
     """Yield (check name, failure message or None) for one file."""
-    info = probe(path)
+    try:
+        info = probe(path)
+    except (subprocess.CalledProcessError, ValueError) as e:
+        # A truncated or unreadable render fails here instead of stopping the run,
+        # so the report is still written and the other files are still checked
+        yield 'readable', f'ffprobe could not read the file: {reason(e)}'
+        return
     video = next((s for s in info['streams'] if s['codec_type'] == 'video'), None)
     audio = next((s for s in info['streams'] if s['codec_type'] == 'audio'), None)
 
@@ -119,7 +131,11 @@ def checks(path, spec):
     if audio is None:
         yield 'audio stream', 'no audio stream'
         return
-    m = loudness(path)
+    try:
+        m = loudness(path)
+    except (subprocess.CalledProcessError, ValueError) as e:
+        yield 'loudness measurement', f'ffmpeg could not measure the audio: {reason(e)}'
+        return
     lufs, peak = float(m['input_i']), float(m['input_tp'])
     off = lufs - spec.lufs
     yield 'integrated loudness', (None if abs(off) <= spec.lufs_tolerance else
@@ -163,11 +179,13 @@ if __name__ == '__main__':
     main()
 ----
 
-Three details about the script:
+Four details about the script:
 
 * The class name is `renders.<file name>` with the dots in the file name replaced, because Jenkins splits class names on dots to build its package and class tree.
   Each render becomes one class on the Tests page, and each check one test inside it.
 * `--fps` takes a fraction as well as a whole number, because ffprobe reports frame rates as fractions: 29.97 fps material is `--fps 30000/1001`.
+* A render that ffprobe can't read, such as a truncated export, becomes one failed `readable` check with ffprobe's error as the message.
+  The script moves on to the next file, so the report is still written and the other renders are still checked.
 * The script exits with status 0 even when checks fail.
   Whether a failed check should stop the pipeline is a decision for the Jenkinsfile, not for the script.
 
@@ -273,7 +291,10 @@ image::/images/post-images/2026/10/render-qa/test-case.png["The integrated loudn
 
 A render that only misses the loudness target can often be fixed without going back to the edit.
 `loudnorm` normalizes in two passes: the first measures, the second applies the gain using those measurements.
-With `linear=true` it applies a single gain to the whole file instead of compressing it, which keeps the mix as it was:
+With `linear=true` the second pass applies one gain to the whole file, which keeps the mix as it was, but only when the measurements allow it.
+The measured loudness range has to be above 0 LU and within the `LRA` target, and the gain can't push the true peak over the `TP` target (the https://github.com/FFmpeg/FFmpeg/blob/n7.1/libavfilter/af_loudnorm.c#L806-L817[conditions in FFmpeg's source]).
+Otherwise `loudnorm` falls back to dynamic normalization, which keeps adjusting the gain as the file plays and so changes the mix.
+Adding `print_format=json` to the second pass shows which of the two it used:
 
 [source,bash]
 ----
@@ -282,14 +303,31 @@ ffmpeg -hide_banner -nostats -i renders/episode-01.mp4 -map 0:a:0 \
   -af loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json -f null -
 
 # second pass: copy the video, normalize the audio with the measured values
-ffmpeg -i renders/episode-01.mp4 -map 0 -c:v copy \
-  -af loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=-4.15:measured_TP=0.05:measured_LRA=0.00:measured_thresh=-14.15:offset=0.05:linear=true \
+mkdir -p fixed
+ffmpeg -hide_banner -nostats -i renders/episode-01.mp4 -map 0 -c:v copy \
+  -af loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=-4.15:measured_TP=0.05:measured_LRA=0.00:measured_thresh=-14.15:offset=0.05:linear=true:print_format=json \
   -ar 48000 -c:a aac -b:a 192k fixed/episode-01.mp4
 ----
 
+The second pass ends with (trimmed):
+
+[source,json]
+----
+{
+	...
+	"output_i" : "-13.95",
+	"output_tp" : "-9.72",
+	"normalization_type" : "dynamic",
+	...
+}
+----
+
+The test render is a steady tone, so its loudness range is 0 LU, and `loudnorm` used dynamic normalization even though the command asked for linear.
+With its last four seconds turned down 6 dB, the same render has a loudness range of 6.1 LU, and the same two passes report `"linear"` for it.
+
 Measured again, the fixed file comes out at -13.95 LUFS with a true peak of -9.68 dBTP, and it passes all four checks.
-If the gain needed to reach the target would push the true peak over the limit, `loudnorm` cannot stay linear and falls back to dynamic normalization, which does change the mix.
-That is a reason to keep the gate even when the pipeline also fixes loudness: re-run the checks on the fixed file, and fail the build if it still misses.
+Keep the gate even when the pipeline also fixes loudness: re-run the checks on the fixed file and fail the build if it still misses.
+If the mix must not change, also fail it when the second pass reports anything other than `"linear"`.
 
 == Where to take it next
 
