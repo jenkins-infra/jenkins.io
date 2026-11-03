@@ -1,6 +1,5 @@
 ---
 layout: section
-wip: true
 ---
 ifdef::backend-html5[]
 :notitle:
@@ -13,32 +12,267 @@ endif::[]
 
 = Managing Tools
 
-
 ////
 Pages to mark as deprecated by this document:
 
 https://wiki.jenkins.io/display/JENKINS/Tool+Auto-Installation
 ////
 
+A **Tool** in Jenkins represents an external build executable or SDK—such as a Java Development Kit (JDK), Apache Maven, Apache Ant, Git, or Gradle—required by jobs and Pipelines to build, test, and package software projects.
 
-== Built-in tool providers
+Jenkins manages tools through a centralized configuration located under **Manage Jenkins** > **Tools** (historically named *Global Tool Configuration*).
+This page allows administrators to define available tools once and reference them across any number of Pipeline scripts or Freestyle jobs by name.
 
-////
-Q: Are tool provides which use the "install automatically" checkbox
-automatically installed when a new agent comes online? Or is it when they are
-referenced?
-////
+Because jobs refer to tools by name rather than by local filesystem path, the same job can run on different agents and operating systems.
+Each agent still needs a valid location for the tool: either an auto-installer provisions it, or a pre-installed tool's home is correct for that agent, overridden per agent where necessary (see <<Overriding Tool Locations per Agent>>).
 
-=== Ant
+== Tool Configuration Approaches
 
-==== Ant build step
+When configuring a tool in Jenkins, administrators typically choose between two approaches:
+
+Pre-installed Tools::
+The tool is manually or automatically installed on the agent operating system (or built into the container image) prior to running builds.
+The administrator defines the tool in Jenkins by providing the filesystem path to the tool directory (for example, `/usr/lib/jvm/temurin-21` or `C:\Program Files\Eclipse Adoptium\jdk-21`).
+Some tool providers, such as Git, also accept an executable name instead of a directory: if the executable resides on the agent system `PATH`, configuring the command name directly (such as `git`) suffices.
+Tool types that expect an installation directory, such as JDK, Maven, and Ant, require the path to that directory; entering a command name like `java` or `mvn` results in an invalid tool home.
+The home configured under **Manage Jenkins** > **Tools** is a default used on every agent; agents where the tool is installed elsewhere (for example, Windows agents alongside Linux agents) need a per-agent **Tool Locations** override.
+
+Tool Auto-Installation::
+Jenkins provisions the tool on demand, on the agent, when a build requiring that tool executes, either by downloading and unpacking an archive or by running an installation command.
+Administrators enable this by selecting the **Install automatically** checkbox for the tool.
+
+== How Tool Auto-Installation Works
+
+Tool auto-installation simplifies agent management in heterogeneous or expanding Jenkins environments.
+Rather than requiring system administrators to pre-configure identical tool chains across all physical and virtual machines, Jenkins provisions tools dynamically as needed.
+
+=== On-Demand Execution
+
+Tool auto-installation runs *lazily* when a build step or Pipeline references the tool, not when an agent first connects to the controller.
+When an agent starts a build requiring a tool:
+
+1. If the agent defines a **Tool Locations** override for the tool (see <<Overriding Tool Locations per Agent>>), Jenkins uses that home and does not run the installer.
+Otherwise, Jenkins goes through the installers configured for the tool (see <<Restricting Installers to Specific Agents>>) and runs the first one that applies to the agent.
+2. The installer works in a directory under `<remote-fs-root>/tools/` on the agent.
+If the tool's home field is left empty, this is `tools/<tool-type-id>/<tool-name>`, with characters other than letters, digits, `.`, `+_+`, and `-` replaced by `+_+` (for example, `tools/hudson.tasks.Maven_MavenInstallation/Maven_3.10.0`).
+If a home is entered while **Install automatically** is selected, the installer uses that path instead, resolving a relative path against the `tools` directory.
+3. How much work the installer repeats depends on its type:
+** The **Extract {asterisk}.zip/{asterisk}.tar.gz** installer downloads and unpacks the archive only when needed.
+It sends a conditional request using the timestamp or ETag stored from the previous installation, and skips the download if the archive is unchanged.
+If the download location cannot be reached but the tool directory already exists, Jenkins keeps the existing installation.
+** The **Run Shell Command** and **Run Batch Command** installers have no such check.
+Jenkins runs the command every time the tool is resolved, so write these scripts to be idempotent (for example, by testing whether the tool is already present before installing it).
+4. Once completed, Jenkins resolves the tool home to the newly installed tool directory.
++
+Whether environment variables (such as `PATH`, `JAVA_HOME`, or `M2_HOME`) are then set depends on how the tool is referenced: the Declarative Pipeline `tools` directive and tool-aware build steps or wrappers set them, while the Scripted Pipeline `tool` step only returns the tool home (see <<Scripted Pipeline>>).
+5. Subsequent builds on the same agent that reference the same tool reuse an unchanged archive installation without unpacking it again; command installers run again, as described above.
+
+[NOTE]
+====
+Archive installers need network access to the download location (such as vendor mirrors or internal enterprise repository managers).
+Jenkins first tries to download the archive from the agent machine.
+If that fails, it downloads the archive on the controller and transfers it to the agent, so the controller also needs access to the download location.
+If your environment has no direct internet access, configure an internal HTTP proxy or mirror repository for installer downloads.
+====
+
+== Common Tool Providers
+
+Jenkins core provides the JDK and Maven tool types.
+Other tool types are contributed by plugins: the Git tool type comes from the plugin:git-client[Git client plugin], and the Ant tool type comes from the plugin:ant[Ant plugin].
+Additional tool types (such as NodeJS, Go, Rust, or Gradle) are likewise made available by installing their respective plugins.
+
+=== JDK (Java Development Kit)
+
+The JDK tool provider configures Java development environments for jobs and builds:
+
+* **Name**: The logical identifier used in Pipelines (for example, `JDK 21` or `temurin-17`).
+* **JAVA_HOME**: The filesystem path to the Java installation directory on agents where Java is pre-installed.
+* **Install automatically**: When enabled, Jenkins can automatically download and unpack JDK releases.
+Jenkins core does not include a JDK-specific downloader.
+Install the link:https://plugins.jenkins.io/adoptopenjdk/[Eclipse Temurin installer plugin] to get the **Install from adoptium.net** installer, or use the generic installers described in <<Custom Installers and Techniques>>, for example to extract a JDK archive (`.tar.gz` or `.zip`) from an internal repository.
+
+When a JDK is referenced through the Declarative `tools` directive or selected in a Freestyle job, Jenkins sets the `JAVA_HOME` environment variable and prepends `$JAVA_HOME/bin` (or `%JAVA_HOME%\bin` on Windows) to the execution `PATH`.
+The Scripted Pipeline `tool` step only returns the JDK home, so these variables must be set explicitly (for example, with `withEnv`).
 
 === Git
 
-////
-Q: how does this integrate with the Git plugin
-////
+The Git tool provider, contributed by the plugin:git-client[Git client plugin], manages Git client binaries used for source code checkouts:
 
-=== JDK
+* **Name**: The logical identifier (such as `Default` or `Git 2.45`).
+* **Path to Git executable**: The command name (such as `git` if available on the system `PATH`) or an absolute path (such as `/usr/local/bin/git` or `C:\Program Files\Git\bin\git.exe`).
+* **Install automatically**: The Git client plugin does not provide a Git-specific downloader, so use the generic installers described in <<Custom Installers and Techniques>> for agent environments that lack a pre-installed Git client.
+For example, to install link:https://gitforwindows.org/mingit[MinGit for Windows] with the **Extract {asterisk}.zip/{asterisk}.tar.gz** installer:
+** Set **Path to Git executable** to `git`, which is used on agents where the installer does not apply.
+** Set **Download URL for binary archive** to a MinGit 64-bit `.zip` archive, preferably a copy hosted on your own server.
+** Set **Subdirectory of extracted archive** to `cmd\git.exe`, so that the tool home resolves to the Git executable rather than to a directory.
+Older instructions use `mingw64\bin\git.exe`, but MinGit 2.56.0 and later no longer contain that directory, while `cmd\git.exe` is present in both older and current releases.
+** Set **Label** to an expression that matches only Windows agents (for example, `windows`).
+
+The Jenkins link:https://plugins.jenkins.io/git/[Git plugin] automatically uses the selected Git tool for repository cloning and fetch operations.
+
+[NOTE]
+====
+With MinGit 2.56.0 and later, checkouts that use Git LFS fail unless `git-lfs.exe` is on the agent's system `PATH` (see link:https://github.com/jenkinsci/git-plugin/issues/4007[git-plugin issue 4007]).
+====
 
 === Maven
+
+The Maven tool provider manages link:https://maven.apache.org/[Apache Maven] installations:
+
+* **Name**: The logical identifier (for example, `Maven 3.10.0`).
+* **MAVEN_HOME**: The filesystem path to an existing Maven installation directory on agents.
+* **Install automatically**: When selected, administrators can choose to **Install from Apache**, which presents a dropdown of official Apache Maven versions.
+Jenkins automatically downloads the official release binaries from Apache mirrors and unpacks them on the agent.
+
+When Maven is referenced through the Declarative `tools` directive or a Maven build step, Jenkins sets `M2_HOME` and `MAVEN_HOME` and adds the Maven `bin` directory to `PATH`.
+With the Scripted Pipeline `tool` step, only the Maven home is returned, as shown in the <<Scripted Pipeline>> example below.
+
+=== Ant
+
+The Ant tool provider, contributed by the link:https://plugins.jenkins.io/ant/[Ant plugin], manages link:https://ant.apache.org/[Apache Ant] installations:
+
+* **Name**: The logical identifier (for example, `Ant 1.10`).
+* **ANT_HOME**: The filesystem path to an existing Ant installation directory.
+* **Install automatically**: Allows choosing **Install from Apache** to automatically download and unpack Ant distributions from Apache mirrors.
+
+The Ant tool integrates directly with the **Invoke Ant** build step in Freestyle projects and can be invoked from Pipeline scripts.
+
+== Custom Installers and Techniques
+
+When using **Install automatically**, administrators can attach one or more installer mechanisms to a tool configuration.
+
+=== Extract *.zip / *.tar.gz
+
+This generic installer downloads an archive from a specified URL and unpacks it into the tool directory:
+
+* **Download URL for binary archive**: The HTTP or HTTPS URL hosting the archive file (`.zip`, `.tar.gz`, or `.tgz`).
+* **Subdirectory of extracted archive**: Optional path to the root of the tool within the archive if the contents are nested inside an extra top-level folder.
+
+This installer is ideal for installing vendor SDKs, command-line utilities, and custom corporate packages distributed through internal artifact repositories such as Nexus or Artifactory.
+
+=== Run Shell Command / Batch Command
+
+This installer executes a command or script directly on the agent to install or build the tool:
+
+* **Run Shell Command**: Runs a shell script on POSIX-compliant agents (Linux, macOS, Unix).
+* **Run Batch Command**: Runs a Windows batch script on Windows agents.
+
+Both installers have the same fields:
+
+* **Command**: The script to run.
+It runs with the tool directory (see <<On-Demand Execution>>) as its working directory, and a non-zero exit status fails the installation.
+* **Tool Home**: The directory, relative to the tool directory, that the command leaves the tool in.
+Jenkins uses this as the tool home.
+* **Label**: The agents this installer applies to (see <<Restricting Installers to Specific Agents>>).
+
+Jenkins does not limit these installers to an operating system by itself.
+An unlabeled **Run Shell Command** installer also applies to Windows agents, where it fails, so give each command installer a label that matches only the agents it supports.
+
+[TIP]
+====
+Shell and batch installers are useful when tool installation requires registering system dependencies, compiling from source, or calling system package managers (for example, `apt-get`, `dnf`, or `brew`).
+====
+
+== Restricting Installers to Specific Agents
+
+In heterogeneous environments containing different operating systems and CPU architectures (such as Linux x86_64, Linux ARM64, Windows, and macOS), a single binary archive or shell script cannot run across all nodes.
+
+To address this, Jenkins allows attaching multiple installers to a single tool definition and restricting each installer with a label expression:
+
+1. Click **Add Installer** under the tool definition.
+2. In the installer configuration, locate the **Label** field (for the **Extract {asterisk}.zip/{asterisk}.tar.gz** installer, it is under the advanced options).
+3. Enter the label expression that target agents must match (for example, `linux && x86_64`, `windows`, or `macos`).
+4. Add another installer under the same tool with a different label expression (for example, `linux && arm64`) pointing to the corresponding architecture-specific package.
+
+When an agent executes a build requiring that tool, Jenkins evaluates the installers in the order they are listed, and runs only the first installer that applies to that agent.
+An installer applies if it has no label, or if its label expression matches the agent.
+Later installers are not run, even if they also match.
+Because of this, place more specific label expressions before general ones, and put an installer without a label last, as a fallback.
+If no installer applies, Jenkins logs that the tool cannot be installed on that agent.
+
+Label-restricted installers cover auto-installed tools.
+For pre-installed tools whose path differs between agents, use the per-agent **Tool Locations** property described below instead.
+
+== Overriding Tool Locations per Agent
+
+The home configured for a pre-installed tool under **Manage Jenkins** > **Tools** is a single default path.
+When an agent has the tool installed at a different location, override the home for that agent:
+
+1. Navigate to **Manage Jenkins** > **Nodes**, select the agent (or the built-in node), and click **Configure**.
+2. Under **Node Properties**, check **Tool Locations**.
+3. Click **Add**, select the tool from the **Name** dropdown (listed as the tool type followed by the tool name), and enter the tool home on that agent in the **Home** field (for example, `C:\Program Files\Eclipse Adoptium\jdk-21`).
+4. Save the agent configuration.
+
+Builds on that agent then resolve the tool to the overridden home, while other agents continue to use the default.
+An override also takes precedence over any configured installers for that tool on that agent.
+Jenkins reads the override only from the node's own configuration.
+Although **Tool Locations** is also offered under the global properties in **Manage Jenkins** > **System**, an entry there is not used when resolving tool homes, so configure it on each node that needs it.
+
+== Using Tools in Pipelines and Jobs
+
+Once defined under **Manage Jenkins** > **Tools**, tools can be referenced across all build types.
+
+=== Declarative Pipeline
+
+In Declarative Pipeline, tools are declared within the `tools` directive, either globally at the pipeline level or within specific stages:
+
+[source,groovy]
+----
+pipeline {
+    agent any
+    tools {
+        maven 'Maven 3.10.0'
+        jdk 'temurin-21'
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn --version'
+                sh 'mvn clean package'
+            }
+        }
+    }
+}
+----
+
+=== Scripted Pipeline
+
+In Scripted Pipeline, the `tool` step retrieves the filesystem path where the tool is installed, allowing you to update environment variables within a `withEnv` block:
+
+[source,groovy]
+----
+node('linux') {
+    stage('Build') {
+        def mvnHome = tool name: 'Maven 3.10.0', type: 'maven'
+        withEnv(["PATH+MAVEN=${mvnHome}/bin"]) {
+            sh 'mvn clean install'
+        }
+    }
+}
+----
+
+=== Freestyle Jobs
+
+In Freestyle jobs, configured tools appear in configuration dropdown menus:
+
+* In the **General** section, select a JDK for the project from the **JDK** dropdown.
+This dropdown appears only when more than one JDK is configured.
+Its default option, **(System)**, selects no JDK, so the build uses whatever Java is already available on the agent.
+When exactly one JDK is configured, the dropdown is hidden, and projects that do not name a JDK use that single configured JDK.
+* In the **Build Environment** section, select **With Ant** (provided by the link:https://plugins.jenkins.io/ant/[Ant plugin]) to set up the environment variables of the selected Ant installation, and optionally a JDK, for the build.
+* In build steps like **Invoke top-level Maven targets** or **Invoke Ant** (Ant plugin), select the desired tool version from the **Maven Version** or **Ant Version** dropdown.
+
+== Best Practices and Operational Considerations
+
+Disk Space Management::
+Automatic tool installations persist in `<remote-fs-root>/tools/` on agents.
+Over time, as tool versions are upgraded, older tool versions may accumulate.
+Regularly monitor agent disk usage or establish agent cleanup procedures.
+
+Ephemeral and Containerized Agents::
+When using dynamic, ephemeral agents (such as containers created via the Kubernetes plugin or Docker plugin), dynamic auto-installation must download tools on every fresh container launch.
+For containerized builds, it is generally recommended to bake required tools directly into the custom agent container image and register them as pre-installed tools to minimize build startup overhead.
+
+Proxy and Mirror Configuration::
+If neither your build agents nor the controller have direct internet access, ensure an HTTP proxy is configured, or host tool archives on an internal web server or binary repository manager.
+Jenkins downloads archives on the agent when it can, and otherwise on the controller, so both should be able to reach the mirror.
