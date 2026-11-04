@@ -2,7 +2,7 @@ module IdGenerator
   def text_to_id(text, prepend: "", delimiter: "-")
     id = text.downcase.strip
     id = "#{prepend} #{id}" unless prepend.empty?
-    id = id.gsub(/\s/, delimiter).strip
+    id = id.gsub(/\s+/, delimiter).strip
     id = id.delete_prefix(delimiter).delete_suffix(delimiter).strip
     id
   end
@@ -14,6 +14,7 @@ module IdGenerator
       [["Willie Nelson"], "willie-nelson"],
       [["Willie Nelson", prepend:"prepend"], "prepend-willie-nelson"],
       [["Willie Nelson", prepend:"prepend",delimiter: "$"], "prepend$willie$nelson"],
+      [["Jenkins   Artwork"], "jenkins-artwork"],
     ]
 
     tests.each do |params, expected|
