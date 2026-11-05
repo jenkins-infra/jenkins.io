@@ -93,7 +93,7 @@ class Fetcher
     end
     begin
       conn.get(origin)
-    rescue Faraday::Error => e
+    rescue Faraday::ConnectionFailed, Faraday::TimeoutError => e
       if retries > 0
         retries -= 1
         sleep 1
@@ -137,41 +137,48 @@ class Fetcher
         next
       end
 
+      content = nil
+      if origin.end_with?('.csv') && destination.end_with?('.yml')
+        puts "Converting CSV to YAML"
+        begin
+          csv_data = CSV.parse(response.body, headers: true, liberal_parsing: true).map(&:to_h)
+          if csv_data.empty?
+            puts "Warning: CSV data is empty, nothing to convert."
+            content = ''
+          else
+            cleaned_data = clean_data(csv_data)
+            content = cleaned_data.to_yaml
+          end
+        rescue CSV::MalformedCSVError => e
+          puts "ERROR: Failed to parse CSV from #{origin}: #{e.message}"
+          FileUtils.rm_f(destination)
+          failures << [response, origin]
+          next
+        end
+      elsif destination.include?(".yml")
+        puts "Converting JSON to YAML"
+        begin
+          json_data = JSON.parse(response.body)
+          content = YAML.dump(json_data)
+        rescue JSON::ParserError => e
+          puts "ERROR: Failed to parse JSON from #{origin}: #{e.message}"
+          FileUtils.rm_f(destination)
+          failures << [response, origin]
+          next
+        end
+      else
+        content = response.body
+      end
+
       FileUtils.mkdir_p File.dirname(destination)
 
+      puts "Writing #{destination}"
       File.open(destination, 'w+') do |f|
         if frontmatter
           f.write(frontmatter.to_yaml)
           f.write("---\n")
         end
-
-        puts "Writing #{destination}"
-        if origin.end_with?('.csv') && destination.end_with?('.yml')
-          puts "Converting CSV to YAML"
-          begin
-            csv_data = CSV.parse(response.body, headers: true, liberal_parsing: true).map(&:to_h) 
-            if csv_data.empty?
-              puts "Warning: CSV data is empty, nothing to convert."
-            else
-              cleaned_data = clean_data(csv_data)
-              f.write(cleaned_data.to_yaml)
-            end
-          rescue CSV::MalformedCSVError => e
-            puts "ERROR: Failed to parse CSV from #{origin}: #{e.message}"
-            failures << [response, origin]
-          end
-        elsif destination.include?(".yml")
-          puts "Converting JSON to YAML"
-          begin
-            json_data = JSON.parse(response.body)
-            f.write(YAML.dump(json_data)) 
-          rescue JSON::ParserError => e
-            puts "ERROR: Failed to parse JSON from #{origin}: #{e.message}"
-            failures << [response, origin]
-          end
-        else
-          f.write(response.body)
-        end
+        f.write(content)
       end
 
       #if downloading a zip file, extract it
