@@ -84,11 +84,23 @@ class Fetcher
   # This abstraction exists so more behaviors (caching, etc) can be injected
   # into the fetching of specific resources themeslves
   def fetch_resource(origin)
-    conn = Faraday.new(:ssl => {:verify => false}) do |f|
+    retries = 2
+    conn = Faraday.new(:ssl => {:verify => true}) do |f|
+      f.options.timeout = 30
+      f.options.open_timeout = 10
       f.use Faraday::FollowRedirects::Middleware, limit: 5
       f.adapter Faraday.default_adapter
     end
-    return conn.get(origin)
+    begin
+      conn.get(origin)
+    rescue Faraday::ConnectionFailed, Faraday::TimeoutError => e
+      if retries > 0
+        retries -= 1
+        sleep 1
+        retry
+      end
+      raise
+    end
   end
 
   # Cleans the CSV data by removing double quotes (""), single quotes ('), and extra spaces.
@@ -112,42 +124,61 @@ class Fetcher
     puts "Fetching external resources:"
 
     resources.each do |origin, destination, frontmatter, zip_dest|
-      response = fetch_resource(origin)
+      begin
+        response = fetch_resource(origin)
+      rescue Faraday::Error => e
+        puts "ERROR: Failed to fetch #{origin}: #{e.message}"
+        failures << [nil, origin]
+        next
+      end
 
       unless response.success?
         failures << [response, origin]
         next
       end
 
+      content = nil
+      if origin.end_with?('.csv') && destination.end_with?('.yml')
+        puts "Converting CSV to YAML"
+        begin
+          csv_data = CSV.parse(response.body, headers: true, liberal_parsing: true).map(&:to_h)
+          if csv_data.empty?
+            puts "Warning: CSV data is empty, nothing to convert."
+            content = ''
+          else
+            cleaned_data = clean_data(csv_data)
+            content = cleaned_data.to_yaml
+          end
+        rescue CSV::MalformedCSVError => e
+          puts "ERROR: Failed to parse CSV from #{origin}: #{e.message}"
+          FileUtils.rm_f(destination)
+          failures << [response, origin]
+          next
+        end
+      elsif destination.include?(".yml")
+        puts "Converting JSON to YAML"
+        begin
+          json_data = JSON.parse(response.body)
+          content = YAML.dump(json_data)
+        rescue JSON::ParserError => e
+          puts "ERROR: Failed to parse JSON from #{origin}: #{e.message}"
+          FileUtils.rm_f(destination)
+          failures << [response, origin]
+          next
+        end
+      else
+        content = response.body
+      end
+
       FileUtils.mkdir_p File.dirname(destination)
 
+      puts "Writing #{destination}"
       File.open(destination, 'w+') do |f|
         if frontmatter
           f.write(frontmatter.to_yaml)
           f.write("---\n")
         end
-
-        puts "Writing #{destination}"
-        if origin.end_with?('.csv') && destination.end_with?('.yml')
-          puts "Converting CSV to YAML"
-          begin
-            csv_data = CSV.parse(response.body, headers: true, liberal_parsing: true).map(&:to_h) 
-            if csv_data.empty?
-              puts "Warning: CSV data is empty, nothing to convert."
-            else
-              cleaned_data = clean_data(csv_data)
-              f.write(cleaned_data.to_yaml)
-            end
-          end
-        elsif destination.include?(".yml")
-          puts "Converting JSON to YAML"
-          begin
-            json_data = JSON.parse(response.body)
-            f.write(YAML.dump(json_data)) 
-          end
-        else
-          f.write(response.body)
-        end
+        f.write(content)
       end
 
       #if downloading a zip file, extract it
@@ -155,11 +186,16 @@ class Fetcher
         puts "Unzipping to #{zip_dest}"
         Zip.on_exists_proc = true
 
-        FileUtils.mkdir_p zip_dest
+        dest_dir = File.expand_path(zip_dest)
+        FileUtils.mkdir_p dest_dir
 
         Zip::File.open(destination) do |zip_file|
           zip_file.each do |f|
             fpath = File.join(zip_dest, f.name)
+            real_path = File.expand_path(fpath)
+            unless real_path == dest_dir || real_path.start_with?(dest_dir + File::SEPARATOR)
+              raise "Zip entry #{f.name} would extract outside #{zip_dest}"
+            end
             FileUtils.mkdir_p(File.dirname(fpath))
             zip_file.extract(f, fpath)
           end
