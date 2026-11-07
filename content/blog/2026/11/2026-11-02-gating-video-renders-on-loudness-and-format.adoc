@@ -1,0 +1,347 @@
+---
+layout: post
+title: "Gating Video Renders on Loudness and Format in a Jenkins Pipeline"
+tags:
+- pipeline
+- junit
+- ffmpeg
+- media
+authors:
+- markksantos
+description: "Measure every rendered video with FFmpeg, report each check as a JUnit test, and stop the pipeline before a render that is too loud or the wrong size gets published."
+opengraph:
+  image: /images/post-images/2026/11/render-qa/test-case.png
+---
+
+A video render can be wrong while the job that made it is green.
+The encoder exits with status 0, the file plays, and nobody notices that the audio sits 10 LU above the delivery target or that the teaser was exported at 720p and 25 fps instead of 1080p and 30 fps.
+Those problems turn up after publishing, when they are the most expensive to fix.
+
+Jenkins already has a good model for "the build finished, but something in it is wrong": test results.
+This post treats each delivery requirement as a test.
+A small script measures every render with FFmpeg, writes the results as JUnit XML, and the pipeline refuses to publish when any check fails.
+The Tests page then shows exactly which file failed which check, and by how much.
+
+== What to check
+
+Delivery specs vary, but most of them pin down the same few numbers:
+
+* *Frame size and frame rate.* `ffprobe` reads both from the file's metadata, so these checks cost almost nothing.
+* *Integrated loudness*, in LUFS, measured over the whole program as defined by link:https://tech.ebu.ch/docs/r/r128.pdf[EBU R 128] and link:https://www.itu.int/rec/R-REC-BS.1770[ITU-R BS.1770].
+  A target of -14 LUFS is common for online video; EBU R 128 broadcast delivery uses -23 LUFS.
+  The script below takes the target as a parameter.
+* *True peak*, in dBTP. EBU R 128 allows at most -1 dBTP, which leaves headroom for the lossy encoding that happens after delivery.
+
+FFmpeg measures loudness with its link:https://ffmpeg.org/ffmpeg-filters.html#loudnorm[`loudnorm` filter].
+With `-f null` nothing is written: the filter decodes the audio, measures it, and prints what it measured as JSON:
+
+[source,bash]
+----
+ffmpeg -hide_banner -nostats -i renders/episode-01.mp4 -map 0:a:0 \
+  -af loudnorm=print_format=json -f null -
+----
+
+Near the end of its output it prints (trimmed):
+
+[source,json]
+----
+{
+	"input_i" : "-4.15",
+	"input_tp" : "0.05",
+	"input_lra" : "0.00",
+	"input_thresh" : "-14.15",
+	...
+}
+----
+
+`input_i` is the integrated loudness and `input_tp` the true peak of the file as it is.
+This one is almost 10 LU too loud for a -14 LUFS target, and its peaks go above full scale.
+
+== Report each check as a JUnit test
+
+The checker script, `qa/qa_render.py`, uses only the Python standard library plus the `ffmpeg` and `ffprobe` binaries.
+For every file it runs four checks and writes one `<testcase>` per check, with a `<failure>` element that carries the measured value when the check fails:
+
+[source,python]
+----
+#!/usr/bin/env python3
+"""Check rendered videos against a delivery spec and write the results as JUnit XML.
+
+Every file gets one test case per check, so Jenkins shows a failed check the same
+way it shows a failed unit test. The script exits 0 even when checks fail: the
+Jenkinsfile decides what a failure means for the build.
+
+Usage:
+  qa_render.py --junit qa-results.xml [--lufs -14] [--lufs-tolerance 1]
+               [--max-true-peak -1] [--size 1920x1080] [--fps 30000/1001] FILE...
+"""
+import argparse
+import json
+import subprocess
+import time
+from fractions import Fraction
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+
+def probe(path):
+    out = subprocess.run(
+        ['ffprobe', '-v', 'error', '-print_format', 'json',
+         '-show_streams', '-show_format', str(path)],
+        capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+def loudness(path):
+    # The first pass of FFmpeg's loudnorm filter measures the EBU R 128 values
+    # (integrated loudness, true peak, loudness range) and prints them as JSON.
+    err = subprocess.run(
+        ['ffmpeg', '-hide_banner', '-nostats', '-i', str(path), '-map', '0:a:0',
+         '-af', 'loudnorm=print_format=json', '-f', 'null', '-'],
+        capture_output=True, text=True, check=True).stderr
+    return json.loads(err[err.rindex('{'):err.rindex('}') + 1])
+
+
+def reason(error):
+    """The last line ffprobe or ffmpeg wrote to stderr, or the Python error."""
+    lines = (getattr(error, 'stderr', None) or '').strip().splitlines()
+    return lines[-1] if lines else str(error)
+
+
+def checks(path, spec):
+    """Yield (check name, failure message or None) for one file."""
+    try:
+        info = probe(path)
+    except (subprocess.CalledProcessError, ValueError) as e:
+        # A truncated or unreadable render fails here instead of stopping the run,
+        # so the report is still written and the other files are still checked
+        yield 'readable', f'ffprobe could not read the file: {reason(e)}'
+        return
+    video = next((s for s in info['streams'] if s['codec_type'] == 'video'), None)
+    audio = next((s for s in info['streams'] if s['codec_type'] == 'audio'), None)
+
+    if video is None:
+        yield 'video stream', 'no video stream'
+    else:
+        size = f"{video['width']}x{video['height']}"
+        yield 'frame size', None if size == spec.size else f'{size}, expected {spec.size}'
+        rate = video.get('avg_frame_rate', '0/0')
+        try:
+            fps = Fraction(rate)
+        except (ValueError, ZeroDivisionError):
+            # ffprobe reports 0/0 when the rate is unknown, e.g. for cover art in an audio file
+            yield 'frame rate', f'unknown ({rate}), expected {float(spec.fps):g}'
+        else:
+            yield 'frame rate', None if fps == spec.fps else f'{float(fps):g} fps, expected {float(spec.fps):g}'
+
+    if audio is None:
+        yield 'audio stream', 'no audio stream'
+        return
+    try:
+        m = loudness(path)
+    except (subprocess.CalledProcessError, ValueError) as e:
+        yield 'loudness measurement', f'ffmpeg could not measure the audio: {reason(e)}'
+        return
+    lufs, peak = float(m['input_i']), float(m['input_tp'])
+    off = lufs - spec.lufs
+    yield 'integrated loudness', (None if abs(off) <= spec.lufs_tolerance else
+                                  f'{lufs:.1f} LUFS, target {spec.lufs:g} ± {spec.lufs_tolerance:g} LU ({off:+.1f} LU)')
+    yield 'true peak', None if peak <= spec.max_true_peak else f'{peak:.1f} dBTP, max {spec.max_true_peak:g} dBTP'
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('files', nargs='+', type=Path)
+    ap.add_argument('--junit', required=True, type=Path, help='where to write the JUnit XML report')
+    ap.add_argument('--lufs', type=float, default=-14.0, help='integrated loudness target (default -14)')
+    ap.add_argument('--lufs-tolerance', type=float, default=1.0, help='allowed distance from the target in LU (default 1)')
+    ap.add_argument('--max-true-peak', type=float, default=-1.0, help='highest allowed true peak in dBTP (default -1)')
+    ap.add_argument('--size', default='1920x1080', help='expected frame size (default 1920x1080)')
+    ap.add_argument('--fps', type=Fraction, default=Fraction(30), help='expected frame rate, e.g. 25 or 30000/1001 (default 30)')
+    spec = ap.parse_args()
+
+    suite = ET.Element('testsuite', name='render-qa')
+    tests = failures = 0
+    for path in spec.files:
+        last = time.monotonic()
+        for name, problem in checks(path, spec):
+            now = time.monotonic()
+            # Jenkins splits class names on dots, so keep the file name in one piece
+            case = ET.SubElement(suite, 'testcase', classname='renders.' + path.name.replace('.', '_'),
+                                 name=name, time=f'{now - last:.2f}')
+            last = now
+            tests += 1
+            if problem:
+                failures += 1
+                ET.SubElement(case, 'failure', message=problem).text = f'{path}: {problem}'
+            print(f"{'FAIL' if problem else 'ok  '} {path.name}: {name}" + (f' ({problem})' if problem else ''))
+    suite.set('tests', str(tests))
+    suite.set('failures', str(failures))
+    ET.ElementTree(suite).write(spec.junit, encoding='utf-8', xml_declaration=True)
+    print(f'{failures} of {tests} checks failed')
+
+
+if __name__ == '__main__':
+    main()
+----
+
+Four details about the script:
+
+* The class name is `renders.<file name>` with the dots in the file name replaced, because Jenkins splits class names on dots to build its package and class tree.
+  Each render becomes one class on the Tests page, and each check one test inside it.
+* `--fps` takes a fraction as well as a whole number, because ffprobe reports frame rates as fractions: 29.97 fps material is `--fps 30000/1001`.
+* A render that ffprobe can't read, such as a truncated export, becomes one failed `readable` check with ffprobe's error as the message.
+  The script moves on to the next file, so the report is still written and the other renders are still checked.
+* The script exits with status 0 even when checks fail.
+  Whether a failed check should stop the pipeline is a decision for the Jenkinsfile, not for the script.
+
+== The Jenkinsfile
+
+[source,groovy]
+----
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'TARGET_LUFS', defaultValue: '-14', description: 'Integrated loudness target in LUFS')
+    }
+
+    environment {
+        // params holds the default even on a job's first build, before Jenkins knows the job has parameters
+        LUFS = "${params.TARGET_LUFS}"
+    }
+
+    stages {
+        stage('Render') {
+            steps {
+                // Your existing render step goes here. It should leave the deliverables in renders/.
+                echo 'Rendering...'
+            }
+        }
+
+        stage('QA') {
+            steps {
+                // Single quotes: the shell expands $LUFS, Groovy doesn't interpolate it
+                sh 'python3 qa/qa_render.py --lufs "$LUFS" --junit qa-results.xml renders/*.mp4'
+                script {
+                    def qa = junit testResults: 'qa-results.xml'
+                    if (qa.failCount > 0) {
+                        error "${qa.failCount} of ${qa.totalCount} render checks failed"
+                    }
+                }
+            }
+        }
+
+        stage('Publish') {
+            steps {
+                archiveArtifacts artifacts: 'renders/*.mp4', fingerprint: true
+            }
+        }
+    }
+}
+----
+
+The `junit` step records the report, so the build gets a Tests page and the job gets a test trend chart.
+On its own, though, `junit` only marks the build `UNSTABLE` when tests fail, and the `Publish` stage would still run.
+The step also returns a summary of what it recorded, with counts such as `failCount` and `totalCount`.
+Checking `failCount` and calling `error` turns a failed check into a failed stage, so `Publish` is skipped and nothing that failed QA gets archived or uploaded.
+
+The target loudness is a build parameter, so the same pipeline can check a broadcast deliverable at -23 LUFS.
+It reaches the script by a slightly roundabout route, for two reasons:
+
+* Jenkins exposes build parameters as environment variables, but not on a job's first build: until that build has run the `parameters` directive, Jenkins doesn't know the job takes parameters, and `$TARGET_LUFS` is empty.
+  The `params` map already holds the declared default on that first build, so the `environment` block copies it into `LUFS`, which is set on every build.
+* The `sh` step uses single quotes, so the shell expands `$LUFS` and Groovy doesn't interpolate it.
+  That keeps parameter values out of Groovy string interpolation, which would paste them unchecked into the shell command line.
+
+== What a failing build looks like
+
+Here are three renders: `intro.mp4` meets the spec, `episode-01.mp4` is too loud, and `teaser.mp4` was exported at the wrong size and frame rate.
+The console output of the `QA` stage:
+
+[source]
+----
++ python3 qa/qa_render.py --lufs -14 --junit qa-results.xml renders/episode-01.mp4 renders/intro.mp4 renders/teaser.mp4
+ok   episode-01.mp4: frame size
+ok   episode-01.mp4: frame rate
+FAIL episode-01.mp4: integrated loudness (-4.2 LUFS, target -14 ± 1 LU (+9.8 LU))
+FAIL episode-01.mp4: true peak (0.1 dBTP, max -1 dBTP)
+ok   intro.mp4: frame size
+ok   intro.mp4: frame rate
+ok   intro.mp4: integrated loudness
+ok   intro.mp4: true peak
+FAIL teaser.mp4: frame size (1280x720, expected 1920x1080)
+FAIL teaser.mp4: frame rate (25 fps, expected 30)
+ok   teaser.mp4: integrated loudness
+ok   teaser.mp4: true peak
+4 of 12 checks failed
+[Pipeline] junit
+Recording test results
+[Pipeline] error
+...
+Stage "Publish" skipped due to earlier failure(s)
+...
+ERROR: 4 of 12 render checks failed
+Finished: FAILURE
+----
+
+The build ends as `FAILURE`, the `Publish` stage is skipped, and the Tests page lists the four failed checks under the two renders that failed them, with the measured values as the error messages.
+
+image::/images/post-images/2026/11/render-qa/tests.png["Tests page of the failed build: 12 tests, 4 failed, listed by check and render",width=800]
+
+Opening a failed check shows the measured value, so nobody has to dig through the console to find out how far off the render was:
+
+image::/images/post-images/2026/11/render-qa/test-case.png["The integrated loudness check for episode-01.mp4: -4.2 LUFS, target -14 ± 1 LU (+9.8 LU)",width=800]
+
+== Fixing loudness instead of failing
+
+A render that only misses the loudness target can often be fixed without going back to the edit.
+`loudnorm` normalizes in two passes: the first measures, the second applies the gain using those measurements.
+With `linear=true` the second pass applies one gain to the whole file, which keeps the mix as it was, but only when the measurements allow it.
+The measured loudness range has to be above 0 LU and within the `LRA` target, and the gain can't push the true peak over the `TP` target (the https://github.com/FFmpeg/FFmpeg/blob/n7.1/libavfilter/af_loudnorm.c#L806-L817[conditions in FFmpeg's source]).
+Otherwise `loudnorm` falls back to dynamic normalization, which keeps adjusting the gain as the file plays and so changes the mix.
+Adding `print_format=json` to the second pass shows which of the two it used:
+
+[source,bash]
+----
+# first pass: measure with the same targets the second pass will use
+ffmpeg -hide_banner -nostats -i renders/episode-01.mp4 -map 0:a:0 \
+  -af loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json -f null -
+
+# second pass: copy the video, normalize the audio with the measured values
+mkdir -p fixed
+ffmpeg -hide_banner -nostats -i renders/episode-01.mp4 -map 0 -c:v copy \
+  -af loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=-4.15:measured_TP=0.05:measured_LRA=0.00:measured_thresh=-14.15:offset=0.05:linear=true:print_format=json \
+  -ar 48000 -c:a aac -b:a 192k fixed/episode-01.mp4
+----
+
+The second pass ends with (trimmed):
+
+[source,json]
+----
+{
+	...
+	"output_i" : "-13.95",
+	"output_tp" : "-9.72",
+	"normalization_type" : "dynamic",
+	...
+}
+----
+
+The test render is a steady tone, so its loudness range is 0 LU, and `loudnorm` used dynamic normalization even though the command asked for linear.
+With its last four seconds turned down 6 dB, the same render has a loudness range of 6.1 LU, and the same two passes report `"linear"` for it.
+
+Measured again, the fixed file comes out at -13.95 LUFS with a true peak of -9.68 dBTP, and it passes all four checks.
+Keep the gate even when the pipeline also fixes loudness: re-run the checks on the fixed file and fail the build if it still misses.
+If the mix must not change, also fail it when the second pass reports anything other than `"linear"`.
+
+== Where to take it next
+
+* Add checks the same way, one `yield` per check: `blackdetect` and `silencedetect` find black frames and silence at the head and tail of a render, and `ffprobe` can check codecs, pixel format and audio sample rate.
+* Run the `QA` stage on an agent label that has FFmpeg installed, or inside a container image that ships it, so render agents and QA agents can scale separately.
+  Each agent has its own workspace, so the renders have to reach the QA agent.
+  link:/doc/pipeline/steps/workflow-basic-steps/#stash[`stash` and `unstash`] are meant for small files, so for full-size video write the renders to shared storage or an artifact repository that the `QA` stage reads from.
+* Record the measured value of every check, passing or not, in each test case's `<system-out>`, and archive `qa-results.xml` with the renders.
+  The script above only writes values for failed checks, so this keeps the measurements of each delivered file attached to the build that produced it.
+
+The script and the Jenkinsfile in this post were run end to end on Jenkins LTS 2.580.2 (Pipeline, Git and JUnit plugins) with FFmpeg 7.1 and Python 3.13 from Debian's packages. The console output and screenshots above come from that run.
