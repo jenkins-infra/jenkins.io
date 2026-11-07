@@ -1,0 +1,55 @@
+---
+name: Update the latest hello-world plugin archetype version in the tutorial
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  helloWorldArchetypeVersion:
+    name: Get the latest published hello-world plugin archetype version
+    kind: maven
+    spec:
+      repository: "https://repo.maven.apache.org/maven2"
+      groupid: "io.jenkins.archetypes"
+      artifactid: "hello-world-plugin"
+
+conditions:
+  helloWorldArchetypeVersionInTutorial:
+    name: Check that the tutorial contains the latest archetype version marker
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: content/doc/developer/tutorial/create.adoc
+      matchpattern: >-
+        N: [0-9]+\.[0-9]+
+
+targets:
+  updateHelloWorldArchetypeVersion:
+    name: Update the latest hello-world plugin archetype version in the tutorial
+    kind: file
+    sourceid: helloWorldArchetypeVersion
+    spec:
+      file: content/doc/developer/tutorial/create.adoc
+      matchpattern: >-
+        (N: )[0-9]+\.[0-9]+
+      replacepattern: >-
+        ${1}{{ source "helloWorldArchetypeVersion" }}
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: 'Update hello-world plugin archetype version to {{ source "helloWorldArchetypeVersion" }}'
+    spec:
+      labels:
+        - dependencies
