@@ -3,7 +3,7 @@ require 'naturally'
 
 module AsciidocSections
   module Errors
-    class InvalidPath < Exception; end;
+    class InvalidPath < StandardError; end
   end
 
   # sections_from() will take the given
