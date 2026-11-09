@@ -77,7 +77,27 @@ Options include:
 == Configuring agents with Docker
 
 Jenkins agents can be launched in physical machines, virtual machines, Kubernetes clusters, and with Docker images.
-This section connects Docker agents to Jenkins with SSH.
+Before configuring an agent, decide which side will initiate the connection.
+
+=== Choose the connection direction
+
+With an inbound agent connection, the agent initiates a connection to the Jenkins controller. The agent needs a reachable controller URL and, when using the inbound TCP protocol, the controller's inbound agent port. WebSocket connections use the controller's HTTP(S) endpoint instead.
+
+[source,text]
+----
+Docker agent  ---- inbound TCP or WebSocket ---->  Jenkins controller
+                   Agent initiates
+----
+
+This section is a step-by-step guide to the other direction: the Jenkins controller connects to the Docker agent over SSH.
+
+[source,text]
+----
+Jenkins controller  ---- SSH ---->  Docker agent
+                     Controller initiates
+----
+
+For SSH, the controller must be able to reach the agent. If both containers share a user-defined Docker network, connect to the agent by its container name and port `22`; no host port needs to be published. If the controller is outside that network, publish a host port for the container's SSH port and use the Docker host's reachable address and that host port in Jenkins. Choose a host port that is reachable only by the controller, and restrict access with your host firewall.
 
 === Environment
 
@@ -171,30 +191,18 @@ image:node/credentials-configuration.png[Credential configuration form filled in
 
 Here we will use the link:https://github.com/jenkinsci/docker-ssh-agent[docker-ssh-agent image] to create the agent containers.
 
-1. Run the following command to start your first agent. It publishes host port `4444` to SSH port `22` in the container. A high host port avoids conflicts with an SSH server already listening on port `22`.
+Choose the command that matches how your controller reaches the agent.
+
+. If the controller is outside the agent's Docker network, publish a host port for SSH:
 +
 [source,bash]
 ----
-docker run -d --rm --name=agent1 -p 4444:22 \
+docker run -d --rm --name=agent1 -p <host-port>:22 \
   -e "JENKINS_AGENT_SSH_PUBKEY=$(cat ~/.ssh/jenkins_agent_key.pub)" \
   jenkins/ssh-agent:alpine-jdk25
 ----
 +
-[NOTE]
-====
-The command reads the *contents* of your public key file and passes them to the image. The private key is added to Jenkins as a credential in the previous section; do not pass the private key to Docker.
-====
-
-2. Check that the container is running:
-+
-[source,bash]
-----
-docker ps --filter name=agent1
-----
-
-If host port `4444` is already in use, choose another free host port, for example `5555:22`. The container port remains `22`; use the chosen host port when configuring the SSH launcher below.
-
-To connect a Jenkins controller running in a container on the same user-defined Docker network, create that network if it does not already exist and start the agent on it. In this setup, the published host port is not needed:
+. If the controller and agent share a user-defined Docker network, create the network if needed and start the agent on it. Do not publish a host port for this setup:
 +
 [source,bash]
 ----
@@ -206,24 +214,52 @@ docker run -d --rm --name=agent1 --network jenkins \
 +
 If `docker network create jenkins` reports that the network already exists, continue with the `docker run` command. The controller must also be attached to this network.
 
+[NOTE]
+====
+Replace `<host-port>` with an available port on the Docker host, and do not type the angle brackets. If the chosen host port is already in use (including port `22` when an SSH server is running on the host), choose another available port, such as `4444`. Use the same host port in the Jenkins SSH launcher. The container's SSH port remains `22`.
+====
+
+. Check that the container is running:
++
+[source,bash]
+----
+docker ps --filter name=agent1
+----
+
+Both commands pass the *contents* of your public key file to the image. The private key belongs in the Jenkins credential created above; do not pass it to Docker.
+
 ==== On Windows
 
 Here we will use the link:https://github.com/jenkinsci/docker-ssh-agent[docker-ssh-agent image] to create the agent containers.
 The `jenkins/ssh-agent:jdk25` tag is a Linux container image, so Docker Desktop must be configured to run Linux containers.
 
-1. Read the public key into a PowerShell variable and run the command to start your first agent:
+1. Read the public key into a PowerShell variable:
 +
 [source,powershell]
 ----
 $publicKey = (Get-Content "$Env:USERPROFILE\.ssh\jenkins_agent_key.pub" -Raw).Trim()
-docker run -d --rm --name=agent1 -p 4444:22 `
+docker run -d --rm --name=agent1 -p <host-port>:22 `
   -e "JENKINS_AGENT_SSH_PUBKEY=$publicKey" `
   jenkins/ssh-agent:jdk25
 ----
 +
+Or, if the controller and agent share a user-defined Docker network, create the network if needed and start the agent on it without publishing a host port:
++
+[source,powershell]
+----
+docker network create jenkins
+docker run -d --rm --name=agent1 --network jenkins `
+  -e "JENKINS_AGENT_SSH_PUBKEY=$publicKey" `
+  jenkins/ssh-agent:jdk25
+----
++
+If `docker network create jenkins` reports that the network already exists, continue with the `docker run` command. The controller must also be attached to this network.
+
+Both commands pass the public key *contents* to the image. Do not pass the path to the `.pub` file or the private key.
+
 [NOTE]
 ====
-The command passes the public key *contents* to the image. Do not pass the path to the `.pub` file or the private key.
+Replace `<host-port>` with an available port on the Docker host, and do not type the angle brackets. If the chosen host port is already in use (including port `22` when an SSH server is running on the host), choose another available port, such as `4444`. Use the same host port in the Jenkins SSH launcher. The container's SSH port remains `22`.
 ====
 
 2. Check that the container is running:
@@ -233,27 +269,23 @@ The command passes the public key *contents* to the image. Do not pass the path 
 docker ps --filter name=agent1
 ----
 
-If host port `4444` is already in use, choose another free host port, for example `5555:22`. The container port remains `22`; use the chosen host port when configuring the SSH launcher below.
-
-For a controller running in a container on the same user-defined Docker network, create the network if needed with `docker network create jenkins`, add `--network jenkins` to the `docker run` command, and set the agent host and port to `agent1` and `22`. The controller must also be attached to the `jenkins` network. When connecting from a controller outside that network, use the Docker host's reachable address and the published host port instead of the container IP.
-
 === Verifying the SSH connection
 
 When using a published host port, you can check the SSH key, host, and port before configuring the node. On Linux and macOS, run:
 +
 [source,bash]
 ----
-ssh -i ~/.ssh/jenkins_agent_key -p 4444 jenkins@localhost java -version
+ssh -i ~/.ssh/jenkins_agent_key -p <host-port> jenkins@localhost java -version
 ----
 +
 On Windows PowerShell, run:
 +
 [source,powershell]
 ----
-ssh -i "$Env:USERPROFILE\.ssh\jenkins_agent_key" -p 4444 jenkins@localhost java -version
+ssh -i "$Env:USERPROFILE\.ssh\jenkins_agent_key" -p <host-port> jenkins@localhost java -version
 ----
 +
-If you selected a different host port, replace `4444` with that port. For a controller and agent on the same Docker network without a published port, use the Jenkins node connection and build steps below to verify access instead.
+Replace `<host-port>` with the host port you chose above, without the angle brackets. For a controller and agent on the same Docker network without a published port, use the Jenkins node connection and build steps below to verify access instead.
 
 === Set up `agent1` on Jenkins
 
@@ -271,7 +303,7 @@ image:node/manage-nodes.png[Manage node menu.,700]
 * Usage: select *Only build jobs with label expressions matching this node*.
 * Launch method: select *Launch agents via SSH*.
 ** Host: if the controller runs on the Docker host, use that host's address (for a controller on the same machine, `localhost`). If the controller and agent share the `jenkins` Docker network, use `agent1`.
-** Port: use the published host port from the Docker command (`4444` by default) when connecting through the Docker host; use `22` when connecting to `agent1` on the shared Docker network.
+** Port: use the host port you selected in the Docker command when connecting through the Docker host; use `22` when connecting to `agent1` on the shared Docker network.
 ** Credentials: select the `jenkins` SSH credential created above.
 ** Host Key Verification Strategy: select *Manually provided key* and paste the agent's SSH host public key. Display it with `docker exec agent1 cat /etc/ssh/ssh_host_ed25519_key.pub` on the Docker host. If you recreate the container, its generated host key may change; verify and update the configured key before reconnecting.
 +
@@ -288,7 +320,7 @@ If that's not the case, select *Relaunch agent* and wait a few seconds.
 . After waiting, select the `Log` option to view the logs.
 At the bottom of the log, you should receive the message: `Agent successfully connected and online`.
 
-If the agent remains offline, check the node log for connection, authentication, or host-key errors. Confirm that the controller can reach the Docker host or shared network, that the SSH credential contains the matching private key and username `jenkins`, and that the configured port matches the mapping. For a host mapping such as `4444:22`, set the SSH launcher port to `4444`; for containers sharing the `jenkins` network, use port `22`.
+If the agent remains offline, check the node log for connection, authentication, or host-key errors. Confirm that the controller can reach the Docker host or shared network, that the SSH credential contains the matching private key and username `jenkins`, and that the configured port matches the mapping. For a host mapping such as `<host-port>:22`, set the SSH launcher port to the selected host port; for containers sharing the `jenkins` network, use port `22`.
 
 === Delegating the first job to `agent1`
 
