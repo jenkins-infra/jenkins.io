@@ -1,0 +1,95 @@
+---
+name: Bumps the php docker images versions for the Hello World! tutorial
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  alpineLatestVersion:
+    kind: githubrelease
+    name: "Get the latest Alpine Linux version"
+    spec:
+      owner: "alpinelinux"
+      repository: "aports" # Its release process follows Alpine's
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versionfilter:
+        kind: semver
+        pattern: "~3"
+    transformers:
+      - findsubmatch:
+          pattern: >-
+            v(.*)(\.\d+)
+          captureindex: 1
+  phpLatestVersion:
+    kind: githubrelease
+    spec:
+      owner: "php"
+      repository: "php-src"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versionfilter:
+        kind: regex
+        pattern: >-
+          php-\d+\.\d+.\d+$
+    transformers:
+      - trimprefix: "php-"
+  phpDockerImageLatestVersion:
+    kind: dockerimage
+    name: "Get the latest Php version"
+    spec:
+      image: "php"
+      tagFilter: >-
+        \d\.\d\.\d$
+      versionfilter:
+        kind: regex
+        pattern: >-
+          \d\.\d\.\d$
+          
+conditions:
+  testPhpAlpineArg:
+    name: "Does the 'Hello World!' tutorial have a reference to the Php alpine image?"
+    kind: file
+    disablesourceinput: true
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        .*agent.*docker.*image.*php:.*
+  testPhpAlpineImagePublished:
+    name: "Test php:<latest_version>-alpine docker image tag"
+    kind: dockerimage
+    disablesourceinput: true
+    spec:
+      image: "php"
+      tag: '{{ source "phpDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+
+targets:
+  updateHelloWorldTutorialPhpPipeline:
+    name: "Update the value of the php docker image for pipelines in the 'Hello World!' tutorial"
+    kind: file
+    sourceid: phpLatestVersion
+    spec:
+      file: content/doc/pipeline/tour/hello-world.adoc
+      matchpattern: >-
+        (.*agent.*docker.*image.*\')php:(.*)(\'.*)
+      replacepattern: >-
+        ${1}php:{{ source "phpDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}${3}
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: '[Hello World Tutorial] Bump Php alpine docker image version to {{ source "phpDockerImageLatestVersion" }}-alpine{{ source "alpineLatestVersion" }}'
+    spec:
+      labels:
+        - dependencies

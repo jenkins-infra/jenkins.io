@@ -1,6 +1,6 @@
 ---
 title: Miscellaneous API Usage Recommendations
-layout: developerguide
+layout: developer
 ---
 
 
@@ -58,6 +58,33 @@ NOTE: Permission checks done in `StaplerProxy#getTarget` to control Stapler rout
 For `@ExportedBean` annotated types, it may therefore be necessary to implement permission checks both in `StaplerProxy`, as well as on getters returning this type.
 
 
+=== Serving User Content and Content Security Policy
+
+When serving user-provided content (comparable to files in the workspace, archived artifacts, or similar), prefer using jenkinsdoc:hudson.model.DirectoryBrowserSupport[`DirectoryBrowserSupport`].
+Doing otherwise undermines link:/doc/book/security/csp[Content Security Policy protections in Jenkins 2.539+] even with restrictive Content Security Policy headers set, as only `DirectoryBrowserSupport` will serve files from the link:/redirect/resource-root-url[resource root URL].
+The only exceptions to this are files served with content types that will not allow their use as part of an XSS attack, like `image/*`, `text/plain`, or `application/octet-stream`.
+
+// SECURITY-3588, SECURITY-3322, SECURITY-1811, SECURITY-2863, SECURITY-2865, etc.
+Do not programmatically disable the Content Security Policy applied to files served by `DirectoryBrowserSupport`.
+It is up to administrators to set up Jenkins so that reports and similar output can be viewed correctly and safely.
+You can document any requirements for correct rendering of reports in your plugin documentation (e.g., administrators needing to configure the link:/redirect/resource-root-url[resource root URL], or setting a link:/doc/book/security/configuring-content-security-policy[custom Content Security Policy for `DirectoryBrowserSupport`]).
+
+Do not set custom Content Security Policy headers (overriding values set by Jenkins 2.539+) unless absolutely necessary.
+If you must do this, e.g., for a custom servlet, be sure to only allow what is strictly necessary.
+In particular, do not allow `unsafe-inline` or `unsafe-eval` for `script-src` (or equivalent).
+
+
+=== Update Sites and Certificates
+
+Plugins distributed by the Jenkins project must adhere to these rules:
+
+* They must not provide additional certificates that apply to the default update sites provided by the Jenkins project.
+* They must not disable signature checks for downloads.
+
+Plugins intending to make other plugins available to Jenkins administrators through the plugin manager are advised to define their own custom update sites, with custom certificates.
+This addition to the Jenkins configuration must be documented in the plugin documentation, in particular if there is any overlap with plugins provided through Jenkins project update sites.
+
+
 == General APIs and Libraries
 
 === Starting Programs
@@ -66,7 +93,7 @@ Other programs should generally be invoked using a jenkinsdoc:hudson.Launcher[`L
 Directly using `Runtime#exec` and similar Java APIs is usually a bug and can in some cases constitute a security vulnerability:
 While users with the permissions to configure and run jobs may be able to invoke arbitrary tools on those agents, they should not be able to run programs on the Jenkins controller.
 
-NOTE: Most Jenkins instances archive artifacts on the Jenkins controller file system, so even possible constraints, such as for the command to exist on the controller's file system, or not taking any arguments, is trivially bypassed.
+NOTE: Most Jenkins controllers archive artifacts on the Jenkins controller file system, so even possible constraints, such as for the command to exist on the controller's file system, or not taking any arguments, is trivially bypassed.
 
 
 === Dealing with SSL/TLS Connection Issues
@@ -78,7 +105,7 @@ This is a very unsafe behavior and must never be the default in plugins distribu
 Ignoring SSL/TLS errors is only permitted if the following constraints are both followed:
 
 1. Ignoring SSL/TLS errors is limited to the specific connections opened by the plugin.
-   Plugins should never cause SSL/TLS errors to be ignored for the entire Jenkins instance.
+   Plugins should never cause SSL/TLS errors to be ignored for the entire Jenkins controller.
    As a consequence, APIs like `HttpsURLConnection#setDefaultHostnameVerifier` or `HttpsURLConnection#setDefaultSSLSocketFactory` must not be called by plugins.
    The only exceptions to this rule are dedicated plugins with only this purpose, like plugin:skip-certificate-check[skip-certificate-check].
 2. Ignoring SSL/TLS problems for specific connections (e.g. `HttpsURLConnection#setHostnameVerifier` or `HttpsURLConnection#setSSLSocketFactory`) is allowed, but users need to opt in to this behavior.
@@ -108,8 +135,9 @@ If at all possible, prefer serializing object graphs using types already approve
 
 ==== XML
 
-Be sure to review the https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html[OWASP Cheat Sheet for XML External Entity prevention].
+Be sure to review the https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html[OWASP Cheat Sheet for XML External Entity prevention] and the https://semgrep.dev/docs/cheat-sheets/java-xxe[Semgrep cheat sheet on XXE].
 All content should be treated as untrusted except in very specific circumstances.
+`jenkinsdoc:XMLUtils[]` provides functionality to perform common XML operations safely.
 
 When using jackson-databind, make sure to depend on 2.10.x or newer, and only use the "safe" replacement APIs to prevent deserialization vulnerabilities: Use `activateDefaultTyping` instead of `enableDefaultTyping`.
 See https://github.com/FasterXML/jackson-docs/wiki/JacksonPolymorphicDeserialization[the documentation on polymorphic deserialization].
@@ -133,3 +161,21 @@ Many Jenkins plugins allow the use of Groovy to extend their capabilities.
 For example, the plugin:email-ext[Email Extension Plugin] allows executing a script to determine whether an email should be sent.
 
 All such functionality, if available to users without Overall/Administer, must integrate with plugin:script-security[Script Security Plugin].
+
+Make sure to not add potentially unsafe methods to the Script Security sandbox allowlist.
+It may be easier than restructuring your code to avoid allowing such methods, but it increases the attack surface of the entire Jenkins controller.
+
+==== `org.codehaus.groovy.transform.ASTTransformation`
+
+Plugins such as plugin:script-security[Script Security] and plugin:workflow-cps[Pipeline:Groovy] allow non-admin users of Jenkins to run scripts in a sandbox.
+As of late 2024, a blocklist prevents use of known unsafe AST transformations that previously caused security issues.
+
+Plugin-contributed Groovy AST transformations, in particular those applying globally through `META-INF/services`, need to be written with this in mind.
+Substantial functionality that allows users to circumvent Script Security sandbox protections must not be provided by other plugins.
+
+
+=== Logging
+
+When there is a necessity to log secrets, care must be taken to avoid accidental exposure.
+They must be logged at a level that is not visible by default in the system log.
+This implies setting the logging level to a level more verbose than INFO (i.e., CONFIG, FINE, FINER, or FINEST).

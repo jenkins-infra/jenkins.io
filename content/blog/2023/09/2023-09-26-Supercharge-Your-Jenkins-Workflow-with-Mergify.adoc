@@ -1,0 +1,159 @@
+---
+layout: post
+title: "Supercharge Your Jenkins Workflow with Mergify"
+tags:
+- jenkins
+- tutorial
+- merge queue
+- Mergify
+- cicd
+author: jd
+description: "Jenkins and Mergify are powerful tools individually, but when combined, they can take your DevOps workflows to the next level. By integrating Jenkins and Mergify, you're essentially creating a powerful CI/CD pipeline."
+opengraph:
+  image: /images/post-images/feature-mergify.png
+---
+= Supercharge Your Jenkins Workflow with Mergify
+
+== Introduction
+
+In the modern software development landscape, continuous integration (CI) and continuous deployment (CD) are no longer just trendy buzzwords.
+They are vital components of the development cycle.
+Two tools that are often associated with these operations are Jenkins and https://mergify.com[Mergify].
+Jenkins, an open-source automation server, is used to automate parts of the development process, including building, testing, and deploying applications.
+Mergify, on the other hand, is a powerful GitHub automation tool and merge queue that can simplify the management of pull requests.
+
+== Setting Things Up
+
+Before we dive into the wonders of the Mergify-Jenkins tandem, let's quickly walk through setting things up.
+
+To get started with Jenkins, link:/doc/book/installing/[you need to install it on your server], and then you can use its rich set of plugins to define your build, test, and deployment pipelines.
+
+Mergify, on the other hand, requires no installation.
+link:https://docs.mergify.com/getting-started/[You integrate it with your GitHub account], and then you define your automation rules in a YAML file that lives in your repository.
+
+== The Power Duo: Jenkins and Mergify
+
+Jenkins and Mergify are powerful tools individually, but when combined, they can take your DevOps workflows to the next level.
+The robust build and test automation provided by Jenkins are the perfect complement to Mergify's ability to automate GitHub workflows, such as labeling, merging, backporting, and more.
+
+By integrating Jenkins and Mergify, you're essentially creating a powerful CI/CD pipeline.
+You're able to automatically build, test, and deploy your software while also managing the various GitHub workflows in an efficient and streamlined manner.
+
+== Automating Pull Request Updates with Jenkins and Mergify
+
+One particularly powerful combination of Jenkins and Mergify is in the area of pull request updates.
+Normally, if a Jenkins build fails due to a commit, someone has to notify the developer to update their pull request manually.
+
+With Mergify, this process can be completely automated.
+Using Mergify's pull request rules, you can configure a rule that will automatically request changes and comment on the pull request if the Jenkins build fails.
+This not only saves time but also ensures that issues are immediately flagged and addressed.
+
+=== Step 1: Configure Jenkins Build Status Reporting
+
+Firstly, you need to ensure that Jenkins is reporting the build status back to GitHub.
+This can be done using the https://plugins.jenkins.io/github/[GitHub plugin in Jenkins].
+After installing the plugin, go to the configuration of the job that you want to link with GitHub and find the "Post-build Actions" section.
+There, add "Set GitHub commit status (universal)" and configure it to update the status of the commit in GitHub based on the build result.
+
+=== Step 2: Set Up Mergify Rules
+
+Next, in your GitHub repository, you need to create a `.mergify.yml` file where you'll define your automation rules.
+Here's an example of a rule that comments on and labels a pull request if the Jenkins build fails:
+
+[source,yaml]
+----
+pull_request_rules:
+  - name: comment on PR if build fails
+    conditions:
+      # Replace with the actual name of your Jenkins reported check
+      - check-failure=Jenkins
+    actions:
+      comment:
+        message: "The Jenkins build has failed. Please review your changes."
+      label:
+        toggle:
+          - build-failed
+----
+
+In this configuration:
+
+* The `conditions` section checks if the Jenkins build is unsuccessful.
+* The `actions` section defines what actions Mergify should take if the conditions are met.
+  In this case, it will add a comment to the pull request and apply the label `build-failed`.
+
+If you wanted to also update the pull request with the latest change from its base branch to see if that'd make it work, you could use the `update` action from Mergify also:
+
+[source,yaml]
+----
+pull_request_rules:
+  - name: comment and update on PR if build fails
+    conditions:
+      # Replace with the actual name of your Jenkins reported check
+      - check-failure=Jenkins
+    actions:
+      comment:
+        message: "The Jenkins build has failed. Please review your changes."
+      label:
+        toggle:
+          - build-failed
+      # Merge PR base branch into the PR, this will retrigger the CI
+      update:
+----
+
+=== Step 3: Commit and Push `.mergify.yml` File
+
+Lastly, commit this file to your repository, and Mergify will start automating based on the rules you've defined.
+
+== Ensuring Secure Mergify Merges with the Merge Queue
+
+Another powerful way you can combine Jenkins and Mergify is by using the Merge Queue feature.
+The merge queue is a strategy offered by Mergify to secure your repository's main branch state.
+It ensures that the main branch is always green by validating that each pull request integrates correctly before merging.
+
+With Jenkins as your continuous integration (CI) system, you can ensure each pull request is thoroughly checked before it gets added to the merge queue.
+Here's how you can configure this:
+
+=== Step 1: Set Up Jenkins for CI
+
+As the first step, ensure your Jenkins setup is correctly reporting the build status to GitHub, as explained previously.
+Each pull request should trigger a Jenkins job, which subsequently updates the pull request status based on the build result.
+
+=== Step 2: Configure Mergify Merge Queue
+
+Next, in your `.mergify.yml` file, you can set up a rule that places the pull request in a merge queue once it's approved and all CI checks, including Jenkins, pass. Below is an example configuration:
+
+[source,yaml]
+----
+queue_rules:
+  - name: default
+    merge_conditions:
+      - "#approved-reviews-by>=1"
+      - check-success=Jenkins
+    routing_conditions:
+      - "#approved-reviews-by>=1"
+      - check-success=Jenkins
+----
+
+In this configuration:
+
+* The `queue_rules` section sets up a merge queue named `default`.
+* A pull request is added to this queue when it has at least one approval (`#approved-reviews-by>=1`) and the Jenkins check is successful (`check-success=Jenkins`) — this is what the `routing_conditions` are for.
+* The pull request is merged once it's updated and still has Jenkins checks passing, plus the required approval.
+
+=== Step 3: Commit and Push `.mergify.yml` File
+
+Once you have updated the `.mergify.yml` file with the above rules, commit and push the file to your repository.
+
+With this setup, each pull request must pass the Jenkins build and get approval before Mergify adds it to the merge queue.
+Only when the pull request at the front of the queue passes all checks, it gets merged, ensuring the main branch's integrity.
+
+By coupling Jenkins' robust CI functionality with Mergify's merge queue, you can make your development workflow much more efficient and error-proof, saving your team time and reducing the risk of breaking your main branch.
+
+== Conclusion: Harness the Power of Jenkins and Mergify
+
+With Jenkins handling the building, testing, and deploying of your software and Mergify managing your GitHub workflows, you have a truly powerful and streamlined CI/CD pipeline.
+This combination allows you to automate your workflows, improve efficiency, and ultimately deliver better software.
+
+By embracing tools like Jenkins and Mergify, you're not just keeping up with modern DevOps practices; you're also investing in the long-term productivity and success of your software development projects.
+
+So, are you ready to supercharge your Jenkins workflow with Mergify? https://mergify.com[Try for free]

@@ -1,0 +1,76 @@
+---
+layout: default
+title: 'The Jenkins Blog'
+section: blog
+---
+
+:ruby
+  page_count = page.posts ? page.posts.pages.size : 0
+
+:ruby
+  tags = []
+  site.pages.reverse_each do |page|
+    # Some pages don't have tags
+    next if page.tags.nil?
+    next if page.layout != 'post'
+    page.tags.each do |tag|
+      # tag is an Awestruct::Extensions::Tagger::TagStat
+      next if tags.include?(tag.to_s)
+      tags << tag.to_s
+    end
+  end
+  tags = tags.sort_by {|obj| obj.to_s.downcase}
+
+%div.app-container.app-blog-page
+  - if page.author
+    = partial("author.html.haml", :author => page.author, :blogroll => true)
+  - else
+    - if (page.posts&.current_page_index || 0) > 0
+      %p.blog-date
+        Page #{page.posts.current_page_index + 1}
+    %div.app-app-bar
+      %div.app-app-bar__content
+        %h1
+          %a{:href => '/blog/', :tabindex => -1}
+            The Jenkins Blog
+      %div.app-app-bar__controls.app-mobile-hide
+        %div{:class => page.selected_tag ? "app-button app-button--tertiary app-tags-picker app-tags-picker--active" : "app-button app-button--tertiary app-tags-picker"}
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M435.25 48h-122.9a14.46 14.46 0 00-10.2 4.2L56.45 297.9a28.85 28.85 0 000 40.7l117 117a28.85 28.85 0 0040.7 0L459.75 210a14.46 14.46 0 004.2-10.2v-123a28.66 28.66 0 00-28.7-28.8z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="40"/><path d="M384 160a32 32 0 1132-32 32 32 0 01-32 32z" fill="currentColor" /></svg>
+          = page.selected_tag
+          %select{:id => 'tag-switcher'}
+            %option{:value => 'all', :selected => page.selected_tag == null ? true : null}
+              All
+            %optgroup{:label => 'Tags'}
+              - tags.each do |tag|
+                %option{:value => tag, :selected => page.selected_tag == tag.to_s ? true : null}
+                  = tag.to_s
+
+          :javascript
+            $(document).ready(function() {
+              const tagSwitcher = document.querySelector("#tag-switcher");
+              tagSwitcher.addEventListener('change', () => {
+                const value = tagSwitcher.value;
+                window.location.href = value === 'all' ? `/blog/` : `/blog/tags/${tagSwitcher.value}/`;
+              })
+            });
+
+        %a{:href => "https://feeds.feedburner.com/ContinuousBlog/", :class => "app-button app-button--tertiary"}
+          = File.read("content/images/symbols/rss.svg")
+        %a{:href => "https://twitter.com/jenkinsci", :class => "app-button app-button--tertiary"}
+          = File.read("content/images/symbols/x.svg")
+
+  - if page.posts
+    = partial('blogcardlist.html.haml', :posts => page.posts)
+
+    - if page_count > 1
+      = partial('pagination.html.haml', :posts => page.posts)
+
+  - else
+    There are no blog posts by this author yet.
+
+  - if !page.author && !page.selected_tag
+    .app-events-container
+      %h2.app-events__heading
+        Upcoming events
+
+      = partial('events.html.haml')

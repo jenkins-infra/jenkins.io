@@ -5,7 +5,6 @@ title: Using Jenkins agents
 ifdef::backend-html5[]
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
 :toclevels: 4
@@ -28,10 +27,77 @@ View the 3 minute video below for a brief explanation of Jenkins agents.
 .What is a Jenkins Agent
 video::4KghHJEz5no[youtube, width=640, height=360]
 
+== Agent concepts
+
+Jenkins agents provide executors that perform work when requested by the Jenkins controller.
+Agents can run Pipeline steps, freestyle jobs, and other jobs.
+
+Specific capabilities of agents are often noted by assigning labels to the agents.
+An agent running on an Arm64 computer might be assigned the `aarch64` label so that jobs can limit themselves to only run on agents with the Arm64 processor.
+An agent running with a code signing application might be assigned the `code-signing` label so that jobs that need to sign executables would run there.
+
+Agents may be allowed to run any job or they may be restricted to only run jobs that are specifically assigned to the agent.
+
+=== Number of executors
+
+The number of executors determines how many concurrent tasks can be run on an agent.
+For Jenkins controllers, it is recommended to set this to `0` to avoid resource contention.
+Executors should be configured on agents (nodes) instead.
+
+[NOTE]
+====
+*Why set executors to 0 on the controller?*
+Setting executors to `0` ensures that the controller is dedicated to managing builds and coordinating agents, rather than executing builds itself.
+This improves stability and performance.
+
+For instance, agents with specific capabilities can be configured with multiple executors to handle concurrent builds effectively.
+====
+
+=== Labels
+
+Labels are used to group agents (nodes) based on specific criteria.
+They help in assigning jobs to specific agents.
+For example, you can label agents based on their operating system or hardware capabilities.
+
+Example:
+----
+linux, windows, docker, high-memory
+----
+
+Labels can be assigned in the agent configuration settings.
+
+=== Usage
+
+This section defines how jobs are assigned to agents.
+Options include:
+
+* **Use this node as much as possible**: Jobs will be assigned to this node whenever possible.
+* **Only build jobs with label expressions matching this node**: Jobs will only be assigned if their label matches.
+
 == Configuring agents with Docker
 
 Jenkins agents can be launched in physical machines, virtual machines, Kubernetes clusters, and with Docker images.
-This section connects Docker agents to Jenkins with SSH.
+Before configuring an agent, decide which side will initiate the connection.
+
+=== Choose the connection direction
+
+With an inbound agent connection, the agent initiates a connection to the Jenkins controller. The agent needs a reachable controller URL and, when using the inbound TCP protocol, the controller's inbound agent port. WebSocket connections use the controller's HTTP(S) endpoint instead.
+
+[source,text]
+----
+Docker agent  ---- inbound TCP or WebSocket ---->  Jenkins controller
+                   Agent initiates
+----
+
+This section is a step-by-step guide to the other direction: the Jenkins controller connects to the Docker agent over SSH.
+
+[source,text]
+----
+Jenkins controller  ---- SSH ---->  Docker agent
+                     Controller initiates
+----
+
+For SSH, the controller must be able to reach the agent. If both containers share a user-defined Docker network, connect to the agent by its container name and port `22`; no host port needs to be published. If the controller is outside that network, publish a host port for the container's SSH port and use the Docker host's reachable address and that host port in Jenkins. Choose a host port that is reachable only by the controller, and restrict access with your host firewall.
 
 === Environment
 
@@ -70,6 +136,7 @@ TIP: Note that you will have to be able to copy the key value to your controller
 2. Provide a passphrase to use with the key (it can be empty)
 3. Confirm the output looks something like this:
 +
+
 [source,bash]
 ----
 ubuntu@desktop:~$ ssh-keygen -f ~/.ssh/jenkins_agent_key
@@ -96,126 +163,177 @@ The key's randomart image is:
 
 ==== Create a Jenkins SSH credential
 
-1. Go to your Jenkins dashboard;
-2. Go to `Manage Jenkins` option in main menu and click on the `Manage Credentials` button;
+. From your Jenkins dashboard, navigate to *Manage Jenkins*.
+. In the Security section, select *Credentials*.
 +
-image:node/credentials-1.png[credentials menu,700]
+image:node/manage-credentials.png[Credentials option from Manage Jenkins page.,700]
 
-3. select the drop option `Add Credentials` from the global item;
+. Under *Stores scoped to Jenkins*, select `Add Credentials` from the global option.
 +
-image:node/credentials-2.png[add credentials option,700]
+image:node/add-credentials.png[Add credentials option.,700]
 
-4. Fill in the form:
-* Kind:  SSH Username with private key;
-* id: jenkins
-* description: The jenkins ssh key
-* username: jenkins
-* Private Key: select `Enter directly` and press the Add button to insert the content of your private key file at `~/.ssh/jenkins_agent_key`
-* Passphrase: fill your passphrase used to generate the SSH key pair (leave empty if you didn't use one at the previous step) and then press the `Create` button
-image:node/credentials-3.png[credentials filled form,650]
+. Fill in the following information, as shown in the example, substituting your information as needed:
+* Kind: SSH username with private key
+* ID: jenkins
+* Description: The Jenkins SSH key
+* Username: jenkins
+* Private Key: Select *Enter directly* and then select *Add* to insert the content of your private key file (`~/.ssh/jenkins_agent_key`).
+* Passphrase: Enter the passphrase used to generate the SSH key pair (or leave it empty if you didn't use one in the previous step).
++
+image:node/credentials-configuration.png[Credential configuration form filled in.,700]
+
+. Select *Create* to complete your credential configuration.
+
 
 === Creating your Docker agent
 
-==== On Linux
+==== On Linux and macOS
 
 Here we will use the link:https://github.com/jenkinsci/docker-ssh-agent[docker-ssh-agent image] to create the agent containers.
 
-1. run the command to start your first agent:
+Choose the command that matches how your controller reaches the agent.
+
+. If the controller is outside the agent's Docker network, publish a host port for SSH:
 +
 [source,bash]
 ----
-docker run -d --rm --name=agent1 -p 22:22 \
--e "JENKINS_AGENT_SSH_PUBKEY=[your-public-key]" \
-jenkins/ssh-agent:alpine
+docker run -d --rm --name=agent1 -p <host-port>:22 \
+  -e "JENKINS_AGENT_SSH_PUBKEY=$(cat ~/.ssh/jenkins_agent_key.pub)" \
+  jenkins/ssh-agent:alpine-jdk25
 ----
 +
-[NOTE]
-====
-* Remember to replace the tag [your-public-key] for your own SSH *public* key.
-* Your public key value in this example could be found by issuing : `cat ~/.ssh/jenkins_agent_key.pub` on the machine your created it. Do not add the square brackets `[]` around the key value
-* [[ssh-anchor]] If your machine already has a ssh server running on the `22` port (if you logged onto this machine thanks to the `ssh` command, that's the case), you should use another port for the `docker` command, such as `-p 4444:22`
-====
-2. Now run the following command to update the container environment:
+. If the controller and agent share a user-defined Docker network, create the network if needed and start the agent on it. Do not publish a host port for this setup:
 +
 [source,bash]
 ----
-$ VARS1="HOME=|USER=|MAIL=|LC_ALL=|LS_COLORS=|LANG="
-$ VARS2="HOSTNAME=|PWD=|TERM=|SHLVL=|LANGUAGE=|_="
-$ VARS="${VARS1}|${VARS2}"
-$ docker exec agent1 sh -c "env | egrep -v '^(${VARS})' >> /etc/environment"
+docker network create jenkins
+docker run -d --rm --name=agent1 --network jenkins \
+  -e "JENKINS_AGENT_SSH_PUBKEY=$(cat ~/.ssh/jenkins_agent_key.pub)" \
+  jenkins/ssh-agent:alpine-jdk25
 ----
 +
+If `docker network create jenkins` reports that the network already exists, continue with the `docker run` command. The controller must also be attached to this network.
+
 [NOTE]
 ====
-The step 2 is necessary because the image is configured to reject changes to environment variables.
-when the link:https://github.com/jenkinsci/docker-ssh-agent/issues/33[issue #33] is fixed, we can ignore this step.
+Replace `<host-port>` with an available port on the Docker host, and do not type the angle brackets. If the chosen host port is already in use (including port `22` when an SSH server is running on the host), choose another available port, such as `4444`. Use the same host port in the Jenkins SSH launcher. The container's SSH port remains `22`.
 ====
-3. Now the container `agent1` is running. +
-Hint: the command `docker ps` can be used to check if the container is running as expected.
+
+. Check that the container is running:
++
+[source,bash]
+----
+docker ps --filter name=agent1
+----
+
+Both commands pass the *contents* of your public key file to the image. The private key belongs in the Jenkins credential created above; do not pass it to Docker.
 
 ==== On Windows
 
 Here we will use the link:https://github.com/jenkinsci/docker-ssh-agent[docker-ssh-agent image] to create the agent containers.
+The `jenkins/ssh-agent:jdk25` tag is a Linux container image, so Docker Desktop must be configured to run Linux containers.
 
-1. run the command to start your first agent:
+1. Read the public key into a PowerShell variable:
 +
 [source,powershell]
 ----
-docker run -d --rm --name=agent1 --network jenkins -p 22:22 `
-  -e "JENKINS_AGENT_SSH_PUBKEY=[your-public-key]" `
-  jenkins/ssh-agent:jdk11
+$publicKey = (Get-Content "$Env:USERPROFILE\.ssh\jenkins_agent_key.pub" -Raw).Trim()
+docker run -d --rm --name=agent1 -p <host-port>:22 `
+  -e "JENKINS_AGENT_SSH_PUBKEY=$publicKey" `
+  jenkins/ssh-agent:jdk25
 ----
 +
+Or, if the controller and agent share a user-defined Docker network, create the network if needed and start the agent on it without publishing a host port:
++
+[source,powershell]
+----
+docker network create jenkins
+docker run -d --rm --name=agent1 --network jenkins `
+  -e "JENKINS_AGENT_SSH_PUBKEY=$publicKey" `
+  jenkins/ssh-agent:jdk25
+----
++
+If `docker network create jenkins` reports that the network already exists, continue with the `docker run` command. The controller must also be attached to this network.
++
+
+Both commands pass the public key *contents* to the image. Do not pass the path to the `.pub` file or the private key.
++
+
 [NOTE]
 ====
-* Remember to replace the tag [your-public-key] for your own SSH *public* key.
-* Your public key in this example is: `Get-Content $Env:USERPROFILE\.ssh\jenkins_agent_key.pub`
+Replace `<host-port>` with an available port on the Docker host, and do not type the angle brackets. If the chosen host port is already in use (including port `22` when an SSH server is running on the host), choose another available port, such as `4444`. Use the same host port in the Jenkins SSH launcher. The container's SSH port remains `22`.
 ====
-2. Now the container `agent1` is running. +
-Hint: the command `docker ps` can be used to check if the container is running as expected.
-Additionally, the command `docker container inspect agent1 | Select-String -Pattern '"IPAddress": "\d+\.\d+\.\d+\.\d+"'` can be used to see the *Host* to be set in Jenkins for the agent.
-
-=== Setup up the agent1 on jenkins.
-
-1. Go to your Jenkins dashboard;
-2. Go to `Manage Jenkins` option in main menu;
-3. Go to `Manage Nodes and clouds` item;
 +
-image:node/node-1.png[Manage node menu,700]
 
-4. Go to `New Node` option in side menu;
-5. Fill the Node/agent name and select the type; (e.g. Name: agent1, Type: Permanent Agent)
-6. Now fill the fields:
-** Remote root directory; (e.g.: /home/jenkins )
-** label; (e.g.: agent1 )
-** usage; (e.g.: only build jobs with label expression...)
-** Launch method; (e.g.: Launch agents by SSH )
-*** Host; (e.g.: localhost or your IP address )
-*** Credentials; (e.g.: jenkins )
-*** Host Key verification Strategy; (e.g.: Manually trusted key verification ... )
-image:node/node-2.png[node create form,600]
-7. Press the `Save` button and the agent1 will be registered, but offline for the time being. Click on it.
+. Check that the container is running:
 +
-image:node/node-3.png[node offline,650]
-8. You should now see `This node is being launched.`. If that's not the case, you can now press the `Relaunch agent` button and wait a few seconds. You can now click on the `Log` button on the left, then you should receive +
-the message: `Agent successfully connected and online` on the last log line.
+[source,powershell]
+----
+docker ps --filter name=agent1
+----
+
+=== Verifying the SSH connection
+
+When using a published host port, you can check the SSH key, host, and port before configuring the node. On Linux and macOS, run:
 +
-image:node/node-4.png[Agent successfully connected,650]
-
-If your Jenkins controller does not start the agent via ssh, please check the port you <<ssh-anchor,configured>> on your agent.
-Copy it, and then click on the `Advanced...` button.
-You will then be able to paste the port number into the `Port` textfield.
-
-=== Delegating the first job to agent1
-
-1. Go to your jenkins dashboard;
-2. Select `New Item` on side menu;
-3. Enter a name. (e.g.: First Job to Agent1)
-4. Select the `Freestyle project` and press OK;
-5. Check the option: `Restrict where this project can be run`;
-6. Fill the field: label with the agent1 label; (e.g.: agent1)
+[source,bash]
+----
+ssh -i ~/.ssh/jenkins_agent_key -p <host-port> jenkins@localhost java -version
+----
 +
-image:node/node-5.png[Agent job 1,650]
+On Windows PowerShell, run:
++
+[source,powershell]
+----
+ssh -i "$Env:USERPROFILE\.ssh\jenkins_agent_key" -p <host-port> jenkins@localhost java -version
+----
++
+Replace `<host-port>` with the host port you chose above, without the angle brackets. For a controller and agent on the same Docker network without a published port, use the Jenkins node connection and build steps below to verify access instead.
+
+=== Set up `agent1` on Jenkins
+
+. From your Jenkins dashboard, navigate to *Manage Jenkins*.
+. Select *Nodes*.
++
+image:node/manage-nodes.png[Manage node menu.,700]
+
+. Select *New Node* to create your agent.
+. Enter your Node name, select the Permanent Agent option, and select *Create*.
+. On the agent creation page fill in the fields:
+* Remote root directory: `/home/jenkins/agent`
+* Number of executors: `1`
+* Labels: `agent1`
+* Usage: select *Only build jobs with label expressions matching this node*.
+* Launch method: select *Launch agents via SSH*.
+** Host: if the controller runs on the Docker host, use that host's address (for a controller on the same machine, `localhost`). If the controller and agent share the `jenkins` Docker network, use `agent1`.
+** Port: use the host port you selected in the Docker command when connecting through the Docker host; use `22` when connecting to `agent1` on the shared Docker network.
+** Credentials: select the `jenkins` SSH credential created above.
+** Host Key Verification Strategy: select *Manually provided key* and paste the agent's SSH host public key. Display it with `docker exec agent1 cat /etc/ssh/ssh_host_ed25519_key.pub` on the Docker host. If you recreate the container, its generated host key may change; verify and update the configured key before reconnecting.
++
+The remote root directory `/home/jenkins/agent` is the default working directory for the Linux image. Keep the host, port, credential, and host key consistent with the Docker network or published-port setup you chose above.
++
+image:node/node-configuration.png[Node configuration page filled in.,700]
+
+. Select *Save* and `agent1` will be registered, but offline for the time being.
+Select the `agent1` node to view its status.
+
+. The status page should show the message: `This node is being launched.`
+If that's not the case, select *Relaunch agent* and wait a few seconds.
+
+. After waiting, select the `Log` option to view the logs.
+At the bottom of the log, you should receive the message: `Agent successfully connected and online`.
+
+If the agent remains offline, check the node log for connection, authentication, or host-key errors. Confirm that the controller can reach the Docker host or shared network, that the SSH credential contains the matching private key and username `jenkins`, and that the configured port matches the mapping. For a host mapping such as `<host-port>:22`, set the SSH launcher port to the selected host port; for containers sharing the `jenkins` network, use port `22`.
+
+=== Delegating the first job to `agent1`
+
+. From your Jenkins dashboard select *New Item*.
+. Enter a name, for example, `First job on agent1`.
+. Select *Freestyle project* and select OK to create the job.
+. Select the option *Restrict where this project can be run*.
+. Enter the node label (`agent1`) in the *Label Expression* field.
++
+image:node/label-expression.png[Label expression field with agent1 value.,700]
 
 +
 [NOTE]
@@ -223,29 +341,16 @@ image:node/node-5.png[Agent job 1,650]
 Be careful with white spaces before or after the label.
 ====
 
-7. Now Select the option `Execute shell` at Build Section;
+. Select the *Execute shell* option from the *Build Steps* dropdown;
+. Add the commands `echo $NODE_NAME` and `java -version` in the *Command* field. The build log should show `agent1` and the Java version supplied by the agent image.
 +
-image:node/node-6.png[Agent job 2,650]
+image:node/build-step-execute.png[Entering the command for the build step.,700]
 
-8. Add the command: `echo $NODE_NAME` in the `Command` field of the `Execute shell` step  and the name +
-of the agent will be printed inside the log when this job is run;
-9. press the save button and then select the option `Build Now`;
-10. Wait some seconds and then go to `Console Output` page
+. Select *Save* and then select *Build Now*.
+. Wait a few seconds, and then go to *Console Output* page.
+You should receive output similar to:
 +
-image:node/node-7.png[Agent job 3,650]
-
-11. you should receive output similar to:
-+
-[source,bash]
-----
-Started by user Admin User
-Running as SYSTEM
-Building remotely on agent1 in workspace /home/jenkins/workspace/First Job to Agent1
-[First Job to Agent1] $ /bin/sh -xe /tmp/jenkins15623311211559049312.sh
-+ echo $NODE_NAME
-agent1
-Finished: SUCCESS
-----
+image:node/console-output.png[Console output of a successful build.,700]
 
 == Restarting a Jenkins agent
 

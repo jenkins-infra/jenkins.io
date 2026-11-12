@@ -1,0 +1,125 @@
+---
+layout: post
+title: "Jenkins requires Java 17 or newer"
+tags:
+- announcement
+- core
+- developer
+- jenkins
+author: basil
+opengraph:
+  image: /images/post-images/2024/06/java17.png
+description: >
+  Beginning with Jenkins 2.463, Jenkins requires Java 17 or newer.
+---
+
+== Summary
+
+image:/images/post-images/2024/06/java17.png[Jenkins requires Java 17, role=center, float=right, width=400px]
+
+**Beginning with the Jenkins 2.463 weekly release (scheduled for release on June 18, 2024), Jenkins requires Java 17 or newer.**
+The Jenkins 2.452.x LTS line will continue to require Java 11 or newer,
+as will the LTS line (possibly 2.462.1) that is scheduled for release on July 24, 2024,
+whose baseline will be 2.462 (the last weekly release to support Java 11) or earlier.
+The first LTS release to require Java 17 or newer will ship at the end of October 2024.
+
+The Jenkins core team generally recommends that all users adopt Java 17 or Java 21.
+In recent months, usage of Java 17 has almost surpassed usage of Java 11, and usage of Java 21 is rapidly increasing:
+
+image:/images/post-images/2024/06/jvms.png[JVMs by Date]
+
+Weekly releases will require Java 17 or newer earlier than a previously announced date.
+The motivating factor for this change of schedule is https://spring.io/blog/2024/03/01/support-timeline-announcement-for-spring-framework-6-0-x-and-5-3-x[the August 31, 2024 EOL of the Spring Framework 5.3.x line].
+Jenkins relies heavily on Spring Security, and upgrading to the 6.x line necessitates a slew of breaking changes, including migrating to Java 17, Jetty 12, and Jakarta EE 9.
+In order to mitigate risk, we are beginning the rollout of Java 17 in the June 18, 2024 weekly release.
+Further details about the migration to Jetty 12 and Jakarta EE 9 are forthcoming.
+
+== Upgrading to Java 17 or 21
+
+Beginning with the Jenkins 2.463 weekly release (scheduled for release on June 18, 2024),
+Jenkins requires Java 17 or newer on both the controller JVM (i.e., the JVM running `jenkins.war`) and agent JVMs (i.e., JVMs running `remoting.jar`).
+
+This does not imply that you need to build your application with the same version of Java.
+You can continue to use any desired JDK to build your application,
+as long as the JVM used for running Jenkins itself is version 17 or newer.
+For example, the **Global Tool Configuration** page can still be used to provide a JDK 8 or 11 installation for building your application.
+Similarly, you can set up ephemeral or static agents with two installations of Java:
+Java 17 or newer to run `remoting.jar` for Jenkins and Java 8 or 11 to build your application.
+
+We have supported running the controller on Java 17 since the Jenkins 2.355 weekly release,
+and we have supported running the controller on Java 21 since the Jenkins 2.419 weekly release.
+Prior to the Jenkins 2.463 weekly release, running the controller on Java 17 and agents on Java 11, though not recommended, did not result in errors.
+Beginning with the Jenkins 2.463 weekly release, running the controller on Java 17 and agents on Java 11 will result in the following error:
+
+[source]
+----
+java.lang.UnsupportedClassVersionError: hudson/slaves/SlaveComputer$SlaveVersion has been compiled by a more recent version of the Java Runtime (class file version 61.0), this version of the Java Runtime only recognizes class file versions up to 55.0
+	at java.base/java.lang.ClassLoader.defineClass1(Native Method)
+	at java.base/java.lang.ClassLoader.defineClass(ClassLoader.java:1022)
+	at java.base/java.lang.ClassLoader.defineClass(ClassLoader.java:883)
+	at hudson.remoting.RemoteClassLoader.loadClassFile(RemoteClassLoader.java:473)
+        ... 24 more
+----
+
+Therefore, it is critical to upgrade both the controller _and_ agents to Java 17 or newer prior to upgrading Jenkins to the 2.463 weekly release.
+Use the https://plugins.jenkins.io/versioncolumn/[Versions Node Monitors] plugin to verify that agents are running a compatible version of Java.
+
+== Docker images
+
+The official Jenkins Docker images for https://hub.docker.com/r/jenkins/jenkins/[the controller] and https://hub.docker.com/r/jenkins/inbound-agent/[agents] have been based on Java 17 for many months,
+with Java 11 available as a fallback.
+Beginning with the Jenkins 2.462 weekly release, the Java 11 images will be retired.
+(Java 11 images will remain available for the LTS line until October 2024.)
+Users of the official Jenkins Docker images need not install or configure Java on their own, as it comes preinstalled in the image.
+
+If you are using a Docker image to run both the agent Java process (i.e., `remoting.jar`) and your own application build and your application build still requires Java 8 or 11,
+you will need to provide a Java 17 or newer runtime for the Jenkins agent process and a Java 8 or 11 environment for your application build.
+
+== OS packages
+
+Users of the link:/download/[official Jenkins OS packages for Debian, Red Hat, and SUSE Linux distributions] should note that these packages are agnostic to the Java vendor.
+In other words, you must bring your own Java package.
+One straightforward way to do this is to install Java 17 from your Linux distribution, as described on the package download site:
+
+https://pkg.jenkins.io/debian/[Debian]:: `apt-get install fontconfig openjdk-17-jre`
+https://pkg.jenkins.io/redhat/[Red Hat]:: `yum install fontconfig java-17-openjdk`
+https://pkg.jenkins.io/opensuse/[openSUSE]:: `zypper install dejavu-fonts fontconfig java-17-openjdk`
+
+By virtue of not requiring any custom repositories, this is certainly the simplest method (and the one used by the Jenkins project's https://github.com/jenkinsci/packaging/tree/7c74bdb1dc0e8f4790c4c8af3e3a4bf9bc6ee38a/molecule/default[packaging tests]),
+but it does not give the user a high degree of control over the Java runtime environment.
+As mentioned previously, the official Jenkins Docker images use Adoptium/Eclipse Temurin (as does the Jenkins infrastructure project).
+Enthusiastic users may wish to install Java from Adoptium or another vendor.
+Since 2021, Adoptium has provided Linux installation packages, as described in https://blog.adoptium.net/2021/12/eclipse-temurin-linux-installers-available/[a piece by George Adams].
+Ultimately, the choice of which Java vendor to use is your own, as long as that vendor provides Java 17 or Java 21.
+Refer to your chosen Java vendor for installation instructions.
+
+Once you have installed a suitable version of Java, configure Jenkins to use that Java runtime.
+The most straightforward way is to configure that version of Java as the default version of Java at the operating system (OS) level:
+
+https://pkg.jenkins.io/debian/[Debian]:: `update-alternatives --config java`
+https://pkg.jenkins.io/redhat/[Red Hat]:: `alternatives --config java`
+https://pkg.jenkins.io/opensuse/[openSUSE]:: `update-alternatives --config java`
+
+Alternatively, users who do not wish to change the default version of Java can customize the `JAVA_HOME` or `JENKINS_JAVA_CMD` environment variable as part of the Jenkins `systemd(1)` service unit.
+Refer to the link:/doc/book/system-administration/systemd-services/[Managing systemd services] section of the Jenkins documentation for more information.
+
+== Reporting issues
+
+If you find a regression in a plugin, please file a bug report in Jira:
+
+* https://issue-redirect.jenkins.io/issue/67907[JENKINS-67907: Java 17 Phase 3: Require Java 17 or newer]
+
+When reporting an issue, include the following information:
+
+. Use the https://issue-redirect.jenkins.io/issue/67907[JENKINS-67907] epic.
+. Provide the output of `java -version` (e.g., OpenJDK 64-Bit Server VM Temurin-21.0.3+9 build 21.0.3+9-LTS)
+. Provide the name, version, and architecture of the operating system you are using (e.g., Ubuntu 24.04.1 LTS x86_64).
+. Provide the _complete_ list of installed plugins as suggested in the link:/doc/book/troubleshooting/diagnosing-errors/#how-to-report-a-bug[bug reporting guidelines].
+. Provide the _complete_ stack trace, if relevant.
+. Provide steps to reproduce the issue _from scratch_ on a minimal Jenkins installation; the scenario should fail on Jenkins 2.462 or earlier when the steps are followed on Java 17 or Java 21 and pass when the steps are followed on Java 11.
+
+== Conclusion
+
+We expect to see a bit of disruption from the migration to Java 17, Jetty 12, and Jakarta EE 9,
+but we hope that in the long term these changes will be in the best interests of the Jenkins community.
+Please reach out on the link:/mailing-lists/[developers' list] with any questions or suggestions.

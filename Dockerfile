@@ -1,4 +1,4 @@
-FROM node:16.13.1 as node
+FROM node:24.22.2 as node
 ENV USE_LOCAL_NODE=true
 
 WORKDIR /usr/src/jenkinsio/build/_site/
@@ -8,10 +8,10 @@ ENV FONTS_DIR=/usr/src/jenkinsio/build/_site/css/fonts
 COPY Makefile package* ./
 COPY scripts ./scripts
 
-RUN npm install
+RUN npm ci
 RUN make assets
 
-FROM ruby:2.6.9 as builder
+FROM ruby:3.4.11 AS builder
 ENV USE_LOCAL_RUBY=true
 
 # throw errors if Gemfile has been modified since Gemfile.lock
@@ -33,7 +33,7 @@ RUN bundle exec ./scripts/fetch-external-resources
 RUN make real_generate
 
 
-FROM nginx:1.17
+FROM nginx:1.31
 
 COPY --from=builder /usr/src/jenkinsio/build/_site /usr/share/nginx/html
 

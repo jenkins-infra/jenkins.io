@@ -1,0 +1,81 @@
+---
+title: Securing SCM credentials for Organization Folders and Multibranch Pipelines
+layout: section
+---
+ifdef::backend-html5[]
+:toc:
+ifdef::env-github[:imagesdir: ../resources]
+ifndef::env-github[:imagesdir: ../../resources]
+:hide-uri-scheme:
+endif::[]
+
+Organization Folders and Multibranch Pipelines are Jenkins project types that allow a single configuration item to automatically manage and build a potentially large number of Pipeline jobs for different repositories or different branches of a single repository.
+These projects interact with external SCM providers in various ways, which generally require credentials with SCM provider API access to be made available to Jenkins ("scan credentials").
+The following sections discuss potential issues with visibility and accessibility of those credentials.
+
+== Credentials
+
+For many Branch Source configurations, such as those provided by GitHub Branch Source plugin and Bitbucket Branch Source plugin, the Jenkins user who configures the project only needs to provide a single credential, which will be used in two ways:
+
+* By the controller, to perform plugin operations like Organization Folder scans, Multibranch Pipeline branch indexing, webhook modification, commit status updates, and more. These operations generally interact with SCM provider APIs that may require significant permissions beyond read/write access to the contents of a repository.
+* By nodes, to check out the repositories being built by the child Pipeline jobs.
+
+Credentials defined using the Global scope are available to all children of the object where they are defined.
+This means that any credentials available to Organization Folders and Multibranch Pipelines will also be available to their child Pipeline jobs.
+
+Any user who has Job/Create permission in a location where a credential is available must be trusted to use that credential arbitrarily (and in many cases, Job/Configure is enough to use credentials arbitrarily).
+When using Jenkins Pipeline, that trust is extended to any user who is able to modify `Jenkinsfile`, and have their changes used by Jenkins.
+Which users are trusted to modify `Jenkinsfile` depends on the Branch Source configuration for the Pipeline, as they are able to modify `Jenkinsfile`.
+For example, any user who can write to a branch in the repository is considered trusted by the GitHub Branch Source plugin.
+
+== Implications
+
+SCM credentials for Organization Folders and Multibranch Pipelines are available for arbitrary use by anyone who is able to modify the `Jenkinsfile` of a repository being built by that Organization Folder or Multibranch Pipeline.
+
+[NOTE]
+====
+Misuse of `withCredentials` around Pipeline steps that execute user-controlled code may allow untrusted users to capture the credentials even if they do not have the ability to modify `Jenkinsfile`, but this is separate from the problems being discussed here.
+For example, if a Multibranch Pipeline builds PRs from forks, and the Jenkinsfile binds a credential around a `sh` step that runs tests in the repository, a user can file a PR from a fork that modifies the tests to access the credential without having to modify `Jenkinsfile`.
+====
+
+[NOTE]
+====
+Many SCM plugins offer a configuration option to perform the actual source code checkout using SSH. These options do not prevent the scan credentials from being used in the Pipeline in other ways, for example by a `withCredentials` step.
+====
+
+This may be undesirable in two ways:
+
+* Write access to one repository can be used to obtain credentials that have access to other repositories.
+* Write access to one repository can be used to obtain credentials with permissions beyond repository read/write access.
+
+== Affected scenarios
+
+The above concerns may not matter to users with simple security models.
+
+You should consider the above implications carefully if:
+
+* You use a single organization folder in Jenkins to build multiple SCM repositories for which the users with SCM access to one repository must not have access to the other repositories being built.
+* Your SCM users must only have read/write access to repositories and no additional permissions.
+
+Note that if you allow untrusted users to create or configure jobs in locations where credentials are available, this issue does not matter, as those users can use the credentials directly.
+
+Additionally, these concerns only apply to users who do not have Job/Configure permission (or more powerful permissions) in Jenkins, but who do have the ability to edit Pipelines, for example because they have write access to repositories that contain Jenkinsfiles.
+If untrusted users do not have the ability to edit Jenkinsfiles, for example because Multibranch Pipelines are configured to use a centralized Pipeline via a plugin such as plugin:inline-pipeline[Multibranch Pipeline Inline Definition] or plugin:pipeline-multibranch-defaults[Pipeline: Multibranch with defaults], these issues do not matter.
+
+== Solutions and workarounds
+
+=== Generic workarounds
+
+If your primary concern is to prevent users with SCM read/write access to a repository from using the scan credentials to access other repositories being built by an Organization Folder, you have a few options:
+
+* Assuming that your SCM provider allows you to create credentials which may only access specific repositories (such as GitHub's fine-grained personal access tokens), you can create multiple Organization Folders configured to build distinct subsets of the repositories in question, defining the restricted credentials directly on each Organization Folder in Jenkins.
+* Depending on your SCM provider's credential-related features, you may not be able to use Organization Folders securely, and would instead need to create one Multibranch Pipeline for each repository with a credential defined on it that only allows access to that specific repository.
+
+Unfortunately, if your primary concern is to prevent users with SCM read/write access to a repository from using the scan credentials to gain elevated permissions, there is no generic solution.
+In some cases, you may be able to remove permissions from the credential to make it less powerful.
+For example, you may be able to remove webhook-related permissions from the credentials, which will prevent Jenkins from automatically managing webhooks, in favor of having an administrator configure webhooks manually.
+
+=== Enhanced GitHub App Credentials
+
+If you are using GitHub Branch Source Plugin with GitHub App Credentials, the plugin offers various features as of version 1844.v4a_9883d49126 that can be used to improve security.
+Refer to link:https://github.com/jenkinsci/github-branch-source-plugin/blob/master/docs/github-app.adoc#enhancing-security-using-repository-access-strategies-and-default-permissions-strategies[the plugin's documentation] for details.

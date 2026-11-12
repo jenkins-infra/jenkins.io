@@ -7,7 +7,7 @@ class AuthorList
    module AuthorLink
      def author_link(string)
        #replace accents with unaccented version, go lowercase and replace and space with dash
-       "/blog/authors/" + string.to_s.urlize({:convert_spaces=>true})
+       "/blog/authors/" + string.to_s.urlize({:convert_spaces=>true}) + "/"
      end
    end      
    

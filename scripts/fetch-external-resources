@@ -5,12 +5,13 @@
 
 
 require 'faraday'
-require 'faraday_middleware'
+require 'faraday/follow_redirects'
 require 'fileutils'
 require 'json'
 require 'uri'
 require 'yaml'
 require 'zip'
+require 'csv'
 
 
 RESOURCES = [
@@ -33,7 +34,7 @@ RESOURCES = [
     'content/_tmp/examples'
   ],
   [
-    'https://ci.jenkins.io/job/Infra/job/pipeline-steps-doc-generator/job/master/lastSuccessfulBuild/artifact/allAscii.zip',
+    'https://reports.jenkins.io/allAscii.zip',
     'content/_tmp/allAscii.zip',
     nil,
     'content/doc/pipeline/steps'
@@ -63,11 +64,17 @@ RESOURCES = [
     nil
   ],
   [
-    'https://ci.jenkins.io/job/Infra/job/backend-extension-indexer/job/master/lastSuccessfulBuild/artifact/*.adoc/*zip*/extension-indexer.zip',
+    'https://reports.jenkins.io/extension-indexer.zip',
     'content/_tmp/extension-indexer.zip',
     nil,
     'content/doc/developer/extensions'
   ],
+  [
+    'https://raw.githubusercontent.com/jenkins-infra/jenkins-contribution-stats/main/data/honored_contributor.csv',
+    'content/_data/indexpage/thank_you.yml',
+    nil,
+    nil
+  ]
 ]
 
 
@@ -78,10 +85,25 @@ class Fetcher
   # into the fetching of specific resources themeslves
   def fetch_resource(origin)
     conn = Faraday.new(:ssl => {:verify => false}) do |f|
-      f.use FaradayMiddleware::FollowRedirects, limit: 5
+      f.use Faraday::FollowRedirects::Middleware, limit: 5
       f.adapter Faraday.default_adapter
     end
     return conn.get(origin)
+  end
+
+  # Cleans the CSV data by removing double quotes (""), single quotes ('), and extra spaces.
+  def clean_data(data)
+    case data
+    when Hash
+      data.transform_keys { |key| key.strip.gsub('"', '') }
+          .transform_values { |value| clean_data(value) }
+    when Array
+      data.map { |item| clean_data(item) }
+    when String
+      data.strip.gsub('"', '') 
+    else
+      data
+    end
   end
 
   # process a list of resources and generate files from them
@@ -106,9 +128,23 @@ class Fetcher
         end
 
         puts "Writing #{destination}"
-        if destination.include? ".yml"
+        if origin.end_with?('.csv') && destination.end_with?('.yml')
+          puts "Converting CSV to YAML"
+          begin
+            csv_data = CSV.parse(response.body, headers: true, liberal_parsing: true).map(&:to_h) 
+            if csv_data.empty?
+              puts "Warning: CSV data is empty, nothing to convert."
+            else
+              cleaned_data = clean_data(csv_data)
+              f.write(cleaned_data.to_yaml)
+            end
+          end
+        elsif destination.include?(".yml")
           puts "Converting JSON to YAML"
-          f.write(YAML.dump(JSON.load(response.body)))
+          begin
+            json_data = JSON.parse(response.body)
+            f.write(YAML.dump(json_data)) 
+          end
         else
           f.write(response.body)
         end

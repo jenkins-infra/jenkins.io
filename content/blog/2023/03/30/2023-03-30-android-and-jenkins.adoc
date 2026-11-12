@@ -1,0 +1,463 @@
+---
+layout: post
+title: "Android and Jenkins: what is the limit?"
+tags:
+- jenkins
+- android
+- aarch64
+authors:
+- gounthar
+- kmartens27
+opengraph:
+  image: /images/post-images/2023/03/29/2023-03-22-android-and-jenkins/love.png
+discourse: true
+---
+
+image:/images/post-images/2023/03/29/2023-03-22-android-and-jenkins/love.png[jenkins hugging bugdroid,500]
+
+After reading the title, you may be thinking "Wait, what?
+Is Jenkins somehow limited in building Android apps?"
+You can relax, as I may have phrased it incorrectly.
+We're not talking about building Android apps with Jenkins, which has no limitations as far as I know.
+We're talking about building _something_ with Jenkins, using an Android device as a Jenkins node, or potentially as a Jenkins controller.
+Does this sounds appealing or strange enough to you?
+Continue reading to learn more about the relationship between Android and Jenkins!
+
+== Jenkins and `aarch64`
+
+I joined the Jenkins project in April 2022.
+At that time, we could already find `aarch64 docker` images, for the agents or the controller, and regular installers for `aarch64` Linux.
+The link:https://hub.docker.com/layers/jenkins/jenkins/2.305-jdk11/images/sha256-700c20a5cd0eb3c69a825baf8197166bb078361c3351aab6806a386573dbc829?context=explore[oldest image] for a controller I found was from August 2021, and the link:https://hub.docker.com/layers/jenkins/jenkins/2.305-jdk11/images/sha256-700c20a5cd0eb3c69a825baf8197166bb078361c3351aab6806a386573dbc829?context=explore[oldest image] for an agent was from February 2022.
+This is nothing new, as Jenkins works on `aarch64` Linux and has been running on that CPU architecture for years.
+
+It's pretty easy when using Linux on an `x86_64` machine, but it can be more difficult on an `aarch64` machine.
+This is because the tools needed to build Android applications were not available until late 2021, with the release of Android Build Tools `31.0.0`.
+Of course, you can use link:https://support.apple.com/en-us/HT211861[Rosetta] to build your applications and even combine it with link:https://developer.ibm.com/tutorials/running-x86-64-containers-mac-silicon-m1/[Docker].
+
+In my experience with Jenkins and `aarch64`, I have several `aarch64` Jenkins agents and controllers.
+Some of them are using `docker` and some of them are installed directly on the Linux machine thanks to the link:/doc/book/installing/linux/#debianubuntu[standard instructions].
+Thankfully, there has been nothing outstanding to worry about, as Jenkins works fine for me with `aarch64`.
+
+== Android and `aarch64`
+
+Until recently, it was difficult to build Android applications on an `aarch64` machine.
+The main reason was that the link:https://developer.android.com/studio/releases/build-tools[Android build tools] were not compatible with `aarch64` machines.
+Before version `31.0.0`, there was a bug in the Android Build Tools that caused the `aapt2` tool to crash when building resources on `aarch64` machines.
+This issue was resolved in version `31.0.0`, which added native support for `aarch64` and fixed the `aapt2` crash on these machines.
+Thanks to this, Android Build Tools are now natively compatible with `aarch64`.
+
+Isn't that fantastic?
+This meant there was no need to use Rosetta to build Android apps on `aarch64` anymore.
+Until I started writing this post, I was actually using build-tools `30.x`.
+I didn't need to build Android apps on `aarch64` machines, so upgrading was unnecessary.
+
+However, a friend of mine works on an link:https://en.wikipedia.org/wiki/Apple_M1[M1 Mac], which happens to be an `aarch64` machine, and wanted to build Android apps on his Mac.
+He was working with Docker, which translates `x86-64` to `aarch64`, as long as you specify that you're using an `x86-64` image to begin with.
+I know it's strange that `x86-64` is called `https://unix.stackexchange.com/a/53416[amd64]` in Docker, but that's not the point.
+
+[,yaml]
+----
+[...]
+android-agent:
+    platform: linux/amd64
+    build: ../
+    restart: unless-stopped
+    volumes:
+        - android-agent-data:/home/jenkins:rw
+        - ../adbkey.pub:/home/jenkins/.android/adbkey.pub:rw
+        - ../adbkey.txt:/home/jenkins/.android/adbkey:rw
+    environment:
+        - JENKINS_AGENT_SSH_PUBKEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBpNqXQ4x7fPPUBbYPxKF77Zqq6d35iPCD2chg644OUD
+        - STF_HOST_NAME
+[...]
+----
+
+We could theoretically build Android apps on link:https://magpi.raspberrypi.com/articles/pi-3-interview[Raspberry PI 3B+] with https://github.com/gounthar/MyFirstAndroidAppBuiltByJenkins/blob/aarch64/Dockerfile[Jenkins] from now on.
+
+
+In the introduction, I stated that I wanted to build something with Jenkins on an Android device, and not the other way around.
+The goal is to run parts of Jenkins (first an agent, then a controller, then a whole Jenkins instance thanks to Docker) on an Android device.
+So why am I telling you about building Android apps on `aarch64` machines with Jenkins?
+Because it would be kind of ironic, and tons of fun, to build an Android app with Jenkins on an Android device!
+That would even allow me to introduce you to the _Jenkinsception_ concept.
+More on that in a future post.
+
+== Get `sshd` working on an Android device
+
+What does `sshd` have to do with installing Jenkins?
+Well, we have a few different ways to start and connect a Jenkins agent to a Jenkins controller, but the easiest one for me is to use an ssh agent.
+The first step is to get `sshd` working on an Android device.
+There are various ways to access an Android device through SSH.
+Here are some of them:
+
+* link:https://developer.android.com/studio/command-line/adb[ADB]: You can use the Android Debug Bridge (ADB) to connect to your Android device over SSH.
+This requires you to enable USB debugging on your device and have ADB installed on your computer.
+The following guide may not work any longer, but it's a good starting point: link:https://dtbaker.net/blog/howto-enable-ssh-on-android-and-network-adb/[How to enable ssh on Android].
+* link:https://play.google.com/store/apps/details?id=org.galexander.sshd[SimpleSSHD]: SimpleSSHD is a lightweight and easy-to-use SSH server app for Android.
+It supports key-based authentication, and you can configure it to run at startup.
+* https://termux.dev/en/[Termux]: Termux is a terminal emulator and Linux environment app that allows you to start an SSH server on your Android device.
+You can then use any SSH client to connect to your device over SSH.
+Unfortunately, updates for Termux are not available on the Google Play Store anymore, but you can still find it on link:https://github.com/termux/termux-app#github[GitHub] or link:https://github.com/termux/termux-app#f-droid[F-Droid].
+
+It is important to note that SSH access to your device can pose security risks, so it is recommended to use caution and *only* enable SSH access when necessary.
+
+Termux is my go-to choice when it comes to using some kind of Linux on Android.
+There are packages available that will allow you to install new software, and package updates, like a "real" Linux distribution.
+I almost feel at home when using it.
+
+While reading the link:https://wiki.termux.com/wiki/Remote_Access[Termux documentation], I discovered that Termux has an SSH server (link:https://www.openssh.com/[OpenSSH]) built-in.
+It's not enabled by default, but it's easy enough to configure.
+The following instructions are available on the https://wiki.termux.com/wiki/Remote_Access#OpenSSH[Termux wiki], and I've added some details to make it easier to follow.
+
+=== Starting and stopping the OpenSSH server
+
+Since Termux does not use an link:https://en.wikipedia.org/wiki/Systemd[initialization system], services are started manually from the command line.
+
+To start the OpenSSH server, you need to execute this command: `sshd`.
+If you need to stop `sshd`, just kill its process: `pkill sshd`.
+
+SSH daemon logs to the Android system log, and you can view them by running `logcat -s 'sshd:*'`.
+This is possible from either Termux or ADB.
+
+=== Setting up password authentication
+
+Password authentication is enabled by default, making it easier to get started.
+Before proceeding, make sure that you understand that password authentication is less secure than a pubkey-based one.
+
+Ensure that everything is up-to-date and the `openssh` package is installed: +
+[,bash]
+----
+ pkg upgradepkg install openssh
+----
+
+Please note that `$PREFIX` is a variable that points to the Termux installation directory.
+It is usually `/data/data/com.termux/files`.
+
+Password authentication is enabled by default in the configuration file.
+You can review the file at `$PREFIX/etc/ssh/sshd_config`, and it should contain this data:
+
+----
+ PrintMotd yes
+ PasswordAuthentication yes
+ Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server
+----
+
+If your file does not look like this, you will have to edit the file.
+Note that `vi` is not installed by default, but `nano` is.
+You can use `nano` to edit the file.
+
+Set a new password by executing the command `passwd`.
+While the program allows a minimal password length of one character, the recommended password length is more than eight to ten characters.
+Passwords are not printed on the console.
+
+----
+ passwd New password:
+ Retype new password:
+ New password was successfully set.
+----
+
+=== Setting up public key authentication
+
+Public key authentication is the recommended way for logging in using SSH.
+You need to have a public/private key pair to use this type of authentication.
+For a successful login, the public key must exist in the authorized keys list on the remote machine, while the private key should be kept safe on your local host.
+
+In the following example, it is assumed that you want to establish public key authentication between your PC (host) and your future Jenkins agent, which happens to be an Android device running Termux (remote).
+It is also assumed that you're running a Linux distribution on your PC, link:https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux#WSL_2[WSL2], or even link:https://en.wikipedia.org/wiki/Cygwin[Cygwin].
+It would be better if both machines were using the same network, for example both are connected to the same Wi-Fi network.
+It is also assumed that you know your Android device's IP address.
+If you have access to your router webpage, you should be able to see which IP has been assigned to your Android device.
+If you don't have access to the router webpage, you can find your IP address on an Android device by following these steps:
+
+* Open the Settings app on your Android device.
+* Scroll down and tap on "About phone" or "About device".
+* Look for the "Status" or "Network" section and tap it.
+* Find the "IP address" or "Wi-Fi IP address" option, which will display your device's IP address.
+
+Alternatively, you can also find your IP address within Termux by typing the following command: `ip addr show`.
+Be aware that if the package is not installed yet, you will need to issue `pkg install iproute2` first.
+Look for the `inet` line next to the `wlan0` line that has your IP address given by your Wi-Fi router.
+
+If you do not have ssh keys, you can generate them.
+In this example, we will generate an `RSA` key.
+On the PC, execute the command: `ssh-keygen -t rsa -b 2048 -f id_rsa`, replacing `id_rsa` with the name of your key.
+For me it would be `ssh_key_for_jenkins_agent_2023-03-10`.
+The command shown above generates a private RSA key with a 2048-bit key length and saves it to the file `id_rsa`.
+In the same directory, you can find a file named `id_rsa.pub`, and this is a public key.
+
+For me, the command was:
+[,bash]
+----
+ ssh-keygen -t rsa -b 2048 -f ssh_key_for_jenkins_agent_2023-03-10
+ Generating public/private rsa key pair.
+ Enter passphrase (empty for no passphrase):
+ Enter same passphrase again:
+ Your identification has been saved in ssh_key_for_jenkins_agent_2023-03-10
+ Your public key has been saved in ssh_key_for_jenkins_agent_2023-03-10.pub
+ The key fingerprint is:SHA256:yoykbWyCHuqrANFBkO41vuXMC7kLhsVfe8caLWQEUqk user@PC
+ The key's randomart image is:
+ +---[RSA 2048]----+
+ |.+o ..o.         |
+ |.. . ...         |
+ |o .  .  .        |
+ | + oE  .         |
+ |o = o . S        |
+ |o+ B.* = o       |
+ |++oo& = + +      |
+ |= o=o+ . =       |
+ |=+.o... .        |
+ +----[SHA256]-----+
+----
+
+The key was generated in the current directory, not in `$HOME/.ssh`.
+I tend to move the generated key in that `$HOME/.ssh` directory (`mv ssh_key_for_jenkins_agent_2023-03-10* ~/.ssh` for me).
+I then change the directory to `$HOME/.ssh` (`cd ~/.ssh`) and change the permissions of the key (`chmod 600 ssh_key_for_jenkins_agent_2023-03-10`).
+
+NOTE: 2048 bit is the minimal key length that is considered safe.
+You can use higher values, but do not use a higher than 4096, as the remote server may not support that big of a key.
+
+Copy the key to the remote machine (your Jenkins agent wannabe running Termux).
+Password authentication must be enabled to install a public key on the remote machine.
+Now execute: `ssh-copy-id -p 8022 -i id_rsa IP_ADDRESS`, making sure to replace `id_rsa` with the name of your key and `IP_ADDRESS` with the IP address of your Android machine.
+
+Alternatively, you can manually copy the content inside `id_rsa.pub` (public key), which is already on the PC, and looks like `ssh-rsa <A LOT OF RANDOM STRINGS> user@host`.
+After copying, paste this content to the Termux file `$HOME/.ssh/authorized_keys` (remote machine).
+Before copying and pasting, you must connect through `ssh user@IP_ADDRESS -p 8022`, replacing `IP_ADDRESS` with the IP address of your Android machine.
+Doing so enables you to copy the content of the public key, using any text editor available on PC, and paste it inside an ssh session handled by Termux.
+
+What looks strange to me is that `user` could be just about anything.
+I tried to log in without supplying a user, which means I was using my PC username, and it worked!
+I tried to log in with a different username and this also worked.
+When issuing the `whoami` command inside Termux, it shows the username of the Termux user, which is `u0_a504` in my case.
+
+If everything went fine, you will see a message like this one: +
+[,bash]
+----
+ Number of key(s) added: 1
+----
+
+If your system has an ssh-agent, you should now link:https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent?platform=linux#adding-your-ssh-key-to-the-ssh-agent[add your newly generated key to the agent].
+After adding the key, try logging into the machine with: `ssh -p '8022' 'IP_ADDRESS'`
+Be sure to replace `IP_ADDRESS` with the IP address of your Android machine and check to make sure that only the key(s) you wanted were added.
+If you don't have an agent running, you will have to use a slightly different command: `ssh -i id_rsa -p '8022' 'IP_ADDRESS'`
+Here, you need to replace `id_rsa` with the name of your key and `IP_ADDRESS` with the IP address of your Android machine.
+That would display for me as:
+
+[,bash]
+----
+ ssh -i ssh_key_for_jenkins_agent_2023-03-10 -p 8022 192.168.1.xx
+ Welcome to Termux!
+----
+
+At this point, password authentication can be disabled.
+Using `nano`, edit the file `$PREFIX/etc/ssh/sshd_config`, and replace the line beginning `PasswordAuthentication` with `PasswordAuthentication no`.
+Back in the Termux app, execute the command `pkill sshd && sshd` to restart the `sshd` server with the updated configuration file.
+Of course, if you were to do that from your PC, you would be disconnected and the ssh server would not be restarted.
+
+Now you can log in to the remote machine without a password.
+Just execute the command `ssh -p '8022' 'IP_ADDRESS'`
+For this command, replace `IP_ADDRESS` with the IP address of your Android machine, or with the more complex command `-i`, if your machine does not use an ssh agent.
+
+== Installing Java on Termux
+
+We all know that Jenkins is written in Java.
+We also know Android apps are written in Java or Kotlin, so while we could hope that we magically skip this step, I'm afraid we can't.
+The virtual machine that runs Android apps is not the same as the one that runs on your PC.
+Later on, we'll detail the main differences between the two.
+The Android virtual machine (called dalvik) is available on Termux, but it is not capable of executing our agent.jar file, since the `java` command is not available yet.
+
+[,bash]
+----
+dalvikvm -showversion
+ART version 2.1.0 arm64
+java --version
+bash: /data/data/com.termux/files/usr/bin/java: No such file or directory
+----
+
+For the time being, let's assume that we need to install Java on Termux.
+Let's find out which java versions are available on Termux:
+
+[,bash]
+----
+pkg update && pkg search openjdk
+Checking availability of current mirror:
+[*] https://packages-cf.termux.dev/apt/termux-main: ok
+Sorting...
+Done
+Full Text Search...
+Done
+openjdk-17/stable 17.0-25 aarch64
+  Java development kit and runtime
+openjdk-17-source/stable 17.0-25 all
+  Source files for openjdk-17
+openjdk-17-x/stable 17.0-25 aarch64
+  Portion of openjdk-17 requiring X11 functionality
+----
+
+Nice.
+Jenkins supports Java 17 since the link:/changelog-old/#v2.355[2.355] and link:/changelog-stable/#v2.346.1[2.346.1 LTS] releases, so let's go with OpenJDK 17.
+
+[,bash]
+----
+pkg install openjdk-17
+----
+
+Now the `java` command is available:
+
+[,bash]
+----
+java --version
+openjdk 17-internal 2021-09-14
+OpenJDK Runtime Environment (build 17-internal+0-adhoc..src)
+OpenJDK 64-Bit Server VM (build 17-internal+0-adhoc..src, mixed mode)
+----
+
+== Creating a Jenkins ssh agent
+
+You should now be able to connect via `ssh` to your Android device running Termux if you have issued the `sshd` command.
+Your `ssh` server also knows about the `ssh` key you generated on your PC.
+We will now create a credential based on that key within Jenkins, that will allow you to connect to your Android device running Termux from Jenkins later on.
+
+=== Creating a Jenkins ssh credential
+
+For this part, there is almost nothing specific to Android.
+You can follow the link:/doc/book/using/using-agents/[official documentation], and there are instructions on how to link:/doc/book/using/using-agents/#create-a-jenkins-ssh-credential[create a Jenkins credential].
+
+=== Setting up a Jenkins ssh agent
+
+It's now time to link:/doc/book/using/using-agents/#setup-up-the-agent1-on-jenkins[set up your agent].
+
+You can use `Android` as a label for your agent.
+Choose the `Launch agent via SSH` option.
+The hostname should be your phone's IP address, which was named 'IP_ADDRESS' in the previous steps.
+
+The credentials should be the ones you created in the previous steps.
+The remote root directory should be `/data/data/com.termux/files/home`.
+The host key verification strategy should be `Non-verifying Verification Strategy`.
+The `Launch method` should be `Launch agent via SSH`.
+
+Don't forget to select the *Advanced* option and change the port to `8022`.
+You could also specify the path of the `java` executable you installed in the previous steps, which happens to be `/data/data/com.termux/files/usr/bin/java`.
+Since I have installed the 'Platform Labeller' plugin, I have also checked the 'Automatic Platform Labels' checkbox.
+We'll see later on if it can cope with Android devices that don't use the `lsb_release` command.
+
+The very last thing to do is to select `Save`.
+You should now see the complete list of your defined agents.
+While the agent has been created, it may have not started yet.
+If that's the case, select the name corresponding to your newly created agent ('Android Phone' for me) and select `Launch` to start the agent.
+After some time, you should see in the logs `Agent successfully connected and online`, which means you can now use this agent to run your builds.
+
+== Using a Jenkins ssh agent
+
+Let's create a new job and use our newly created agent to run it.
+
+The simplest job that comes to mind is a `Freestyle project` that runs the `uname -a` command.
+That should give us some information about the Android device we are running on, while proving that the agent is working.
+Once again, there is nothing specific to Android for this step, so you can follow the link:/doc/book/using/using-agents/#delegating-the-first-job-to-agent1[official documentation].
+The only changes to the documentation I have made are:
+
+* I have used the `Android` label to make sure the job is run on the Android agent.
+* I have used the `uname -a` command instead of the `echo $NODE_NAME` command.
+
+[,bash]
+----
+Started by user admin
+Running as SYSTEM[EnvInject] - Loading node environment variables.
+Building remotely on Android Phone (aarch64 aarch64-unknown+check_lsb_release_installed aarch64-unknown+check_lsb_release_installed-unknown+check_lsb_release_installed android unknown+check_lsb_release_installed-unknown+check_lsb_release_installed unknown+check_lsb_release_installed) in workspace /data/data/com.termux/files/home/workspace/Android First Job
+[Android First Job] /bin/sh -xe /data/data/com.termux/files/usr/tmp/jenkins13760213506108463207.sh
++ uname -a
+Linux localhost 4.4.192-perf+ #1 SMP PREEMPT Fri Dec 10 13:53:37 WIB 2021 aarch64 Android
+Finished: SUCCESS
+----
+
+We now have a working Jenkins agent running on Android, thanks to Termux.
+Now what?
+Of course, we will be limited to the commands and packages that are link:https://wiki.termux.com/wiki/Package_Management[available] on Termux.
+For example, I can't see `gcc` in the list of available packages, which could be troublesome.
+
+[,bash]
+----
+pkg search gcc
+Checking availability of current mirror:
+[*] https://termux.astra.in.ua/apt/termux-main: ok
+Sorting...
+Done
+Full Text Search...
+Done
+----
+
+No gcc?
+You're right, there is no `gcc` in the official Termux repository.
+However, the Termux community comes to the rescue with some repositories that provide additional packages, like link:https://github.com/its-pointless/its-pointless.github.io[gcc].
+After installing the repository, we can install `gcc`.
+
+[,bash]
+----
+pkg search gcc
+Checking availability of current mirror:
+[*] https://termux.astra.in.ua/apt/termux-main: ok
+Sorting...
+Done
+Full Text Search...
+Done
+gcc-6/termux 6.5.0-2 aarch64
+  GNU C compiler
+gcc-7/termux 7.4.0-2 aarch64
+  GNU C compiler
+gcc-8/termux 8.3.0-3 aarch64
+  GNU C compiler
+libgccjit-8-dev/termux 8.3.0-3 aarch64
+  GCC just-in-time compilation
+libgomp-7/termux 7.4.0-2 aarch64
+  openmp library for gcc
+libgomp-8/termux 8.3.0-3 aarch64
+  openmp library for gcc-8
+----
+
+As you can see, we have a few `gcc` versions to try out.
+
+What if we need `gcc` 10, for example?
+We would have to link:https://bruno.verachten.fr/2019/11/07/compile-gcc9-on-rk3399/[compile it ourselves] like in the good old days.
+This solves the problem for `gcc`, but what about other packages?
+We are somewhat limited by the availability of packages on Termux.
+
+What if we could work around that limitation though?
+What about running Docker on Termux?
+Docker has no limit on packages as long as we choose the right base image, right?
+So, we could run a Jenkins agent on Termux through a Docker image, based on another distribution that happens to supply all the packages we need.
+The _slight_ problem that may arise, is that Docker is not easily installed on Termux, and once installed, it won't work out of the box.
+
+== Android apps are running some kind of JVM, right? So why not use a Jenkins inbound agent?
+
+Android apps are written in Java or Kotlin programming languages, and they run on one of two Java Virtual Machines (JVM):
+
+* Android Runtime, known as link:https://en.wikipedia.org/wiki/Android_Runtime[ART]
+* Dalvik Virtual Machine, known as link:https://en.wikipedia.org/wiki/Dalvik_%28software%29[DVM].
+
+It is possible to access the JVM from an `ADB` shell and run Java code using the `dalvikvm` command.
+This is a command-line tool that allows you to execute Java code on the DalvikVM.
+
+Nevertheless, there are preliminary steps that you need to take before you can run Java code on an Android device:
+* Compile your Java code into a `.class` file
+* Transform it into the `DEX` format using the `d8` tool
+* Push the resulting  `.dex` file to your Android device
+* Run the Java class using the `dalvikvm` command.
+
+It's possible to some extent to automate these steps, but it's not trivial.
+
+The `dalvikvm` command is a low-level tool that may not be suitable for running complex Java apps, which may need additional dependencies to function properly.
+Even if that would work, it would be a very roundabout solution (which is fine with me), but where would we go from there?
+I mean, we have a subset of the Linux commands available in the ADB shell, but we can't install tools, packages, etc.
+For example, how would we install `gcc`?
+
+So what could our Jenkins agent do?
+Not so much I'm afraid...
+We could still use Termux, as we've seen earlier Termux uses the base shell that is available through ADB.
+If we could launch the inbound agent through Dalvik, we would be able to use the Dalvik VM while using Termux, to keep the best of both worlds (Android & Linux-like).
+
+Another solution would be to create a library from the agent.jar file and integrate it into an Android app.
+That part could work but then the resulting agent would be even more limited.
+There wouldn't be a shell available, as the app is sandboxed.
+We would have an agent able to do almost nothing...
+
+I'd like to know more nonetheless, so I'll write down my thoughts about that in another article, once I've done my homework.

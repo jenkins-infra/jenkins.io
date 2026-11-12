@@ -1,0 +1,58 @@
+---
+title: Access Modifier Annotation (@Restricted)
+layout: developer
+---
+
+All public classes, as well as their public methods and fields are available to plugins with a dependency on the component defining a class (Jenkins core or a plugin).
+Sometimes, these need to be public for technical reasons, but should not be available for other plugins to use.
+For example, Stapler web methods (`#doConfigSubmit`, `doCheckName`, `doFillJobItems`, and similar) need to be public to be invoked by Stapler, but they're often not stable API -- parameters may be added or removed depending on the needs of the UI.
+
+The access modifier annotation jenkinsdoc:component:access-modifier-annotation:org.kohsuke.accmod.Restricted[`@Restricted`] helps solve this problem, by preventing compliant plugins from calling methods annotated to be inaccessible by default.
+Multiple different modes are available, depending on the `value` of the annotation.
+The most commonly modes are the following:
+
+* `@Restricted(NoExternalUse.class)` allows access to the annotated element from the same component, but not any others.
+  This is the most common way to use this annotation in Jenkins.
+* `@Restricted(DoNotUse.class)` prohibits all programmatic use. This could be used for code only reflectively invoked, e.g., from Jelly views.
+  As this reduces testability, `NoExternalUse.class` is often used instead, even if the only calls are from test code.
+// TODO Confirm that test code is affected by these annotations.
+* `@Restricted(Beta.class)` can be used to designate elements as being in _beta_.
+  What this means exactly is implementation-dependent, but the general idea is to ensure callers are prepared to quickly adapt to incompatible changes in the code.
+
+Look for jenkinsdoc:component:access-modifier-annotation:org.kohsuke.accmod.AccessRestriction[`AccessRestriction`] implementations for a complete list.
+
+Any calls to annotated elements violating the access restrictions will result in compilation failures.
+
+
+== Suppressing failures
+
+Sometimes it's necessary to suppress failures.
+The most common reason is the intentional use of `@Restricted(Beta.class)` APIs.
+Support for this is part of the plugin parent POM: Set the property `useBeta` to `true` to allow use of `@Restricted(Beta.class)` annotated elements.
+
+NOTE: This will suppress failures for use of _any_ `Beta.class` API called in the project.
+As a result, code changes may introduce more uses of `Beta.class` APIs than intended.
+
+There are multiple options to suppress other access modifier restrictions, from most to least responsible:
+
+. You can use the jenkinsdoc:component:access-modifier-suppressions:org.kohsuke.accmod.restrictions.suppressions,SuppressRestrictedWarnings[`SuppressRestrictedWarnings`] annotation from the `access-modifier-suppressions` library to specifically declare which classes's restrictions should be suppressed.
+. You can set the property `access-modifier-checker.failOnError` in your `pom.xml` to check for violations, but not fail the build.
+. You can set the property `access-modifier-checker.skip` in your `pom.xml` to skip the checks altogether.
+
+WARNING: Code is usually annotated `@Restricted` for a reason.
+Use at your own risk!
+
+
+== Understanding the implementation
+
+=== In the dependency
+
+Jenkins core and plugins have a dependency on `access-modifier-annotation`.
+The jenkinsdoc:component:access-modifier-annotation:org.kohsuke.accmod.Restricted[`@Restricted`] annotation is itself annotated jenkinsdoc:component:annotation-indexer:org.jvnet.hudson.annotation_indexer.Indexed[`@Indexed`], which means the https://javadoc.jenkins.io/component/annotation-indexer/org/jvnet/hudson/annotation_indexer/package-summary.html[Annotation Indexer] library will create a file listing all classes with a `@Restricted` annotated element in `META-INF/services/annotations/org.kohsuke.accmod.Restricted`.
+
+=== In the dependent
+
+Jenkins plugins are set up to run jenkinsdoc:component:access-modifier-checker:org.kohsuke.accmod.impl.EnforcerMojo[`EnforcerMojo`] during the build after compilation.
+This reads all classes specified in the various `META-INF/services/annotations/org.kohsuke.accmod.Restricted` files in its dependencies and notes all annotated elements.
+Then, all generated class files are inspected for calls to prohibited elements from the previous step.
+If any are are found, unless `access-modifier-checker.skip` is set, the build is failed.

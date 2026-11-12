@@ -1,0 +1,52 @@
+---
+layout: developer
+title: Searching for API Usages in Plugins
+---
+
+== Use cases
+
+The need to search for API usages in plugins arises in several use cases:
+
+* When deprecating an old API in favor of a newer one, one must identify consumers of the old API that need to be migrated.
+* When removing a deprecated API, one must identify consumers that still remain and therefore block the removal.
+* When upgrading a library, one must identify the library's breaking changes and if any consumers are relying on the old functionality.
+* When removing or detaching a library from Jenkins core, one must identify which plugins are relying on it and therefore need to be updated.
+* When creating a test plan, one must identify which plugins are using a particular feature and therefore need to be tested when the implementation changes.
+
+== Searching for API usages in sources
+
+The following two queries can be used to search for API usages in sources in the `jenkinsci` and `jenkins-infra` GitHub organizations.
+Organizations with private repositories can also be searched if you have access.
+
+* https://github.com/search?ref=simplesearch&type=Code&q=user%3Ajenkinsci+PrincipalAcegiUserToken[`jenkinsci` GitHub organization]
+* https://github.com/search?ref=simplesearch&type=Code&q=user%3Ajenkins-infra+PrincipalAcegiUserToken[`jenkins-infra` GitHub organization]
+
+== Searching for API usages in binaries
+
+To search for API usages in plugin binaries, run `org.jenkinsci.deprecatedusage.Main` from https://github.com/jenkins-infra/usage-in-plugins[jenkins-infra/usage-in-plugins].
+
+CAUTION: Running this for the first time will download _all_ plugins, requiring about 10 GiB of disk space.
+
+Narrow your search by passing either `--additionalClasses`, `--additionalMethods`, or `--additionalFields`.
+Also pass `--onlyIncludeSpecified` to avoid unrelated results, thus making the above arguments "`additional`" to the empty set.
+
+CAUTION: `--additionalClasses` uses syntax like `javax/inject/Inject`; in contrast, `--additionalMethods` and `--additionalFields` use syntax like `javax.inject.Provider#get`.
+
+After downloading all plugins, you will get a long report of usages.
+It is often helpful to sort the results by plugin popularity and start working on the most popular plugins first.
+To sort the list, use https://github.com/basil/update-center-sql[Update Center SQL] with a query like this:
+
+[source,sql]
+----
+SELECT name,popularity FROM plugins WHERE name IN ('email-ext', 'script-security', 'htmlpublisher') ORDER BY popularity DESC;
+----
+
+=== Tips and tricks
+
+You can search not only direct usages by plugins but also transitive usages by libraries that plugins depend on by adding `--includePluginLibs`.
+This significantly increases search time, so it is only recommended when upgrading libraries or removing/detaching a library.
+
+When upgrading a library, one often needs to identify the breaking changes in order to search for usages.
+We recommend the https://diff.revapi.org/[Revapi diff] tool for this purpose.
+
+Finally, https://github.com/jenkinsci/jep/blob/master/jep/227/README.adoc#searching-for-api-usages-in-binaries[JEP-227] revealed a way for the general public to search for usages in proprietary CloudBees CI plugin binaries.

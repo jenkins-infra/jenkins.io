@@ -10,7 +10,7 @@ $(function () {
 })
 
 function initToolTips() {
-  $('[data-toggle="tooltip"]').tooltip();
+  $('[data-bs-toggle="tooltip"]').tooltip();
 }
 
 setInterval(function() {

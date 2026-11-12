@@ -1,0 +1,206 @@
+---
+layout: post
+title: "Scaling out iOS builds on AWS with EC2 mac"
+tags:
+- community
+- contribute
+- aws
+- aws-ec2-mac
+- mac
+- iOS
+- baremetal
+- type-2-virtualization
+authors:
+- xparticle
+opengraph:
+  image: /images/post-images/Jenkins-DevOps.png
+---
+
+image::/images/post-images/Jenkins-DevOps.png[role=right]
+
+== Scaling out iOS builds on AWS with EC2 mac
+
+=== Introduction
+
+The number of mobile application subscriptions are
+[.underline]#increasing# annually, trending towards 8 billion and
+combined number of apps in the app stores are close to [.underline]#6
+million#. Mobile application development has become prevalent, not just
+for consumer facing businesses but also with the remote workforce. Many
+large enterprises also support an internal app store catering to
+organization specific functionalities. As a result of this growth
+combined with the cloud first approach, there is a need to deploy mobile
+application development infrastructure with scale in mind from day 1.
+
+Let’s start by looking at a skeleton view of typical iOS continuous
+integration and continuous delivery (CI/CD) pipelines. For the purpose
+of this blog, we can split it into two distinct phases, (1) Local
+Integrated Development Environment (IDE) based design and development of
+the iOS app which typically takes place on a macOS device, and
+(2) Building, testing, and publishing the app to the Appstore. This can
+occur on the same macOS device if it is with a a single developer
+project, however team based development, typically runs on separate
+build and test infrastructure. Although some aspects of this discussion
+can be applied to stand up a fleet of developer machines for phase 1,
+the focus will be placed on the topic at hand which is scalable build
+pipelines for the second phase.
+
+image:/images/post-images/2022-09-30-scaling-out-iOS-builds-on-AWS-with-EC2-mac/image1.png[image,width=622,height=194]
+
+Figure-1: iOS Application development steps
+
+Amazon EC2 Mac instances allow customers to bootstrap macOS environments
+in the cloud and use these for building, testing, signing, and
+publishing iOS applications with the security, scalability, and
+flexibility of the cloud. EC2 Mac instances are offered as bare-metal
+instances running on top of single-tenant, Dedicated Hosts in compliance
+with macOS licensing.
+
+Integration with services like AWS Auto Scaling and AWS Systems Manager
+with the SSM agent included in the Amazon Machine Images (AMIs), means
+that the fundamental building blocks to facilitate automation needed for
+setting up a CI/CD pipeline for iOS app builds is readily available. The
+AWS Partner Network (APN) is a global community of partners that
+leverages programs, expertise, and resources to build, market, and sell
+customer offerings. AWS Marketplace is built to accelerate innovation
+available via the cloud while balancing the needs for speed and agility
+with governance and control. Both software delivery automation products
+like CI from CloudBees and virtualization solution like Anka from Veertu
+are offered on AWS Marketplace. These products work with the fundamental
+building blocks to further remove the undifferentiated heavy lifting of
+scaling out the iOS app build workloads. Let’s look at the options to
+scale out build pipelines with EC2 Mac instances.
+
+=== Queuing builds using SQS and AWS Systems Manager
+
+EC2 Mac instances based AMIs have a Systems Manager agent included. This
+enables EC2 Mac instances to become a managed node under the Systems
+Manager inventory. We can then use “Run Command”, a capability of AWS
+Systems Manager, to remotely and securely run automation scripts on EC2
+Mac instances. In this case, we will use Run Command to execute our
+build scripts. Configuring the event source trigger for Run Command
+could be achieved by a simple well-known pattern utilizing CodeCommit,
+SNS topic, SQS queue and Lambda worker as depicted below.
+
+image:/images/post-images/2022-09-30-scaling-out-iOS-builds-on-AWS-with-EC2-mac/image2.png[image,width=625,height=272]
+
+Figure-2: Multiple Build Jobs invoked by SSM Agent on EC2 Mac.
+
+This pattern can be extended to a fleet of EC2 Macs instances all while
+relying on Systems Manager capabilities to retrieve the state of the
+fleet and invoke operations on individual nodes. Complex scenarios with
+multiple build pipelines would necessitate the need for a more feature
+rich build orchestrator than the rudimentary event-based sourcing
+pattern shown. For that, let’s look at what we can achieve with a
+popular automation server called Jenkins.
+
+=== Orchestrating multiple builds with Jenkins
+
+Jenkins has a powerful extension and plugin system that allows
+developers to write plugins affecting nearly every aspect of Jenkins'
+behavior. Jenkins can be run on AWS in several different ways, directly
+on EC2, using ECS Fargate as serverless or even EKS. To focus more on
+the iOS builds let’s assume a simple single node Jenkins setup running
+on EC2 Linux like shown in Figure-3. Using plugins like
+[.underline]#Configuration as code#, [.underline]#SSH build agents# you
+can define several parameters that simplifies deploying Jenkins to AWS,
+more on this here
+
+image:/images/post-images/2022-09-30-scaling-out-iOS-builds-on-AWS-with-EC2-mac/image3.png[image,width=616,height=220]
+
+Figure-3: Multiple Build Jobs invoked by Jenkins Agent on EC2 Mac
+instances.
+
+Jenkins has the notion of a node, which in this case is an EC2 Mac
+instance, and executors, think of them as multiple processes within the
+node. If you configure the number of executors on the node as 2, you can
+in theory run two Xcode build jobs on a single EC2 Mac instance. Jenkins
+will handle the job orchestration as well as queuing up multiple jobs
+for each executor on the node. You can have several iOS build pipelines
+consuming the same build infrastructure. However, once the amount of
+time the build jobs waiting in the queue for an executor to be available
+increases, you may want to scale out into another EC2 Mac instance.
+
+=== Auto-scaling with EC2 Mac instances
+
+AWS Auto Scaling lets you build scaling plans that automate how groups
+of different resources respond to changes in demand. One of the features
+includes manual scaling operations typically used when you want an
+external event to make the decision of scaling up or down the number of
+instances in the group. In the case of scaling out Jenkins iOS builds,
+the queue depth can be one of those variables. EC2 fleet plugin has
+several options, including scaling up based on jobs waiting in the queue
+and scaling down when nodes are idle.
+
+Adding a new launched EC2 Mac instance from the auto scaling group to
+the Jenkins controller is achieved by either SSH-based or JNLP-based
+registration. More on those [.underline]#here#. Note however
+that EC2 Mac dedicated hosts require a 24-hour minimum allocation
+period, adhering to the macOS Software Licensing Agreement
+([.underline]#SLA#), before they can be released.
+
+image:/images/post-images/2022-09-30-scaling-out-iOS-builds-on-AWS-with-EC2-mac/image4.png[image,width=620,height=282]
+
+Figure-4: Multiple EC2 Mac instance executor nodes under an Auto Scaling
+group.
+
+=== Type-2 virtualization with EC2 Mac instances
+
+Apple Silicon and macOS has virtualization and a hypervisor framework
+built into it that lets you create guest virtual machines (VM) on top of
+the host. EC2 Mac instances are bare metal EC2 instances and will let
+you use this virtualization features to run up to 2 guest VM’s adhering
+to the macOS SLA’s. [.underline]#Anka build# is one option that lets you
+leverage this granularity along with their CI/CD plugin for Jenkins to
+orchestrate multiple build jobs across a fleet of EC2 Mac instances.
+Another option is [.underline]#Tart# that integrates into Cirrus labs CI
+to accomplish similar goals. Here is a quick depiction on how this would
+work from a Jenkins perspective, removing the well documented additional
+components included in the individual products to make this happen.
+
+image:/images/post-images/2022-09-30-scaling-out-iOS-builds-on-AWS-with-EC2-mac/image5.png[image,width=622,height=442]
+
+Figure-4: Type-2 virtualization enabling two guest virtual machines on
+EC2 Mac.
+
+An example of how to combine the benefits of these several layers of
+scale out from AWS Autoscaling and macOS type-2 virtualization into one
+cohesive build fleet is illustrated in the diagram below.
+
+image:/images/post-images/2022-09-30-scaling-out-iOS-builds-on-AWS-with-EC2-mac/image6.png[image,width=615,height=291]
+
+Figure-5: Combining all scale-out options together.
+
+=== Conclusion:
+
+In this blog post we have walked through several options available to
+scale out iOS builds using Amazon EC2 Mac instances. We have also looked
+at the integration options available with a popular automation tool,
+Jenkins. Several of the options discussed here are implemented as
+solutions published by AWS with links available in the reference section
+for further reading.
+
+=== References
+
+Refer to these individual articles to dive deep into the many aspects
+and options discussed in this blog and some more.
+
+Anka Type-2 virtualization: https://aws.amazon.com/blogs/compute/getting-started-with-anka-on-ec2-mac-instances/
+
+SQS based build agent: https://github.com/sebsto/swift-build-agent-sqs
+
+iOS pipeline with ec2 mac: https://aws.amazon.com/blogs/compute/unify-your-ios-mobile-app-ci-cd-pipeline-with-amazon-ec2-mac-instances-2/
+
+TeamCity: https://aws.amazon.com/blogs/apn/implementing-macos-build-agents-into-teamcity-using-amazon-ec2-mac-instances/
+
+Auto-scaling: https://aws.amazon.com/blogs/compute/implementing-autoscaling-for-ec2-mac-instances/
+
+Virtualbuddy: https://github.com/insidegui/VirtualBuddy
+
+Tart: https://github.com/cirruslabs/tart
+
+Ec2-macos-init: https://github.com/aws/ec2-macos-init
+
+Harness: https://developer.harness.io/docs/continuous-integration/use-ci/set-up-build-infrastructure/vm-build-infrastructure/define-macos-build-infra-with-anka-registry/
+
+Fastlane: https://docs.fastlane.tools/

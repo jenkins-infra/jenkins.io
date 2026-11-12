@@ -1,0 +1,352 @@
+---
+layout: post
+title: "How to remove deprecated plugins from Jenkins while using Docker"
+tags:
+- jenkins
+- docker
+- plugins
+- jcasc
+authors:
+- gounthar
+- kmartens27
+opengraph:
+  image: /images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/opengraph.png
+discourse: true
+---
+
+The Jenkins plugin ecosystem is highly active, and it's not uncommon to come across deprecated plugins.
+This can be both positive and negative.
+On the positive side, it signifies that the plugin is no longer necessary since its functionality has been integrated into Jenkins core or rendered obsolete by new features or technologies.
+On the downside, deprecation could indicate that the plugin is no longer maintained and considered unsafe.
+
+However, removing deprecated plugins from Jenkins when using Docker can be a bit troublesome.
+This is due to the way the Jenkins Docker container functions.
+Whether you're using the default container or a custom one, it runs on an image that comes with a predefined set of plugins.
+Even if you remove these plugins from the Jenkins UI, they are not completely removed from the container.
+
+Now, you might be wondering how this works.
+Allow me to explain.
+
+Let's consider a scenario where we are utilizing a `docker-compose.yaml` file to define our Jenkins instance.
+Although there may be numerous services, our focus will be on the Jenkins controller at present.
+
+[source,yaml]
+----
+#  docker compose up -d --build --force-recreate
+services:
+    jenkins:
+        build: ./controller
+        restart: always
+        ports:
+            - "8080:8080"
+            - "50000:50000"
+        volumes:
+            - jenkins-data:/var/jenkins_home:rw
+            - ./casc.d:/var/jenkins_home/casc.d/:ro
+            - ./secrets/id_jenkins.pem:/run/secrets/SSH_AGENT_KEY:ro
+        environment:
+            - JENKINS_EXT_URL=http://localhost:8080
+            - CASC_JENKINS_CONFIG=/var/jenkins_home/casc.d/
+            - org.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true
+            - PUBLIC_IP
+[...]
+----
+
+The `Dockerfile` for the Jenkins controller is as follows:
+
+[source,dockerfile]
+----
+FROM jenkins/jenkins:2.401.1-lts-jdk17
+
+# [...]
+## Install custom plugins
+COPY --chown=jenkins:jenkins ./plugins.txt /usr/share/jenkins/plugins.txt
+RUN jenkins-plugin-cli --plugin-file=/usr/share/jenkins/plugins.txt
+# [...]
+----
+
+To define the plugins we wish to install, we are utilizing a `plugins.txt` file.
+It is worth noting that some of these plugins may become deprecated in the future.
+For this example, we are utilizing the plugin:bootstrap4-api[Bootstrap 4 API plugin], which has a dependency on the plugin:popper-api[Popper API plugin].
+At the time of writing, both plugins have been deprecated.
+
+At the beginning of the removal process, these two plugins are defined in the `plugins.txt` file.
+
+[source]
+----
+[...]
+# See https://github.com/jenkinsci/docker#usage-1
+[...]
+bootstrap4-api
+[...]
+popper-api
+[...]
+----
+
+## TL;DR
+
+1. Remove any references to the deprecated plugins in the `plugins.txt` file if you are using one.
+2. Rebuild the image.
++
+[source,bash]
+----
+docker compose build jenkins
+----
++
+3. Recreate your container if the rebuild was successful.
++
+[source,bash]
+----
+docker compose up -d --build --force-recreate jenkins
+----
+4. Optional: enter in the running container to check if the plugins references are gone.
++
+[source,bash]
+----
+docker compose exec jenkins bash
+cd /usr/share/jenkins/
+cat plugins.txt |grep bootstrap
+----
+5. Remove the plugins in the UI, as described in the next section.
+6. Restart by hitting the `/safeRestart` endpoint.
+7. Optional: remove the plugins' remnants from the docker volume.
++
+[source,bash]
+----
+cd ~/plugins
+ls -artl *
+[...]
+-rw-r--r--   1 jenkins jenkins        8 Jun  6 13:05 bootstrap4-api.jpi.version_from_image
+-rw-r--r--   1 jenkins jenkins        0 Jun  6 13:05 bootstrap4-api.jpi.pinned
+-rw-r--r--   1 jenkins jenkins        9 Jun  6 13:05 popper-api.jpi.version_from_image
+-rw-r--r--   1 jenkins jenkins        0 Jun  6 13:05 popper-api.jpi.pinned
+drwxr-xr-x   6 jenkins jenkins     4096 Jun  6 13:05 bootstrap4-api
+drwxr-xr-x   5 jenkins jenkins     4096 Jun  6 13:05 popper-api
+[...]
+rm -fr bootstrap4-api* popper-api*
+----
+
+Well done!
+You have successfully eliminated any deprecated plugins (at least for now).
+Keep up the good work!
+
+== The intuitive (but plenty wrong) approach
+
+=== You can't ignore the warning
+
+If your Jenkins instance has deprecated plugins, you'll notice a notification bell in the top right corner.
+Selecting it will display a warning message similar to this:
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/the-following-plugins-are-deprecated.png[width=839,deprecated plugins warning]
+
+It suggests you select *Manage Jenkins* to remove the deprecated plugins.
+Once in *Manage Jenkins*, you can't ignore the warning:
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/the-following-plugins-are-deprecated-once-more.png[width=839,deprecated plugins warning once again]
+
+It's a clear indication that we need to take action to address this situation.
+
+=== Removing deprecated plugins in the UI
+
+Follow these steps to remove the deprecated plugin:
+
+1. Select *Plugins*, then select *Installed plugins*.
+2. In the search box, enter the name of the deprecated plugin (in this case, it's `popper`).
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/popper-can-t-be-uninstalled.png[width=839,search for the deprecated plugin]
+
+Unfortunately, we encounter an issue as we are unable to uninstall it.
+The checkmark is greyed out, and the *Uninstall* button (red cross) is disabled.
+Why is that?
+Some plugins have dependencies on other plugins, which in turn have dependencies on additional plugins, creating a chain of dependencies.
+When you hover your mouse pointer over the uninstall icon (red cross), you'll see a tooltip that indicates the parent plugin blocking the uninstallation:
+
+image:/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/who-is-my-daddy.png[what is the parent plugin blocking the uninstallation?]
+
+In this case, `popper` is a dependency for another plugin called `bootstrap4-api`.
+Therefore, we need to remove `bootstrap4-api` first and then proceed with `popper`.
+
+Back to the +++<del>+++drawing board+++</del>+++ search box, this time with `bootstrap4-api`.
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/bootstrap4-can-be-uninstalled.png[width=839,search for the parent plugin]
+
+This time, we can uninstall it by selecting the uninstall icon (red cross).
+We will then encounter a warning message saying:
+
+> You are about to uninstall the Bootstrap 4 API Plugin plugin.
+This will remove the plugin binary from your $JENKINS_HOME, but it will leave the configuration files of the plugin untouched.
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/remove-the-plugin-binary.png[width=839,remove the plugin binary]
+
+Really?
+We'll check that later. 
+Select *Yes* to proceed with the uninstallation, and we're back to the *Installed plugins* page.
+Let's give another chance to popper by searching for it again:
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/popper-can-be-uninstalled.png[width=839,popper can be uninstalled now]
+
+Same player, shoot again.
+Follow the same steps as before to uninstall `popper`.
+After successfully uninstalling popper, you may notice that the notification icon still displays a message.
+Furthermore, if we go back to the *Installed plugins* page, we'll see that `popper` is still there.
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/pending-uninstallation.png[width=839,pending uninstallation]
+
+Why is this the case?
+We asked for an uninstallation, but it didn't fully happen.
+Jenkins has to restart in order to complete the process.
+You can hit the `/safeRestart` endpoint to restart Jenkins safely and then select *Yes*.
+When you return, you will notice that the notification icon has disappeared, and the plugin is no longer listed on the *Installed plugins* page.
+
+=== Removing deprecated plugins in the Docker context
+
+However, depending on your Jenkins configuration, you may find that the deprecated plugins have somehow reappeared in your Jenkins instance, sometimes even with an older version.
+How is this possible?
+If your Jenkins container instance inherits from the Jenkins official container, it comes with a predefined set of plugins.
+Most of the time, these plugins won't be enough for your specific use case.
+You will need to install additional plugins.
+When you do so, the new plugins are installed in the `$JENKINS_HOME/plugins` directory with a command such as:
+
+[source,dockerfile]
+----
+COPY --chown=jenkins:jenkins ./plugins.txt /usr/share/jenkins/plugins.txt
+RUN jenkins-plugin-cli --plugin-file=/usr/share/jenkins/plugins.txt
+----
+
+So...
+Whenever you remove a deprecated plugin from the Jenkins UI, remember to remove it from the Docker context as well.
+Otherwise, it will be reinstalled when you rebuild the container.
+In my case, I had to remove the following plugins from the `plugins.txt` file:
+
+[source,dockerfile]
+----
+# See https://github.com/jenkinsci/docker#usage-1
+ant:487.vd79d090d4ea_e
+[...]
+bootstrap4-api:4.6.0-3
+[...]
+popper-js:2.9.2-1
+[...]
+ws-cleanup:0.45
+----
+
+Now you're safe for the next time you rebuild your Jenkins container.
+But what about your running container?
+Is it free of any reference to the deprecated plugins?
+Let's find out.
+
+=== Removing deprecated plugins from the running container
+
+Here is an excerpt of my `docker-compose.yml` file:
+
+[source,dockerfile]
+----
+#  docker compose up -d --build --force-recreate
+services:
+    jenkins:
+        build: ./controller
+        restart: always
+        ports:
+            - "8080:8080"
+            - "50000:50000"
+        volumes:
+            - jenkins-data:/var/jenkins_home:rw
+            - ./casc.d:/var/jenkins_home/casc.d/:ro
+        environment:
+            - CASC_JENKINS_CONFIG=/var/jenkins_home/casc.d/
+[...]
+volumes:
+    jenkins-data:
+----
+
+The `jenkins-data` volume is mounted on the `/var/jenkins_home` directory of the container.
+However, the `/usr/share/jenkins/plugins.txt` file, as we saw earlier in the `Dockerfile`, is not mounted on a shared volume.
+
+I happen to have installed `bash` in my container, so I can run the following command to get a shell in the container (`jenkins` is the name of the service in the `docker-compose.yml` file):
+
+[source,bash]
+----
+docker compose exec -it jenkins bash
+----
+
+You can do the same with `sh` if `bash` was not installed in your Docker image.
+Now, let's search for the plugins definition file.
+As we've seen in the Dockerfile, it's located in `/usr/share/jenkins/plugins.txt`:
+
+[source,bash]
+----
+cd /usr/share/jenkins
+cat plugins.txt |grep bootstrap4-api
+bootstrap4-api:4.6.0-3
+----
+
+The reference to the deprecated plugin is still there.
+Is that a problem?
+No.
+As the link:https://github.com/jenkinsci/docker#usage-1[documentation] says:
+
+> When jenkins container starts, it will check JENKINS_HOME has this reference content, and copy them there if required. It will not override such files, so if you upgraded some plugins from UI they won't be reverted on the next start.
+
+So it's there, but it won't do any harm, it won't be used... unless we restart Jenkins.
+Let's leave it there, until the next time we rebuild the container, as we have already cleaned up the `plugins.txt` file used by the Docker context earlier.
+
+Now what?
+Let's have a look at the `$JENKINS_HOME` directory.
+
+[source,bash]
+----
+cd $JENKINS_HOME
+find . -name plugins.txt
+----
+
+Nothing.
+We don't have a `plugins.txt` file in the `$JENKINS_HOME` directory.
+Fine.
+What else?
+Can we find any remaining trace of the deprecated plugins?
+I'm afraid we can.
+
+[source,bash]
+----
+find . -name bootstrap4*
+./plugins/bootstrap4-api
+./plugins/bootstrap4-api/META-INF/maven/io.jenkins.plugins/bootstrap4-api
+./plugins/bootstrap4-api/WEB-INF/lib/bootstrap4-api.jar
+./plugins/bootstrap4-api.bak
+./plugins/bootstrap4-api.jpi
+./plugins/bootstrap4-api.jpi.version_from_image
+./plugins/bootstrap4-api.jpi.pinned
+----
+
+There are still some traces of the `bootstrap4-api` deprecated plugin in the `$JENKINS_HOME/plugins` directory.
+What about the `popper-js` plugin?
+It's there too.
+It may explain why despite having removed the deprecated plugins from the Jenkins UI, they were still there when we restarted the container.
+Let's remove them for real this time:
+
+[source,bash]
+----
+rm -rf ./plugins/bootstrap4-api*
+rm -rf ./plugins/popper*
+----
+
+We can now safely exit the container and restart it from the UI by accessing the `/safeRestart` endpoint.
+Once we return, we should verify that the deprecated plugins are no longer present.
+
+image::/images/post-images/2023/06/20/2023-06-20-remove-outdated-plugins-while-using-docker/the-following-plugins-are-deprecated.png[width=839,deprecated plugins warning]
+
+Oh no!
+It seems like the deprecated plugins have reappeared in the running container.
+How did that happen?
+It's because we only restarted the container without rebuilding it.
+The configuration still references the deprecated plugins.
+
+Simply restarting the container repeatedly won't resolve the issue.
+We need to rebuild the image after removing the deprecated plugins from the Docker context.
+Then, we can recreate the container and remove the deprecated plugins from the running container using the UI.
+
+As a Jenkins admin, it's important to go with the flow and avoid swimming upstream like a salmon.
+By following the proper steps, we can address this issue effectively.
+
+Want to try it by yourself? 
+Just follow the steps of the *TL;DR* section.

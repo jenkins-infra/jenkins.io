@@ -28,33 +28,27 @@ node('docker&&linux') {
         sh 'ls -lah'
     }
 
-
     stage('Checkout source') {
-        /*
-        * For a standalone workflow script, we would use the `git` step
-        *
-        *
-        * git url: 'git://github.com/jenkinsci/jenkins.io',
-        *     branch: 'master'
-        */
-
         /*
         * Represents the SCM configuration in a "Workflow from SCM" project build. Use checkout
         * scm to check out sources matching Jenkinsfile with the SCM details from
         * the build that is executing this Jenkinsfile.
         *
-        * when not in multibranch: https://issues.jenkins.io/browse/JENKINS-31386
+        * when not in multibranch: https://issue-redirect.jenkins.io/issue/31386
         */
         checkout scm
     }
 
-    stage('Check for typos') {
-      sh '''
-        curl -qsL https://github.com/crate-ci/typos/releases/download/v1.5.0/typos-v1.5.0-x86_64-unknown-linux-musl.tar.gz | tar xvzf - ./typos
-        curl -qsL https://github.com/halkeye/typos-json-to-checkstyle/releases/download/v0.1.1/typos-checkstyle-v0.1.1-x86_64 > typos-checkstyle && chmod 0755 typos-checkstyle
-        ./typos --format json | ./typos-checkstyle - > checkstyle.xml || true
-      '''
-      recordIssues(tools: [checkStyle(id: 'typos', name: 'Typos', pattern: 'checkstyle.xml')])
+    stage('Checks') {
+        /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
+         * Checks are advisory only.
+         * They are intentionally skipped when preparing a deployment.
+        */
+        if (!infra.isTrusted() && env.BRANCH_NAME != null) {
+            sh 'make check'
+            recordIssues(tools: [sarif(id: 'typos', name: 'Typos', pattern: 'typos.sarif')],
+                         qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]])
+        }
     }
 
     stage('Build site') {
@@ -70,13 +64,6 @@ node('docker&&linux') {
 
                 make all
 
-                illegal_htaccess_content="$( find content -name '.htaccess' -type f -exec grep --extended-regexp --invert-match '^(#|ErrorDocument)' {} \\; )"
-                if [[ -n "$illegal_htaccess_content" ]] ; then
-                    echo "Failing build due to illegal content in .htaccess files, only ErrorDocument is allowed:" >&2
-                    echo "$illegal_htaccess_content" >&2
-                    exit 1
-                fi
-
                 illegal_filename="$( find . -name '*[<>]*' )"
                 if [[ -n "$illegal_filename" ]] ; then
                     echo "Failing build due to illegal filename:" >&2
@@ -87,25 +74,35 @@ node('docker&&linux') {
         }
     }
 
-    stage('Archive site') {
-        /* The `archive` task inside the Gradle build should be creating a zip file
-        * which we can use for the deployment of the site. This stage will archive
-        * that artifact so we can pick it up later
-        */
-        archiveArtifacts artifacts: 'build/**/*.zip', fingerprint: true
-    }
-
-    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders
+    /* The Jenkins which deploys doesn't use multibranch or GitHub Org Folders.
     */
-    if (env.BRANCH_NAME == null) {
-        stage('Publish on Azure') {
-            /* -> https://github.com/Azure/blobxfer
-            Require credential 'BLOBXFER_STORAGEACCOUNTKEY' set to the storage account key */
-            withCredentials([string(credentialsId: 'BLOBXFER_STORAGEACCOUNTKEY', variable: 'BLOBXFER_STORAGEACCOUNTKEY')]) {
-                sh './scripts/blobxfer upload --local-path /data/_site --storage-account-key $BLOBXFER_STORAGEACCOUNTKEY --storage-account prodjenkinsio --remote-path jenkinsio --recursive --mode file --skip-on-md5-match --file-md5'
+    if (infra.isTrusted() && env.BRANCH_NAME == null) {
+        stage('Publish Site') {
+            stash includes: 'build/_site/**', name: 'site'
+            
+            node('updatecenter') {
+                unstash 'site'
+                sh '''
+                rsync --recursive --links --times -D --checksum --verbose \
+                    ./build/_site/ `# Source` \
+                    /data-storage-jenkins-io/www.jenkins.io/ `# Destination`
+                '''
             }
+        }
+        stage('Purge pages on CDN') {
+            withCredentials([
+                string(credentialsId: 'fastly-api-token-purge', variable: 'FASTLY_API_TOKEN'),
+            ]) {
+                // Purge cache for pages which usually requires some time before being updated
+                sh '''
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/css/jenkins.css
+                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/stylesheets/styles.css
+                '''
+            }
+        }
+        stage ('Publish build report') {
+            publishBuildStatusReport()
         }
     }
 }
-
 // vim: ft=groovy

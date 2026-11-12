@@ -1,0 +1,158 @@
+---
+layout: post
+title: Tuning Jenkins Java Settings For Responsiveness and Stability with Large Instances
+tags:
+- performance
+- scalability
+- administration
+- java17
+- java21
+- java25
+- gc
+opengraph:
+  image: /images/post-images/2026/02/06/2026-02-06-tuning-java-settings-for-higher-performance.png
+discourse: true
+authors:
+  - clintonsteiner
+---
+
+image:/images/post-images/2026/02/06/2026-02-06-tuning-java-settings-for-higher-performance.png[Tuning Java Settings for Higher Performance, 50%]
+
+Hello, Jenkins Community!
+
+As of Java 17, the JVM's defaults have improved to the point where hand-tuned configurations often
+make performance worse rather than better.
+
+The runtime now:
+
+* Detects container limits and sizes heaps/threads accordingly
+* Optimizes pause times automatically using real-time profiling
+* Allocates memory more efficiently
+* Uses G1GC by default, which is more predictable than older collectors
+
+Using `-XX:MaxRAMPercentage` and `-XX:InitialRAMPercentage` settings instead of fixed `-Xms` and `-Xmx`
+has resulted in fewer GC pauses, better stability across different container sizes, and less memory pressure.
+
+== Understanding the Settings
+
+Before diving into configuration, it's important to understand what these JVM options do:
+
+**G1GC (Garbage First Garbage Collector)**::
+  G1GC divides the heap into regions and collects garbage incrementally, designed to keep pause times predictable and low. It's the default for Java 17+ and works well for heaps from 4GB to 40GB.
+
+**MaxRAMPercentage**::
+  Specifies what percentage of the container's available memory should be used for the Java heap. Unlike fixed `-Xmx`, this automatically scales if the container is resized. A value of 60.0 means 60% of the container's RAM becomes the max heap.
+
+**InitialRAMPercentage**::
+  Sets the initial heap size as a percentage of available memory. Starting smaller (20%) allows the heap to grow gradually, which can reduce pressure during startup and allow the GC to tune itself as workload patterns emerge.
+
+== Recommended Settings for Java 17, 21, and up
+
+**For Controllers (larger instances):**
+
+[source,bash]
+----
+JAVA_OPTS="
+  -XX:+UseG1GC
+  -XX:MaxRAMPercentage=60.0
+  -XX:InitialRAMPercentage=20.0
+"
+----
+
+**For Workers or smaller instances:**
+
+[source,bash]
+----
+JAVA_OPTS="
+  -XX:+UseG1GC
+  -XX:MaxRAMPercentage=75.0
+  -XX:InitialRAMPercentage=50.0
+"
+----
+
+For controllers, the conservative 60% setting leaves room for OS buffers and native memory. Workers often tolerate higher heap percentages since they're more isolated and less likely to have multiple memory-intensive processes.
+
+For a more in depth analysis of what Jenkins does under the hood, view the original 2016 article here:
+
+link:/blog/2016/11/21/gc-tuning/#the-magic-settings/[GC Tuning, the magic settings]
+
+Cloudbees also has an article here which is more up to date:
+
+link:https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/best-practices/jvm-memory-settings-best-practice/[JVM Memory Settings Best Practice]
+
+== Notes on Older Java Versions
+
+If you still run Java 11 or earlier:
+
+* Use fixed heap sizing (`-Xms` / `-Xmx`), because container support varies and automatic scaling is unreliable.
+* Ensure `-XX:+UseContainerSupport` is set (it's default in most builds, but verify).
+* Set both `-Xms` and `-Xmx` to the same value to avoid pauses from heap expansion.
+* Example for 8GB container: `-Xms4G -Xmx4G -XX:+UseG1GC`
+
+Consider upgrading to Java 17+ if possible, as the memory management is substantially better.
+
+== Common Pitfalls and Anti-Patterns
+
+**Don't set heap to 100% of container memory**::
+  The OS needs memory for buffers, caches, and native libraries. Leaving 30–40% for the OS prevents out-of-memory kills and improves overall performance.
+
+**Don't mix fixed sizing with percentages**::
+  Using both `-Xmx` and `-XX:MaxRAMPercentage` creates confusion about which takes precedence. Choose one approach and stick with it.
+
+**Don't use aggressive GC tuning without monitoring**::
+  Settings like `-XX:MaxGCPauseMillis` or `-XX:G1HeapRegionSize` can worsen performance if misconfigured. G1GC's defaults are usually optimal.
+
+**Don't ignore JVM warnings**::
+  Run Jenkins once and check the logs for JVM warnings about ergonomics or container detection. These often indicate configuration issues.
+
+**Don't deploy to production without testing**::
+  Run under realistic load for at least 24 hours to observe GC behavior, memory growth, and response times.
+
+== Monitoring and Validation
+
+Once deployed, monitor these metrics to validate your settings are working:
+
+**Garbage Collection**::
+  Use tools like `jstat` or observability platforms to track:
+  * GC pause times (should be <1 second for G1GC in normal operation)
+  * Full GC frequency (should be rare or non-existent)
+  * Heap utilization patterns
+
+**Memory Usage**::
+  Monitor heap memory growth over time:
+  * Watch for continuous growth (memory leak indicator)
+  * Peak memory should stay below your `MaxRAMPercentage` setting
+  * Initial memory should stabilize around your `InitialRAMPercentage` setting
+
+**Java Command Line**::
+  Verify settings are applied correctly:
+  * Run `jcmd <pid> VM.command_line` to see actual JVM arguments
+  * Check `/proc/<pid>/environ` (Linux) or `ps` output to confirm `JAVA_OPTS` are set
+
+**Simple Health Check**::
++
+--
+Enable basic logging:
+
+[source,bash]
+----
+JAVA_OPTS="
+  -XX:+UseG1GC
+  -XX:MaxRAMPercentage=60.0
+  -XX:InitialRAMPercentage=20.0
+  -XX:+PrintGCDetails
+  -XX:+PrintGCDateStamps
+  -Xloggc:/var/log/jenkins/gc.log
+"
+----
+
+Monitor `gc.log` for unexpected pause times or full GC events.
+--
+
+== Quick Rules of Thumb
+
+* **Controllers**: Prefer **G1**, aim for **50–65%** of container RAM as heap.
+* **Workers**: Can tolerate **70–75%** since workload is more predictable.
+* **Don't give the JVM the entire container**: Leave at least 25–30% for OS and native memory.
+* **Start conservative**: You can always increase percentages if memory is being left on the table.
+* **Monitor before tuning further**: Most performance issues aren't solved by tweaking JVM options.

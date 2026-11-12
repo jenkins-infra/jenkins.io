@@ -1,0 +1,207 @@
+---
+name: Bump last three Jenkins' LTS versions in the documentation
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  JenkinsLatestLTS:
+    name: Get the latest Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 0 # source input value passed as argument
+  JenkinsLatestLTSBaseline:
+    name: Get the latest Jenkins LTS baseline version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts-baseline.sh 0 # source input value passed as argument
+  JenkinsPreviousLTS:
+    name: Get the previous Jenkins LTS version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 1 # source input value passed as argument
+  JenkinsThirdToLastLTS: &jenkinsThirdToLastLTS
+    name: Get the third to last Jenkins LTS version
+    kind: shell
+    spec: &jenkinsThirdToLastLTSSpec
+      command: bash ./updatecli/scripts/jenkins-lts.sh 2 # source input value passed as argument
+  JenkinsThirdToLastLTSTruncated: &jenkinsThirdToLastLTSTruncated
+    name: Get the previous Jenkins LTS version for the BOM root version
+    kind: shell
+    spec: &jenkinsThirdToLastLTSTruncatedSpec
+      command: bash ./updatecli/scripts/jenkins-lts.sh 2 | rev | cut -d. -f2- | rev # Fetches the third-to-last Jenkins LTS version and trims the last segment after the final dot.
+  JenkinsTooOldToSucceedLTS: &jenkinsThirdToLastLTS
+    name: Get a super old version
+    kind: shell
+    spec: &jenkinsThirdToLastLTSSpec
+      command: bash ./updatecli/scripts/jenkins-lts.sh 7 # 7 is more or less arbitrary. It corresponds to the 2.319.x version I found in the documentation.
+  JenkinsTooOldToSucceedLTSTruncated:
+    name: Get a super old version for the BOM root version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-lts.sh 7 | rev | cut -d. -f2- | rev
+  JenkinsLastSplit:
+    name: Get the last version of Jenkins where we extracted a plugin from core
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-split.sh
+  JenkinsOldestSupportedWeekly:
+    name: Get the oldest supported Jenkins weekly version
+    kind: json
+    scmid: default
+    spec:
+      file: https://updates.jenkins.io/tiers.json
+      key: "weeklyCores.[0]"
+  JenkinsOldestSupportedStable:
+    name: Get the oldest supported Jenkins stable version
+    kind: json
+    spec:
+      file: https://updates.jenkins.io/tiers.json
+      key: "stableCores.[0]"
+  JenkinsOldestSupportedStableLatestPatch:
+    name: Get the oldest supported Jenkins stable version, in its latest patch version
+    kind: shell
+    spec:
+      command: bash ./updatecli/scripts/jenkins-oldest-supported-version.sh
+conditions:
+  # Test that the latest LTS Jenkins version exists
+  jenkinsLatestLTSVersion:
+    kind: jenkins
+    sourceid: JenkinsLatestLTS
+  # Test that the latest LTS Jenkins baseline version exists
+  jenkinsLatestLTSBaselineVersion:
+    kind: jenkins
+    sourceid: JenkinsLatestLTSBaseline
+  # Test that the previous LTS Jenkins version exists
+  jenkinsPreviousLTSVersion:
+    kind: jenkins
+    sourceid: JenkinsPreviousLTS
+  # Test that the third to last LTS Jenkins version exists
+  jenkinsThirdToLastVersion:
+    kind: jenkins
+    sourceid: JenkinsThirdToLastLTS
+  jenkinsLatestLTSJdk21Image:
+    kind: dockerimage
+    sourceid: JenkinsLatestLTS
+    spec:
+      image: "jenkins/jenkins"
+      tag: '{{ source "JenkinsLatestLTS" }}-jdk21'
+targets:
+  setJenkinsLatestLTSVersionInRecommendedVersions:
+    kind: file
+    name: "Bump Jenkins latest LTS version in the recommended versions section"
+    sourceid: JenkinsLatestLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*You could also consider \*)(.*)(\* if there are specific reasons.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsLatestLTSBaseline" }}${3}
+    scmid: default
+  setJenkinsLTSVersionInMinimumRecommendedVersion:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the recommended versions section"
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*<jenkins.version>)(.*)(</jenkins.version>)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setJenkinsLTSVersionInGoodCoreDependencies:
+    kind: file
+    name: "Bump Jenkins good core dependencies LTS version in the recommended versions section"
+    sourceid: JenkinsThirdToLastLTS
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*At the moment, the Jenkins releases \*)(.*)(\* make good core dependencies.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsThirdToLastLTS" }} and {{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setJenkinsOldestSupportedWeekly:
+    kind: file
+    name: "Bump Jenkins oldest weekly supported version in the \"Choosing a version\" page"
+    sourceid: JenkinsOldestSupportedWeekly
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*Do not use versions no longer supported by the update center.*older than )(.*)( for weekly releases.*for LTS releases.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsOldestSupportedWeekly" }}${3}
+    scmid: default
+  setJenkinsOldestSupportedStable:
+    kind: file
+    name: "Bump Jenkins oldest stable supported version in the \"Choosing a version\" page"
+    sourceid: JenkinsOldestSupportedStable
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*Do not use versions no longer supported by the update center.* weekly releases, and )(.*)( for LTS releases.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsOldestSupportedStable" }}${3}
+    scmid: default
+  setJenkinsOldestSupportedStableTwo:
+    kind: file
+    name: "Bump Jenkins oldest stable supported version in the \"Choosing a version\" page"
+    sourceid: JenkinsOldestSupportedStable
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*Something around 1 year old .* makes a good choice and )(.*)( would be a reasonable candidate.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsOldestSupportedStableLatestPatch" }}${3}
+    scmid: default
+  setJenkinsOldestSplit:
+    kind: file
+    name: "Bump last Jenkins split version in the \"Choosing a version\" page"
+    sourceid: JenkinsLastSplit
+    spec:
+      file: content/doc/developer/plugin-development/choosing-jenkins-baseline.adoc
+      matchpattern: >-
+        (.*At this time, a dependency on Jenkins versions.*than )(.*)(\* will not result in such implied dependencies.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsLastSplit" }}${3}
+    scmid: default
+  setLTSVersionInUpdateMinimumRequiredJenkinsVersion:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the \"improve a plugin tutorial\""
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*<jenkins.version>)(.*)(</jenkins.version>.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+  setLTSVersionAsATask:
+    kind: file
+    name: "Bump Jenkins minimum LTS version in the \"improve a plugin tutorial task\""
+    sourceid: JenkinsPreviousLTS
+    spec:
+      file: content/doc/developer/tutorial-improve/update-base-jenkins-version.adoc
+      matchpattern: >-
+        (.*:task-description: Require )(.*)( as minimum Jenkins version.*)
+      replacepattern: >-
+        ${1}{{ source "JenkinsPreviousLTS" }}${3}
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: Update Jenkins LTS versions in various parts of the documentation
+    spec:
+      labels:
+        - dependencies
+        - chore

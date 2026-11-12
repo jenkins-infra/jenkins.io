@@ -5,7 +5,6 @@ title: Pipeline Development Tools
 ifdef::backend-html5[]
 :description:
 :author:
-:email: jenkinsci-docs@googlegroups.com
 :sectanchors:
 :toc:
 ifdef::env-github[:imagesdir: ../resources]
@@ -54,11 +53,10 @@ ssh -p $JENKINS_PORT $JENKINS_HOST declarative-linter < Jenkinsfile
 [source,bash]
 ----
 # curl (REST API)
-# Assuming "anonymous read access" has been enabled on your Jenkins instance.
+# These instructions assume that the security realm of Jenkins is something other than "None" and you have an account.
 # JENKINS_URL=[root URL of Jenkins controller]
-# JENKINS_CRUMB is needed if your Jenkins controller has CRSF protection enabled as it should
-JENKINS_CRUMB=`curl "$JENKINS_URL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,\":\",//crumb)"`
-curl -X POST -H $JENKINS_CRUMB -F "jenkinsfile=<Jenkinsfile" $JENKINS_URL/pipeline-model-converter/validate
+# JENKINS_AUTH=[your Jenkins username and an API token in the following format: your_username:api_token]
+curl -X POST --user "$JENKINS_AUTH" -F "jenkinsfile=<Jenkinsfile" "$JENKINS_URL/pipeline-model-converter/validate"
 ----
 
 === Examples
@@ -122,14 +120,10 @@ ssh -p 8675 localhost declarative-linter < ./Jenkinsfile
 Jenkinsfile successfully validated.
 ----
 
-== Blue Ocean Editor
+== Pipeline Graph View
 
-The <<../blueocean/pipeline-editor#, Blue Ocean Pipeline Editor>> provides a link:https://en.wikipedia.org/wiki/WYSIWYG[WYSIWYG] way to create Declarative Pipelines.
-The editor offers a structural view of all the stages, parallel branches, and steps in a Pipeline.
-The editor validates Pipeline changes as they are made, eliminating many errors before they are even committed.  
-Behind the scenes it still generates Declarative Pipeline code.
-
-include::doc/book/blueocean/_blue-ocean-status.adoc[]
+The link:https://plugins.jenkins.io/pipeline-graph-view/[Pipeline Graph View plugin] provides a modern, detailed structural view of all the stages, parallel branches, and steps in a Pipeline.
+It is an invaluable visualization tool during development to ensure that your Pipeline's structure is correct and to monitor its execution step-by-step.
 
 [[replay]]
 == "Replay" Pipeline Runs with Modifications
@@ -146,17 +140,17 @@ To use the "Replay" feature:
 
 . Select a previously completed run in the build history.
 +
-image::pipeline/replay-previous-run.png[Previous Pipeline Run]
+image::pipeline/replay-previous-run.png[alt = "Build history section of a Jenkins Pipeline showing all the previously executed builds. The history includes: Build #2 and Build #3, which ran successfully; Build #4 and Build #5, which failed; and Build #6, which ran successfully. Click on the latest successful build, which is Build #6 in this case."]
 +
-. Click "Replay" in the left menu
+. Click "Replay" in the left menu.
 +
-image::pipeline/replay-left-bar.png[Replay Left-menu Button]
+image::pipeline/replay-left-bar.png[alt = "Jenkins Classic UI sidebar for 'example-pipeline' build #6 showing options: Status, Changes, Console Output, Edit Build Information, Delete Build #6, Timings, Pipeline Overview, Pipeline Console, Restart from Stage, Replay, Pipeline Steps, Workspaces, and Previous Build."]
 +
 . Make modifications and click "Run". In this example, we changed "ruby-2.3" to "ruby-2.4".
 +
-image::pipeline/replay-modified.png[Replay Left-menu Button]
+image::pipeline/replay-modified.png[alt = "The replay section of the Jenkins 'example-pipeline' for build #6 displays the pipeline script, where the Ruby version has been changed from 2.3 to 2.4. A 'Pipeline Syntax' option and a blue 'Run' button is shown below the script."]
 +
-. Check the results of changes
+. Check the results of changes.
 
 Once you are satisfied with the changes,
 you can use Replay to view them again, copy them back to your Pipeline job
@@ -176,6 +170,7 @@ also be shown and modifiable as part of the Replay page.
 implied by "Job / Configure". If Pipeline is not configurable (e.g. Branch Pipeline of a Multibranch) or "Job / Configure" is not granted, users still can experiment with Pipeline Definition via Replay
 * *Can be used for Re-run* -
 users lacking "Run / Replay" but who are granted "Job / Build" can still use Replay to run a build again with the same definition.
+*Note*: The label switches to "Rebuild" in that case.
 
 === Limitations
 
@@ -183,11 +178,11 @@ users lacking "Run / Replay" but who are granted "Job / Build" can still use Rep
 meaning their code cannot be viewed and any changes made in them cannot be retrieved.
 When using Replay for more significant modifications, save your changes
 to a file or editor outside of Jenkins before running them.
-See link:https://issues.jenkins.io/browse/JENKINS-37589[JENKINS-37589]
+See link:https://issue-redirect.jenkins.io/issue/37589[JENKINS-37589]
 * *Replayed Pipeline behavior may differ from runs started by other methods* -
 For Pipelines that are not part of a Multi-branch Pipeline,
 the commit information may differ for the original run and the Replayed run.
-See link:https://issues.jenkins.io/browse/JENKINS-36453[JENKINS-36453]
+See link:https://issue-redirect.jenkins.io/issue/36453[JENKINS-36453]
 
 == IDE Integrations
 
@@ -223,7 +218,7 @@ The extension adds four settings entries to VS Code which select the Jenkins ser
 
 The link:https://github.com/ckipp01/nvim-jenkinsfile-linter[nvim-jenkinsfile-linter]
 Neovim plugin allows you to validate a Jenkinsfile by using the Pipeline Linter API
-of your Jenkins instance and report any existing diagnostics in your editor.
+of your Jenkins controller and report any existing diagnostics in your editor.
 
 === Atom linter-jenkins package
 
@@ -235,13 +230,40 @@ link:https://atom.io/packages/language-jenkinsfile[Jenkinsfile language support 
 === Sublime Text Jenkinsfile package
 
 The link:https://github.com/june07/sublime-Jenkinsfile[Jenkinsfile] Sublime Text package allows 
-you to validate a Jenkinsfile by using the Pipeline Linter API of a running Jenkins instance over
+you to validate a Jenkinsfile by using the Pipeline Linter API of a running Jenkins controller over
 a secure channel (SSH).  You can install it directly from the Sublime Text package manager.
 
 ​You can find the package from within the Sublime Text interface via the Package Control package, at GitHub, or packagecontrol.io:
 
 * link:https://github.com/june07/sublime-Jenkinsfile[https://github.com/june07/sublime-Jenkinsfile]
 * link:https://packagecontrol.io/packages/Jenkinsfile[https://packagecontrol.io/packages/Jenkinsfile]
+
+[[pre-commit]]
+== Pre-commit Hooks
+
+Pre-commit hooks allow you to automatically validate Jenkinsfiles before they are committed to version control, helping to catch syntax errors early in the development workflow.
+
+=== jenkinsfilelint
+
+The link:https://github.com/jenkinsci/jenkinsfilelint[jenkinsfilelint] pre-commit hook validates Jenkinsfiles before commit by using the <<linter,Pipeline Linter API>> of a Jenkins controller.
+This can help teams catch Jenkinsfile syntax errors in local development and pull request workflows before they reach CI.
+
+To use it, add the following to your `.pre-commit-config.yaml`:
+
+[source,yaml]
+----
+repos:
+  - repo: https://github.com/jenkinsci/jenkinsfilelint
+    rev: v1.4.0  # use the latest release
+    hooks:
+      - id: jenkinsfilelint
+----
+
+The hook connects to your Jenkins controller using the following environment variables:
+
+* `JENKINS_URL` - the root URL of your Jenkins controller
+* `JENKINS_USER` - your Jenkins username
+* `JENKINS_TOKEN` - your Jenkins API token
 
 [[unit-test]]
 == Pipeline Unit Testing Framework

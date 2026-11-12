@@ -6,11 +6,11 @@
 #
 require 'rss'
 require 'faraday'
-require 'faraday_middleware'
+require 'faraday/follow_redirects'
 
 def get_url(url)
   conn = Faraday.new url do |f|
-    f.use FaradayMiddleware::FollowRedirects, limit: 5
+    f.use Faraday::FollowRedirects::Middleware, limit: 5
     f.response :json, content_type: /\bjson$/
     f.adapter Faraday.default_adapter
   end
