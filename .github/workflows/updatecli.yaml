@@ -6,25 +6,49 @@ on:
     # Run once per week (to avoid alert fatigue)
     - cron: '0 2 * * 1' # Every Monday at 2am UTC
   push:
-  pull_request:
+
+permissions:
+  contents: read
+
 jobs:
-  updatecli:
+  # Pull request and scheduled diffs run with read-only access.
+  updatecli-diff:
     runs-on: ubuntu-latest
     if: github.repository_owner == 'jenkins-infra'
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install Updatecli in the runner
-        uses: updatecli/updatecli-action@v3.10.0
+        uses: updatecli/updatecli-action@93ae2608256484ef8598e902aa675bbc9e278e4e # v3.10.0
 
       - name: Run Updatecli in Dry Run mode
         run: updatecli pipeline diff --config ./updatecli/updatecli.d --values ./updatecli/values.github-action.yaml
         env:
           UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Only apply changes from the trusted default branch, with the write permissions it needs.
+  updatecli-apply:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'jenkins-infra' && github.ref == 'refs/heads/master'
+    needs: updatecli-diff
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install Updatecli in the runner
+        uses: updatecli/updatecli-action@93ae2608256484ef8598e902aa675bbc9e278e4e # v3.10.0
+
       - name: Run Updatecli in Apply mode
-        if: github.ref == 'refs/heads/master'
         run: updatecli pipeline apply --config ./updatecli/updatecli.d --values ./updatecli/values.github-action.yaml
         env:
           UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
