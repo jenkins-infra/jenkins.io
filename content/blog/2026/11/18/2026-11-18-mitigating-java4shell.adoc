@@ -1,0 +1,155 @@
+---
+:layout: post
+:title: "Jenkins and Java4Shell"
+:tags:
+- community
+- security
+authors:
+- markewaite
+description: >
+  CVE-2026-114938 discloses a heap overflow vulnerability in OpenJDK 17, 21, and 25.
+  This post describes the techniques to mitigate the vulnerability and resolve the vulnerability.
+links:
+  discourse: https://community.jenkins.io/t/mitigating-java4shell-in-jenkins/37670
+opengraph:
+  image: /images/post-images/2026/11/mitigating-java4shell.png
+---
+
+link:https://nvd.nist.gov/vuln/detail/cve-2026-114938[CVE-2026-114938] ("Java4Shell") is a heap overflow vulnerability in OpenJDK's hardware-accelerated Base64 decoder affecting Java 17, 21, and 25 running on x86-64 CPUs with AVX-512 VBMI (Intel Ice Lake or newer; AMD Zen 4 or newer).
+
+The issue is fixed in the November 2026 Java releases 17.0.21.1, 21.0.13.1, and 25.0.5.1.
+Upgrade Java and restart Jenkins to fix the issue.
+
+If you cannot immediately upgrade Java, add the JVM startup flag `-XX:-UseBASE64Intrinsics` to your Jenkins controllers and restart Jenkins.
+
+== Scope and exposure check
+
+Before making changes, determine which Jenkins controllers are vulnerable:
+
+* **Check Java Version**
+  The "Manage Jenkins" / "System Information" page shows the Java version running the controller.
+  Controllers running Java 17 versions after 17.0.6 and prior to 17.0.21.1 are at risk.
+  Controllers running Java 21 versions prior to 21.0.13.1 are at risk.
+  Controllers running Java 25 versions prior to 25.0.5.1 are at risk.
+
+* **Check CPU Architecture**
+  Controllers using newer x86-64 CPUs with the AVX-512 VBMI instruction are at risk.
+  Controllers using older x86-64 CPUs without the AVX-512 VBMI instruction are **not** at risk.
+  Controllers using other CPUs are **not** at risk (ARM64, s390x, ppc64le).
++
+.CPU architecture has the AVX-512 VBMI instruction (Linux)
+[source,bash]
+----
+$ grep -o -w -m1 'avx512vbmi' /proc/cpuinfo
+avx512vbmi
+----
+
+A Jenkins controller is vulnerable only if **both** conditions are met.
+It must be running a vulnerable Java version and must be running on a CPU with the AVX-512 VBMI instruction (Intel Ice Lake or newer; AMD Zen 4 or newer).
+
+== Temporary workaround
+
+If you are running a vulnerable Java version on a CPU with the AVX-512 VBMI instruction and cannot upgrade Java immediately, you can disable the vulnerable Java code with the JVM startup argument:
+
+[source]
+----
+-XX:-UseBASE64Intrinsics
+----
+
+Restart the Jenkins controller after adding that command line argument and confirm that the "Manage Jenkins" / "System Information" / "Environment Variables" page includes `-XX:-UseBASE64Intrinsics` in the `JAVA_OPTS` value.
+
+=== Linux package installations
+
+Jenkins packages on Debian, Ubuntu, Red Hat Enterprise Linux, Fedora, AlmaLinux, and Rocky Linux manage JVM arguments with systemd.
+
+1. Edit the systemd configuration
++
+[source, bash]
+----
+# systemctl edit jenkins
+----
+2. Insert or update the Environment override of JAVA_OPTS like this:
++
+----
+[Unit]
+Description=My Company Jenkins Controller
+
+[Service]
+# Add JVM configuration options
+Environment="JAVA_OPTS=-XX:-UseBASE64Intrinsics -Djava.awt.headless=true"
+----
+3. Save the new configuration, then reload the configuration files and restart Jenkins with:
++
+[source, bash]
+----
+# systemctl daemon-reload
+# systemctl restart jenkins
+----
+4. Confirm that the command line that started Jenkins includes the `-XX:-UseBASE64Intrinsics`:
++
+[source, bash]
+----
+$ pgrep -u jenkins -a
+6854 /usr/bin/java -XX:-UseBASE64Intrinsics -Djava.awt.headless=true ...
+----
+
+More details are available in link:/doc/book/system-administration/systemd-services/["Managing systemd services"].
+
+=== Docker installations
+
+Jenkins container images bundle a Java version inside the container.
+The bundled Java version can be reported with:
+
+[source,bash]
+----
+$ docker run --rm jenkins/jenkins:lts-jdk25 java -version
+openjdk version "25.0.5" 2026-10-20 LTS
+OpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)
+OpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)
+----
+
+1. If the container image that you are using is at risk, mitigate the risk with an additional `--env` argument:
++
+[source,bash]
+----
+docker run --env JAVA_OPTS="-XX:-UseBASE64Intrinsics" jenkins/jenkins:lts-jdk25
+----
+2. Confirm that the "Manage Jenkins" / "System Information" / "Environment Variables" page includes `-XX:-UseBASE64Intrinsics` in the `JAVA_OPTS` value.
+
+=== Kubernetes installations
+
+1. Add the flag to `controller.javaOpts` in your Helm values or deployment manifest and roll out the pod update:
++
+[source,yaml]
+----
+controller:
+  javaOpts: "-XX:-UseBASE64Intrinsics"
+----
+2. Confirm that the "Manage Jenkins" / "System Information" / "Environment Variables" page includes `-XX:-UseBASE64Intrinsics` in the `JAVA_OPTS` value.
+
+=== Windows installations
+
+Jenkins installations on Windows rely on the Java version that is configured in the `jenkins.xml` file in the Jenkins home directory.
+The Jenkins home directory is listed in "Manage Jenkins" / "System Information" and is usually `C:\ProgramData\Jenkins\.jenkins`.
+
+1. Add the `-XX:-UseBASE64Intrinsics` in the `arguments` tag.
++
+[source,xml]
+----
+<arguments>-Xrs -XX:-UseBASE64Intrinsics</arguments>
+----
+2. Save the file and restart the Jenkins service from an administrator PowerShell session with:
++
+[source,powershell]
+----
+Restart-Service -Name "Jenkins"
+----
+3. Confirm that the command line that started Jenkins includes the `-XX:-UseBASE64Intrinsics` from the `arguments` tag.
+From an PowerShell window running as administrator,  use the command:
++
+[source,powershell]
+----
+Get-CimInstance Win32_Process -Filter "name = 'java.exe'" | `
+    Where-Object { $_.CommandLine -like "*jenkins*" } | `
+    Select-Object -ExpandProperty CommandLine
+----
