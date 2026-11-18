@@ -9,8 +9,19 @@ class ChangelogReleases
   end
 
   def execute(site)
-    changelog_entries = site.changelogs[@release_line]
-    limit_version = Gem::Version.new(site.jenkins[@limit_version_key])
+    changelog_entries = site.changelogs ? site.changelogs[@release_line] : nil
+    unless changelog_entries
+      puts "WARNING: site.changelogs[#{@release_line.inspect}] is not set; skipping changelog release page generation"
+      return
+    end
+
+    raw_limit_version = site.jenkins ? site.jenkins[@limit_version_key] : nil
+    unless raw_limit_version
+      puts "WARNING: site.jenkins[#{@limit_version_key.inspect}] is not set; skipping changelog release page generation for #{@release_line}"
+      return
+    end
+
+    limit_version = Gem::Version.new(raw_limit_version)
 
     entry_template = Pathname.new(::Awestruct::Engine.instance.site.config.dir).join('_layouts/changelog_entry.html.haml')
 

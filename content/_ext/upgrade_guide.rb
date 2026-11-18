@@ -3,7 +3,13 @@ require 'awestruct/page'
 class UpgradeGuide
   def execute(site)
     prefix = "/doc/upgrade-guide"
-    stable = Gem::Version.new(site.jenkins.stable)
+    stable_version = site.jenkins.is_a?(Hash) ? site.jenkins['stable'] : site.jenkins&.stable
+    unless stable_version
+      puts "WARNING: site.jenkins.stable is not set; skipping upgrade guide generation"
+      return
+    end
+
+    stable = Gem::Version.new(stable_version)
     versions = site.upgrades.keys.select {|x| Gem::Version.new(x.to_s.tr_s("-",".")) <= stable}
     grouped = versions.group_by {|x| x.to_s.split('-')[0..1].join('.')}
     grouped = grouped.sort {|x, y| -(Gem::Version.new(x[0]) <=> Gem::Version.new(y[0]))}.to_h
