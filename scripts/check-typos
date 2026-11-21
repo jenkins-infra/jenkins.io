@@ -6,10 +6,25 @@ set -o pipefail
 
 TYPOS_VERSION=v1.51.1
 
-if [[ $OSTYPE == darwin* ]] ; then
-    curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-x86_64-apple-darwin.tar.gz" | tar xzf - ./typos
-else
-    curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar xzf - ./typos
+EXPECTED_VERSION="${TYPOS_VERSION#v}"
+if [[ ! -x ./typos ]] || [[ "$(./typos --version 2>/dev/null || true)" != "typos ${EXPECTED_VERSION}" ]]; then
+    TARGET_ARCH="$(uname -m)"
+    case "${TARGET_ARCH}" in
+        arm64|aarch64)
+            TARGET_ARCH=aarch64
+            ;;
+        *)
+            TARGET_ARCH=x86_64
+            ;;
+    esac
+
+    if [[ $OSTYPE == darwin* ]] ; then
+        TARGET="${TARGET_ARCH}-apple-darwin"
+    else
+        TARGET="${TARGET_ARCH}-unknown-linux-musl"
+    fi
+
+    curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-${TARGET}.tar.gz" | tar xzf - ./typos
 fi
 if [[ -n "${CI:-}" ]] ; then
     ./typos --format sarif > typos.sarif || true
