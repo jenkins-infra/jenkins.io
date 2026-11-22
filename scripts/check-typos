@@ -6,22 +6,28 @@ set -o pipefail
 
 TYPOS_VERSION=v1.51.1
 
-ARCH=$(uname -m)
-if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
-    TARGET_ARCH="aarch64"
+if command -v typos >/dev/null 2>&1; then
+    TYPOS_BIN="typos"
 else
-    TARGET_ARCH="x86_64"
+    ARCH=$(uname -m)
+    if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
+        TARGET_ARCH="aarch64"
+    else
+        TARGET_ARCH="x86_64"
+    fi
+
+    if [[ ! -x ./typos ]] || [[ "$(./typos --version 2>/dev/null)" != *" ${TYPOS_VERSION#v}"* ]]; then
+        if [[ $OSTYPE == darwin* ]] ; then
+            curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-${TARGET_ARCH}-apple-darwin.tar.gz" | tar xzf - ./typos
+        else
+            curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-${TARGET_ARCH}-unknown-linux-musl.tar.gz" | tar xzf - ./typos
+        fi
+    fi
+    TYPOS_BIN="./typos"
 fi
 
-if [[ ! -x ./typos ]] || [[ "$(./typos --version 2>/dev/null)" != *" ${TYPOS_VERSION#v}"* ]]; then
-    if [[ $OSTYPE == darwin* ]] ; then
-        curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-${TARGET_ARCH}-apple-darwin.tar.gz" | tar xzf - ./typos
-    else
-        curl --disable --silent --show-error --location "https://github.com/crate-ci/typos/releases/download/${TYPOS_VERSION}/typos-${TYPOS_VERSION}-${TARGET_ARCH}-unknown-linux-musl.tar.gz" | tar xzf - ./typos
-    fi
-fi
 if [[ -n "${CI:-}" ]] ; then
-    ./typos --format sarif > typos.sarif || true
+    "${TYPOS_BIN}" --format sarif > typos.sarif || true
 else
-    ./typos
+    "${TYPOS_BIN}"
 fi
