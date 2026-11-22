@@ -45,7 +45,7 @@ On approval the plugin queues the build once, with exactly the submitted values.
 The parameters cannot be edited after approval, the approval cannot be used twice, and the requester cannot approve their own request.
 
 Timers, upstream triggers, SCM triggers and webhooks keep working.
-The one exception is a job created after run control was turned on: it does not run unattended until an approver has activated it.
+The one exception is a job created after run control was turned on: it does not run unattended until an approver has activated it, and its *Block cron (timer) triggers* and *Block upstream triggers* switches start checked.
 Jobs that existed when the plugin was installed count as activated, so existing schedules do not stop.
 
 *Change control.*
@@ -53,15 +53,15 @@ A user without `Item/Configure` on a job can request a permission window instead
 Once approved, the window adds those permissions for that item only and closes by itself when the time is up.
 Expiry is a clock comparison at every permission check, so there is no revocation step, and an expired window stays closed across a restart.
 
-Change control works through Batch Control variants of the Matrix Authorization Strategy and the Role-based Authorization Strategy, so the existing permission model stays in place.
+Change control works through Batch Control variants of the Matrix Authorization Strategy and the Role-based Authorization Strategy, so existing matrix entries and role assignments are kept.
 
 *History.*
-Whenever either control is on, runs, requests, decisions, configuration changes and failures are written under `$JENKINS_HOME/batch-control/`, in monthly append-only files.
+Whenever either control is on, runs, requests, decisions, configuration changes and failures are recorded under `$JENKINS_HOME/batch-control/`: runs and configuration changes in monthly append-only files, requests and incidents in a file each.
 Deleting or rotating builds does not touch them.
 The *History* screen filters them by period, job, user, result and status, and exports each view as CSV.
 
 Failed and unstable builds open an incident with the last 100 console lines.
-A re-run from an incident is again a request, carrying the failed build's original parameters.
+A re-run from an incident is again a request, carrying the failed build's parameters; when some of them can no longer be recovered, it opens the *Request Run* form with the other non-secret values filled in.
 
 == An example
 
@@ -70,7 +70,7 @@ The settlement for 8 October has to run again because a vendor's file arrived la
 The requester opens *Request Run* on the job, fills in the parameters and the reason, and picks an approver, as in the recording above.
 
 The approver opens the request from *Batch Control* → *Run Requests*.
-The page shows the parameters as submitted and the job's recent runs, followed by one decision area with an optional comment and the *Approve* and *Reject* buttons.
+The page shows the parameters as submitted, then one decision area with an optional comment and the *Approve* and *Reject* buttons, and the job's recent runs below.
 A rejection needs a comment and is final, so the plugin asks for confirmation before sending it.
 
 image::/images/post-images/2026/11/batch-control/flow-approver.gif["The approver's view: a pending run request in the inbox, its reason and parameters as submitted, a comment and Approve, and the resulting build on the Run Dashboard with the cause Approved request",width=1024]
@@ -95,9 +95,9 @@ It puts a request and a designated approver in front of a manual run, puts an en
 Some things are outside that scope on purpose, and some are not done yet:
 
 * Administrators are recorded, not stopped.
-An administrator can switch a control off, and by default may approve their own request; *Allow administrators to approve their own requests* turns that off.
+An administrator can switch a control off, and by default may approve their own request; clearing *Allow administrators to approve their own requests* turns that off.
 Each of those actions is recorded.
-* The history files are append-only, but direct edits on disk are not detected.
+* Jenkins offers no way to edit or delete the records, but direct edits on disk are not detected.
 * There is no REST API yet, and no sequential multi-stage approval: the first designated approver to act decides.
 
 Compared with what is already available:
@@ -136,12 +136,12 @@ unclassified:
     allowAdminSelfApproval: false
 ----
 
-For permission windows, also check *Enable change control* and switch to the Batch Control variant of your authorization strategy.
+For permission windows, also check *Enable change control*, switch to the Batch Control variant of your authorization strategy, and give requesters `BatchControl/RequestGrant`.
 The link:https://github.com/jenkinsci/batch-control-plugin/blob/main/docs/USER-GUIDE.md[user guide] has the full setup.
 
 == How it was built
 
-I started Batch Control on my own on 20 September, with most of the code written by Claude Code agents: 1,293 of the 1,556 commits carry a Claude co-author line.
+I started Batch Control on my own on 20 September, with most of the code written by Claude Code agents: 1,295 of the 1,559 commits carry a Claude co-author line.
 The specification and the design decisions are mine.
 For example, the first design locked a new job with two fields in its `config.xml`.
 Creating the job already needed a permission window, and a `CONFIGURE` window could clear those same fields, so one approval was enough to let a new job run unattended.
