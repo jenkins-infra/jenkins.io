@@ -1,0 +1,52 @@
+---
+title: XStream and Object-typed Fields
+summary: How to handle Object-typed fields safely when using XStream persistence.
+layout: developersection
+---
+
+Jenkins uses XStream for persistence.
+Since Jenkins 2.572, `RobustReflectionConverter` refuses to deserialize values into fields typed as `Object` unless explicitly permitted.
+This is a security improvement preventing a class of deserialization vulnerabilities where an attacker-controlled value could be used to handle HTTP requests, like link:/security/advisory/2026-06-10/#SECURITY-3707[SECURITY-3707].
+
+== Marking a field as safe
+
+If a field typed as `Object` is intentionally used and its values are trusted (e.g., always set programmatically, never from user-controlled XML), annotate it with `@XstreamSafeObjectField`.
+
+While this annotation is not yet available in LTS releases, Jenkins also recognizes the annotation by its *simple name only*, so plugins can define their own copy without adding a core dependency:
+
+[source,java]
+----
+// In your plugin: com.example.myplugin.XstreamSafeObjectField
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface XstreamSafeObjectField {}
+
+public class MyConfig {
+    @XstreamSafeObjectField
+    private Object legacyValue;
+}
+----
+
+This is temporary and will be removed once the annotation has been available in LTS releases for a while, so plugin developers should switch to the official annotation as soon as practical.
+
+== Administrator escape hatches
+
+Two system properties are available for administrators dealing with third-party plugins that have not yet been updated:
+
+`hudson.util.RobustReflectionConverter.SAFE_TYPES_WITH_OBJECT_FIELDS`::
+Comma-separated list of fully qualified class names whose `Object`-typed fields are allowed.
+Prefer this over the blanket override below.
+
+`hudson.util.RobustReflectionConverter.ALLOW_ALL_OBJECT_FIELDS`::
+Set to `true` to disable the protection entirely.
+This is strongly discouraged and should only be used as a temporary workaround.
+
+See the link:/doc/book/managing/system-properties/[System Properties] reference for details.
+
+== Plugin developer guidance
+
+If Jenkins logs a message that deserialization of an `Object` field was blocked:
+
+1. Check whether the field truly needs to be typed as `Object`. If possible, change it to a more specific type.
+2. If the `Object` type is needed, annotate the field with `@XstreamSafeObjectField` and release a plugin update. Do this only if the field is not set from user-controlled XML, or if the value is never used to handle HTTP requests.
+3. Recommend that administrators use the `SAFE_TYPES_WITH_OBJECT_FIELDS` system property as a temporary workaround until the plugin is updated.

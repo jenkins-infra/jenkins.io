@@ -26,8 +26,9 @@ module Authorship
   end
 
   def display_user(author)
-    if site.authors.has_key? author.to_sym
-      full_name = site.authors[author].name
+    author_data = site.authors[author] || site.authors[author.to_sym]
+    if author_data
+      full_name = author_data.name
       avatar = Dir.glob("content/images/avatars/#{author}.{bmp,gif,ico,jpg,jpeg,png,svg}").first
       avatar.sub!('content','') unless !avatar
     else

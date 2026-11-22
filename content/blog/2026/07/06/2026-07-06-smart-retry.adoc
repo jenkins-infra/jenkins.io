@@ -1,0 +1,166 @@
+---
+layout: post
+title: "Introducing Smart Retry: Safer retries for transient Jenkins failures."
+tags:
+- plugins
+- pipeline
+- ci
+author: donhui
+description: "Introducing Smart Retry, a Jenkins Pipeline step that retries high-confidence transient failures while keeping retry behavior deterministic and explainable."
+opengraph:
+  image: /images/post-images/2026/07/06/smart-retry.png
+---
+
+image:/images/post-images/2026/07/06/smart-retry.png[Smart Retry, role=center]
+
+In many Jenkins environments, a failed build does not always mean the code is broken.
+
+Sometimes a Kubernetes agent gets evicted.
+Sometimes a Git fetch is interrupted.
+Sometimes an artifact repository has a short outage.
+In all of these cases, the next manual rebuild often succeeds.
+
+`smartRetry` is designed for exactly this kind of CI problem: transient failures that are worth retrying, without turning every failed step into an automatic rerun.
+
+== What is Smart Retry?
+
+`smartRetry` is a Jenkins Pipeline step that retries only the failures worth retrying.
+
+Instead of rerunning a failed block unconditionally, it classifies the failure first and then decides whether a retry is allowed under the active profile.
+
+For example:
+
+[source,groovy]
+----
+smartRetry(profile: 'infra', maxRetries: 2, backoff: 'exponential') {
+  sh 'mvn -B verify'
+}
+----
+
+When the wrapped step fails, `smartRetry` will:
+
+. Capture the thrown error and a bounded slice of console output from the current attempt.
+. Classify the failure into a deterministic category such as `AGENT_LOST`, `SCM_TRANSIENT`, `NETWORK_TRANSIENT`, `COMPILATION_FAILURE`, or `UNKNOWN`.
+. Check whether that category is retryable under the active profile.
+. Log the decision clearly and schedule another attempt only when the policy allows it.
+
+This keeps retry behavior explicit, deterministic, and easier to understand.
+
+== Why use Smart Retry?
+
+The main idea behind `smartRetry` is simple: classify first, retry second.
+
+That lets the plugin stay conservative by default.
+It can automatically recover from high-confidence transient infrastructure problems while still failing fast on deterministic issues such as:
+
+* compilation failures
+* Pipeline script logic errors
+* `UNKNOWN` failures that do not match a high-confidence rule
+* user-initiated aborts
+
+For day-to-day CI, those defaults work well because the retry decision remains visible and explainable.
+
+== How it works
+
+=== 1. Configure Smart Retry globally
+
+After installing the plugin, you can configure shared defaults in *Manage Jenkins > System*, including:
+
+* the default profile
+* the default maximum retry count
+* fixed or exponential backoff
+* custom profiles
+* narrow custom classification rules
+
+The current built-in profiles are:
+
+* `conservative`: retries only `AGENT_LOST` and `SCM_TRANSIENT`
+* `infra`: includes `conservative`, plus `NETWORK_TRANSIENT`, `ARTIFACT_REPO_TRANSIENT`, and `IDENTITY_PROVIDER_TRANSIENT`
+
+If you are introducing automated retries to a team for the first time, `conservative` is the safest place to start.
+
+=== 2. Use it in a Jenkinsfile
+
+The simplest pattern is to wrap steps that are idempotent and exposed to infrastructure volatility.
+
+For example, around checkout:
+
+[source,groovy]
+----
+smartRetry {
+  git branch: 'main',
+      credentialsId: 'scm-creds',
+      url: 'https://gitlab.example.com/your-group/your-repo.git'
+}
+----
+
+Or around a build step that depends more heavily on external services:
+
+[source,groovy]
+----
+smartRetry(profile: 'infra', maxRetries: 2, backoff: 'fixed', initialDelaySeconds: 10) {
+  sh 'mvn -B verify'
+}
+----
+
+As a general rule, keep the wrapped block as small and as idempotent as possible.
+That reduces risk and makes retry behavior easier to understand.
+
+=== 3. Inspect the decision
+
+Another key part of `smartRetry` is explainability.
+When a build fails, it does not just say "retrying".
+It logs the classification, the decision, and the reason.
+For example:
+
+[source,text]
+----
+[smartRetry] begin attempt=1
+[smartRetry] attempt=1 profile=infra classified=SCM_TRANSIENT retryCandidate=true decision=RETRY nextAttempt=2 delayMillis=10000 reason="Failure type SCM_TRANSIENT is retryable under profile infra and retry budget remains."
+[smartRetry] begin attempt=2
+----
+
+Each build that uses `smartRetry` also gets a dedicated Smart Retry page showing:
+
+* the active profile
+* the classification result for each attempt
+* which rule matched the failure
+* whether the build recovered or stopped retrying
+
+This is especially useful when you need to answer "why did this build retry?" or "why did it stop here?".
+
+== Conservative by design
+
+`smartRetry` is not trying to turn Jenkins into a system that guesses its way through every failure.
+
+The current implementation keeps a few boundaries on purpose:
+
+* no AI-based failure classification
+* no retry on `UNKNOWN` by default
+* no retry on compilation failures, Pipeline logic failures, or user aborts by default
+* no deployment-style failure retry in the default policy
+
+That may sound less ambitious than "intelligent retries for everything", but it is often a better fit for real CI systems where safety and predictability matter.
+
+== Where Smart Retry fits best
+
+`smartRetry` is a good fit for:
+
+* Jenkins installations running on Kubernetes or other ephemeral agents
+* checkout steps frequently affected by Git or SCM transport instability
+* Pipeline steps that depend on Maven, npm, PyPI, Docker registries, Artifactory, or other external services
+* teams that already know a manual rebuild often succeeds, but do not want to retry every failure blindly
+
+It is not meant to replace every use of `retry {}`, and it is not a default wrapper for non-idempotent release or deployment steps.
+
+== Try it
+
+If your Jenkins environment regularly sees lost agents, SCM hiccups, or short-lived dependency service outages, `smartRetry` is worth trying in a small and controlled scope.
+
+Start with the `conservative` profile, use it around idempotent steps such as checkout or dependency download, and expand to `infra` only after you have seen how it behaves in your own environment.
+
+For many teams, the goal is not another blind retry, but a safer way to retry only when it actually makes sense.
+
+The project is open source on GitHub: link:https://github.com/jenkinsci/smart-retry-plugin[jenkinsci/smart-retry-plugin].
+
+If you have a transient failure pattern that should be covered, or you want to help improve the built-in rules, issues and pull requests are very welcome.

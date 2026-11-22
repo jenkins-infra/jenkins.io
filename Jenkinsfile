@@ -30,14 +30,6 @@ node('docker&&linux') {
 
     stage('Checkout source') {
         /*
-        * For a standalone workflow script, we would use the `git` step
-        *
-        *
-        * git url: 'git://github.com/jenkinsci/jenkins.io',
-        *     branch: 'master'
-        */
-
-        /*
         * Represents the SCM configuration in a "Workflow from SCM" project build. Use checkout
         * scm to check out sources matching Jenkinsfile with the SCM details from
         * the build that is executing this Jenkinsfile.
@@ -107,6 +99,9 @@ node('docker&&linux') {
                 curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/stylesheets/styles.css
                 '''
             }
+        }
+        stage ('Publish build report') {
+            publishBuildStatusReport()
         }
     }
 }

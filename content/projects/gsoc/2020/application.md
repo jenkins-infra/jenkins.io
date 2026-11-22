@@ -59,10 +59,10 @@ Jenkins project includes multiple
 and [Remoting](https://jenkins.io/projects/remoting/)) and 
 [special interest groups](https://jenkins.io/sigs/).
 These entities participate in GSoC as a part of the Jenkins project.
-[Jenkins X](https://jenkins-x.io/) also participates in GSoC under umbrella of the Jenkins project.
+[JayeX](https://jayex.io/) also participates in GSoC under umbrella of the Jenkins project.
 
 Jenkins project is a part of [Continuous Delivery Foundation (CDF)](https://cd.foundation/).
-CDF also participates in Google Summer of Code this year as an umbrella organization for all its projects except Jenkins and Jenkins X ([org profile](https://summerofcode.withgoogle.com/organizations/5550056498790400/)).
+CDF also participates in Google Summer of Code this year as an umbrella organization for all its projects except Jenkins and JayeX ([org profile](https://summerofcode.withgoogle.com/organizations/5550056498790400/)).
 
 #### Proposal process
 
@@ -89,7 +89,7 @@ TODO: Adjust according to project ideas
 * REST API
 * cloud technologies
 * configuration-as-code
-* Jenkins X
+* JayeX
 * machine learning
 * electronic design automation
 

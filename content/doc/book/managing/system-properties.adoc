@@ -173,21 +173,27 @@ properties:
   tags:
   - escape hatch
   - security
-  def: false
+  def: |
+    `false` before Jenkins 2.565, undefined since then
   since: 2.541.3 / 2.555
   description: |
     Escape hatch for link:/security/advisory/2026-03-18/#SECURITY-3657[SECURITY-3657].
     Set to `true` to disable validation to ensure that we do not attempt to extract paths that may allow determining the path to the destination directory.
+    Since Jenkins 2.565, the default behavior is to prevent path traversal on the controller JVM (`false` equivalent), but allow it (`true` equivalent) on agents.
+    To change this default behavior, set to `true` on controllers (more permissive) or `false` on agents (more restrictive).
 
 - name: hudson.FilePath.ALLOW_UNTAR_SYMLINK_RESOLUTION
   tags:
   - escape hatch
   - security
-  def: false
+  def: |
+    `false` before Jenkins 2.565, undefined since then
   since: 2.541.3 / 2.555
   description: |
     Escape hatch for link:/security/advisory/2026-03-18/#SECURITY-3657[SECURITY-3657].
     Set to `true` to disable the fix for SECURITY-3657 that prevents path traversal from crafted tar files.
+    Since Jenkins 2.565, the default behavior is to prevent path traversal on the controller JVM (`false` equivalent), but allow it (`true` equivalent) on agents.
+    To change this default behavior, set to `true` on controllers (more permissive) or `false` on agents (more restrictive).
 
 - name: hudson.FilePath.VALIDATE_ANT_FILE_MASK_BOUND
   tags:
@@ -1501,6 +1507,86 @@ properties:
   description: |
     Number of log entries in loggers available on the UI at `/log/`
 
+- name: hudson.util.RobustReflectionConverter.ALLOW_ALL_OBJECT_FIELDS
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.572
+  description: |
+    If set to `true`, disables the protection against deserializing values into `Object`-typed fields via XStream.
+    This re-enables a class of deserialization vulnerabilities and should only be used as a temporary workaround while waiting for a plugin update.
+    See link:/doc/developer/persistence/xstream-object-fields/[XStream and Object-typed Fields] and link:#hudson-util-robustreflectionconverter-safe-types-with-object-fields[`SAFE_TYPES_WITH_OBJECT_FIELDS`].
+
+- name: hudson.util.RobustReflectionConverter.DISABLE_XSTREAM_NOT_DESERIALIZABLE_CHECK
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.568.3 / 2.580
+  description: |
+    Escape hatch for link:/security/advisory/2026-09-02/#SECURITY-4032[SECURITY-4032].
+    If set to `true`, disables the protection against deserializing into fields annotated with `@jenkins.security.XStreamNotDeserializable`, allowing user-submitted XML to overwrite transient fields.
+
+- name: hudson.util.RobustReflectionConverter.SAFE_TYPES_WITH_OBJECT_FIELDS
+  tags:
+  - security
+  - escape hatch
+  def: undefined
+  since: 2.TODO
+  description: |
+    Comma-separated list of fully qualified class names whose `Object`-typed fields are permitted for XStream deserialization.
+    Prefer this over link:#hudson-util-robustreflectionconverter-allow-all-object-fields[`ALLOW_ALL_OBJECT_FIELDS`] as it limits the scope of the exception.
+    See link:/doc/developer/persistence/xstream-object-fields/[XStream and Object-typed Fields].
+
+- name: hudson.util.RobustReflectionConverter.TRANSIENT_FIELD_STRICT_MODE
+  tags:
+  - security
+  - feature
+  def: |
+    `false`
+  since: 2.568.3 / 2.580
+  description: |
+    If set to `true`, only transient fields explicitly annotated with `@XStreamDeserializable` are populated during XStream deserialization.
+
+- name: hudson.util.RobustReflectionConverter.acceptNonIterableCollections
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.580.2 / 2.588
+  description: |
+    Escape hatch for link:/security/advisory/2026-10-28/#SECURITY-4225[SECURITY-4225].
+    If set to `true`, accepts collection and map field values that cannot be iterated after deserialization (e.g. due to broken internal state) instead of rejecting them.
+    Field values are still rejected if a collection or map element of an unexpected type is found before iteration fails.
+    Has no effect if link:#hudson-util-robustreflectionconverter-skipfieldvalueelementtypec[`hudson.util.RobustReflectionConverter.skipFieldValueElementTypeCheck`] is set to `true`.
+
+- name: hudson.util.RobustReflectionConverter.fieldValueElementCheckLimit
+  tags:
+  - security
+  - tuning
+  def: |
+    `1000000`
+  since: 2.580.2 / 2.588
+  description: |
+    The maximum number of collection elements and map keys and values that are type-checked when loading an XML document using XStream.
+    Loading the XML document fails when this limit is exceeded.
+    See link:/security/advisory/2026-10-28/#SECURITY-4225[SECURITY-4225] for context.
+
+- name: hudson.util.RobustReflectionConverter.fieldValueElementCheckWarningThreshold
+  tags:
+  - security
+  - tuning
+  def: |
+    One fifth of `hudson.util.RobustReflectionConverter.fieldValueElementCheckLimit`, typically `200000`
+  since: 2.580.2 / 2.588
+  description: |
+    If more than this number of collection elements and map keys and values are type-checked when loading an XML document using XStream, a warning is logged.
+    See link:/security/advisory/2026-10-28/#SECURITY-4225[SECURITY-4225] and link:#hudson-util-robustreflectionconverter-fieldvalueelementchecklimi[`hudson.util.RobustReflectionConverter.fieldValueElementCheckLimit`].
+
 - name: hudson.util.RobustReflectionConverter.recordFailuresForAdmins
   tags:
   - security
@@ -1522,6 +1608,19 @@ properties:
   description: |
     If set to `true`, Old Data Monitor will record some failures to load data submitted by all authorized users, completely disabling a security fix.
     See link:/security/advisory/2021-01-13/#SECURITY-1923[2021-01-13 security advisory] and link:#hudson-util-robustreflectionconverter-recordfailuresforadmins[`hudson.util.RobustReflectionConverter.recordFailuresForAdmins`].
+
+- name: hudson.util.RobustReflectionConverter.skipFieldValueElementTypeCheck
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.580.2 / 2.588
+  description: |
+    Escape hatch for link:/security/advisory/2026-10-28/#SECURITY-4225[SECURITY-4225].
+    If set to `true`, skips checking the types of collection and map elements against the types declared by the field after deserialization.
+    This also disables the limit set by link:#hudson-util-robustreflectionconverter-fieldvalueelementchecklimi[`hudson.util.RobustReflectionConverter.fieldValueElementCheckLimit`].
+    The element type checks added for link:/security/advisory/2026-06-10/#SECURITY-3707[SECURITY-3707] remain active.
 
 - name: hudson.util.Secret.AUTO_ENCRYPT_PASSWORD_CONTROL
   tags:
@@ -1582,6 +1681,30 @@ properties:
   description: |
     True to use native (JNA/JNR) implementation to set file permissions instead of NIO.
     Removed without replacement in 2.304.
+
+- name: hudson.util.XStream2.DISABLE_PERSISTENCE_ROOT_GUARDING_UNMARSHALLING_STRATEGY
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.580.2 / 2.588
+  description: |
+    Escape hatch for link:/security/advisory/2026-10-28/#SECURITY-4243[SECURITY-4243].
+    If set to `true`, disables the protection against deserializing objects of types storing their configuration in their own files (like agents, items, builds, or users) as nested values, e.g. as collection elements.
+    Such objects are still rejected as nested field values if the field type or the `class` attribute indicates such a type.
+
+- name: hudson.util.XStream2.SUPPRESS_TYPE_PERMISSION
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.580.2 / 2.588
+  description: |
+    Escape hatch for link:/security/advisory/2026-10-28/#SECURITY-4125[SECURITY-4125].
+    If set to `true`, disables the additional enforcement of allowed types by the XStream type permissions system during deserialization.
+    The custom XStream converter used by Jenkins still applies the deserialization filter to classes referenced by the `resolves-to` attribute.
 
 - name: hudson.util.XStream2.collectionUpdateLimit
   tags:
@@ -2088,12 +2211,14 @@ properties:
   tags:
   - feature
   - security
+  - obsolete
   def: |
     `false`
   since: 2.222
   description: |
     Enable the optional Overall/Manage permission that allows limited access to administrative features suitable for a hosted Jenkins environment.
     See https://github.com/jenkinsci/jep/tree/master/jep/223[JEP-223].
+    Has no effect since Jenkins 2.542, when the permission was enabled by default.
 
 - name: jenkins.security.ResourceDomainRootAction.allowAuthenticatedUser
   tags:
@@ -2486,6 +2611,17 @@ properties:
   description: |
     HTTP verbs of requests that are allowed to provide `StaplerRequest#getSubmittedForm` or `@SubmittedForm`.
     Escape hatch for a security hardening, see link:/doc/upgrade-guide/2.277/#submittedform[2.277.2 upgrade guide].
+
+- name: org.kohsuke.stapler.RequestImpl.ALLOW_STATIC_FIELD_BINDING
+  tags:
+  - security
+  - escape hatch
+  def: |
+    `false`
+  since: 2.568.3 / 2.580
+  description: |
+    Escape hatch for link:/security/advisory/2026-09-02/#SECURITY-3926[SECURITY-3926].
+    If set to `true`, re-enables binding of HTTP request parameters to `static` fields during Stapler's request-to-bean binding.
 
 - name: org.kohsuke.stapler.RequestImpl.FILEUPLOAD_MAX_FILES
   tags:
