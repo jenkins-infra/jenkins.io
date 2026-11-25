@@ -95,8 +95,16 @@ node('docker&&linux') {
             ]) {
                 // Purge cache for pages which usually requires some time before being updated
                 sh '''
-                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/css/jenkins.css
-                curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" https://www.jenkins.io/stylesheets/styles.css
+                pages_to_purge=(
+                    'https://www.jenkins.io/css/jenkins.css'
+                    'https://www.jenkins.io/stylesheets/styles.css'
+                    'https://www.jenkins.io/changelog-stable'
+                    'https://www.jenkins.io/changelog'
+                )
+
+                for page in "${pages_to_purge[@]}"; do
+                    curl --silent --location --request PURGE --header "Fastly-Key: ${FASTLY_API_TOKEN}" "${page}"
+                done
                 '''
             }
         }
