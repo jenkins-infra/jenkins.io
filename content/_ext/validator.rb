@@ -20,6 +20,8 @@ class Validator
       check_format(author.github, valid_nickname)
       check_format(author.linkedin, valid_nickname)
       check_format(author.blog, /https?:\/\/.*/)
+      check_format(author.bluesky, /\A(@?[a-zA-Z0-9_.-]+|https?:\/\/.+)\z/)
+      check_format(author.mastodon, /\A(https?:\/\/.+|@?[a-zA-Z0-9_.-]+@[a-zA-Z0-9_.-]+)\z/)
     end
 
     github_groups = site.authors.values.group_by {|x| x.github}
