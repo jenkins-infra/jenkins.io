@@ -1,0 +1,53 @@
+---
+title: Code Quality Checks
+layout: developer
+---
+
+Jenkins plugins use automated checks to catch defects, compatibility problems, and security issues early.
+This guide helps plugin contributors identify which checks apply, run them locally, and follow up on findings.
+It focuses on Java and Groovy in Maven-based plugins; JavaScript and other languages are covered separately below.
+
+== Start with the plugin build
+
+Most Maven-based plugins use the link:https://github.com/jenkinsci/plugin-pom[Jenkins plugin parent POM], which provides shared build configuration for common tasks such as compiling, testing, and static analysis.
+The checks and versions a plugin actually runs depend on its parent POM version and its own configuration.
+Do not assume that every tool available in the parent POM is enabled for every plugin.
+See the link:../build-process/[Plugin Build Process] and the link:/doc/developer/tutorial-improve/update-parent-pom/[parent POM update tutorial] for build requirements and update guidance.
+
+The current plugin parent POM binds SpotBugs' `check` goal to Maven's `verify` phase. Other tools mentioned across Jenkins projects, such as FindSecBugs or Animal Sniffer, are not universal plugin checks; their use depends on the project's Maven and CI configuration. Consult the link:https://github.com/jenkinsci/plugin-pom/blob/master/pom.xml[current parent POM] and the plugin's effective POM or CI jobs to confirm which analyzers actually run.
+
+From the plugin directory, run the normal verification lifecycle:
+
+[source,shell]
+----
+mvn clean verify
+----
+
+This runs the checks bound to the plugin's Maven build. When a check fails, use the goal and message in Maven's output to identify the failing tool, then compare the result with the corresponding CI job. Check the plugin's parent POM version and project-specific configuration when a check or rule differs from what you expect.
+
+Fix valid findings in the code. If a SpotBugs report is a false positive or cannot reasonably be fixed, use a narrowly scoped suppression and explain why it is safe; avoid suppressing a whole class or package. The link:/doc/developer/tutorial-improve/add-more-spotbugs-checks/[SpotBugs tutorial] explains how to enable deeper analysis, review findings, and maintain exclusions.
+
+== State API nullability
+
+Document whether API parameters and return values can be null. Clear nullability contracts help callers use plugin APIs correctly and let static analysis find mismatches between annotations and implementation.
+For Jenkins plugin code, use the SpotBugs annotations supplied by the plugin parent POM rather than the dormant JSR-305 annotations.
+See the link:/doc/developer/tutorial-improve/replace-jsr-305-annotations/[annotation migration guide] and the nullability examples in link:../pipeline-integration/[Pipeline Integration].
+
+== Document thread-safety assumptions
+
+When an API uses shared mutable state or can be called concurrently, document its thread-safety expectations and synchronization ownership. Follow the concurrency annotation conventions already used by the component; static analysis and nullability annotations do not establish that an API is safe for concurrent use.
+
+== Add Jenkins-specific security analysis
+
+General static analysis does not cover every security pattern used by Jenkins.
+The Jenkins Security Scan applies Jenkins-specific CodeQL queries to find vulnerabilities common in plugins; it complements the checks in the Maven build.
+See the link:/doc/developer/security/scan/[Jenkins Security Scan guide] for enabling the scan in a GitHub repository and interpreting its results.
+
+== Check JavaScript and other languages
+
+For JavaScript in a Maven-based plugin, the plugin parent POM can run npm or Yarn and report ESLint results to Jenkins.
+See its link:https://github.com/jenkinsci/plugin-pom#npm-or-yarn[npm or Yarn setup] and link:https://github.com/jenkinsci/plugin-pom#configuring-eslint-to-report-results-to-jenkins[ESLint reporting instructions].
+These instructions configure dependency installation and result reporting; each plugin still chooses its ESLint rules and source files.
+
+For TypeScript and other languages, use the linting, tests, and security checks configured by the project.
+The Jenkins plugin parent POM does not provide a shared configuration for those languages, so check the plugin's build and CI configuration for the checks contributors should run.
