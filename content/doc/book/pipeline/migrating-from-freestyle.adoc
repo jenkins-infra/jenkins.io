@@ -1,0 +1,106 @@
+---
+layout: documentation
+section: doc
+---
+ifdef::backend-html5[]
+:description: A practical guide to migrating Freestyle jobs to Jenkins Pipeline.
+:sectanchors:
+:toc:
+:toclevels: 3
+:hide-uri-scheme:
+endif::[]
+
+= Migrating from Freestyle to Pipeline
+
+A Freestyle job stores its build configuration in Jenkins. A Pipeline describes the work in a `Jenkinsfile`, which can be reviewed and versioned with the application source.
+Migrating is a chance to make the build easier to understand and maintain, not a requirement to reproduce every setting one-for-one.
+Keep the application's build and test logic in its existing tools where practical, and use Pipeline to coordinate those tools.
+See the link:/doc/book/pipeline/pipeline-best-practices/[Pipeline best practices].
+
+== Inventory the existing job
+
+Before editing configuration, record the behavior the job must keep. Review the job configuration, recent build logs, and any scripts it calls. Include:
+
+* Source repositories, branches, and checkout behavior.
+* Build triggers, schedules, and upstream or downstream jobs.
+* Agent labels, tools, environment variables, parameters, and credential bindings.
+* Build steps, timeouts, retries, and conditional execution.
+* Test reports, archived artifacts, notifications, and other post-build actions.
+* Plugin-provided builders, wrappers, and publishers that may need Pipeline-compatible steps.
+
+This inventory helps catch behavior that is easy to miss when only copying the visible build commands, such as a publisher that runs after a failed build or a trigger that starts a downstream job.
+
+== Choose the Pipeline shape
+
+Use a regular Pipeline when one job should run a defined workflow for a repository. Use a Multibranch Pipeline when Jenkins should discover branches and pull requests that contain a `Jenkinsfile`; it creates a separate child job for each branch or pull request.
+See link:/doc/book/pipeline/pipeline-as-code/[Pipeline as Code] for the available job types and branch discovery behavior.
+
+Decide whether the existing work belongs in one Pipeline or several jobs:
+
+* Use stages in one Pipeline for sequential phases of the same workflow that share a result and lifecycle, such as build, test, and package.
+* Use `parallel` stages for independent work that should run at the same time, subject to the available agents and resources.
+* Keep work in separate jobs when it has an independent trigger, owner, permission boundary, or release lifecycle. Connect jobs with the Pipeline `build` step when one must start another.
+
+Combining jobs can simplify a tightly coupled workflow, but it can also make permissions, failure handling, and independent reruns harder. Choose boundaries that fit how the work is owned and operated.
+
+== Map Freestyle settings to Pipeline
+
+The Pipeline Syntax reference and Snippet Generator on your Jenkins controller show the steps and options provided by the plugins installed on that controller. Use them to check whether a Freestyle builder or publisher has a Pipeline equivalent; there is not always a direct one-to-one mapping.
+
+[cols="1,2,2",options="header"]
+|===
+| Freestyle configuration | Pipeline approach | Check during migration
+
+| Source code management
+| Store the `Jenkinsfile` in source control. A Multibranch Pipeline checks out the revision associated with the branch or pull request; use `checkout scm` when a Pipeline must explicitly check out that revision.
+| Preserve repository, branch, and pull-request behavior. See link:/doc/book/pipeline/getting-started/#defining-a-pipeline-in-scm[Defining a Pipeline in SCM].
+
+| Build triggers
+| Configure Pipeline or branch-source triggers in Jenkins. Some events are provided by the SCM integration rather than by a `Jenkinsfile` trigger.
+| Confirm webhook, polling, schedule, and upstream-trigger behavior before switching the old job off.
+
+| Agent and label
+| Use the top-level `agent` directive for the whole Pipeline or a stage-level `agent` when a phase needs a different label or environment.
+| Verify that labels still select the intended agents and that each stage has the tools and workspace it needs.
+
+| Build steps and tools
+| Use Pipeline steps such as `sh`, `bat`, or plugin-provided steps. Select configured tools with the `tools` directive or `tool` step where appropriate.
+| Keep substantial build logic in scripts or build tools. The Snippet Generator can provide Pipeline syntax for supported plugin steps.
+
+| Parameters and environment
+| Declare build inputs with `parameters`; access them through `params`. Use `environment` or `withEnv` for environment variables.
+| Check default values, types, and whether values are available to every stage that needs them.
+
+| Credentials
+| Use Jenkins credentials and credential-binding steps rather than placing secrets in the `Jenkinsfile` or ordinary environment configuration.
+| Confirm credential IDs and scope. Review who can change the `Jenkinsfile` and which branches or pull requests are trusted to use credentials.
+
+| Conditional build steps
+| Use Declarative `when` conditions or Scripted Pipeline control flow for work that depends on a branch, parameter, or result.
+| Check the condition against both the branch and pull-request builds that should run or be skipped.
+
+| Post-build actions
+| Use a `post` section for actions that must run after stages, with conditions such as `always`, `success`, or `failure`. Use Pipeline steps such as `junit` and `archiveArtifacts` when available.
+| Preserve behavior on both successful and failed builds, and confirm report and artifact patterns match the files the build produces.
+
+| Multi-configuration job
+| Consider Declarative Pipeline's `matrix` directive for a set of axes, or `parallel` for independent branches of work.
+| Check that the required Pipeline plugins are installed and that each combination uses the intended agent, tools, and outputs.
+|===
+
+For the complete syntax and directive requirements, see the link:/doc/book/pipeline/syntax/[Pipeline Syntax reference]. For a step supplied by an installed plugin, open *Pipeline Syntax* for a configured Pipeline and use its *Snippet Generator*.
+
+== Convert and verify incrementally
+
+. Create a `Jenkinsfile` in a branch or a test repository. Start with the current build and test commands, then add stages that make the workflow and its results clear.
+. Add the supported Pipeline steps for publishers, notifications, and plugin-specific actions. Check the generated snippet and the step documentation instead of assuming that a Freestyle setting has an equivalent.
+. Run the Pipeline with the same source revision, agent labels, tool versions, and required credentials as the existing job. Compare test reports, artifacts, notifications, and downstream effects with a known Freestyle build.
+. Test failure paths as well as success: verify that cleanup and reporting still happen when a build step fails, and that retries or timeouts do not repeat a deployment unexpectedly.
+. During validation, prevent both jobs from triggering the same deployment or other external side effect. Once the Pipeline matches the required behavior, move the normal trigger to it and keep the Freestyle job available but disabled until the new workflow is stable.
+
+For Pipeline creation and Jenkinsfile structure, see link:/doc/book/pipeline/getting-started/[Getting started with Pipeline] and link:/doc/book/pipeline/jenkinsfile/[Using a Jenkinsfile].
+
+== Review Pipeline security
+
+A `Jenkinsfile` is executable build logic. Apply the same review and access controls as other code that can run commands or use credentials. In particular, understand which pull requests are trusted to run with credentials, keep secrets in Jenkins credentials, and avoid exposing privileged credentials to untrusted branches.
+See link:/doc/book/using/credentials/[Using credentials] and link:/doc/book/pipeline/pipeline-as-code/[Pipeline as Code] for credential and branch-source guidance.
